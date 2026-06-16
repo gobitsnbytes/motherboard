@@ -92,5 +92,6 @@ This file serves as a persistent, running log of all tasks performed, design dec
 - **Actions:**
   - Added "AI Agent Skill-Specific Guidelines" to [AGENTS.md](file:///d:/motherboard/AGENTS.md) to define precise usage triggers for codebase developer skills (including brainstorming, ui-ux-pro-max, code-reviewer, and others).
   - Updated [AGENTS.md](file:///d:/motherboard/AGENTS.md) to add explicit conventions for always performing atomic commits.
+  - Added the `prd` skill guidelines to the agent rules block in [AGENTS.md](file:///d:/motherboard/AGENTS.md).
 - **Status:** Documentation updated successfully.
 
