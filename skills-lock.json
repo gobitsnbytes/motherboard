@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "skills": {
+    "ai-agent-development": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-agent-development/SKILL.md",
+      "computedHash": "b1b19e3f430a701d95b1dc604c608c5e290dd12d3d10fbf6500c5fdbd8039c0f"
+    },
+    "backend-patterns": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/backend-patterns/SKILL.md",
+      "computedHash": "2b99d6276fdfc85a9f3567a837bc3303e6c4e265ceba417e694d845a73cabe2f"
+    },
+    "brainstorming": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/brainstorming/SKILL.md",
+      "computedHash": "173973795ecfef18204c60127b0b10b9fd171b44e535182dc6dbc80d48df1f32"
+    },
+    "code-reviewer": {
+      "source": "Shubhamsaboo/awesome-llm-apps",
+      "sourceType": "github",
+      "skillPath": "awesome_agent_skills/code-reviewer/SKILL.md",
+      "computedHash": "4d3963ea9b091e75be5c66a52cf14ad36ba20a8bc52832fd8278349887224072"
+    },
+    "deployment-patterns": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/deployment-patterns/SKILL.md",
+      "computedHash": "fc7934c45176f56f0f2ddc1bd1aea50de7518772abac67bc66d301d99ef7405d"
+    },
+    "devops-rollout-plan": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/devops-rollout-plan/SKILL.md",
+      "computedHash": "9c71bc5839febec1c42fdd6f5aed3beb3fa9df399460f0d20310124abd77cc31"
+    },
+    "drizzle": {
+      "source": "lobehub/lobehub",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/drizzle/SKILL.md",
+      "computedHash": "a6d790ff12e5f9091d496f5512cb726b27ade39572389d15f5cb83cec1382124"
+    },
+    "drizzle-orm-expert": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/drizzle-orm-expert/SKILL.md",
+      "computedHash": "4fb8d5fd0e18f04a5fdd41dcbac883beabdd0cf4959fbdd51f2f854c6130cfcf"
+    },
+    "frontend-patterns": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-patterns/SKILL.md",
+      "computedHash": "f5cc422ee17ead99553f253a83ffadade138abc4e0834aa67fb887ee66d14d63"
+    },
+    "humaniser": {
+      "source": "YKehinde/humaniser",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "6d9392aba216d53d99f0ecb2ecc195bb6ceb3b254205e59715487975309cdc9b"
+    },
+    "memory-md-management": {
+      "source": "giuseppe-trisciuoglio/developer-kit",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-kit-core/skills/memory-md-management/SKILL.md",
+      "computedHash": "1b11a00079df4ee25e3cb4abb45be296d32794a2a7612f2aaf762cbd2e2c25b0"
+    },
+    "plan-orchestrate": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/plan-orchestrate/SKILL.md",
+      "computedHash": "d611a919269fb4f690826a664f892924839b1b1faae50a5a6a9c29d43d9e500a"
+    },
+    "prd": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/prd/SKILL.md",
+      "computedHash": "1f3e1f005fc40fda85d250ae906c8ee4f7e8e833e23adfeca6542c19609fd7cd"
+    },
+    "react-patterns": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/react-patterns/SKILL.md",
+      "computedHash": "44d2c6304ff7ea20643a0203b74de9c7a42e1f70a2b73a5762500dea385dfc44"
+    },
+    "react-performance": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/react-performance/SKILL.md",
+      "computedHash": "7b5b19e9c15a6b442fa0e7a0a1cb7ced951ab5872a96ff876b099b6bdfc9ae86"
+    },
+    "safety-guard": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/safety-guard/SKILL.md",
+      "computedHash": "de4a3845d79a635b3e887057e87257dfd08b9c5331386c4bb606658fa73ab384"
+    },
+    "security-review": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/security-review/SKILL.md",
+      "computedHash": "fed88d7bfda07743a05f2a91088cd39dec65eb36fcdc6b80fdbb8590ca84d072"
+    },
+    "token-efficiency": {
+      "source": "rohitg00/pro-workflow",
+      "sourceType": "github",
+      "skillPath": "skills/token-efficiency/SKILL.md",
+      "computedHash": "bc04fa39ebf7f7990bb8efa183aada752d11233199fa349de1d85aba97d58211"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "computedHash": "8cd1b83a60e8d0a95c332d2baeffad9053617b286beb96bbe13e818507343f47"
+    },
+    "vibe-code-auditor": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vibe-code-auditor/SKILL.md",
+      "computedHash": "c1562d4b9408acf3011599dc14672da7074e025030164d5cf4b277c56c1dadac"
+    },
+    "vibe-code-cleanup": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vibe-code-cleanup/SKILL.md",
+      "computedHash": "ae49932bfb1d96309f227ffb7ca991deb8aad8c000feb8f6581ff72ef89dd673"
+    }
+  }
+}
