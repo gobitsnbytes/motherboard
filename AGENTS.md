@@ -5,6 +5,21 @@
 > **Anti-hallucination rule:** After every 3–4 files created or every major subsystem completed, stop and search your context window (context 7 or equivalent) for the latest state of relevant interfaces, schemas, and type contracts before continuing. Write code against what actually exists in the codebase, not against memory.
 >
 > **Memory persistence rule:** Every agent invocation must document tasks completed, decisions made, codebase insights, and current progress in [MEMORY.md](file:///home/equation/Projects/motherboard/MEMORY.md). Update this file at the end of each session or major step so that future agents have a continuous record of the project's evolution.
+>
+> **AI Agent Skill-Specific Guidelines:**
+> - **`brainstorming`**: MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements, and design before implementation.
+> - **`ui-ux-pro-max`**: MUST use this before any UI/UX work (layouts, styling, animations, product types, guidelines).
+> - **`code-reviewer`**: MUST use this skill towards the end of every task, and always before a push. Always perform atomic commits.
+> - **`backend-patterns`**: MUST use for all backend work.
+> - **`frontend-patterns`**: MUST use for all frontend/UI work.
+> - **`memory-md-management`**: Use when checking, auditing, updating, improving, or maintaining project memory files (such as `MEMORY.md`, `CLAUDE.md`, or creating one).
+> - **`deployment-patterns` & `devops-rollout-plan`**: MUST use for all DevOps, Docker, CI/CD, rollout plans, and rollback/deployment strategy work.
+> - **`security-review`**: MUST use when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing sensitive features.
+> - **`humaniser`**: Use while writing basically anything to remove signs of AI-generated writing and ensure natural phrasing.
+> - **`ai-agent-development`**: Use for all AI agent work (CrewAI, LangGraph, custom agents).
+> - **`vibe-code-cleanup` & `vibe-code-auditor`**: Use at all times for security and hardening once a task is done.
+> - **`plan-orchestrate`**: Use/suggest always for multi-step plan development.
+> - **`reasoningbank-intelligence`**: Use when building self-learning agents, optimizing workflows, or implementing meta-cognitive systems.
 
 ***
 

@@ -86,3 +86,10 @@ This file serves as a persistent, running log of all tasks performed, design dec
   - Configured root level files (`turbo.json`, `tsconfig.base.json`, `.env.example`, `docker-compose.yml`, placeholder Dockerfiles).
   - Successfully ran `bun install` and verified workspace-wide compilation using `tsc --noEmit` across all apps and packages.
 - **Status:** Phase 0 complete and verified. Ready to start Phase 1.
+
+### 2026-06-17 — Session 2: Documenting Skill Guidelines
+- **Actor:** Antigravity (Gemini 3.5 Flash)
+- **Actions:**
+  - Added "AI Agent Skill-Specific Guidelines" to [AGENTS.md](file:///d:/motherboard/AGENTS.md) to define precise usage triggers for codebase developer skills (including brainstorming, ui-ux-pro-max, code-reviewer, and others).
+- **Status:** Documentation updated successfully.
+
