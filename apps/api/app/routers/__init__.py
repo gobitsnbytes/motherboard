@@ -1,1 +1,1 @@
-"""API routers are registered here in later phases."""
+"""app/routers — FastAPI route modules."""

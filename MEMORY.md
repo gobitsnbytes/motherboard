@@ -22,13 +22,21 @@ This file serves as a persistent, running log of all tasks performed, design dec
   - [x] Create minimal package configurations (`package.json`, `tsconfig.json`) for each workspace
   - [x] Create base `docker-compose.yml`
   - [x] Create placeholder Dockerfiles in `docker/`
-- [ ] **Phase 1: Database Schema (`@bnb/db`)**
-  - [ ] Install dependencies (`drizzle-orm`, `postgres`, `drizzle-kit`)
-  - [ ] Define database tables (users, discord-accounts, groups, memberships, role mappings, permissions, grants, delegations, audit log, plugin registry)
-  - [ ] Configure `drizzle.config.ts`
-  - [ ] Implement database client singleton (`src/client.ts`)
-  - [ ] Generate and run initial migrations (`bunx drizzle-kit generate` & `migrate`)
-- [ ] **Phase 2: IAM Package (`@bnb/iam`)**
+- [x] **Phase 0: Repository Scaffolding** ✅
+- [x] **Phase 1: Database Schema (`apps/api/app/db`)** ✅
+  - [x] SQLAlchemy 2.0 ORM models (13 tables): users, discord_accounts, groups, memberships, discord_role_mappings, permissions, grants, delegations, forks, fork_members, plugin_registry, audit_log, sync_runs
+  - [x] Alembic configured with async env.py (asyncpg driver, NullPool for migrations)
+  - [x] `alembic revision --autogenerate` → `alembic upgrade head` applied live in Postgres
+  - [x] Idempotent seeder (seed_data.py + seeder.py): 15 system groups, 24 permissions, 14 Discord role mappings, 12 city forks
+  - [x] `main.py` lifespan: auto-migrate + auto-seed on startup
+  - [x] 7 API routers: health, users, groups, forks, audit, sync, plugins
+  - [x] Pydantic v2 schemas for all endpoints
+  - [x] `DbSession` / `AppSettings` typed dependency aliases in `dependencies.py`
+  - [x] CORS middleware wired in `main.py`
+  - [x] `redis_url` + `cors_origins` added to `config.py`
+  - [x] `[tool.fastapi]` entrypoint in `pyproject.toml`
+- [ ] **Phase 2: IAM Module (`apps/api/app/iam`)**
+
 - [ ] **Phase 3: Event Bus (`@bnb/events`)**
 - [ ] **Phase 4: Plugin SDK (`@bnb/plugin-sdk`)**
 - [ ] **Phase 5: Provisioning Worker (`@bnb/provisioning`)**
@@ -199,6 +207,34 @@ This file serves as a persistent, running log of all tasks performed, design dec
   - Added `.liquid-glass` and `.liquid-glass-strong` styles to the shared index.css stylesheet in [packages/ui](file:///d:/motherboard/packages/ui/src/index.css) and updated package exports to expose the CSS to Next.js.
   - Verified a clean and successful compilation and Turborepo build (`bun run build`) with no TypeScript or Next.js Webpack compile errors.
 - **Status:** Cinematic space-travel landing page successfully implemented, styled, verified, and compiled.
+
+### 2026-06-17 — Session 13: Phase 1 — Database Schema Implementation
+- **Actor:** Antigravity (Claude Sonnet 4.6 Thinking)
+- **Actions:**
+  - Read MEMORY.md, techspec.md, and all existing app/api files to understand exact current state.
+  - Read fastapi/SKILL.md for best practices before writing any code.
+  - Created [app/db/models.py](file:///home/equation/Projects/motherboard/apps/api/app/db/models.py) with 13 SQLAlchemy 2.0 ORM tables using full `Mapped[]` type annotations, `relationship()` with cascades, composite indexes, and JSONB columns.
+  - Created [app/db/seed_data.py](file:///home/equation/Projects/motherboard/apps/api/app/db/seed_data.py) with 15 system groups, 24 core permissions, 14 Discord role→group mappings (from AGENTS.md role hierarchy), and 12 city forks.
+  - Created [app/db/seeder.py](file:///home/equation/Projects/motherboard/apps/api/app/db/seeder.py) with idempotent `INSERT ... ON CONFLICT DO NOTHING` seed runner.
+  - Updated [app/db/__init__.py](file:///home/equation/Projects/motherboard/apps/api/app/db/__init__.py) with clean public exports.
+  - Updated [app/main.py](file:///home/equation/Projects/motherboard/apps/api/app/main.py) with lifespan context manager: auto-migrate via Alembic, auto-seed on boot, CORS middleware, and router registration.
+  - Updated [app/config.py](file:///home/equation/Projects/motherboard/apps/api/app/config.py) with `redis_url` and `cors_origins` fields.
+  - Updated [app/dependencies.py](file:///home/equation/Projects/motherboard/apps/api/app/dependencies.py) with `DbSession` and `AppSettings` typed Annotated aliases.
+  - Wrote 7 API routers: [health.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/health.py), [users.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/users.py), [groups.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/groups.py), [forks.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/forks.py), [audit.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/audit.py), [sync.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/sync.py), [plugins.py](file:///home/equation/Projects/motherboard/apps/api/app/routers/plugins.py).
+  - Wrote 6 schema files: users, groups, forks, audit, sync, plugins (all Pydantic v2 with `ConfigDict(from_attributes=True)`).
+  - Fixed `pyproject.toml`: added `[tool.fastapi]` entrypoint, `[build-system]` hatchling block, and `[tool.hatch.build.targets.wheel]` package path.
+  - Initialized Alembic (`uv run alembic init alembic`).
+  - Configured [alembic/env.py](file:///home/equation/Projects/motherboard/apps/api/alembic/env.py) with async engine, NullPool, and `Base.metadata` autogenerate.
+  - Ran `alembic revision --autogenerate -m "initial_schema"` → detected all 13 tables + indexes.
+  - Ran `alembic upgrade head` → all 13 tables live in Postgres (confirmed via `\dt`).
+  - Committed 29 files on branch `db/init-schema` (commit `c6c8769`).
+- **Decisions Made:**
+  - Added `Fork` and `ForkMember` tables beyond the spec's original set — necessary for the fork-scoped IAM checks described in AGENTS.md.
+  - Added `SyncRun` table for Discord provisioning observability.
+  - Used `slug` as unique identifier for Group and Fork (in addition to UUID PK) for human-readable API paths and seed conflict resolution.
+  - Used `ON CONFLICT DO NOTHING` for all seeds so the seeder is safe to run on every container start.
+  - Used polymorphic `principal_id` in grants (not FKs) to support both user and group grants in one table — a deliberate trade-off for query simplicity.
+- **Status:** Phase 1 complete and verified. All 13 tables live in Postgres. Ready for Phase 2 (IAM module).
 
 ### 2026-06-17 — Session 13: Low-Key Landing Page Refinements & SSO Configuration
 - **Actor:** Antigravity (Gemini 3.5 Pro)

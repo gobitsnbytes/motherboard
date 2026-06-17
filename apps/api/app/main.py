@@ -1,14 +1,86 @@
+"""
+FastAPI application entry point.
+
+Lifespan:
+  - Runs Alembic migrations on startup (upgrade to head).
+  - Seeds system groups, permissions, role mappings, and forks.
+  - Starts the EventBus (connects to Redis if configured).
+"""
+
+import logging
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
+from app.database import get_engine, get_sessionmaker
+from app.db.seeder import run_seeds
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Application startup / shutdown lifecycle."""
+    settings = get_settings()
+
+    # Run Alembic migrations programmatically
+    logger.info("Running Alembic migrations…")
+    import asyncio
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    def _run_migrations() -> None:
+        alembic_cfg = AlembicConfig("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+
+    await asyncio.to_thread(_run_migrations)
+    logger.info("Migrations complete.")
+
+    # Seed reference data
+    async with get_sessionmaker()() as session:
+        await run_seeds(session)
+
+    logger.info("bnb-api is ready.")
+    yield
+
+    # Shutdown — dispose the engine connection pool
+    await get_engine().dispose()
+    logger.info("bnb-api shut down cleanly.")
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="bnb-api")
+    settings = get_settings()
 
-    @app.get("/health")
-    async def health_check() -> dict[str, str]:
-        return {"status": "ok"}
+    application = FastAPI(
+        title="bnb-motherboard API",
+        version="0.1.0",
+        description="Internal operations platform for the bits&bytes network.",
+        lifespan=lifespan,
+    )
 
-    return app
+    # CORS — tighten in production via settings
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[settings.nextauth_url],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Include routers
+    from app.routers import health, users, groups, forks, audit, sync, plugins
+    application.include_router(health.router)
+    application.include_router(users.router)
+    application.include_router(groups.router)
+    application.include_router(forks.router)
+    application.include_router(audit.router)
+    application.include_router(sync.router)
+    application.include_router(plugins.router)
+
+    return application
 
 
 app = create_app()

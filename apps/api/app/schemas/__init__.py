@@ -1,1 +1,1 @@
-"""Pydantic schemas live here in later phases."""
+"""app/schemas — Pydantic v2 request/response models."""
