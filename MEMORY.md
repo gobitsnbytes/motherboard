@@ -116,3 +116,9 @@ This file serves as a persistent, running log of all tasks performed, design dec
   - Updated [README.md](file:///d:/motherboard/README.md) to reference the Neo-Brutalist design specifications.
 - **Status:** Shared UI component library (`@bnb/ui`) fully initialized and populated with neobrutalism.dev components. Ready to start Phase 1/2 of database/IAM development.
 
+### 2026-06-17 — Session 4: Adding Database Migration & Billing Skills
+- **Actor:** Antigravity (Gemini 3.5 Pro)
+- **Actions:**
+  - Added `database-migrations-sql-migrations` and `finance-billing-ops` skill guidelines to [AGENTS.md](file:///d:/motherboard/AGENTS.md).
+- **Status:** Skill rules updated and committed.
+

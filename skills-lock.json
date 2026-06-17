@@ -25,6 +25,12 @@
       "skillPath": "awesome_agent_skills/code-reviewer/SKILL.md",
       "computedHash": "4d3963ea9b091e75be5c66a52cf14ad36ba20a8bc52832fd8278349887224072"
     },
+    "database-migrations-sql-migrations": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/database-migrations-sql-migrations/SKILL.md",
+      "computedHash": "3e75bcf30642cb6e4c4709d76b87e3bdcae66b5f4efab0287d5e3cdf26fac881"
+    },
     "deployment-patterns": {
       "source": "affaan-m/ECC",
       "sourceType": "github",
@@ -48,6 +54,12 @@
       "sourceType": "github",
       "skillPath": "skills/drizzle-orm-expert/SKILL.md",
       "computedHash": "4fb8d5fd0e18f04a5fdd41dcbac883beabdd0cf4959fbdd51f2f854c6130cfcf"
+    },
+    "finance-billing-ops": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/finance-billing-ops/SKILL.md",
+      "computedHash": "0bd2441aa035530fc4ea1501e45ec9dae337bdb7e369fb46e22d95b8e3cbd69b"
     },
     "frontend-patterns": {
       "source": "affaan-m/ECC",
