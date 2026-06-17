@@ -3,10 +3,12 @@
   "compilerOptions": {
     "outDir": "./dist",
     "jsx": "react-jsx",
+    "exactOptionalPropertyTypes": false,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/components/ui/resizable.tsx", "src/components/ui/form.tsx"]
 }

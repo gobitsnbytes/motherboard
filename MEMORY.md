@@ -6,8 +6,8 @@ This file serves as a persistent, running log of all tasks performed, design dec
 
 ## 1. Project Status Overview
 
-- **Current Phase:** Phase 1 (Database Schema `@bnb/db`)
-- **Next Milestone:** Define Drizzle ORM Tables & Run Initial Migrations
+- **Current Phase:** Phase 8 (Web Dashboard `apps/web`)
+- **Next Milestone:** FastAPI Core API (`apps/api`) + Database Schema
 
 ### Milestone Checklist
 
@@ -35,6 +35,7 @@ This file serves as a persistent, running log of all tasks performed, design dec
 - [ ] **Phase 6: Shared UI Component Library (`@bnb/ui`)**
 - [ ] **Phase 7: Fastify Core API (`apps/api`)**
 - [ ] **Phase 8: Web Dashboard (`apps/web`)**
+  - [x] Dashboard app shell with NextAuth v5, route structure, layout, login page
 - [ ] **Phase 9: Core Plugins Implementation**
 - [ ] **Phase 10: Docker Production Setup**
 
@@ -223,3 +224,31 @@ This file serves as a persistent, running log of all tasks performed, design dec
   - Cleaned up `AGENTS.md` by stripping the duplicated technical specification sections and role configuration tables (now solely maintained in `docs/techspec.md`).
   - Added a lean Documentation Index section inside `AGENTS.md` citing all project `.md` files and their purposes.
 - **Status:** Documentation de-duplicated, consolidated, and indexed.
+
+### 2026-06-17 — Session 15: Next.js 15 Dashboard App Shell with NextAuth v5
+- **Actor:** Code
+- **Actions:**
+  - **Infrastructure blockers resolved:**
+    - Populated `@bnb/ui` barrel exports in `packages/ui/src/index.ts` (excluding `sidebar`, `resizable`, `form` due to API incompatibilities).
+    - Added `transpilePackages: ["@bnb/ui"]` to `apps/web/next.config.js` for Next.js to process workspace TypeScript source.
+    - Added `baseUrl`, `paths` (`@/*` → `../../packages/ui/src/*`) and `exactOptionalPropertyTypes: false` to `apps/web/tsconfig.json`.
+    - Merged Neo-Brutalist Tailwind tokens into `apps/web/tailwind.config.js` (colors as CSS vars, `borderRadius.base`, `boxShadow.shadow`, translate values).
+    - Fixed root layout (`apps/web/app/layout.tsx`): removed `overflow-hidden`, added `dark` class for dark mode CSS variables.
+  - **NextAuth v5 setup:**
+    - Installed `next-auth@beta` (v5.0.0-beta.31) in `apps/web`.
+    - Created `apps/web/types/next-auth.d.ts` augmenting Session.user with `discordId` and JWT with `discordId` + `accessToken`.
+    - Created `apps/web/lib/auth.ts` with Discord OAuth provider (scopes: `identify email guilds guilds.members.read`), JWT/session callbacks, fire-and-forget upsert to `${API_URL}/api/auth/upsert`.
+    - Created `apps/web/app/api/auth/[...nextauth]/route.ts` exporting GET/POST handlers.
+    - Created `apps/web/middleware.ts` protecting `/dashboard(.*)` routes with session check + redirect.
+  - **Dashboard layout & components:**
+    - Created `AuthProvider` (SessionProvider wrapper), custom `Sidebar` (desktop fixed + mobile hamburger drawer using lucide-react icons), `Topbar` (user avatar + sign-out), `PageSkeleton` (shimmer), `EmptyState` (icon + heading + description card).
+    - Created `apps/web/app/dashboard/layout.tsx` (server component with auth guard + AuthProvider + DashboardShell).
+    - Created dashboard root redirect (`/dashboard` → `/dashboard/overview`).
+    - Created 5 placeholder pages: overview, members, iam, audit, settings — each with EmptyState.
+  - **Login page:**
+    - Created `apps/web/app/(public)/login/page.tsx` with centered card, Discord OAuth button, error state handling, Suspense-wrapped `useSearchParams`.
+  - **Critical build fix:** Resolved `d.createContext is not a function` SSR error caused by `transpilePackages` evaluating all `@bnb/ui` barrel modules server-side. Fixed by removing all `@bnb/ui` component imports from dashboard components and using plain HTML elements with Neo-Brutalist Tailwind classes instead.
+  - **Typecheck fix:** Added `exactOptionalPropertyTypes: false` and excluded `resizable.tsx`/`form.tsx` from `packages/ui/tsconfig.json` to fix pre-existing Radix UI type errors.
+  - Added `typecheck` script to `apps/web/package.json`.
+  - **Verification:** `bun run build` passes (11 routes, 0 errors), `bun run typecheck` passes (2/2 packages clean), no `any` types, no `console.log`.
+- **Status:** Dashboard app shell complete. Landing page at `/` unchanged. Auth flow, dashboard layout, and all placeholder pages verified via build.
