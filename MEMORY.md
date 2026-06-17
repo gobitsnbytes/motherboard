@@ -260,3 +260,15 @@ This file serves as a persistent, running log of all tasks performed, design dec
   - Added a lean Documentation Index section inside `AGENTS.md` citing all project `.md` files and their purposes.
 - **Status:** Documentation de-duplicated, consolidated, and indexed.
 
+### 2026-06-17 — Session 15: Phase 2.2-2.5 Implementation (IAM Policy Evaluator & API Router)
+- **Actor:** Jules
+- **Actions:**
+  - Implemented Phase 2 (IAM Policy Evaluation) according to specification in `docs/techspec.md`.
+  - Created `apps/api/app/iam/policy.py` containing `can`, `require_permission` and `batch_can` evaluation logic.
+  - Key decision: `batch_can` uses single DB query with IN clause across all permission keys for efficient multiple checks.
+  - Created `apps/api/app/iam/constants.py` with `SYSTEM_GROUPS` and `CORE_PERMISSIONS`.
+  - Created `apps/api/app/iam/audit.py` with `write_audit_entry` that records actions without committing.
+  - Added Pydantic schemas in `apps/api/app/schemas/iam.py` for API routes validation.
+  - Implemented API endpoints mapping to schema operations under `apps/api/app/routers/iam.py` correctly implementing `CurrentUserDep`.
+  - Authored automated tests using `pytest` + `pytest-asyncio` for IAM core functions handling Super Admin, Expirations, Global and Resource matching strategies inside `apps/api/tests/test_iam_policy.py`.
+- **Status:** Phase 2 (IAM Policy Evaluation) status: COMPLETE.
