@@ -8,11 +8,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        border: "var(--border)",
+        border: "#120f0a",
+        burgundy: "#97192c",
+        orange: "#fc920d",
+        dark: "#120f0a",
       },
       fontFamily: {
-        heading: ["'Instrument Serif'", "serif"],
-        body: ["'Barlow'", "sans-serif"],
+        heading: ["'Inter'", "sans-serif"],
+        body: ["'Merriweather'", "serif"],
       },
       borderRadius: {
         DEFAULT: "9999px",
