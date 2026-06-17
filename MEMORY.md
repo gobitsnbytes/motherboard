@@ -203,11 +203,13 @@ This file serves as a persistent, running log of all tasks performed, design dec
 ### 2026-06-17 — Session 13: Low-Key Landing Page Refinements & SSO Configuration
 - **Actor:** Antigravity (Gemini 3.5 Pro)
 - **Actions:**
-  - Removed all interactive operations CTAs/buttons from the landing page, keeping it very low-key since access will be managed automatically via Single Sign-On (SSO).
+  - Removed all interactive operations CTAs/buttons from the landing page, keeping it very low-key.
   - Configured a dedicated `next.config.js` and standard `not-found.tsx` to resolve Next.js Webpack page data collection and route-manifest resolution errors.
-  - Restored the user-preferred translucent `liquid-glass` card styling, adjusting background opacity (`rgba(255, 255, 255, 0.035)`) and backdrop-blur (`12px`) inline overrides to ensure clear visibility against the dark background.
+  - Restored the user-preferred translucent `liquid-glass` card styling, adjusting background opacity (`rgba(255, 255, 255, 0.035)`) and backdrop-blur (`12px`) inline overrides to ensure clear visibility.
   - Added requested reference links to `gobitsnbytes.org` and the `gobitsnbytes/motherboard` GitHub repository inside the info card.
   - Updated the subtitle text to precisely state: "this is an internal tool to manage all operations and work of bits&bytes™ (GOBITSNBYTES FOUNDATION)".
+  - Updated access control copy to "Invite-based access" and scope to "Strictly Internal Tool" to clearly communicate authentication structure and scope.
+  - Optimized the background video player (`FadingVideo.tsx`) to utilize native hardware-accelerated video looping, removing complex requestAnimationFrame fade-out delays and successfully resolving the split-second black frame/flicker.
   - Verified zero page scroll by keeping layout classes locked to `h-screen overflow-hidden`.
   - Staged, committed, and pushed all changes successfully.
 - **Status:** Low-key landing page finalized, verified, built, and changes pushed to remote branch.
