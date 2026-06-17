@@ -1,15 +1,19 @@
 "use client";
 
 import React from "react";
-import { useSession, signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 
-export default function Topbar() {
-  const { data: session } = useSession();
-  const user = session?.user;
+// TODO: Replace with real session data from backend auth
+const MOCK_USER = {
+  name: "Akshat",
+  email: "akshat@gobitsnbytes.org",
+  image: null,
+};
 
-  const displayName =
-    user?.name ?? user?.email?.split("@")[0] ?? "User";
+export default function Topbar() {
+  const user = MOCK_USER;
+
+  const displayName = user.name ?? user.email?.split("@")[0] ?? "User";
   const initials = displayName
     .split(" ")
     .map((w) => w[0])
@@ -22,7 +26,7 @@ export default function Topbar() {
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <div className="relative flex size-8 shrink-0 overflow-hidden rounded-full border-2 border-border">
-          {user?.image ? (
+          {user.image ? (
             <img
               src={user.image}
               alt={displayName}
@@ -39,7 +43,10 @@ export default function Topbar() {
         </span>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => {
+            // TODO: Wire up real sign-out when backend is ready
+            window.location.href = "/login";
+          }}
           className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-border bg-main px-3 py-1.5 text-xs font-medium text-main-foreground transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none shadow-shadow"
         >
           <LogOut className="size-3.5" />
