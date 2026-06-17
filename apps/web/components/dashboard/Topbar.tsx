@@ -2,6 +2,7 @@
 
 import React from "react";
 import { LogOut } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 // TODO: Replace with real session data from backend auth
 const MOCK_USER = {
@@ -44,8 +45,7 @@ export default function Topbar() {
         <button
           type="button"
           onClick={() => {
-            // TODO: Wire up real sign-out when backend is ready
-            window.location.href = "/login";
+            signOut({ callbackUrl: "/login" });
           }}
           className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-border bg-main px-3 py-1.5 text-xs font-medium text-main-foreground transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none shadow-shadow"
         >

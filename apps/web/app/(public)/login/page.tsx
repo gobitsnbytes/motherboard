@@ -1,18 +1,24 @@
 "use client";
 
-import React, { Suspense, useTransition } from "react";
+import React, { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
-  const handleSignIn = () => {
-    startTransition(() => {
-      signIn("discord", { callbackUrl: "/dashboard/overview" });
-    });
+  const handleSignIn = async () => {
+    setIsPending(true);
+    try {
+      const res = await signIn("discord", { callbackUrl: "/dashboard/overview", redirect: false });
+      if (res?.url) {
+        window.location.href = res.url;
+      }
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (

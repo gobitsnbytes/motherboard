@@ -16,6 +16,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, account, profile }) {
+      token.discordId ??= "";
+      token.accessToken ??= "";
       if (account && profile) {
         token.discordId = (profile as { id: string }).id;
         token.accessToken = account.access_token ?? "";
@@ -50,5 +52,5 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET ?? "dev-secret-do-not-use-in-production",
+  secret: process.env.NEXTAUTH_SECRET,
 });
