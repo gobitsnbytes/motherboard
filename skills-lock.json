@@ -7,12 +7,7 @@
       "skillPath": "skills/ai-agent-development/SKILL.md",
       "computedHash": "b1b19e3f430a701d95b1dc604c608c5e290dd12d3d10fbf6500c5fdbd8039c0f"
     },
-    "backend-patterns": {
-      "source": "affaan-m/ECC",
-      "sourceType": "github",
-      "skillPath": "skills/backend-patterns/SKILL.md",
-      "computedHash": "2b99d6276fdfc85a9f3567a837bc3303e6c4e265ceba417e694d845a73cabe2f"
-    },
+
     "brainstorming": {
       "source": "obra/superpowers",
       "sourceType": "github",
@@ -55,12 +50,19 @@
       "skillPath": "skills/drizzle-orm-expert/SKILL.md",
       "computedHash": "4fb8d5fd0e18f04a5fdd41dcbac883beabdd0cf4959fbdd51f2f854c6130cfcf"
     },
-    "fastify-best-practices": {
-      "source": "mcollina/skills",
+    "fastapi": {
+      "source": "fastapi/fastapi",
       "sourceType": "github",
-      "skillPath": "skills/fastify/SKILL.md",
-      "computedHash": "269924684709b8c6f50a569ef988e66031efb822ef92cba6c8dfa160e54ed4d4"
+      "skillPath": "fastapi/.agents/skills/fastapi/SKILL.md",
+      "computedHash": "ee23d5285caf055cf164ff45dd34888d381143564666baacab8aa786f22e413a"
     },
+    "fastapi-patterns": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/fastapi-patterns/SKILL.md",
+      "computedHash": "019d085ed11817ab5ff691a6eaadea878b613cde75143689262328e61537a950"
+    },
+
     "finance-billing-ops": {
       "source": "affaan-m/ECC",
       "sourceType": "github",
@@ -103,12 +105,7 @@
       "skillPath": "skills/nextjs-best-practices/SKILL.md",
       "computedHash": "5344522f15f544513456e77b858377368f24e680732af5efeb5a67bbab021bc1"
     },
-    "nodejs-backend-patterns": {
-      "source": "wshobson/agents",
-      "sourceType": "github",
-      "skillPath": "plugins/javascript-typescript/skills/nodejs-backend-patterns/SKILL.md",
-      "computedHash": "b63b54d09c77cec0e84cdd42424c12909785f14bdb286c835c45420b885ff1f3"
-    },
+
     "plan-orchestrate": {
       "source": "affaan-m/ECC",
       "sourceType": "github",
