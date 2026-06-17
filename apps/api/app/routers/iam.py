@@ -265,11 +265,11 @@ async def list_discord_roles(current_user: CurrentUserDep, db: DbDep) -> List[Di
     if not settings.discord_bot_token or not settings.discord_guild_id:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Discord bot not configured")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
             f"https://discord.com/api/v10/guilds/{settings.discord_guild_id}/roles",
             headers={"Authorization": f"Bot {settings.discord_bot_token}"}
-        )
+
 
         if response.status_code != 200:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to fetch roles from Discord: {response.text}")
