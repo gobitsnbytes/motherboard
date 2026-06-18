@@ -76,14 +76,24 @@ async def run_sync(
         logger.debug("Loaded %d active Discord role mappings", len(mapping_dict))
 
         # 4. Process Discord members
-        # Fetch all registered DiscordAccount records in one query
-        accounts_stmt = select(DiscordAccount)
+        # Extract all Discord IDs from the fetched members list to scope database queries
+        discord_ids = [
+            m["user"]["id"] for m in discord_members 
+            if "user" in m and "id" in m["user"]
+        ]
+
+        # Fetch registered DiscordAccount records matching the guild members
+        accounts_stmt = select(DiscordAccount).where(DiscordAccount.discord_id.in_(discord_ids)) if discord_ids else select(DiscordAccount).where(False)
         accounts_res = await db.execute(accounts_stmt)
         accounts = accounts_res.scalars().all()
         accounts_by_discord_id = {acc.discord_id: acc for acc in accounts}
+        registered_user_ids = [acc.user_id for acc in accounts]
 
-        # Fetch all memberships created by discord_sync to avoid N+1 queries
-        memberships_stmt = select(Membership).where(Membership.source == "discord_sync")
+        # Fetch memberships created by discord_sync only for registered guild members
+        memberships_stmt = select(Membership).where(
+            Membership.source == "discord_sync",
+            Membership.user_id.in_(registered_user_ids)
+        ) if registered_user_ids else select(Membership).where(False)
         memberships_res = await db.execute(memberships_stmt)
         sync_memberships = memberships_res.scalars().all()
 

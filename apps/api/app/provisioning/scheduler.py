@@ -35,6 +35,10 @@ async def start_scheduler(interval_minutes: int, guild_id: str, bot_token: str) 
         logger.warning("Discord sync scheduler is already running.")
         return
 
+    if not guild_id or not bot_token:
+        logger.error("Cannot start Discord sync scheduler: missing guild_id or bot_token configuration.")
+        return
+
     logger.info("Starting Discord sync scheduler (interval: %d minutes)", interval_minutes)
     _scheduler = AsyncIOScheduler()
     _scheduler.add_job(
