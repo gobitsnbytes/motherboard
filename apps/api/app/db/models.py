@@ -17,10 +17,13 @@ Table hierarchy:
     sync_runs            → Discord provisioning sync history
 """
 
+import base64
+import hashlib
 import uuid
 from datetime import datetime
 from typing import Any
 
+from cryptography.fernet import Fernet
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -35,6 +38,41 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
+
+from app.config import get_settings
+
+
+class EncryptedString(TypeDecorator):
+    """Symmetrically encrypted string column for sensitive credentials at rest."""
+    impl = Text
+    cache_ok = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._fernet = None
+
+    @property
+    def fernet(self) -> Fernet:
+        if self._fernet is None:
+            secret = get_settings().session_secret
+            key_hash = hashlib.sha256(secret.encode()).digest()
+            fernet_key = base64.urlsafe_b64encode(key_hash)
+            self._fernet = Fernet(fernet_key)
+        return self._fernet
+
+    def process_bind_param(self, value: str | None, dialect) -> str | None:
+        if value is None:
+            return None
+        return self.fernet.encrypt(value.encode()).decode()
+
+    def process_result_value(self, value: str | None, dialect) -> str | None:
+        if value is None:
+            return None
+        try:
+            return self.fernet.decrypt(value.encode()).decode()
+        except Exception:
+            return value
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +159,8 @@ class DiscordAccount(Base):
     global_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_hash: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Encrypted OAuth tokens (store encrypted-at-rest in production)
-    access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    access_token: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    refresh_token: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

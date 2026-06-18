@@ -1,3 +1,15 @@
+import os
+
+# Set dummy environment variables for tests before importing app config
+os.environ.setdefault("DISCORD_CLIENT_ID", "mock_client_id")
+os.environ.setdefault("DISCORD_CLIENT_SECRET", "mock_client_secret")
+os.environ.setdefault("DISCORD_BOT_TOKEN", "mock_bot_token")
+os.environ.setdefault("DISCORD_GUILD_ID", "mock_guild_id")
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("SESSION_SECRET", "mock_session_secret_32_bytes_long_secret_123")
+os.environ.setdefault("API_INTERNAL_SECRET", "mock_internal_secret")
+os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
+
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 import json
