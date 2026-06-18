@@ -1,4 +1,4 @@
-# bnb-motherboard — Agent Build Instructions (FastAPI Edition)
+# bnb-motherboard — Technical Specification (FastAPI Edition)
 
 > **Before starting any phase:** Run `bunx skills find <topic>` to locate relevant skill documentation for the task at hand (e.g. `bunx skills find drizzle orm`, `bunx skills find nextjs app router`, `bunx skills find discord oauth`). For Python/FastAPI backend tasks, verify with `bunx skills find fastapi` and `bunx skills find fastapi-patterns`. Use the outputs to guide implementation — do not guess at APIs.
 >
@@ -407,7 +407,6 @@ dependencies = [
 ### 0.3 Docker Compose configuration
 Create a central `docker-compose.yml` in the root mapping the services:
 ```yaml
-version: "3.9"
 services:
   postgres:
     image: postgres:16-alpine
@@ -466,147 +465,27 @@ Backend database logic is mapped using **SQLAlchemy 2.0 declarative tables** wit
 
 ### 1.1 ORM Table Definitions
 
-Create `apps/api/app/db/models.py`. Ensure all relationships are fully declared using `relationship()` with appropriate cascade properties:
+Create `apps/api/app/db/models.py`. 13 ORM tables with full `Mapped[]` type annotations, `relationship()` with cascades, composite indexes, and JSONB columns:
 
 ```python
-import uuid
-from datetime import datetime
-from typing import Any, List, Optional
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-class Base(DeclarativeBase):
-    pass
-
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    is_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    discord_account: Mapped[Optional["DiscordAccount"]] = relationship("DiscordAccount", back_populates="user", cascade="all, delete-orphan")
-    memberships: Mapped[List["Membership"]] = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
-
-class DiscordAccount(Base):
-    __tablename__ = "discord_accounts"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    discord_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
-    username: Mapped[str] = mapped_column(String(100), nullable=False)
-    discriminator: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
-    avatar_hash: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    user: Mapped["User"] = relationship("User", back_populates="discord_account")
-
-class Group(Base):
-    __tablename__ = "groups"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    memberships: Mapped[List["Membership"]] = relationship("Membership", back_populates="group", cascade="all, delete-orphan")
-    role_mappings: Mapped[List["DiscordRoleMapping"]] = relationship("DiscordRoleMapping", back_populates="group", cascade="all, delete-orphan")
-
-class Membership(Base):
-    __tablename__ = "memberships"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    source: Mapped[str] = mapped_column(String(50), default="manual")  # 'discord_sync' | 'manual' | 'provisioning'
-    granted_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    user: Mapped["User"] = relationship("User", back_populates="memberships", foreign_keys=[user_id])
-    group: Mapped["Group"] = relationship("Group", back_populates="memberships")
-
-    __table_args__ = (UniqueConstraint("user_id", "group_id", name="uq_user_group"),)
-
-class DiscordRoleMapping(Base):
-    __tablename__ = "discord_role_mappings"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    discord_role_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
-    discord_role_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    group: Mapped["Group"] = relationship("Group", back_populates="role_mappings")
-
-class Permission(Base):
-    __tablename__ = "permissions"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    plugin_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Null means core permission
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-class Grant(Base):
-    __tablename__ = "grants"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    principal_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'user' | 'group'
-    principal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    permission_key: Mapped[str] = mapped_column(String(100), ForeignKey("permissions.key", ondelete="CASCADE"), nullable=False)
-    resource_scope: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Null means global/wildcard scope
-    granted_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-class Delegation(Base):
-    __tablename__ = "delegations"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    delegator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    delegatee_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    permission_key: Mapped[str] = mapped_column(String(100), ForeignKey("permissions.key", ondelete="CASCADE"), nullable=False)
-    delegation_ref: Mapped[str] = mapped_column(Text, nullable=False)  # Written authority reference
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-class AuditLog(Base):
-    __tablename__ = "audit_log"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    target_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    target_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, name="metadata", default=dict, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-class PluginRegistry(Base):
-    __tablename__ = "plugin_registry"
-
-    id: Mapped[str] = mapped_column(String(100), primary_key=True)  # Declared plugin ID (e.g., 'org.bnb.tasks')
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    version: Mapped[str] = mapped_column(String(20), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    installed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+# Abbreviated — see apps/api/app/db/models.py for the full implementation.
+# Tables: users, discord_accounts, groups, memberships, discord_role_mappings,
+#         permissions, grants, delegations, forks, fork_members, plugin_registry,
+#         audit_log, sync_runs
+# Key fields beyond the base spec:
+#   Group:              slug (unique), color_hex
+#   DiscordAccount:     global_name, discord_id (String(25))
+#   DiscordRoleMapping: priority (Integer), discord_role_id (String(25))
+#   Permission:         key (String(150)), relationships to grants + delegations
+#   Grant:              permission_key (String(150)), composite index ix_grants_principal
+#   Delegation:         permission_key (String(150)), is_revoked (Boolean)
+#   AuditLog:           action (String(150)), ip_address, plugin_id, indexes on created_at + action
+#   PluginRegistry:     updated_at
+#   Fork:               slug (unique), city_name, discord_city_role_id, discord_contributor_role_id,
+#                       is_active, metadata_json (JSONB)
+#   ForkMember:         track, local_role, is_active, joined_at, left_at
+#   SyncRun:            trigger, status, started_at, finished_at, members_synced,
+#                       members_added, members_removed, errors (JSONB), discord_member_count
 ```
 
 ### 1.2 Alembic Setup and Migrations
@@ -1080,151 +959,136 @@ Schedule the job using **APScheduler**'s AsyncIOScheduler inside `apps/api/app/m
 Core API layout, routes, JWT security middleware, and startup lifespans.
 
 ### 6.1 Server Lifespan Configuration
-Create `apps/api/app/main.py`:
+Actual implementation in `apps/api/app/main.py`:
 ```python
+import logging
 from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.config import settings
-from app.database import engine, session_factory
-from app.events.bus import event_bus
-from app.plugin_sdk.loader import PluginLoader
-from app.provisioning.client import DiscordClient
-from app.provisioning.sync import run_sync
-from app.routers import auth, iam, provisioning, plugins, audit, bot
 
-scheduler = AsyncIOScheduler()
+from app.config import get_settings
+from app.database import get_engine, get_sessionmaker
+from app.db.seeder import run_seeds
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 1. Start event bus
-    await event_bus.start()
-    
-    # 2. Discover and mount plugins
-    loader = PluginLoader(app, session_factory)
-    await loader.discover_and_load()
-    app.state.plugin_loader = loader
-    
-    # 3. Schedule provisioning worker
-    discord_client = DiscordClient(settings.discord_bot_token)
-    scheduler.add_job(
-        run_sync,
-        "interval",
-        minutes=settings.sync_interval_minutes,
-        args=[session_factory, discord_client, settings.discord_guild_id]
-    )
-    scheduler.start()
-    
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+
+    # Run Alembic migrations programmatically
+    import asyncio
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    def _run_migrations() -> None:
+        alembic_cfg = AlembicConfig("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+
+    await asyncio.to_thread(_run_migrations)
+
+    # Seed reference data
+    async with get_sessionmaker()() as session:
+        await run_seeds(session)
+
     yield
-    
-    # Shutdown steps
-    scheduler.shutdown()
-    await engine.dispose()
+    await get_engine().dispose()
 
 def create_app() -> FastAPI:
-    app = FastAPI(
-        title="bnb-motherboard-api",
-        version="1.0.0",
-        lifespan=lifespan
+    settings = get_settings()
+    application = FastAPI(
+        title="bnb-motherboard API",
+        version="0.1.0",
+        description="Internal operations platform for the bits&bytes network.",
+        lifespan=lifespan,
     )
-    
-    app.add_middleware(
+
+    # CORS
+    application.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=[settings.nextauth_url],
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["*"],
         allow_headers=["*"],
     )
-    
-    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    app.include_router(iam.router, prefix="/api/iam", tags=["iam"])
-    app.include_router(provisioning.router, prefix="/api/provisioning", tags=["provisioning"])
-    app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
-    app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
-    app.include_router(bot.router, prefix="/api/bot", tags=["bot"])
-    
-    return app
+
+    # Include routers — each router defines its own prefix
+    from app.routers import health, users, groups, forks, audit, sync, plugins, finance
+    application.include_router(health.router)
+    application.include_router(users.router)
+    application.include_router(groups.router)
+    application.include_router(forks.router)
+    application.include_router(audit.router)
+    application.include_router(sync.router)
+    application.include_router(plugins.router)
+    application.include_router(finance.router)
+
+    return application
 
 app = create_app()
 ```
 
+> **Note:** The event bus, plugin loader, and provisioning scheduler (shown in the original spec) are planned for Phases 3–5 but not yet implemented in `main.py`.
+
 ### 6.2 Settings Model
-Create `apps/api/app/config.py`:
+Actual implementation in `apps/api/app/config.py`:
 ```python
+from functools import lru_cache
+
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-    database_url: str
-    session_secret: str
-    api_internal_secret: str
-    nextauth_secret: str
-    
-    discord_client_id: str
-    discord_client_secret: str
-    discord_bot_token: str
-    discord_guild_id: str
-    
-    sync_interval_minutes: int = 15
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    discord_client_id: str = Field(validation_alias="DISCORD_CLIENT_ID")
+    discord_client_secret: str = Field(validation_alias="DISCORD_CLIENT_SECRET")
+    discord_bot_token: str = Field(validation_alias="DISCORD_BOT_TOKEN")
+    discord_guild_id: str = Field(validation_alias="DISCORD_GUILD_ID")
+    database_url: str = Field(validation_alias="DATABASE_URL")
+    redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
+    session_secret: str = Field(validation_alias="SESSION_SECRET")
+    api_internal_secret: str = Field(validation_alias="API_INTERNAL_SECRET")
+    nextauth_secret: str = Field(validation_alias="NEXTAUTH_SECRET")
+    nextauth_url: str = Field(default="http://localhost:3000", validation_alias="NEXTAUTH_URL")
+    api_url: str = Field(default="http://localhost:8000", validation_alias="API_URL")
+    cors_origins: str = Field(default="", validation_alias="CORS_ORIGINS")
 
-settings = Settings()
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()
 ```
 
-### 6.3 NextAuth JWT Authentication Dependency
-Verify JWT cookies issued by NextAuth using PyJWT or python-jose:
-
-Create `apps/api/app/dependencies.py`:
+### 6.3 Database Session & Settings Dependencies
+Actual implementation in `apps/api/app/dependencies.py`:
 ```python
-import uuid
-from typing import Annotated, AsyncGenerator
-from fastapi import Depends, HTTPException, Request, status
-from jose import jwt
+from collections.abc import AsyncIterator
+from typing import Annotated
+
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.config import settings
-from app.database import session_factory
-from app.iam.principal import ResolvedPrincipal, resolve_principal
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with session_factory() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
+from app.config import Settings, get_settings
+from app.database import get_session
 
-DbDep = Annotated[AsyncSession, Depends(get_db)]
 
-async def get_current_user(request: Request, db: DbDep) -> ResolvedPrincipal:
-    token = request.cookies.get("next-auth.session-token") or request.headers.get("Authorization")
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session token missing"
-        )
-        
-    if token.startswith("Bearer "):
-        token = token[7:]
-        
-    try:
-        # Decode NextAuth session token containing discord details
-        payload = jwt.decode(token, settings.nextauth_secret, algorithms=["HS256"])
-        user_id = payload.get("sub") or payload.get("userId")
-        if not user_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session token")
+async def get_db_session() -> AsyncIterator[AsyncSession]:
+    async for session in get_session():
+        yield session
 
-    try:
-        principal = await resolve_principal(db, uuid.UUID(user_id))
-        return principal
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
-CurrentUserDep = Annotated[ResolvedPrincipal, Depends(get_current_user)]
+# Typed dependency aliases
+DbSession = Annotated[AsyncSession, Depends(get_db_session)]
+AppSettings = Annotated[Settings, Depends(get_settings)]
 ```
+
+> **Note:** The `CurrentUserDep` JWT authentication dependency (shown in the original spec) is planned but not yet implemented. The IAM router currently imports `CurrentUserDep` from `app.dependencies` as a forward reference for Phase 2 integration.
 
 ***
 
@@ -1233,59 +1097,67 @@ CurrentUserDep = Annotated[ResolvedPrincipal, Depends(get_current_user)]
 The Next.js 15 app router manages dashboard views and handles auth callbacks with NextAuth.js.
 
 ### 7.1 NextAuth Upsert Callbacks
-On sign-in, NextAuth performs a server-to-server upsert webhook call to the FastAPI app to ensure internal user profiles are correctly matched to the database:
-
-Update `apps/web/lib/auth.ts`:
+Actual implementation in `apps/web/lib/auth.ts`:
 ```typescript
-import NextAuth from 'next-auth';
-import Discord from 'next-auth/providers/discord';
+import NextAuth from "next-auth";
+import Discord from "next-auth/providers/discord";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { auth, handlers, signIn, signOut } = NextAuth({
   providers: [
     Discord({
-      clientId: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: {
-        params: { scope: 'identify email guilds.members.read' },
+        params: {
+          scope: "identify email guilds guilds.members.read",
+        },
       },
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/login",
+  },
   callbacks: {
     async jwt({ token, account, profile }) {
-      if (account) {
-        token.discordId = profile?.id;
-        token.accessToken = account.access_token;
+      token.discordId ??= "";
+      token.accessToken ??= "";
+      if (account && profile) {
+        token.discordId = (profile as { id: string }).id;
+        token.accessToken = account.access_token ?? "";
+
+        // Fire-and-forget upsert to backend API
+        const apiUrl = process.env.API_URL;
+        const internalSecret = process.env.API_INTERNAL_SECRET;
+
+        if (apiUrl && internalSecret) {
+          fetch(`${apiUrl}/api/auth/upsert`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Internal-Secret": internalSecret,
+            },
+            body: JSON.stringify({
+              discordId: (profile as { id: string }).id,
+              email: (profile as { email?: string }).email,
+              username: (profile as { username?: string }).username,
+              avatar: (profile as { avatar?: string }).avatar,
+              accessToken: account.access_token,
+            }),
+          }).catch(() => {
+            // Silently ignore — never block sign-in on API failure
+          });
+        }
       }
       return token;
     },
     async session({ session, token }) {
-      session.user.discordId = token.discordId as string;
+      session.user.discordId = token.discordId;
       return session;
     },
-    async signIn({ account, profile }) {
-      // Upsert Discord account profile in FastAPI core DB
-      await fetch(`${process.env.API_URL}/api/auth/upsert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Secret': process.env.API_INTERNAL_SECRET!,
-        },
-        body: JSON.stringify({
-          discord_id: profile?.id,
-          username: profile?.username,
-          email: profile?.email,
-          avatar_hash: profile?.avatar,
-          access_token: account?.access_token,
-          refresh_token: account?.refresh_token,
-          token_expires_at: account?.expires_at ? new Date(account.expires_at * 1000).toISOString() : null,
-        }),
-      });
-      return true;
-    },
   },
+  secret: process.env.NEXTAUTH_SECRET,
 });
 ```
+
+Middleware in `apps/web/middleware.ts` protects `/dashboard(.*)` routes with a session check + redirect to `/login`.
 
 ### 7.2 UI Plugin Mounting Router
 Next.js loads the frontend UI of plugin components dynamically:
@@ -1347,83 +1219,126 @@ The administrative dashboard allows users to bind Discord guild roles to operati
 Docker files configured to support optimized production builds.
 
 ### 10.1 API Dockerfile (`docker/api.Dockerfile`)
-Use Astral's `uv` image to package backend services:
+Actual implementation using `python:3.12-slim` with `uv` installed via pip:
 ```dockerfile
-FROM astral-sh/uv:python3.11-alpine AS builder
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy
 
 WORKDIR /app
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
+RUN pip install --no-cache-dir uv
 
-# Copy dependency mappings
 COPY apps/api/pyproject.toml apps/api/uv.lock ./
-RUN uv sync --frozen --no-install-project
-
-# Copy app code
+COPY apps/api/README.md ./README.md
 COPY apps/api/app ./app
-COPY apps/api/alembic ./alembic
-COPY apps/api/alembic.ini ./
 
-# Run production build
-FROM python:3.11-slim-bookworm
+RUN uv sync --frozen --no-dev --no-install-project
+
+FROM python:3.12-slim AS runner
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
-COPY --from=builder /app /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/pyproject.toml /app/pyproject.toml
+COPY --from=builder /app/uv.lock /app/uv.lock
+COPY --from=builder /app/README.md /app/README.md
+COPY --from=builder /app/app /app/app
+
 EXPOSE 8000
 
-CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
+> **Note:** Alembic migrations run programmatically in `main.py`'s lifespan on startup, so no separate `alembic` or `migrate` service is needed.
+
 ### 10.2 Web Dockerfile (`docker/web.Dockerfile`)
+Actual implementation using `bun:1.3.11-alpine`:
 ```dockerfile
-FROM oven/bun:1-alpine AS base
+FROM oven/bun:1.3.11-alpine AS base
+
 WORKDIR /app
 
-FROM base AS deps
-COPY package.json bun.lock turbo.json ./
-COPY packages/ui/package.json ./packages/ui/
-COPY apps/web/package.json ./apps/web/
+COPY package.json bun.lock turbo.json tsconfig.base.json tsconfig.json ./
+COPY apps/web ./apps/web
+COPY packages/ui ./packages/ui
+
 RUN bun install --frozen-lockfile
 
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN bun run build --filter=apps/web
 
-FROM base AS runner
-WORKDIR /app
+WORKDIR /app/apps/web
+
+RUN bun run build
+
+FROM oven/bun:1.3.11-alpine AS runner
+
 ENV NODE_ENV=production
-COPY --from=builder /app/apps/web/.next ./.next
-COPY --from=builder /app/apps/web/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/web/package.json ./package.json
+
+WORKDIR /app
+
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/package.json ./package.json
+COPY --from=base /app/bun.lock ./bun.lock
+COPY --from=base /app/apps/web ./apps/web
+COPY --from=base /app/packages/ui ./packages/ui
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+CMD ["bun", "--cwd", "apps/web", "run", "start"]
 ```
 
-### 10.3 DB Migration Init Task
-Add a lightweight migration script runner to ensure SQL updates complete successfully before launching production apps:
+### 10.3 Production Compose (`docker-compose.prod.yml`)
+Actual implementation — no separate `migrate` service (migrations run in `main.py` lifespan):
 ```yaml
-# docker-compose.prod.yml
 services:
-  migrate:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bnb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: motherboard
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  api:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    command: ["alembic", "upgrade", "head"]
+    restart: unless-stopped
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bnb:${POSTGRES_PASSWORD:-changeme}@postgres:5432/motherboard
+      API_URL: http://api:8000
     depends_on:
       - postgres
-    restart: on-failure
+      - redis
 
-  api:
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_URL: http://api:8000
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      - api
+
+volumes:
+  postgres_data:
 ```
 
 ***

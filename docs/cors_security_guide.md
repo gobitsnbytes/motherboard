@@ -6,7 +6,7 @@ This document outlines the security architecture for Cross-Origin Resource Shari
 
 ## 1. CORS Risk Model
 
-When the Fastify/FastAPI backend communicates with the Next.js frontend or external integrations, the browser enforces the Same-Origin Policy (SOP). CORS allows the backend to selectively bypass SOP. If misconfigured, this bypass can expose authenticated user data.
+When the FastAPI backend communicates with the Next.js frontend or external integrations, the browser enforces the Same-Origin Policy (SOP). CORS allows the backend to selectively bypass SOP. If misconfigured, this bypass can expose authenticated user data.
 
 ### 1.1 Dynamic Origin Reflection
 * **The Risk:** Reading the incoming `Origin` header and reflecting it back in `Access-Control-Allow-Origin` while setting `Access-Control-Allow-Credentials: true`. This allows any malicious site to read response data from authenticated sessions.
@@ -67,7 +67,7 @@ client = TestClient(app)
 def test_cors_allowed_origin():
     # Verify that a whitelisted origin receives appropriate CORS headers
     headers = {"Origin": "https://gobitsnbytes.org"}
-    response = client.get("/api/v1/health", headers=headers)
+    response = client.get("/health/", headers=headers)
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-origin") == "https://gobitsnbytes.org"
     assert response.headers.get("access-control-allow-credentials") == "true"
@@ -75,13 +75,13 @@ def test_cors_allowed_origin():
 def test_cors_disallowed_origin():
     # Verify that an untrusted origin is not reflected in CORS headers
     headers = {"Origin": "https://attacker.com"}
-    response = client.get("/api/v1/health", headers=headers)
+    response = client.get("/health/", headers=headers)
     # The request should succeed, but CORS headers must not reflect the attacker origin
     assert response.headers.get("access-control-allow-origin") is None
 
 def test_cors_null_origin():
     # Verify that the null origin is explicitly rejected/ignored
     headers = {"Origin": "null"}
-    response = client.get("/api/v1/health", headers=headers)
+    response = client.get("/health/", headers=headers)
     assert response.headers.get("access-control-allow-origin") is None
 ```

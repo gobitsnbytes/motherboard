@@ -4,7 +4,6 @@ SQLAlchemy 2.0 declarative ORM models for the bnb-motherboard platform.
 Table hierarchy:
     users                → core identity record (1-to-1 with discord_accounts)
     discord_accounts     → linked Discord OAuth identity
-    sessions             → server-side session store for NextAuth JWT verification
     groups               → internal permission groups (system + admin-created)
     memberships          → user ↔ group membership (with source & expiry tracking)
     discord_role_mappings → Discord role ID ↔ internal Group mapping

@@ -54,3 +54,15 @@ The **Ledger + Banking system** for GOBITSNBYTES FOUNDATION is powered by [Razor
 * **Backend:** `/api/finance/*` router in `apps/api` (health check and info endpoints live; full ledger integration planned).
 * **Router file:** [apps/api/app/routers/finance.py](file:///d:/motherboard/apps/api/app/routers/finance.py)
 * **Page file:** [apps/web/app/finance/page.tsx](file:///d:/motherboard/apps/web/app/finance/page.tsx)
+
+### IAM Module (Identity & Access Management)
+
+The IAM module evaluates user/group permissions using the async SQLAlchemy session engine. Completed in Phase 2.
+
+* **Principal resolver** (`apps/api/app/iam/principal.py`) — resolves user + group memberships
+* **Policy evaluator** (`apps/api/app/iam/policy.py`) — `can`, `require_permission`, `batch_can`
+* **Audit writer** (`apps/api/app/iam/audit.py`) — non-committing audit log inserts
+* **Constants** (`apps/api/app/iam/constants.py`) — `SYSTEM_GROUPS` + `CORE_PERMISSIONS`
+* **API router** (`apps/api/app/routers/iam.py`) — CRUD for permissions, grants, groups, memberships, Discord role mappings
+* **Tests** (`apps/api/tests/test_iam_policy.py`) — Super Admin, expiration, global/resource matching
+* **Schemas** (`apps/api/app/schemas/iam.py`) — Pydantic v2 request/response validation
