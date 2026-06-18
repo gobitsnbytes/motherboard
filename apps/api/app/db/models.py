@@ -17,10 +17,13 @@ Table hierarchy:
     sync_runs            → Discord provisioning sync history
 """
 
+import base64
+import hashlib
 import uuid
 from datetime import datetime
 from typing import Any
 
+from cryptography.fernet import Fernet
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -28,13 +31,49 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
+
+from app.config import get_settings
+
+
+class EncryptedString(TypeDecorator):
+    """Symmetrically encrypted string column for sensitive credentials at rest."""
+    impl = Text
+    cache_ok = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._fernet = None
+
+    @property
+    def fernet(self) -> Fernet:
+        if self._fernet is None:
+            secret = get_settings().session_secret
+            key_hash = hashlib.sha256(secret.encode()).digest()
+            fernet_key = base64.urlsafe_b64encode(key_hash)
+            self._fernet = Fernet(fernet_key)
+        return self._fernet
+
+    def process_bind_param(self, value: str | None, dialect) -> str | None:
+        if value is None:
+            return None
+        return self.fernet.encrypt(value.encode()).decode()
+
+    def process_result_value(self, value: str | None, dialect) -> str | None:
+        if value is None:
+            return None
+        try:
+            return self.fernet.decrypt(value.encode()).decode()
+        except Exception:
+            return value
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +160,8 @@ class DiscordAccount(Base):
     global_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_hash: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Encrypted OAuth tokens (store encrypted-at-rest in production)
-    access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    access_token: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    refresh_token: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -425,7 +464,7 @@ class Fork(Base):
     discord_contributor_role_id: Mapped[str | None] = mapped_column(String(25), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, name="metadata", default=dict, nullable=False
+        JSON, name="metadata", default=dict, nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -503,7 +542,7 @@ class PluginRegistry(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # JSON config blob for plugin-specific settings
-    config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     installed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -552,7 +591,7 @@ class AuditLog(Base):
     target_id: Mapped[str] = mapped_column(String(100), nullable=False)
     # Arbitrary JSON context blob
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, name="metadata", default=dict, nullable=False
+        JSON, name="metadata", default=dict, nullable=False
     )
     # IP address of the request actor (optional, for web-triggered actions)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
@@ -596,7 +635,7 @@ class SyncRun(Base):
     members_added: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     members_removed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     errors: Mapped[list[Any]] = mapped_column(
-        JSONB, default=list, nullable=False
+        JSON, default=list, nullable=False
     )  # list[str]
     discord_member_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 

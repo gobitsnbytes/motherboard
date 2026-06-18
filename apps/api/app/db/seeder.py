@@ -7,6 +7,8 @@ safe to run multiple times (e.g., on every deploy or container restart).
 
 import logging
 
+import uuid
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,11 +29,12 @@ async def seed_system_groups(session: AsyncSession) -> None:
             text(
                 """
                 INSERT INTO groups (id, slug, name, description, is_system, color_hex)
-                VALUES (gen_random_uuid(), :slug, :name, :description, :is_system, :color_hex)
+                VALUES (:id, :slug, :name, :description, :is_system, :color_hex)
                 ON CONFLICT (slug) DO NOTHING
                 """
             ),
             {
+                "id": str(uuid.uuid4()),
                 "slug": g["slug"],
                 "name": g["name"],
                 "description": g.get("description"),
@@ -49,11 +52,15 @@ async def seed_core_permissions(session: AsyncSession) -> None:
             text(
                 """
                 INSERT INTO permissions (id, key, description, plugin_id)
-                VALUES (gen_random_uuid(), :key, :description, NULL)
+                VALUES (:id, :key, :description, NULL)
                 ON CONFLICT (key) DO NOTHING
                 """
             ),
-            {"key": p["key"], "description": p.get("description")},
+            {
+                "id": str(uuid.uuid4()),
+                "key": p["key"],
+                "description": p.get("description")
+            },
         )
     logger.info("Seeded %d core permissions.", len(CORE_PERMISSIONS))
 
@@ -67,7 +74,7 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
                 INSERT INTO discord_role_mappings
                     (id, discord_role_id, discord_role_name, group_id, sync_enabled, priority)
                 SELECT
-                    gen_random_uuid(),
+                    :id,
                     :discord_role_id,
                     :discord_role_name,
                     g.id,
@@ -79,6 +86,7 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
                 """
             ),
             {
+                "id": str(uuid.uuid4()),
                 "discord_role_id": discord_role_id,
                 "discord_role_name": discord_role_name,
                 "group_slug": group_slug,
@@ -91,6 +99,7 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
 
 async def seed_city_forks(session: AsyncSession) -> None:
     """Insert known city forks — idempotent on slug conflict."""
+    is_sqlite = "sqlite" in session.bind.dialect.name if session.bind else False
     for fork in CITY_FORKS:
         await session.execute(
             text(
@@ -99,21 +108,23 @@ async def seed_city_forks(session: AsyncSession) -> None:
                     (id, slug, city_name, discord_city_role_id, discord_contributor_role_id,
                      is_active, metadata)
                 VALUES (
-                    gen_random_uuid(),
+                    :id,
                     :slug, :city_name,
                     :discord_city_role_id,
                     :discord_contributor_role_id,
                     true,
-                    '{}'::jsonb
+                    :metadata
                 )
                 ON CONFLICT (slug) DO NOTHING
                 """
             ),
             {
+                "id": str(uuid.uuid4()),
                 "slug": fork["slug"],
                 "city_name": fork["city_name"],
                 "discord_city_role_id": fork.get("discord_city_role_id"),
                 "discord_contributor_role_id": fork.get("discord_contributor_role_id"),
+                "metadata": "{}" if is_sqlite else {},
             },
         )
     logger.info("Seeded %d city forks.", len(CITY_FORKS))

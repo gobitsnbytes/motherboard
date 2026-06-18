@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 import httpx
 
-from app.config import settings
+from app.config import get_settings
 from app.db.models import Permission, Grant, Group, Membership, DiscordRoleMapping
 from app.dependencies import DbDep, CurrentUserDep
 from app.iam.policy import require_permission
@@ -173,8 +173,26 @@ async def create_group(
 ) -> GroupResponse:
     await require_permission(db, current_user, "iam.groups.write")
 
+    import re
+    def slugify(text: str) -> str:
+        text = text.lower().strip()
+        text = re.sub(r'[^\w\s-]', '', text)
+        text = re.sub(r'[\s_-]+', '-', text)
+        return text
+
+    group_slug = payload.slug or slugify(payload.name)
+    if not group_slug:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not generate group slug from name")
+
+    # check for slug uniqueness
+    slug_stmt = select(Group).where(Group.slug == group_slug)
+    slug_res = await db.execute(slug_stmt)
+    if slug_res.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Group slug '{group_slug}' already exists")
+
     group = Group(
         name=payload.name,
+        slug=group_slug,
         description=payload.description
     )
     db.add(group)
@@ -262,6 +280,7 @@ async def remove_group_member(
 async def list_discord_roles(current_user: CurrentUserDep, db: DbDep) -> List[DiscordRole]:
     await require_permission(db, current_user, "iam.roles.sync")
 
+    settings = get_settings()
     if not settings.discord_bot_token or not settings.discord_guild_id:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Discord bot not configured")
 
@@ -300,12 +319,14 @@ async def upsert_discord_mapping(
         mapping.group_id = payload.group_id
         mapping.discord_role_name = payload.discord_role_name
         mapping.sync_enabled = payload.sync_enabled
+        mapping.priority = payload.priority
     else:
         mapping = DiscordRoleMapping(
             discord_role_id=payload.discord_role_id,
             discord_role_name=payload.discord_role_name,
             group_id=payload.group_id,
-            sync_enabled=payload.sync_enabled
+            sync_enabled=payload.sync_enabled,
+            priority=payload.priority
         )
         db.add(mapping)
 

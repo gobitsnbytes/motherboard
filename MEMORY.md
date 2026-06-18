@@ -102,3 +102,18 @@ plugins/     — First- and third-party plugins (reserved, empty)
 **S18 — Event Bus:** Implemented Phase 3 Event Bus (`apps/api/app/events`). Added Typed Schemas, integrated Asyncio & Redis Pub/Sub, hooked into FastAPI lifespan via `main.py`.
 
 **S19 — Infrastructure Unification & Bugfixes:** Fixed FastAPI/Alembic multi-threaded locking deadlock on boot. Patched Dockerfiles to include `alembic` migrations. Hardened EventBus with auto-reconnect and health checks over Docker bridge. Unified Next.js reverse proxy on port 8000 and fixed 307 trailing slash redirects from FastAPI leaking internal hostnames.
+**S19 — Database & Seeder Audit Fixes:** Switched to new branch `akshat/fixes`, performed a database/seeding audit, implemented symmetric token encryption (`EncryptedString` using Fernet) in `models.py`, refactored `seeder.py` to be dialect-independent (SQLite-compatible), added `clear_db_cache` helper to `database.py`, fixed test-suite mock configuration in `conftest.py`, and added verification tests in `test_encryption.py`.
+
+**S20 — Database, IAM & Provisioning Audit Fixes:** Completed full audits and applied fixes across Database/Seeder (Phase 1), IAM (Phase 2), and Provisioning Worker (Phase 5). Configured cache clearing and shifted test database targets to isolated files (`test_temp_router.db` and `test_temp_phase1.db`) to allow running FastAPI lifespans and fixtures against the same database. Converted models to use generic `JSON` columns compiling to `JSONB` on Postgres and `JSON` on SQLite, resolved the FastAPI dependency overrides issue for `get_db_session`, and skipped Alembic migrations in tests.
+In the Provisioning Worker (Phase 5), optimized memory and database overhead by scoping `DiscordAccount` and `Membership` queries using `.in_` clauses on the active Discord guild member list, and added validation checks to prevent APScheduler from running without proper guild/bot configurations.
+Added comprehensive integration tests in `test_iam_router.py` to test `/me`, `/groups` slugification, and `/discord-mappings` priorities. All 45 backend tests are passing 100% green. Pushed to `origin/akshat/fixes`.
+
+**S21 — Rigorous Backend API & Security Testing:** Expanded the backend test suite with 30 new integration and security test cases, raising the total test count from 45 to 75 (100% green).
+- Created `test_cors.py` validating CORS allowed/disallowed/null origins, preflight requests, and prefix/suffix bypass attempts.
+- Created `test_users_router.py` testing User CRUD, soft deletions, and invalid UUID formats.
+- Created `test_groups_router.py` testing Group/Membership CRUD, system group modifications protection (403), slug conflicts, and duplicate memberships.
+- Created `test_forks_router.py` testing Fork CRUD, contributor tracks, and active members listing.
+- Created `test_sync_router.py` testing manual sync triggers, permission gates (trigger/read), background task enqueuing, and super admin bypasses.
+- Created `test_audit_plugins_health.py` testing health checks, pagination/filtering on audit logs, and plugin registry configurations.
+Surfaced architectural findings regarding unauthenticated endpoints in the users, groups, forks, audit, and plugins routers.
+

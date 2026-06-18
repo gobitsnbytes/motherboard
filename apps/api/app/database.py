@@ -19,3 +19,9 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with get_sessionmaker()() as session:
         yield session
+
+
+def clear_db_cache() -> None:
+    """Clear the cached DB engine and sessionmaker (for testing)."""
+    get_engine.cache_clear()
+    get_sessionmaker.cache_clear()

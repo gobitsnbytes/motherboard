@@ -16,9 +16,8 @@ from app.config import Settings, get_settings
 from app.database import get_session
 
 
-async def get_db_session() -> AsyncIterator[AsyncSession]:
-    async for session in get_session():
-        yield session
+async def get_db_session(session: AsyncSession = Depends(get_session)) -> AsyncIterator[AsyncSession]:
+    yield session
 
 
 # ---------------------------------------------------------------------------

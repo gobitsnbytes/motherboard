@@ -53,6 +53,7 @@ class GroupResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    slug: str
     name: str
     description: Optional[str] = None
     is_system: bool
@@ -61,6 +62,7 @@ class GroupResponse(BaseModel):
 
 class GroupCreate(BaseModel):
     name: str
+    slug: Optional[str] = None
     description: Optional[str] = None
 
 # Memberships
@@ -100,6 +102,7 @@ class DiscordRoleMappingResponse(BaseModel):
     discord_role_name: str
     group_id: uuid.UUID
     sync_enabled: bool
+    priority: int
     created_at: datetime
     updated_at: datetime
 
@@ -108,3 +111,4 @@ class DiscordRoleMappingUpsert(BaseModel):
     discord_role_name: str
     group_id: uuid.UUID
     sync_enabled: bool = True
+    priority: int = 0

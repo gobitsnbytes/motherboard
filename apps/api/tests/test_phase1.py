@@ -23,9 +23,9 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+asyncpg://bnb:changeme@localhost:5432/motherboard"
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL or "sqlite" in DATABASE_URL:
+    DATABASE_URL = "sqlite+aiosqlite:///test_temp_phase1.db"
 
 # ---------------------------------------------------------------------------
 # Session-scoped engine (one connection pool for all tests)
@@ -45,6 +45,15 @@ async def engine():
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def seed_once(engine):
     """Run the full seeder before any tests execute."""
+    from app.db.models import Base
+    
+    # If running on SQLite, create tables and insert mock alembic version
+    if "sqlite" in engine.url.drivername or "sqlite" in engine.url.database:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
+            await conn.execute(text("INSERT OR IGNORE INTO alembic_version (version_num) VALUES ('test_mock_version')"))
+
     from app.db.seeder import run_seeds
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
@@ -85,9 +94,14 @@ class TestDatabaseConnectivity:
             "forks", "fork_members", "plugin_registry", "audit_log", "sync_runs",
             "alembic_version",
         }
-        result = await db.execute(
-            text("SELECT tablename FROM pg_tables WHERE schemaname='public'")
-        )
+        if "sqlite" in db.bind.dialect.name:
+            result = await db.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table'")
+            )
+        else:
+            result = await db.execute(
+                text("SELECT tablename FROM pg_tables WHERE schemaname='public'")
+            )
         actual = {row[0] for row in result.fetchall()}
         assert expected.issubset(actual), f"Missing tables: {expected - actual}"
 
