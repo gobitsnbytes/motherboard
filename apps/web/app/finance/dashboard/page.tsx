@@ -8,6 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface Account { id: string; name: string; balance_rupees: number; is_active: boolean; account_number: string; }
 interface MoneyReq { id: string; amount_rupees: number; status: string; description: string; created_at: string; }
+interface Transaction { id: string; source_account_id: string | null; destination_account_id: string | null; amount_rupees: number; amount_paise: number; reference_type: string; reference_id: string | null; description: string; created_at: string; }
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
   return (
@@ -35,6 +36,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
 export default function FinanceDashboard() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [requests, setRequests] = useState<MoneyReq[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,10 +47,12 @@ export default function FinanceDashboard() {
     Promise.all([
       fetch(`${API}/api/finance/accounts`, { headers }).then((r) => r.json()),
       fetch(`${API}/api/finance/requests?limit=10`, { headers }).then((r) => r.json()),
+      fetch(`${API}/api/finance/transactions?limit=6`, { headers }).then((r) => r.json()),
     ])
-      .then(([accs, reqs]) => {
+      .then(([accs, reqs, txs]) => {
         setAccounts(Array.isArray(accs) ? accs : []);
         setRequests(Array.isArray(reqs) ? reqs : []);
+        setTransactions(Array.isArray(txs) ? txs : []);
       })
       .catch(() => setError("Could not load finance data. Check API connection."))
       .finally(() => setLoading(false));
@@ -147,6 +151,51 @@ export default function FinanceDashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Recent Ledger Transactions */}
+      <div style={{ background: "#111", border: "2px solid #1e1e1e", borderRadius: "4px", padding: "20px", marginBottom: "32px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#888" }}>Recent Ledger Transactions</span>
+        </div>
+        {loading ? (
+          <div style={{ color: "#333", fontSize: "13px" }}>Loading transactions…</div>
+        ) : transactions.length === 0 ? (
+          <div style={{ color: "#333", fontSize: "12px" }}>No transactions logged on the ledger yet.</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #222" }}>
+                  <th style={{ padding: "8px 12px", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Date</th>
+                  <th style={{ padding: "8px 12px", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Description</th>
+                  <th style={{ padding: "8px 12px", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Reference</th>
+                  <th style={{ padding: "8px 12px", fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", textAlign: "right" }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map(t => {
+                  return (
+                    <tr key={t.id} style={{ borderBottom: "1px solid #1a1a1a", background: "#0d0d0d" }}>
+                      <td style={{ padding: "10px 12px", fontSize: "12px", color: "#888", fontFamily: "monospace" }}>
+                        {new Date(t.created_at).toLocaleDateString("en-IN")}
+                      </td>
+                      <td style={{ padding: "10px 12px", fontSize: "12px", color: "#ccc" }}>
+                        {t.description}
+                      </td>
+                      <td style={{ padding: "10px 12px", fontSize: "11px", color: "#fc920d", fontFamily: "monospace" }}>
+                        {t.reference_type}
+                      </td>
+                      <td style={{ padding: "10px 12px", fontSize: "13px", fontWeight: 700, color: "#fff", textAlign: "right", fontFamily: "monospace" }}>
+                        ₹{t.amount_rupees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Disclaimer */}
