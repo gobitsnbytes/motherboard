@@ -116,4 +116,10 @@ Added comprehensive integration tests in `test_iam_router.py` to test `/me`, `/g
 - Created `test_sync_router.py` testing manual sync triggers, permission gates (trigger/read), background task enqueuing, and super admin bypasses.
 - Created `test_audit_plugins_health.py` testing health checks, pagination/filtering on audit logs, and plugin registry configurations.
 Surfaced architectural findings regarding unauthenticated endpoints in the users, groups, forks, audit, and plugins routers.
+### 2026-06-19
 
+**S22 — Finance Ledger & Card Simulation:** Completed Phase 7 Finance implementation (virtual accounts, virtual cards, double-entry ledger transactions, money requests, limits validation, and merchant charge simulation).
+- **Models & Migration:** Added `VirtualTransaction` model and `daily_limit_paise` / `monthly_limit_paise` columns on `VirtualCard`. Generated and executed Alembic schema migrations.
+- **Backend Endpoints:** Implemented transactional ledger logs for Money Request approvals, card limit checks (daily/monthly calendar/rolling hours), and an atomic merchant charge simulation endpoint (`POST /api/finance/cards/{card_id}/simulate-charge`). Added global recent transactions list API (`GET /api/finance/transactions`).
+- **Test Suite:** Added comprehensive unit and integration tests in `test_finance_ledger.py` covering double-entry transactions, approval gates, limit breaches, and charge simulation. All 76 backend tests pass.
+- **Frontend Pages:** Rendered double-entry transaction ledgers on Account Details (`/finance/accounts/[id]`) and global Recent Ledger Transactions on Dashboard (`/finance/dashboard`). Updated Virtual Cards (`/finance/cards`) tab to configure daily/monthly spending limits and trigger merchant charge simulations with feedback modals.
