@@ -17,7 +17,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
-from app.db.models import MoneyRequest, VirtualAccount, VirtualCard
+from app.db.models import MoneyRequest, VirtualAccount, VirtualCard, VirtualTransaction
 from app.dependencies import CurrentUserDep, DbSession
 from app.iam.policy import can, require_permission
 from app.schemas.finance import (
@@ -30,6 +30,8 @@ from app.schemas.finance import (
     VirtualCardCreate,
     VirtualCardOut,
     VirtualCardUpdate,
+    VirtualTransactionOut,
+    CardSimulationPayload,
 )
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
@@ -367,6 +369,17 @@ async def approve_request(
         if from_account:
             from_account.balance_paise -= req.amount_paise
 
+    # Create ledger transaction
+    transaction = VirtualTransaction(
+        source_account_id=req.from_account_id,
+        destination_account_id=req.to_account_id,
+        amount_paise=req.amount_paise,
+        reference_type="money_request",
+        reference_id=req.id,
+        description=f"Approved money request: {req.description}",
+    )
+    db.add(transaction)
+
     req.status = "approved"
     req.reviewed_by = current_user.user_id
     req.reviewed_at = datetime.now(timezone.utc)
@@ -399,3 +412,168 @@ async def reject_request(
     await db.commit()
     await db.refresh(req)
     return req
+
+
+# ---------------------------------------------------------------------------
+# Virtual Ledger Transactions & Simulation
+# ---------------------------------------------------------------------------
+
+@router.get("/transactions", response_model=list[VirtualTransactionOut])
+async def list_all_transactions(
+    db: DbSession,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[VirtualTransaction]:
+    """List recent transactions foundation-wide (for admins) or for owned accounts (for users)."""
+    # Check if user has admin permission
+    is_admin = await can(db, current_user, "finance.admin")
+    
+    if is_admin:
+        stmt = select(VirtualTransaction).order_by(VirtualTransaction.created_at.desc()).limit(limit).offset(offset)
+    else:
+        # Users can only see transactions involving accounts they own
+        user_accounts_stmt = select(VirtualAccount.id).where(VirtualAccount.owner_id == current_user.user_id)
+        user_accounts_result = await db.execute(user_accounts_stmt)
+        user_account_ids = user_accounts_result.scalars().all()
+        
+        if not user_account_ids:
+            return []
+            
+        stmt = (
+            select(VirtualTransaction)
+            .where(
+                VirtualTransaction.source_account_id.in_(user_account_ids) |
+                VirtualTransaction.destination_account_id.in_(user_account_ids)
+            )
+            .order_by(VirtualTransaction.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+@router.get("/accounts/{account_id}/transactions", response_model=list[VirtualTransactionOut])
+async def list_account_transactions(
+    account_id: uuid.UUID,
+    db: DbSession,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[VirtualTransaction]:
+    """List ledger transactions where target account is source or destination."""
+    await _require_finance(db, current_user, "finance.accounts.read")
+    account = await db.get(VirtualAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    
+    stmt = (
+        select(VirtualTransaction)
+        .where(
+            (VirtualTransaction.source_account_id == account_id) |
+            (VirtualTransaction.destination_account_id == account_id)
+        )
+        .order_by(VirtualTransaction.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+@router.post("/cards/{card_id}/simulate-charge", response_model=VirtualTransactionOut)
+async def simulate_card_charge(
+    card_id: uuid.UUID,
+    payload: CardSimulationPayload,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> VirtualTransaction:
+    """Simulate a credit/debit card transaction, verifying balance and spending limits."""
+    # 1. Fetch VirtualCard and verify
+    card = await db.get(VirtualCard, card_id)
+    if not card:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card not found.")
+        
+    # Check if active
+    if not card.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Card is inactive.")
+        
+    # Check permission: holder of the card or finance admin
+    if card.holder_id != current_user.user_id:
+        await _require_finance(db, current_user, "finance.cards.manage")
+        
+    # 2. Fetch parent account
+    account = await db.get(VirtualAccount, card.account_id)
+    if not account or not account.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parent virtual account not found or inactive.")
+        
+    # 3. Check account balance
+    if account.balance_paise < payload.amount_paise:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Decline: Insufficient balance. Card requires {payload.amount_paise} paise, account balance is {account.balance_paise} paise."
+        )
+        
+    # 4. Check card limits (daily and monthly)
+    from sqlalchemy import func
+    
+    # Daily Limit Check (last 24 hours)
+    if card.daily_limit_paise is not None:
+        from datetime import timedelta
+        cutoff_24h = datetime.now(timezone.utc) - timedelta(days=1)
+        daily_sum_stmt = (
+            select(func.sum(VirtualTransaction.amount_paise))
+            .where(
+                VirtualTransaction.reference_type == "card_charge",
+                VirtualTransaction.reference_id == card.id,
+                VirtualTransaction.created_at >= cutoff_24h
+            )
+        )
+        daily_sum_res = await db.execute(daily_sum_stmt)
+        daily_spent = daily_sum_res.scalar() or 0
+        if daily_spent + payload.amount_paise > card.daily_limit_paise:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Decline: Transaction exceeds daily limit. Spent: {daily_spent} paise, Limit: {card.daily_limit_paise} paise."
+            )
+            
+    # Monthly Limit Check (current calendar month)
+    if card.monthly_limit_paise is not None:
+        now = datetime.now(timezone.utc)
+        start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        monthly_sum_stmt = (
+            select(func.sum(VirtualTransaction.amount_paise))
+            .where(
+                VirtualTransaction.reference_type == "card_charge",
+                VirtualTransaction.reference_id == card.id,
+                VirtualTransaction.created_at >= start_of_month
+            )
+        )
+        monthly_sum_res = await db.execute(monthly_sum_stmt)
+        monthly_spent = monthly_sum_res.scalar() or 0
+        if monthly_spent + payload.amount_paise > card.monthly_limit_paise:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Decline: Transaction exceeds monthly limit. Spent: {monthly_spent} paise, Limit: {card.monthly_limit_paise} paise."
+            )
+            
+    # 5. Atomic Update: decrement parent account balance
+    account.balance_paise -= payload.amount_paise
+    
+    # Create the VirtualTransaction
+    transaction = VirtualTransaction(
+        source_account_id=card.account_id,
+        destination_account_id=None,
+        amount_paise=payload.amount_paise,
+        reference_type="card_charge",
+        reference_id=card.id,
+        description=f"Card charge: {payload.merchant} - {payload.description}",
+    )
+    db.add(transaction)
+    
+    await db.commit()
+    await db.refresh(transaction)
+    return transaction
+
