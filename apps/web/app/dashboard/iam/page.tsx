@@ -1,6 +1,4 @@
-import React from "react";
-import { Shield } from "lucide-react";
-import EmptyState from "../../../components/dashboard/EmptyState";
+import IAMRoleMappings from "../../../components/dashboard/IAMRoleMappings";
 
 export const metadata = {
   title: "IAM — bits&bytes Motherboard",
@@ -14,14 +12,10 @@ export default function IAMPage() {
           Identity &amp; Access Management
         </h1>
         <p className="text-sm text-muted-foreground font-base mt-1">
-          Configure role mappings, permissions, and delegation policies.
+          Configure Discord role mappings for internal groups and sync provisioning behavior.
         </p>
       </div>
-      <EmptyState
-        icon={<Shield className="size-6" />}
-        title="IAM Configuration Coming Soon"
-        description="This page will allow managing role-to-permission mappings, delegation chains, and access policies once the IAM engine is live."
-      />
+      <IAMRoleMappings />
     </div>
   );
 }
