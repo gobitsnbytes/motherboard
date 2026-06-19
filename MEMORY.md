@@ -123,3 +123,21 @@ Surfaced architectural findings regarding unauthenticated endpoints in the users
 - **Backend Endpoints:** Implemented transactional ledger logs for Money Request approvals, card limit checks (daily/monthly calendar/rolling hours), and an atomic merchant charge simulation endpoint (`POST /api/finance/cards/{card_id}/simulate-charge`). Added global recent transactions list API (`GET /api/finance/transactions`).
 - **Test Suite:** Added comprehensive unit and integration tests in `test_finance_ledger.py` covering double-entry transactions, approval gates, limit breaches, and charge simulation. All 76 backend tests pass.
 - **Frontend Pages:** Rendered double-entry transaction ledgers on Account Details (`/finance/accounts/[id]`) and global Recent Ledger Transactions on Dashboard (`/finance/dashboard`). Updated Virtual Cards (`/finance/cards`) tab to configure daily/monthly spending limits and trigger merchant charge simulations with feedback modals.
+- **Frontend Compilation & Dependency Fixes:**
+  - Fixed a nested JSX ternary syntax error in `/finance/cards/page.tsx` by properly closing the empty-state conditional branch and inserting the `else` colon.
+  - Linked missing local workspaces and third-party dependencies (`next-auth` and `framer-motion`) by executing a clean `bun install` at the root workspace.
+  - Resolved `fetch` option type checking errors across all 5 `/finance` subpages by explicitly annotating the return type of `getHeaders()` helper methods as `Record<string, string>`. Next.js production build now compiles 100% successfully.
+
+### 2026-06-20
+
+**S23 — Database Seeding & OpenAPI Routing Fixes:** Resolved database insertion error on container startup and fixed Swagger UI openapi.json 404 errors.
+- **Database Seeding Fix:**
+  - **Root Cause:** Raw SQL queries executed via `session.execute(text(...))` bypass SQLAlchemy's column-level type processors (which serialize dicts to strings for JSON columns). During prepare, Postgres/asyncpg resolved the target parameter as JSONB and invoked its registered codec, which expected a serialized string to `.encode()`. Passing a raw Python `dict` directly caused `AttributeError: 'dict' object has no attribute 'encode'`.
+  - **Fix implemented:** Imported the `json` module in [seeder.py](file:///home/equation/Projects/motherboard/apps/api/app/db/seeder.py) and changed the `:metadata` bind parameter to pass `json.dumps(fork.get("metadata", {}))` directly, satisfying both SQLite and PostgreSQL.
+  - **Verification:** Ran `uv run pytest` (76/76 green), built and restarted the containers via `docker compose up --build -d`, and successfully verified table counts (`12` forks, `15` groups) directly in the Postgres container.
+- **OpenAPI / Swagger UI Routing Fix:**
+  - **Root Cause:** Next.js proxies API requests starting with `/api/` to the FastAPI backend. However, FastAPI's default Swagger UI makes a client-side request to `/openapi.json` relative to the server root (i.e. `http://localhost:8000/openapi.json`), which bypasses the Next.js `/api/` prefix matching and returns a 404 from Next.js.
+  - **Fix implemented:** 
+    1. Adjusted Next.js's fallback rewrite in [next.config.js](file:///home/equation/Projects/motherboard/apps/web/next.config.js) to preserve the `/api` prefix when proxying requests to the backend (`destination: .../api/:path*` instead of `.../:path*`) to properly align with FastAPI's router prefixes.
+    2. Configured the `openapi_url`, `docs_url`, and `redoc_url` parameters on the `FastAPI` instance in [main.py](file:///home/equation/Projects/motherboard/apps/api/app/main.py) to be prefixed with `/api` (e.g. `/api/openapi.json`, `/api/docs`, and `/api/redoc`).
+  - **Verification:** Verified `/api/docs` and `/api/openapi.json` resolve correctly with `200 OK` from Uvicorn, and ran the backend test suite successfully (76/76 green).

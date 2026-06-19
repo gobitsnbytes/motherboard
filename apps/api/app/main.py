@@ -63,6 +63,9 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Internal operations platform for the bits&bytes network.",
         lifespan=lifespan,
+        openapi_url="/api/openapi.json",
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
     )
 
     # CORS — tighten in production via settings

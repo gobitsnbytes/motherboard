@@ -19,7 +19,7 @@ export default function AccountDetailPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const getHeaders = () => {
+  const getHeaders = (): Record<string, string> => {
     const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
     return uid ? { "X-User-Id": uid } : {};
   };

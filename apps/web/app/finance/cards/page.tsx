@@ -61,7 +61,7 @@ export default function CardsPage() {
     }
   };
 
-  const getHeaders = () => {
+  const getHeaders = (): Record<string, string> => {
     const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
     return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
   };
@@ -197,6 +197,7 @@ export default function CardsPage() {
         <div style={{ textAlign: "center", padding: "60px 20px", border: "2px dashed #1e1e1e", borderRadius: "4px", color: "#333" }}>
           <div style={{ fontSize: "14px", marginBottom: "8px" }}>No cards issued yet</div>
         </div>
+      ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
           {cards.map((c, i) => (
             <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}

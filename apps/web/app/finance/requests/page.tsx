@@ -26,7 +26,7 @@ export default function RequestsPage() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const getHeaders = () => {
+  const getHeaders = (): Record<string, string> => {
     const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
     return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
   };

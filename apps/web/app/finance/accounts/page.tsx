@@ -22,7 +22,7 @@ export default function AccountsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const getHeaders = () => {
+  const getHeaders = (): Record<string, string> => {
     const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
     return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
   };
