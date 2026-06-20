@@ -1,3 +1,4 @@
+
 import IAMRoleMappings from "../../../components/dashboard/IAMRoleMappings";
 
 export const metadata = {
@@ -9,12 +10,14 @@ export default function IAMPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">
-          Identity &amp; Access Management
+          Identity & Access Management
         </h1>
+
         <p className="text-sm text-muted-foreground font-base mt-1">
           Configure Discord role mappings for internal groups and sync provisioning behavior. 
         </p>
-      </div>
+       </div>
+      
       <IAMRoleMappings />
     </div>
   );

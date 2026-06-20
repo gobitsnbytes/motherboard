@@ -52,7 +52,7 @@ async def get_me(current_user: CurrentUserDep, db: DbDep) -> dict[str, Any]:
 
 @router.get("/permissions", response_model=List[PermissionResponse])
 async def list_permissions(current_user: CurrentUserDep, db: DbDep) -> List[PermissionResponse]:
-    await require_permission(db, current_user, "iam.grants.read")
+    await require_permission(db, current_user, "iam.permissions.read")
     res = await db.execute(select(Permission))
     return list(res.scalars().all())
 
@@ -62,7 +62,7 @@ async def register_permission(
     current_user: CurrentUserDep,
     db: DbDep
 ) -> PermissionResponse:
-    await require_permission(db, current_user, "iam.grants.write")
+    await require_permission(db, current_user, "iam.permissions.write")
 
     stmt = select(Permission).where(Permission.key == payload.key)
     res = await db.execute(stmt)
@@ -278,7 +278,7 @@ async def remove_group_member(
 
 @router.get("/discord-roles", response_model=List[DiscordRole])
 async def list_discord_roles(current_user: CurrentUserDep, db: DbDep) -> List[DiscordRole]:
-    await require_permission(db, current_user, "iam.roles.sync")
+    await require_permission(db, current_user, "iam.role_mappings.read")
 
     settings = get_settings()
     if not settings.discord_bot_token or not settings.discord_guild_id:
@@ -299,7 +299,7 @@ async def list_discord_roles(current_user: CurrentUserDep, db: DbDep) -> List[Di
 
 @router.get("/discord-mappings", response_model=List[DiscordRoleMappingResponse])
 async def list_discord_mappings(current_user: CurrentUserDep, db: DbDep) -> List[DiscordRoleMappingResponse]:
-    await require_permission(db, current_user, "iam.groups.read")
+    await require_permission(db, current_user, "iam.role_mappings.read")
     res = await db.execute(select(DiscordRoleMapping))
     return list(res.scalars().all())
 
@@ -309,7 +309,7 @@ async def upsert_discord_mapping(
     current_user: CurrentUserDep,
     db: DbDep
 ) -> DiscordRoleMappingResponse:
-    await require_permission(db, current_user, "iam.groups.write")
+    await require_permission(db, current_user, "iam.role_mappings.write")
 
     stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.discord_role_id == payload.discord_role_id)
     res = await db.execute(stmt)

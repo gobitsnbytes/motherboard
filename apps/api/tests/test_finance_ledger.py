@@ -3,11 +3,8 @@ Integration tests for the Virtual Finance Ledger, money requests, limits validat
 """
 
 import pytest
-import uuid
-from datetime import datetime, timezone
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.main import app
 from app.database import get_session
@@ -16,9 +13,9 @@ from app.db.models import (
     VirtualAccount,
     VirtualCard,
     MoneyRequest,
-    VirtualTransaction,
     Grant,
 )
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -54,8 +51,6 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
     db_session.add(grant)
     await db_session.commit()
 
-    headers = {"X-User-Id": str(admin_user.id)}
-
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # 2. Create two virtual accounts
@@ -64,7 +59,7 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "description": "Virtual budgeting for Bangalore fork",
             "owner_id": str(admin_user.id)
         }
-        res = await ac.post("/api/finance/accounts", json=payload_acc1, headers=headers)
+        res = await request_as(ac, admin_user.id, "POST", "/api/finance/accounts", json=payload_acc1)
         assert res.status_code == 201
         acc1 = res.json()
         acc1_id = acc1["id"]
@@ -74,7 +69,7 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "description": "Virtual budgeting for Mumbai fork",
             "owner_id": str(admin_user.id)
         }
-        res = await ac.post("/api/finance/accounts", json=payload_acc2, headers=headers)
+        res = await request_as(ac, admin_user.id, "POST", "/api/finance/accounts", json=payload_acc2)
         assert res.status_code == 201
         acc2 = res.json()
         acc2_id = acc2["id"]
@@ -90,21 +85,58 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "amount_paise": 100000, # ₹1000
             "description": "Initial pool budget injection"
         }
-        res = await ac.post("/api/finance/requests", json=payload_req, headers=headers)
+        res = await request_as(ac, admin_user.id, "POST", "/api/finance/requests", json=payload_req)
         assert res.status_code == 201
         req1 = res.json()
 
         # Approve the request to execute balance changes
-        res = await ac.post(f"/api/finance/requests/{req1['id']}/approve", json={"note": "Approved injection"}, headers=headers)
+        res = await request_as(
+            ac,
+            admin_user.id,
+            "POST",
+            f"/api/finance/requests/{req1['id']}/approve",
+            json={"note": "Approved injection"},
+        )
         assert res.status_code == 200
 
         # Verify balance of acc1 is updated
-        res = await ac.get(f"/api/finance/accounts/{acc1_id}", headers=headers)
+        res = await request_as(ac, admin_user.id, "GET", f"/api/finance/accounts/{acc1_id}")
         assert res.status_code == 200
         assert res.json()["balance_paise"] == 100000
 
+        # Reject transfers from empty source accounts before any debit can occur.
+        payload_empty_source_req = {
+            "from_account_id": acc2_id,
+            "to_account_id": acc1_id,
+            "amount_paise": 50000,
+            "description": "Invalid empty-source transfer",
+        }
+        res = await request_as(
+            ac,
+            admin_user.id,
+            "POST",
+            "/api/finance/requests",
+            json=payload_empty_source_req,
+        )
+        assert res.status_code == 201
+        empty_source_req = res.json()
+
+        res = await request_as(
+            ac,
+            admin_user.id,
+            "POST",
+            f"/api/finance/requests/{empty_source_req['id']}/approve",
+            json={"note": "Should fail"},
+        )
+        assert res.status_code == 400
+        assert "Source account has insufficient balance" in res.json()["detail"]
+
+        res = await request_as(ac, admin_user.id, "GET", f"/api/finance/accounts/{acc2_id}")
+        assert res.status_code == 200
+        assert res.json()["balance_paise"] == 0
+
         # Verify VirtualTransaction log was created
-        res = await ac.get(f"/api/finance/accounts/{acc1_id}/transactions", headers=headers)
+        res = await request_as(ac, admin_user.id, "GET", f"/api/finance/accounts/{acc1_id}/transactions")
         assert res.status_code == 200
         transactions = res.json()
         assert len(transactions) == 1
@@ -125,7 +157,7 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "daily_limit_paise": 50000, # ₹500
             "monthly_limit_paise": 200000 # ₹2000
         }
-        res = await ac.post("/api/finance/cards", json=payload_card, headers=headers)
+        res = await request_as(ac, admin_user.id, "POST", "/api/finance/cards", json=payload_card)
         assert res.status_code == 201
         card = res.json()
         card_id = card["id"]
@@ -141,14 +173,20 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "merchant": "Shell Fuel",
             "description": "Weekly fuel refilling"
         }
-        res = await ac.post(f"/api/finance/cards/{card_id}/simulate-charge", json=payload_charge, headers=headers)
+        res = await request_as(
+            ac,
+            admin_user.id,
+            "POST",
+            f"/api/finance/cards/{card_id}/simulate-charge",
+            json=payload_charge,
+        )
         assert res.status_code == 200
         charge_tx = res.json()
         assert charge_tx["amount_paise"] == 30000
         assert charge_tx["reference_type"] == "card_charge"
 
         # Verify balance of acc1 was reduced (100000 - 30000 = 70000)
-        res = await ac.get(f"/api/finance/accounts/{acc1_id}", headers=headers)
+        res = await request_as(ac, admin_user.id, "GET", f"/api/finance/accounts/{acc1_id}")
         assert res.json()["balance_paise"] == 70000
 
         # Case B: Charge exceeding daily limit (₹300 more, total ₹600, limit is ₹500)
@@ -157,7 +195,13 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "merchant": "BP Fuel",
             "description": "Extra fuel purchase"
         }
-        res = await ac.post(f"/api/finance/cards/{card_id}/simulate-charge", json=payload_excess_charge, headers=headers)
+        res = await request_as(
+            ac,
+            admin_user.id,
+            "POST",
+            f"/api/finance/cards/{card_id}/simulate-charge",
+            json=payload_excess_charge,
+        )
         assert res.status_code == 400
         assert "exceeds daily limit" in res.json()["detail"]
 
@@ -167,12 +211,18 @@ async def test_finance_ledger_workflow(db_session: AsyncSession):
             "merchant": "Apple Store",
             "description": "Mock MacBook upgrade"
         }
-        res = await ac.post(f"/api/finance/cards/{card_id}/simulate-charge", json=payload_excess_balance, headers=headers)
+        res = await request_as(
+            ac,
+            admin_user.id,
+            "POST",
+            f"/api/finance/cards/{card_id}/simulate-charge",
+            json=payload_excess_balance,
+        )
         assert res.status_code == 400
         assert "Insufficient balance" in res.json()["detail"]
 
         # 6. Verify global transactions feed
-        res = await ac.get("/api/finance/transactions", headers=headers)
+        res = await request_as(ac, admin_user.id, "GET", "/api/finance/transactions")
         assert res.status_code == 200
         all_tx = res.json()
         # Should contain the money_request injection and the successful Shell fuel card charge

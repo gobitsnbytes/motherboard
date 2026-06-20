@@ -5,6 +5,7 @@ Uses INSERT ... ON CONFLICT DO NOTHING for all seed inserts so this is
 safe to run multiple times (e.g., on every deploy or container restart).
 """
 
+import json
 import logging
 
 import uuid
@@ -99,7 +100,6 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
 
 async def seed_city_forks(session: AsyncSession) -> None:
     """Insert known city forks — idempotent on slug conflict."""
-    is_sqlite = "sqlite" in session.bind.dialect.name if session.bind else False
     for fork in CITY_FORKS:
         await session.execute(
             text(
@@ -124,7 +124,7 @@ async def seed_city_forks(session: AsyncSession) -> None:
                 "city_name": fork["city_name"],
                 "discord_city_role_id": fork.get("discord_city_role_id"),
                 "discord_contributor_role_id": fork.get("discord_contributor_role_id"),
-                "metadata": "{}" if is_sqlite else {},
+                "metadata": json.dumps(fork.get("metadata", {})),
             },
         )
     logger.info("Seeded %d city forks.", len(CITY_FORKS))

@@ -7,7 +7,8 @@ from fastapi import APIRouter, Query
 from sqlalchemy import select
 
 from app.db.models import AuditLog
-from app.dependencies import DbSession
+from app.dependencies import CurrentUserDep, DbSession
+from app.iam.policy import require_permission
 from app.schemas.audit import AuditLogOut
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
@@ -16,11 +17,13 @@ router = APIRouter(prefix="/api/audit", tags=["audit"])
 @router.get("/", response_model=list[AuditLogOut])
 async def list_audit_log(
     db: DbSession,
+    current_user: CurrentUserDep,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     action: Annotated[str | None, Query()] = None,
     actor_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[AuditLog]:
+    await require_permission(db, current_user, "audit.read")
     stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
     if action:
         stmt = stmt.where(AuditLog.action == action)

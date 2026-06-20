@@ -29,8 +29,8 @@ def upgrade() -> None:
     sa.Column('discord_contributor_role_id', sa.String(length=25), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_forks_slug'), 'forks', ['slug'], unique=True)
@@ -41,8 +41,8 @@ def upgrade() -> None:
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_system', sa.Boolean(), nullable=False),
     sa.Column('color_hex', sa.String(length=7), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_groups_slug'), 'groups', ['slug'], unique=True)
@@ -51,7 +51,7 @@ def upgrade() -> None:
     sa.Column('key', sa.String(length=150), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('plugin_id', sa.String(length=100), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_permissions_key'), 'permissions', ['key'], unique=True)
@@ -62,15 +62,15 @@ def upgrade() -> None:
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_enabled', sa.Boolean(), nullable=False),
     sa.Column('config', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('installed_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('installed_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('sync_runs',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('trigger', sa.String(length=50), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.Column('finished_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('members_synced', sa.Integer(), nullable=False),
     sa.Column('members_added', sa.Integer(), nullable=False),
@@ -86,8 +86,8 @@ def upgrade() -> None:
     sa.Column('avatar_url', sa.String(length=500), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('is_super_admin', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('audit_log',
@@ -99,7 +99,7 @@ def upgrade() -> None:
     sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('ip_address', sa.String(length=45), nullable=True),
     sa.Column('plugin_id', sa.String(length=100), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.ForeignKeyConstraint(['actor_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -114,7 +114,7 @@ def upgrade() -> None:
     sa.Column('delegation_ref', sa.Text(), nullable=False),
     sa.Column('is_revoked', sa.Boolean(), nullable=False),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.ForeignKeyConstraint(['delegatee_id'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['delegator_id'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['permission_key'], ['permissions.key'], ondelete='CASCADE'),
@@ -134,8 +134,8 @@ def upgrade() -> None:
     sa.Column('refresh_token', sa.Text(), nullable=True),
     sa.Column('token_expires_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('last_synced_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id')
@@ -148,8 +148,8 @@ def upgrade() -> None:
     sa.Column('group_id', sa.UUID(), nullable=False),
     sa.Column('sync_enabled', sa.Boolean(), nullable=False),
     sa.Column('priority', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -162,7 +162,7 @@ def upgrade() -> None:
     sa.Column('track', sa.String(length=50), nullable=True),
     sa.Column('local_role', sa.String(length=50), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('joined_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('joined_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.Column('left_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['fork_id'], ['forks.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
@@ -179,7 +179,7 @@ def upgrade() -> None:
     sa.Column('resource_scope', sa.String(length=255), nullable=True),
     sa.Column('granted_by', sa.UUID(), nullable=True),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.ForeignKeyConstraint(['granted_by'], ['users.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['permission_key'], ['permissions.key'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -192,7 +192,7 @@ def upgrade() -> None:
     sa.Column('group_id', sa.UUID(), nullable=False),
     sa.Column('source', sa.String(length=50), nullable=False),
     sa.Column('granted_by', sa.UUID(), nullable=True),
-    sa.Column('granted_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('granted_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['granted_by'], ['users.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ondelete='CASCADE'),

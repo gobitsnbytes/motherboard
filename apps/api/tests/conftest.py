@@ -1,4 +1,8 @@
+import hashlib
+import hmac
 import os
+import time
+from urllib.parse import urlsplit
 
 # Set dummy environment variables for tests before importing app config
 os.environ.setdefault("DISCORD_CLIENT_ID", "mock_client_id")
@@ -15,9 +19,9 @@ os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-import json
 
-from app.db.models import Base
+from app.db.models import Base, User
+from app.dependencies import canonical_auth_path
 from sqlalchemy.dialects.postgresql import JSONB
 
 # Sqlite doesn't support JSONB natively, let's mock it for tests
@@ -61,6 +65,36 @@ async def db_session():
     async with TestingSessionLocal() as session:
         yield session
         await session.rollback()
+
+
+@pytest_asyncio.fixture
+async def super_admin(db_session):
+    user = User(display_name="Router Super Admin", is_super_admin=True)
+    db_session.add(user)
+    await db_session.commit()
+    return user
+
+
+def internal_auth_headers(user_id, method: str = "GET", path: str = "/") -> dict[str, str]:
+    timestamp = str(int(time.time()))
+    user_id_str = str(user_id)
+    secret = os.environ["API_INTERNAL_SECRET"]
+    request_path = urlsplit(path).path
+    message = f"{timestamp}{method.upper()}{canonical_auth_path(request_path)}{user_id_str}"
+    signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+    return {
+        "X-Internal-User-Id": user_id_str,
+        "X-Internal-Timestamp": timestamp,
+        "X-Internal-Signature": signature,
+    }
+
+
+async def request_as(client, user_id, method: str, path: str, **kwargs):
+    headers = {
+        **internal_auth_headers(user_id, method=method, path=path),
+        **kwargs.pop("headers", {}),
+    }
+    return await client.request(method, path, headers=headers, **kwargs)
 
 def pytest_sessionfinish(session, exitstatus):
     import os

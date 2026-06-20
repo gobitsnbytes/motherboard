@@ -3,7 +3,7 @@ Finance router — GOBITSNBYTES FOUNDATION Virtual Ledger + Banking API.
 
 Powered by RazorpayX (future real integration). All money flows are on paper only —
 a single real current account sits underneath. Requires IAM-based authentication
-via the X-User-Id header and finance.* permissions.
+via signed internal proxy headers and finance.* permissions.
 """
 
 from __future__ import annotations
@@ -11,11 +11,11 @@ from __future__ import annotations
 import random
 import string
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.models import MoneyRequest, VirtualAccount, VirtualCard, VirtualTransaction
 from app.dependencies import CurrentUserDep, DbSession
@@ -372,21 +372,50 @@ async def approve_request(
 ) -> MoneyRequest:
     """Approve a pending money request, updating balances and appending a ledger transaction log entry."""
     await _require_finance(db, current_user, "finance.requests.approve")
-    req = await db.get(MoneyRequest, request_id)
+    req_result = await db.execute(
+        select(MoneyRequest).where(MoneyRequest.id == request_id).with_for_update()
+    )
+    req = req_result.scalar_one_or_none()
     if not req:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found.")
     if req.status != "pending":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Request is already {req.status}.")
 
-    # Update balances (paper only)
-    to_account = await db.get(VirtualAccount, req.to_account_id)
-    if to_account:
-        to_account.balance_paise += req.amount_paise
+    to_account_result = await db.execute(
+        select(VirtualAccount)
+        .where(VirtualAccount.id == req.to_account_id)
+        .with_for_update()
+    )
+    to_account = to_account_result.scalar_one_or_none()
+    if not to_account or not to_account.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Destination account is missing or inactive.",
+        )
 
+    from_account = None
     if req.from_account_id:
-        from_account = await db.get(VirtualAccount, req.from_account_id)
-        if from_account:
-            from_account.balance_paise -= req.amount_paise
+        from_account_result = await db.execute(
+            select(VirtualAccount)
+            .where(VirtualAccount.id == req.from_account_id)
+            .with_for_update()
+        )
+        from_account = from_account_result.scalar_one_or_none()
+        if not from_account or not from_account.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Source account is missing or inactive.",
+            )
+        if from_account.balance_paise < req.amount_paise:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Source account has insufficient balance.",
+            )
+
+    # Update balances (paper only)
+    to_account.balance_paise += req.amount_paise
+    if from_account:
+        from_account.balance_paise -= req.amount_paise
 
     # Create ledger transaction
     transaction = VirtualTransaction(
@@ -512,7 +541,10 @@ async def simulate_card_charge(
 ) -> VirtualTransaction:
     """Simulate a credit/debit card transaction, verifying balance and spending limits."""
     # 1. Fetch VirtualCard and verify
-    card = await db.get(VirtualCard, card_id)
+    card_result = await db.execute(
+        select(VirtualCard).where(VirtualCard.id == card_id).with_for_update()
+    )
+    card = card_result.scalar_one_or_none()
     if not card:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card not found.")
         
@@ -525,7 +557,12 @@ async def simulate_card_charge(
         await _require_finance(db, current_user, "finance.cards.manage")
         
     # 2. Fetch parent account
-    account = await db.get(VirtualAccount, card.account_id)
+    account_result = await db.execute(
+        select(VirtualAccount)
+        .where(VirtualAccount.id == card.account_id)
+        .with_for_update()
+    )
+    account = account_result.scalar_one_or_none()
     if not account or not account.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parent virtual account not found or inactive.")
         
@@ -537,11 +574,8 @@ async def simulate_card_charge(
         )
         
     # 4. Check card limits (daily and monthly)
-    from sqlalchemy import func
-    
     # Daily Limit Check (last 24 hours)
     if card.daily_limit_paise is not None:
-        from datetime import timedelta
         cutoff_24h = datetime.now(timezone.utc) - timedelta(days=1)
         daily_sum_stmt = (
             select(func.sum(VirtualTransaction.amount_paise))

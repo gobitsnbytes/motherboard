@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 
 interface Account { id: string; name: string; account_number: string; is_active: boolean; }
 
@@ -15,10 +15,7 @@ export default function NewRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getHeaders = () => {
-    const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
-    return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
-  };
+  const getHeaders = (): Record<string, string> => ({ "Content-Type": "application/json" });
 
   useEffect(() => {
     fetch(`${API}/api/finance/accounts`, { headers: getHeaders() })

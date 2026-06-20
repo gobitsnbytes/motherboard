@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 
-from app.main import app
+from app.main import app, create_app
 from app.config import get_settings
 
 
@@ -105,3 +105,30 @@ async def test_cors_preflight_request():
         assert response.headers.get("access-control-allow-origin") == allowed_origin
         assert "GET" in response.headers.get("access-control-allow-methods", "")
         assert "access-control-allow-credentials" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_cors_origins_env_overrides_nextauth_url(monkeypatch):
+    """Verify CORS_ORIGINS supports comma-separated multi-origin deployments."""
+    monkeypatch.setenv("CORS_ORIGINS", "https://ops.example.com, https://admin.example.com")
+    get_settings.cache_clear()
+    test_app = create_app()
+
+    try:
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get(
+                "/health",
+                headers={"Origin": "https://admin.example.com"},
+            )
+            assert response.status_code == 200
+            assert response.headers.get("access-control-allow-origin") == "https://admin.example.com"
+
+            response = await ac.get(
+                "/health",
+                headers={"Origin": get_settings().nextauth_url},
+            )
+            assert response.status_code == 200
+            assert "access-control-allow-origin" not in response.headers
+    finally:
+        get_settings.cache_clear()

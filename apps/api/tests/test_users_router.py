@@ -2,11 +2,11 @@ import pytest
 import uuid
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.main import app
 from app.database import get_session
 from app.db.models import User
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +19,7 @@ def override_db(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_create_user(db_session: AsyncSession):
+async def test_create_user(db_session: AsyncSession, super_admin: User):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
@@ -27,7 +27,7 @@ async def test_create_user(db_session: AsyncSession):
             "email": "router_test@example.com",
             "avatar_url": "https://example.com/avatar.png"
         }
-        response = await ac.post("/api/users/", json=payload)
+        response = await request_as(ac, super_admin.id, "POST", "/api/users/", json=payload)
         assert response.status_code == 201
         data = response.json()
         assert data["display_name"] == "Test Router User"
@@ -45,7 +45,7 @@ async def test_create_user(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_list_users(db_session: AsyncSession):
+async def test_list_users(db_session: AsyncSession, super_admin: User):
     # Seed a couple of users
     u1 = User(display_name="User One", email="one@example.com")
     u2 = User(display_name="User Two", email="two@example.com")
@@ -54,7 +54,7 @@ async def test_list_users(db_session: AsyncSession):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/users/")
+        response = await request_as(ac, super_admin.id, "GET", "/api/users/")
         assert response.status_code == 200
         data = response.json()
         # Should return at least our two users (and possibly seeded database users)
@@ -64,7 +64,7 @@ async def test_list_users(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_get_user_by_id(db_session: AsyncSession):
+async def test_get_user_by_id(db_session: AsyncSession, super_admin: User):
     u = User(display_name="Fetch Me", email="fetch@example.com")
     db_session.add(u)
     await db_session.commit()
@@ -72,23 +72,23 @@ async def test_get_user_by_id(db_session: AsyncSession):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Happy path
-        response = await ac.get(f"/api/users/{u.id}")
+        response = await request_as(ac, super_admin.id, "GET", f"/api/users/{u.id}")
         assert response.status_code == 200
         assert response.json()["display_name"] == "Fetch Me"
 
         # Nonexistent UUID (404)
         nonexistent = uuid.uuid4()
-        response = await ac.get(f"/api/users/{nonexistent}")
+        response = await request_as(ac, super_admin.id, "GET", f"/api/users/{nonexistent}")
         assert response.status_code == 404
         assert response.json()["detail"] == "User not found."
 
         # Malformed UUID (422)
-        response = await ac.get("/api/users/not-a-valid-uuid")
+        response = await request_as(ac, super_admin.id, "GET", "/api/users/not-a-valid-uuid")
         assert response.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_patch_user(db_session: AsyncSession):
+async def test_patch_user(db_session: AsyncSession, super_admin: User):
     u = User(display_name="Original Name", email="orig@example.com")
     db_session.add(u)
     await db_session.commit()
@@ -96,7 +96,7 @@ async def test_patch_user(db_session: AsyncSession):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {"display_name": "Updated Name", "email": "updated@example.com"}
-        response = await ac.patch(f"/api/users/{u.id}", json=payload)
+        response = await request_as(ac, super_admin.id, "PATCH", f"/api/users/{u.id}", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["display_name"] == "Updated Name"
@@ -109,19 +109,19 @@ async def test_patch_user(db_session: AsyncSession):
 
         # Patch nonexistent user
         nonexistent = uuid.uuid4()
-        response = await ac.patch(f"/api/users/{nonexistent}", json=payload)
+        response = await request_as(ac, super_admin.id, "PATCH", f"/api/users/{nonexistent}", json=payload)
         assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_deactivate_user(db_session: AsyncSession):
+async def test_deactivate_user(db_session: AsyncSession, super_admin: User):
     u = User(display_name="Deactivatable", email="deact@example.com")
     db_session.add(u)
     await db_session.commit()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.delete(f"/api/users/{u.id}")
+        response = await request_as(ac, super_admin.id, "DELETE", f"/api/users/{u.id}")
         assert response.status_code == 204
 
         # Verify soft deletion in DB (is_active = False)
@@ -130,5 +130,5 @@ async def test_deactivate_user(db_session: AsyncSession):
 
         # Deactivate nonexistent user
         nonexistent = uuid.uuid4()
-        response = await ac.delete(f"/api/users/{nonexistent}")
+        response = await request_as(ac, super_admin.id, "DELETE", f"/api/users/{nonexistent}")
         assert response.status_code == 404

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 
 interface Account {
   id: string; owner_id: string; name: string; description: string | null;
@@ -22,10 +22,7 @@ export default function AccountsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const getHeaders = () => {
-    const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
-    return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
-  };
+  const getHeaders = (): Record<string, string> => ({ "Content-Type": "application/json" });
 
   const load = () => {
     setLoading(true);

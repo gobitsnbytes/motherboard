@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.main import app
 from app.database import get_session
 from app.db.models import User, Group, DiscordRoleMapping, Grant
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -35,10 +36,9 @@ async def test_get_me(db_session: AsyncSession):
     db_session.add(grant)
     await db_session.commit()
 
-    headers = {"X-User-Id": str(user.id)}
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/iam/me", headers=headers)
+        response = await request_as(ac, user.id, "GET", "/api/iam/me")
         assert response.status_code == 200
         data = response.json()
         assert data["principal"]["user_id"] == str(user.id)
@@ -53,12 +53,11 @@ async def test_create_group_auto_slugify(db_session: AsyncSession):
     db_session.add(user)
     await db_session.commit()
 
-    headers = {"X-User-Id": str(user.id)}
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Create a group without providing a slug
         payload = {"name": "Staff Developers", "description": "Global dev staff"}
-        response = await ac.post("/api/iam/groups", json=payload, headers=headers)
+        response = await request_as(ac, user.id, "POST", "/api/iam/groups", json=payload)
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "Staff Developers"
@@ -66,7 +65,7 @@ async def test_create_group_auto_slugify(db_session: AsyncSession):
         assert data["is_system"] is False
 
         # Attempt to create group with same name (slug conflict)
-        response = await ac.post("/api/iam/groups", json=payload, headers=headers)
+        response = await request_as(ac, user.id, "POST", "/api/iam/groups", json=payload)
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"]
 
@@ -81,7 +80,6 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
     db_session.add(group)
     await db_session.commit()
 
-    headers = {"X-User-Id": str(user.id)}
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
@@ -92,7 +90,7 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
             "priority": 42
         }
         # Insert mapping
-        response = await ac.put("/api/iam/discord-mappings", json=payload, headers=headers)
+        response = await request_as(ac, user.id, "PUT", "/api/iam/discord-mappings", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["priority"] == 42
@@ -100,7 +98,7 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
 
         # Update mapping
         payload["priority"] = 99
-        response = await ac.put("/api/iam/discord-mappings", json=payload, headers=headers)
+        response = await request_as(ac, user.id, "PUT", "/api/iam/discord-mappings", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["priority"] == 99

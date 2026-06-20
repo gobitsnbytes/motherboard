@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # RazorpayX API key — optional until real banking integration is wired
     razorpayx_api_key: str | None = Field(default=None, validation_alias="RAZORPAYX_API_KEY")
 
+    @property
+    def allowed_cors_origins(self) -> list[str]:
+        origins = [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return origins or [self.nextauth_url]
+
 
 
 @lru_cache(maxsize=1)

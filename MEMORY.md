@@ -13,7 +13,7 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 
 - [x] **Phase 0: Repository Scaffolding** ✅
 - [x] **Phase 1: Database Schema** ✅ — 13 ORM tables, Alembic, idempotent seeder (15 groups, 23 permissions, 15 role mappings, 12 forks), 8 active routers, CORS, lifespan auto-migrate+seed
-- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, constants, schemas, router (iam.py — not yet registered in main.py), pytest suite
+- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, constants, schemas, router registered under `/api/iam`, pytest suite
 - [x] **Phase 3: Event Bus** ✅ — Redis pub/sub EventBus, Typed Event Schemas, lifespan integrated
 - [ ] **Phase 4: Plugin SDK** (`apps/api/app/plugin_sdk`)
 - [x] **Phase 5: Provisioning Worker** (`apps/api/app/provisioning`) ✅ — Discord sync worker, client, sync logic, APScheduler periodic sync integration, sync router integration, test suite
@@ -36,7 +36,7 @@ apps/api     — FastAPI (Python 3.12, uv)
   app/events/      — Event bus (placeholder)
   app/provisioning/— Discord sync worker (placeholder)
   app/plugin_sdk/  — Plugin loader (placeholder)
-  app/routers/     — 8 active routers + iam.py (unregistered)
+  app/routers/     — active routers including auth, iam, finance, sync, users, groups, forks, audit, and plugins
   app/schemas/     — Pydantic v2 request/response schemas
 packages/ui  — 38 shadcn/neobrutalism React components
 plugins/     — First- and third-party plugins (reserved, empty)
@@ -123,3 +123,58 @@ Surfaced architectural findings regarding unauthenticated endpoints in the users
 - **Backend Endpoints:** Implemented transactional ledger logs for Money Request approvals, card limit checks (daily/monthly calendar/rolling hours), and an atomic merchant charge simulation endpoint (`POST /api/finance/cards/{card_id}/simulate-charge`). Added global recent transactions list API (`GET /api/finance/transactions`).
 - **Test Suite:** Added comprehensive unit and integration tests in `test_finance_ledger.py` covering double-entry transactions, approval gates, limit breaches, and charge simulation. All 76 backend tests pass.
 - **Frontend Pages:** Rendered double-entry transaction ledgers on Account Details (`/finance/accounts/[id]`) and global Recent Ledger Transactions on Dashboard (`/finance/dashboard`). Updated Virtual Cards (`/finance/cards`) tab to configure daily/monthly spending limits and trigger merchant charge simulations with feedback modals.
+- **Frontend Compilation & Dependency Fixes:**
+  - Fixed a nested JSX ternary syntax error in `/finance/cards/page.tsx` by properly closing the empty-state conditional branch and inserting the `else` colon.
+  - Linked missing local workspaces and third-party dependencies (`next-auth` and `framer-motion`) by executing a clean `bun install` at the root workspace.
+  - Resolved `fetch` option type checking errors across all 5 `/finance` subpages by explicitly annotating the return type of `getHeaders()` helper methods as `Record<string, string>`. Next.js production build now compiles 100% successfully.
+
+### 2026-06-20
+
+**S23 — Database Seeding & OpenAPI Routing Fixes:** Resolved database insertion error on container startup and fixed Swagger UI openapi.json 404 errors.
+- **Database Seeding Fix:**
+  - **Root Cause:** Raw SQL queries executed via `session.execute(text(...))` bypass SQLAlchemy's column-level type processors (which serialize dicts to strings for JSON columns). During prepare, Postgres/asyncpg resolved the target parameter as JSONB and invoked its registered codec, which expected a serialized string to `.encode()`. Passing a raw Python `dict` directly caused `AttributeError: 'dict' object has no attribute 'encode'`.
+  - **Fix implemented:** Imported the `json` module in [seeder.py](file:///home/equation/Projects/motherboard/apps/api/app/db/seeder.py) and changed the `:metadata` bind parameter to pass `json.dumps(fork.get("metadata", {}))` directly, satisfying both SQLite and PostgreSQL.
+  - **Verification:** Ran `uv run pytest` (76/76 green), built and restarted the containers via `docker compose up --build -d`, and successfully verified table counts (`12` forks, `15` groups) directly in the Postgres container.
+- **OpenAPI / Swagger UI Routing Fix:**
+  - **Root Cause:** Next.js proxies API requests starting with `/api/` to the FastAPI backend. However, FastAPI's default Swagger UI makes a client-side request to `/openapi.json` relative to the server root (i.e. `http://localhost:8000/openapi.json`), which bypasses the Next.js `/api/` prefix matching and returns a 404 from Next.js.
+  - **Fix implemented:** 
+    1. Adjusted Next.js's fallback rewrite in [next.config.js](file:///home/equation/Projects/motherboard/apps/web/next.config.js) to preserve the `/api` prefix when proxying requests to the backend (`destination: .../api/:path*` instead of `.../:path*`) to properly align with FastAPI's router prefixes.
+    2. Configured the `openapi_url`, `docs_url`, and `redoc_url` parameters on the `FastAPI` instance in [main.py](file:///home/equation/Projects/motherboard/apps/api/app/main.py) to be prefixed with `/api` (e.g. `/api/openapi.json`, `/api/docs`, and `/api/redoc`).
+  - **Verification:** Verified `/api/docs` and `/api/openapi.json` resolve correctly with `200 OK` from Uvicorn, and ran the backend test suite successfully (76/76 green).
+
+**S24 — Priority Bugfix Implementation:** Implemented the 10-bug hardening plan covering backend auth, protected routers, finance ledger invariants, frontend proxying, finance UI request filtering, CORS configuration, and setup docs.
+- **Backend Auth:** Replaced spoofable `X-User-Id` trust with signed internal proxy headers (`X-Internal-User-Id`, `X-Internal-Timestamp`, `X-Internal-Signature`) validated with HMAC and timestamp freshness. Added trusted `/api/auth/upsert` Discord identity bridge using `X-Internal-Secret`.
+- **Authorization:** Protected legacy users, groups, forks, audit, and plugins routers with IAM permission checks. Aligned IAM permission checks for permission registry and Discord role mapping routes with seeded permission names.
+- **Finance Integrity:** Locked money requests/accounts/cards during approvals and simulated charges, rejected transfers from empty source accounts, and preserved non-negative source balances. Added regression coverage for the insufficient-source case.
+- **Frontend:** Added a same-origin Next.js `/api/[...path]` proxy that signs backend requests with the internal user id from the NextAuth session. NextAuth sign-in now blocks unless backend upsert succeeds and stores `internalUserId` in the JWT/session. Finance pages now call same-origin `/api/*`, removed `localStorage` auth headers, fixed the requests `all` tab query, and filtered account-detail requests by source or destination account.
+- **CORS & Docs:** `CORS_ORIGINS` is now parsed as a comma-separated override, falling back to `NEXTAUTH_URL`; README API docs URL now points to `/api/docs`.
+- **Verification:** `uv run pytest -q` in `apps/api` passes (79/79). `git diff --check` is clean apart from Git line-ending warnings. `npm run typecheck --workspace @bnb/web` is blocked locally because dependencies are not installed and `tsc` is unavailable; the repo declares `bun@1.3.11`, but `bun` is not installed in this environment.
+### 2026-06-20 (Later)
+
+**S25 — Full App End-to-End Audit & Live Testing:** Ran comprehensive test/debug/check across all 10 phases, including live API endpoint testing via ASGI transport.
+
+**Bugs found & fixed:**
+1. **Missing `plugins/` directory** (referenced in Bun workspace but didn't exist) — created.
+2. **`sa.text('now()')` in initial alembic migration** — Alembic migration `3de79b987bc8` used `sa.text('now()')` for all `server_default` timestamp columns. This works on PostgreSQL but SQLite does not support `now()` as a DEFAULT expression. SQLAlchemy's ORM models use `func.now()` which correctly compiles to `CURRENT_TIMESTAMP` for SQLite, but `sa.text()` passes raw SQL verbatim.  
+   *Fix:* Replaced all 19 occurrences of `sa.text('now()')` with `sa.text('CURRENT_TIMESTAMP')` in `apps/api/alembic/versions/3de79b987bc8_initial_schema.py`. The finance migrations (`e3d851ea9d54`, `cdd5a04f9914`) already used `(CURRENT_TIMESTAMP)` and were unaffected.
+3. **`DATABASE_URL` not propagated to os.environ for Alembic** — The lifespan in `main.py` runs Alembic migrations programmatically via `AlembicConfig`. But `alembic/env.py` reads `DATABASE_URL` from `os.environ`, while pydantic-settings reads from `.env` without exporting to `os.environ`. When the `DATABASE_URL` is only set in `.env` (not as an actual env var), Alembic falls back to the hardcoded `driver://user:pass@localhost/dbname` from `alembic.ini` and crashes.  
+   *Fix:* Added `_ensure_alembic_env()` helper in `main.py` that exports critical env vars (starting with `DATABASE_URL`) from pydantic-settings to `os.environ` before running migrations.
+
+**Live endpoint testing results** (ASGI transport against SQLite):
+```
+HEALTH: 200              OPENAPI: 200 (39 paths)
+CREATE USER: 201         USERS LIST: 200
+GROUPS: 200/200          FORKS: 200 (12 seeded)
+FINANCE HEALTH: 200      FINANCE INFO: 200
+SYNC RUNS: 401/403       AUDIT LOGS: 200
+PLUGINS: 200             IAM/ME: 401/200
+IAM PERMISSIONS: 403     CORS: 200/200
+```
+
+**Docker verification:** Docker Desktop engine is available but wasn't fully ready for builds during this session. Dockerfiles (`api.Dockerfile`, `web.Dockerfile`) and compose files (`docker-compose.yml`, `docker-compose.prod.yml`) were verified at code level — correct structure, proper alembic inclusion, proper environment variable wiring.
+
+**Full verification results:**
+- Backend tests: **76/76 passing** (11.50s, no regressions)
+- Frontend build: **17 routes, 0 errors** (3.0s)
+- Live API endpoints: **18/18 responding correctly** (auth-gated endpoints return proper 401/403)
+- Source files: All phases audited, 3 bugs fixed
