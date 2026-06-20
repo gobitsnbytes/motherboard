@@ -16,7 +16,7 @@ export default function IAMPage() {
         <p className="text-sm text-muted-foreground font-base mt-1">
           Configure Discord role mappings for internal groups and sync provisioning behavior. 
         </p>
-       </div>
+       </div> 
       
       <IAMRoleMappings />
     </div>
