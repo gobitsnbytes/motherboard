@@ -4,11 +4,11 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 
 interface Account { id: string; name: string; description: string | null; balance_rupees: number; balance_paise: number; account_number: string; ifsc: string; is_active: boolean; owner_id: string; created_at: string; }
 interface Card { id: string; card_name: string; last_four: string; card_type: string; is_active: boolean; expires_year: string; holder_id: string; }
-interface MoneyReq { id: string; amount_rupees: number; status: string; description: string; created_at: string; from_account_id: string | null; }
+interface MoneyReq { id: string; amount_rupees: number; status: string; description: string; created_at: string; from_account_id: string | null; to_account_id: string; }
 interface Transaction { id: string; source_account_id: string | null; destination_account_id: string | null; amount_rupees: number; amount_paise: number; reference_type: string; reference_id: string | null; description: string; created_at: string; }
 
 export default function AccountDetailPage() {
@@ -19,10 +19,7 @@ export default function AccountDetailPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const getHeaders = (): Record<string, string> => {
-    const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
-    return uid ? { "X-User-Id": uid } : {};
-  };
+  const getHeaders = (): Record<string, string> => ({});
 
   useEffect(() => {
     if (!id) return;
@@ -35,7 +32,7 @@ export default function AccountDetailPage() {
     ]).then(([acc, cds, reqs, txs]) => {
       setAccount(acc);
       setCards(Array.isArray(cds) ? cds : []);
-      setRequests(Array.isArray(reqs) ? reqs.filter((r: MoneyReq) => r.from_account_id === id || (reqs as MoneyReq[]).find(x => x.id === r.id)) : []);
+      setRequests(Array.isArray(reqs) ? reqs.filter((r: MoneyReq) => r.from_account_id === id || r.to_account_id === id) : []);
       setTransactions(Array.isArray(txs) ? txs : []);
     }).finally(() => setLoading(false));
   }, [id]);

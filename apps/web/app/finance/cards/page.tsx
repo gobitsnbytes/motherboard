@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 
 interface Card { id: string; card_name: string; last_four: string; card_type: string; is_active: boolean; expires_year: string; holder_id: string; account_id: string; daily_limit_paise: number | null; monthly_limit_paise: number | null; daily_limit_rupees: number | null; monthly_limit_rupees: number | null; }
 interface CreateCardForm { account_id: string; holder_id: string; card_name: string; card_type: "virtual" | "debit"; expires_month: string; expires_year: string; daily_limit_rupees: string; monthly_limit_rupees: string; }
@@ -61,10 +61,7 @@ export default function CardsPage() {
     }
   };
 
-  const getHeaders = (): Record<string, string> => {
-    const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
-    return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
-  };
+  const getHeaders = (): Record<string, string> => ({ "Content-Type": "application/json" });
 
   const load = () => {
     setLoading(true);

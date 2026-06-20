@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 
 interface Account { id: string; name: string; balance_rupees: number; is_active: boolean; account_number: string; }
 interface MoneyReq { id: string; amount_rupees: number; status: string; description: string; created_at: string; }
@@ -41,13 +41,10 @@ export default function FinanceDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const userId = localStorage.getItem("x-user-id");
-    const headers: Record<string, string> = userId ? { "X-User-Id": userId } : {};
-
     Promise.all([
-      fetch(`${API}/api/finance/accounts`, { headers }).then((r) => r.json()),
-      fetch(`${API}/api/finance/requests?limit=10`, { headers }).then((r) => r.json()),
-      fetch(`${API}/api/finance/transactions?limit=6`, { headers }).then((r) => r.json()),
+      fetch(`${API}/api/finance/accounts`).then((r) => r.json()),
+      fetch(`${API}/api/finance/requests?limit=10`).then((r) => r.json()),
+      fetch(`${API}/api/finance/transactions?limit=6`).then((r) => r.json()),
     ])
       .then(([accs, reqs, txs]) => {
         setAccounts(Array.isArray(accs) ? accs : []);

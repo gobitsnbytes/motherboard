@@ -87,14 +87,15 @@ def create_app() -> FastAPI:
     # CORS — tighten in production via settings
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.nextauth_url],
+        allow_origins=settings.allowed_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     # Include routers
-    from app.routers import health, users, groups, forks, audit, sync, plugins, finance, iam
+    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam
+    application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
     application.include_router(groups.router)

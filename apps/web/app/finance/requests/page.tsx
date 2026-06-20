@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 const TABS = ["all", "pending", "approved", "rejected"] as const;
 type Tab = typeof TABS[number];
 
@@ -26,15 +26,15 @@ export default function RequestsPage() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const getHeaders = (): Record<string, string> => {
-    const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
-    return uid ? { "X-User-Id": uid, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
-  };
+  const getHeaders = (): Record<string, string> => ({ "Content-Type": "application/json" });
 
   const load = () => {
     setLoading(true);
-    const q = tab !== "all" ? `?status=${tab}` : "";
-    fetch(`${API}/api/finance/requests${q}&limit=100`, { headers: getHeaders() })
+    const params = new URLSearchParams({ limit: "100" });
+    if (tab !== "all") {
+      params.set("status", tab);
+    }
+    fetch(`${API}/api/finance/requests?${params.toString()}`, { headers: getHeaders() })
       .then(r => r.json())
       .then(d => setRequests(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false));

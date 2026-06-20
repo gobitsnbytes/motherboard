@@ -1,12 +1,10 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
 export async function getDashboardStats() {
   const [usersRes, forksRes, pluginsRes, healthRes] =
     await Promise.all([
-      fetch(`${API_URL}/api/users`),
-      fetch(`${API_URL}/api/forks`),
-      fetch(`${API_URL}/api/plugins`),
-      fetch(`${API_URL}/health`),
+      fetch("/api/users"),
+      fetch("/api/forks"),
+      fetch("/api/plugins"),
+      fetch("/api/health"),
     ]);
     
 
@@ -26,7 +24,7 @@ export async function getDashboardStats() {
 
 export async function getRecentActivity() {
   const response = await fetch(
-    `${API_URL}/api/audit?limit=5`
+    "/api/audit?limit=5"
   );
 
   if (!response.ok) {
@@ -38,7 +36,7 @@ export async function getRecentActivity() {
 
 export async function getForks() {
   const response = await fetch(
-    `${API_URL}/api/forks`
+    "/api/forks"
   );
 
   if (!response.ok) {

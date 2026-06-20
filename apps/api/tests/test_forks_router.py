@@ -2,12 +2,12 @@ import pytest
 import uuid
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.main import app
 from app.database import get_session
 from app.db.models import Fork, ForkMember, User
 from app.db.seeder import run_seeds
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -20,13 +20,13 @@ def override_db(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_list_forks(db_session: AsyncSession):
+async def test_list_forks(db_session: AsyncSession, super_admin: User):
     # Run the seeder to populate default forks
     await run_seeds(db_session)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/forks/")
+        response = await request_as(ac, super_admin.id, "GET", "/api/forks/")
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 4  # Delhi, Bangalore, Hyderabad, Kolkata
@@ -35,7 +35,7 @@ async def test_list_forks(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_get_fork(db_session: AsyncSession):
+async def test_get_fork(db_session: AsyncSession, super_admin: User):
     fork = Fork(slug="test-fork-get", city_name="Test Fork City", metadata_json={})
     db_session.add(fork)
     await db_session.commit()
@@ -43,17 +43,17 @@ async def test_get_fork(db_session: AsyncSession):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Happy path
-        response = await ac.get(f"/api/forks/{fork.id}")
+        response = await request_as(ac, super_admin.id, "GET", f"/api/forks/{fork.id}")
         assert response.status_code == 200
         assert response.json()["city_name"] == "Test Fork City"
 
         # 404
-        response = await ac.get(f"/api/forks/{uuid.uuid4()}")
+        response = await request_as(ac, super_admin.id, "GET", f"/api/forks/{uuid.uuid4()}")
         assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_create_fork(db_session: AsyncSession):
+async def test_create_fork(db_session: AsyncSession, super_admin: User):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
@@ -64,7 +64,7 @@ async def test_create_fork(db_session: AsyncSession):
             "is_active": True,
             "metadata_json": {"population": "10m"}
         }
-        response = await ac.post("/api/forks/", json=payload)
+        response = await request_as(ac, super_admin.id, "POST", "/api/forks/", json=payload)
         assert response.status_code == 201
         data = response.json()
         assert data["slug"] == "chennai"
@@ -73,7 +73,7 @@ async def test_create_fork(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_update_fork(db_session: AsyncSession):
+async def test_update_fork(db_session: AsyncSession, super_admin: User):
     fork = Fork(slug="pune", city_name="Pune Fork", metadata_json={})
     db_session.add(fork)
     await db_session.commit()
@@ -85,7 +85,7 @@ async def test_update_fork(db_session: AsyncSession):
             "is_active": False,
             "metadata_json": {"weather": "nice"}
         }
-        response = await ac.patch(f"/api/forks/{fork.id}", json=payload)
+        response = await request_as(ac, super_admin.id, "PATCH", f"/api/forks/{fork.id}", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["city_name"] == "Pune City Fork"
@@ -94,7 +94,7 @@ async def test_update_fork(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_list_fork_members(db_session: AsyncSession):
+async def test_list_fork_members(db_session: AsyncSession, super_admin: User):
     fork = Fork(slug="mumbai", city_name="Mumbai Fork", metadata_json={})
     user = User(display_name="Mumbai Member")
     db_session.add_all([fork, user])
@@ -112,7 +112,7 @@ async def test_list_fork_members(db_session: AsyncSession):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get(f"/api/forks/{fork.id}/members")
+        response = await request_as(ac, super_admin.id, "GET", f"/api/forks/{fork.id}/members")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1

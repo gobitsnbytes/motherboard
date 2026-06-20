@@ -70,7 +70,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 |---------|-----|-------------|
 | **Web (Next.js)** | `http://localhost:3000` | Frontend dashboard |
 | **API (FastAPI)** | `http://localhost:8000` | Backend REST API |
-| **API Docs** | `http://localhost:8000/docs` | Swagger UI (auto-generated) |
+| **API Docs** | `http://localhost:8000/api/docs` | Swagger UI (auto-generated) |
 | **Postgres** | `localhost:5432` | Database (dev only) |
 | **Redis** | `localhost:6379` | Cache / event bus (dev only) |
 

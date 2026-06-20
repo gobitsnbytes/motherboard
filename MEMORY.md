@@ -13,7 +13,7 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 
 - [x] **Phase 0: Repository Scaffolding** ✅
 - [x] **Phase 1: Database Schema** ✅ — 13 ORM tables, Alembic, idempotent seeder (15 groups, 23 permissions, 15 role mappings, 12 forks), 8 active routers, CORS, lifespan auto-migrate+seed
-- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, constants, schemas, router (iam.py — not yet registered in main.py), pytest suite
+- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, constants, schemas, router registered under `/api/iam`, pytest suite
 - [x] **Phase 3: Event Bus** ✅ — Redis pub/sub EventBus, Typed Event Schemas, lifespan integrated
 - [ ] **Phase 4: Plugin SDK** (`apps/api/app/plugin_sdk`)
 - [x] **Phase 5: Provisioning Worker** (`apps/api/app/provisioning`) ✅ — Discord sync worker, client, sync logic, APScheduler periodic sync integration, sync router integration, test suite
@@ -36,7 +36,7 @@ apps/api     — FastAPI (Python 3.12, uv)
   app/events/      — Event bus (placeholder)
   app/provisioning/— Discord sync worker (placeholder)
   app/plugin_sdk/  — Plugin loader (placeholder)
-  app/routers/     — 8 active routers + iam.py (unregistered)
+  app/routers/     — active routers including auth, iam, finance, sync, users, groups, forks, audit, and plugins
   app/schemas/     — Pydantic v2 request/response schemas
 packages/ui  — 38 shadcn/neobrutalism React components
 plugins/     — First- and third-party plugins (reserved, empty)
@@ -142,9 +142,16 @@ Surfaced architectural findings regarding unauthenticated endpoints in the users
     2. Configured the `openapi_url`, `docs_url`, and `redoc_url` parameters on the `FastAPI` instance in [main.py](file:///home/equation/Projects/motherboard/apps/api/app/main.py) to be prefixed with `/api` (e.g. `/api/openapi.json`, `/api/docs`, and `/api/redoc`).
   - **Verification:** Verified `/api/docs` and `/api/openapi.json` resolve correctly with `200 OK` from Uvicorn, and ran the backend test suite successfully (76/76 green).
 
+**S24 — Priority Bugfix Implementation:** Implemented the 10-bug hardening plan covering backend auth, protected routers, finance ledger invariants, frontend proxying, finance UI request filtering, CORS configuration, and setup docs.
+- **Backend Auth:** Replaced spoofable `X-User-Id` trust with signed internal proxy headers (`X-Internal-User-Id`, `X-Internal-Timestamp`, `X-Internal-Signature`) validated with HMAC and timestamp freshness. Added trusted `/api/auth/upsert` Discord identity bridge using `X-Internal-Secret`.
+- **Authorization:** Protected legacy users, groups, forks, audit, and plugins routers with IAM permission checks. Aligned IAM permission checks for permission registry and Discord role mapping routes with seeded permission names.
+- **Finance Integrity:** Locked money requests/accounts/cards during approvals and simulated charges, rejected transfers from empty source accounts, and preserved non-negative source balances. Added regression coverage for the insufficient-source case.
+- **Frontend:** Added a same-origin Next.js `/api/[...path]` proxy that signs backend requests with the internal user id from the NextAuth session. NextAuth sign-in now blocks unless backend upsert succeeds and stores `internalUserId` in the JWT/session. Finance pages now call same-origin `/api/*`, removed `localStorage` auth headers, fixed the requests `all` tab query, and filtered account-detail requests by source or destination account.
+- **CORS & Docs:** `CORS_ORIGINS` is now parsed as a comma-separated override, falling back to `NEXTAUTH_URL`; README API docs URL now points to `/api/docs`.
+- **Verification:** `uv run pytest -q` in `apps/api` passes (79/79). `git diff --check` is clean apart from Git line-ending warnings. `npm run typecheck --workspace @bnb/web` is blocked locally because dependencies are not installed and `tsc` is unavailable; the repo declares `bun@1.3.11`, but `bun` is not installed in this environment.
 ### 2026-06-20 (Later)
 
-**S24 — Full App End-to-End Audit & Live Testing:** Ran comprehensive test/debug/check across all 10 phases, including live API endpoint testing via ASGI transport.
+**S25 — Full App End-to-End Audit & Live Testing:** Ran comprehensive test/debug/check across all 10 phases, including live API endpoint testing via ASGI transport.
 
 **Bugs found & fixed:**
 1. **Missing `plugins/` directory** (referenced in Bun workspace but didn't exist) — created.
