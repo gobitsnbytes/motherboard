@@ -51,17 +51,25 @@ class EventBus:
             logger.info("EventBus disconnected from Redis.")
 
     async def _redis_listener(self):
+        import redis.exceptions
         while self.redis:
             try:
                 self._pubsub = self.redis.pubsub()
                 await self._pubsub.subscribe("motherboard_events")
-                async for message in self._pubsub.listen():
-                    if message["type"] == "message":
-                        try:
-                            data = json.loads(message["data"])
-                            await self._trigger_local(data["type"], data["payload"])
-                        except json.JSONDecodeError:
-                            logger.error("Failed to decode event message from Redis")
+                while self.redis:
+                    try:
+                        async for message in self._pubsub.listen():
+                            if message["type"] == "message":
+                                try:
+                                    data = json.loads(message["data"])
+                                    await self._trigger_local(data["type"], data["payload"])
+                                except json.JSONDecodeError:
+                                    logger.error("Failed to decode event message from Redis")
+                    except (redis.exceptions.TimeoutError, asyncio.TimeoutError):
+                        # Normal socket timeout due to inactivity. Ping to keep alive and continue listening.
+                        logger.debug("EventBus listener socket idle timeout. Pinging Redis...")
+                        if self.redis:
+                            await self.redis.ping()
             except asyncio.CancelledError:
                 break
             except Exception as e:

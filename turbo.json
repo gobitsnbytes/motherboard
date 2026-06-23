@@ -1,5 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "API_URL",
+    "API_INTERNAL_SECRET",
+    "DISCORD_CLIENT_ID",
+    "DISCORD_CLIENT_SECRET",
+    "AUTH_DISCORD_ID",
+    "AUTH_DISCORD_SECRET",
+    "NEXTAUTH_SECRET",
+    "NEXTAUTH_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
