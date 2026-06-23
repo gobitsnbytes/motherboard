@@ -23,10 +23,10 @@ apt-get update -y
 apt-get install -y python3.12 python3.12-venv python3.12-dev
 
 # 3. Install UV (Fast Python package manager)
-echo "--> Installing uv package manager..."
-curl -LsSf https://astral.sh/uv/install.sh | sh
-# Make uv available globally
-ln -sf /root/.local/bin/uv /usr/local/bin/uv
+echo "--> Installing uv package manager globally..."
+curl -LsSf https://astral.sh/uv/install.sh -o install_uv.sh
+INSTALL_DIR="/usr/local/bin" sh install_uv.sh
+rm install_uv.sh
 
 # 4. Create Swap File (512MB)
 # Crucial for a 300MB VPS to prevent Out-Of-Memory crashes during deploys
