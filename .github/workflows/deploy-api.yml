@@ -1,4 +1,4 @@
-name: Deploy FastAPI Backend
+name: CI/CD Pipeline
 
 on:
   push:
@@ -10,8 +10,45 @@ on:
       - '.github/workflows/deploy-api.yml'
 
 jobs:
+  test:
+    name: Run Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: bootstrap-actions/setup-uv@v1
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --project apps/api --frozen
+
+      - name: Run Pytest
+        env:
+          # If real secrets are added in GitHub, they will be loaded. Otherwise fallback to SQLite.
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          REDIS_URL: ${{ secrets.TEST_REDIS_URL }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID || 'mock_client_id' }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET || 'mock_client_secret' }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN || 'mock_bot_token' }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID || 'mock_guild_id' }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'mock_session_secret_32_bytes_long_secret_123' }}
+          API_INTERNAL_SECRET: ${{ secrets.API_INTERNAL_SECRET || 'mock_internal_secret' }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'mock_nextauth_secret' }}
+        run: |
+          uv run --project apps/api pytest
+
   deploy:
     name: Deploy to VPS
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
