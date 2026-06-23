@@ -52,6 +52,10 @@ uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
 
 # 3. Run database migrations
 echo "--> Running database migrations..."
+if [ -f "$APP_DIR/.env" ]; then
+    echo "--> Loading environment variables from .env..."
+    export $(grep -v '^#' "$APP_DIR/.env" | xargs)
+fi
 # Set path to include virtualenv bin
 export PATH="$API_DIR/.venv/bin:$PATH"
 (cd "$API_DIR" && alembic upgrade head) || rollback

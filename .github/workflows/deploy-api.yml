@@ -44,7 +44,7 @@ jobs:
           API_INTERNAL_SECRET: ${{ secrets.API_INTERNAL_SECRET || 'mock_internal_secret' }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'mock_nextauth_secret' }}
         run: |
-          uv run --project apps/api pytest
+          uv run --project apps/api python -m pytest
 
   deploy:
     name: Deploy to VPS
