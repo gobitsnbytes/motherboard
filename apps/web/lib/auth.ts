@@ -49,6 +49,8 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   providers: [
     Discord({
+      clientId: process.env.DISCORD_CLIENT_ID,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET,
       authorization: {
         params: {
           scope: "identify email guilds guilds.members.read",

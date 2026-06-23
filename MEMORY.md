@@ -206,6 +206,21 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - Integrated `python-dotenv` inside `apps/api/alembic/env.py` to automatically load environment variables (falling back to `/opt/bnb-api/.env` on the VPS) to avoid database connection failure if environment variables are not pre-exported.
   - Hardened `deploy/api/deploy.sh` to load and parse `.env` files using a robust `while-read` loop that handles spaces, quotes, and special characters cleanly (preventing ampersand and bracket failures in SMTP configurations).
 
+### 2026-06-23 (Later)
+
+**S28 — NextAuth Fix & Rigorous Live API Testing:**
+- **NextAuth Fix:** Explicitly passed `clientId` and `clientSecret` referencing `process.env.DISCORD_CLIENT_ID` and `process.env.DISCORD_CLIENT_SECRET` to the Discord provider options in [auth.ts](file:///d:/motherboard/apps/web/lib/auth.ts). This resolves the `client_id` being `"undefined"` as a string and returning the `"Value \"undefined\" is not snowflake"` error from Discord's API.
+- **Rigorous Live API Testing ([live_audit.py](file:///d:/motherboard/apps/api/live_audit.py)):**
+  - Created and executed a rigorous, self-contained auditing script targeting `https://api.gobitsnbytes.org`.
+  - Audited and passed tests for:
+    1. **Public endpoints:** `/health`, `/api/finance/health`, and `/api/finance/info` to ensure uptime and correct payload structures.
+    2. **OpenAPI definition:** `/api/openapi.json` to ensure valid spec formatting.
+    3. **IAM security gates:** `/api/users/`, `/api/groups/`, `/api/forks/`, `/api/iam/discord-roles`, `/api/finance/accounts`, `/api/sync/runs` to ensure missing, malformed, stale, or tampered HMAC signature requests get blocked with `401 Unauthorized` responses.
+    4. **CORS validation:** Verified that disallowed origins (like `https://evil.com`) do not receive CORS headers.
+- **Verification:**
+  - Ran `live_audit.py` showing all checks passed against the live environment.
+  - Ran the local test suite: **82/82 tests passed** (10.04s).
+
 
 
 
