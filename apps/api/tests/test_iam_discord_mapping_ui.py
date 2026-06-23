@@ -8,6 +8,7 @@ from app import routers
 from app.database import get_session
 from app.main import app
 from app.db.models import Grant, User
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -62,10 +63,9 @@ async def test_list_discord_roles_requires_permission(db_session: AsyncSession):
     db_session.add(user)
     await db_session.commit()
 
-    headers = {"X-User-Id": str(user.id)}
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/iam/discord-roles", headers=headers)
+        response = await request_as(ac, user.id, "GET", "/api/iam/discord-roles")
         assert response.status_code == 403
 
 
@@ -78,17 +78,16 @@ async def test_list_discord_roles_with_permission(db_session: AsyncSession, monk
     grant = Grant(
         principal_type="user",
         principal_id=user.id,
-        permission_key="iam.roles.sync",
+        permission_key="iam.role_mappings.read",
     )
     db_session.add(grant)
     await db_session.commit()
 
     monkeypatch.setattr(routers.iam, "httpx", type("DummyHttpx", (), {"AsyncClient": DummyAsyncClient}))
 
-    headers = {"X-User-Id": str(user.id)}
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/iam/discord-roles", headers=headers)
+        response = await request_as(ac, user.id, "GET", "/api/iam/discord-roles")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
@@ -101,7 +100,6 @@ async def test_upsert_discord_mapping_requires_permission(db_session: AsyncSessi
     db_session.add(user)
     await db_session.commit()
 
-    headers = {"X-User-Id": str(user.id)}
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
@@ -111,5 +109,5 @@ async def test_upsert_discord_mapping_requires_permission(db_session: AsyncSessi
             "sync_enabled": True,
             "priority": 1,
         }
-        response = await ac.put("/api/iam/discord-mappings", json=payload, headers=headers)
+        response = await request_as(ac, user.id, "PUT", "/api/iam/discord-mappings", json=payload)
         assert response.status_code == 403
