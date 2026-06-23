@@ -21,8 +21,9 @@ class EventBus:
                 self.redis = aioredis.from_url(
                     self.redis_url, 
                     decode_responses=True,
-                    health_check_interval=30,
-                    socket_keepalive=True
+                    health_check_interval=5,
+                    socket_keepalive=True,
+                    socket_timeout=60
                 )
                 await self.redis.ping()
                 self._pubsub_task = asyncio.create_task(self._redis_listener())
