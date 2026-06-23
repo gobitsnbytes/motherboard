@@ -178,3 +178,16 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - Frontend build: **17 routes, 0 errors** (3.0s)
 - Live API endpoints: **18/18 responding correctly** (auth-gated endpoints return proper 401/403)
 - Source files: All phases audited, 3 bugs fixed
+
+### 2026-06-23
+
+**S26 — VPS Deployment & CI/CD Pipeline Setup:**
+- **SSH & SSH Keys Verification:** Verified SSH access to the VPS (`161.118.162.166`) using the existing key. Confirmed `deploy` user is correctly configured.
+- **Setup Script Updates (`deploy/api/setup.sh`):**
+  - Switched the clone command to HTTPS (`https://github.com/gobitsnbytes/motherboard.git`) since cloning via SSH fails without a configured deploy key on GitHub.
+  - Improved the `authorized_keys` copying logic to prioritize copying the clean public key from `/home/ubuntu/.ssh/authorized_keys` (or filter out restricted root key warnings), resolving a lockout issue for the `deploy` user.
+- **Verification:**
+  - Manually fixed the `deploy` user's `authorized_keys` on the VPS to remove the root command restriction.
+  - Confirmed the `deploy` user can log in to the VPS via SSH.
+  - Ran the backend test suite: **82/82 tests passed** (15.92s).
+

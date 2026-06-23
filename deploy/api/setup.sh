@@ -50,12 +50,21 @@ if ! id -u deploy >/dev/null 2>&1; then
     usermod -aG sudo deploy
     # Enable passwordless sudo for deploy user for managing the bnb-api service
     echo "deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bnb-api, /usr/bin/systemctl reload caddy, /usr/bin/systemctl status bnb-api" >> /etc/sudoers.d/deploy
-    # Copy SSH authorized keys from root to deploy user
+    # Copy SSH authorized keys from ubuntu or root to deploy user
     mkdir -p /home/deploy/.ssh
-    if [ -f /root/.ssh/authorized_keys ]; then
-        cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
-        chown -R deploy:deploy /home/deploy/.ssh
-        chmod 700 /home/deploy/.ssh
+    if [ -f /home/ubuntu/.ssh/authorized_keys ]; then
+        cp /home/ubuntu/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+    elif [ -f /root/.ssh/authorized_keys ]; then
+        # Filter out warning prefixes if root key is restricted
+        if grep -q "Please login as the user" /root/.ssh/authorized_keys; then
+            grep -o "ssh-rsa .*" /root/.ssh/authorized_keys > /home/deploy/.ssh/authorized_keys || true
+        else
+            cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+        fi
+    fi
+    chown -R deploy:deploy /home/deploy/.ssh
+    chmod 700 /home/deploy/.ssh
+    if [ -f /home/deploy/.ssh/authorized_keys ]; then
         chmod 600 /home/deploy/.ssh/authorized_keys
     fi
 else
@@ -69,7 +78,7 @@ chown -R deploy:deploy /opt/bnb-api
 
 if [ ! -d /opt/bnb-api/.git ]; then
     echo "--> Cloning motherboard repository..."
-    sudo -u deploy git clone -b prod git@github.com:gobitsnbytes/motherboard.git /opt/bnb-api
+    sudo -u deploy git clone -b prod https://github.com/gobitsnbytes/motherboard.git /opt/bnb-api
 else
     echo "--> Repository already cloned. Fetching latest prod branch..."
     sudo -u deploy git -C /opt/bnb-api fetch origin prod
