@@ -10,8 +10,15 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
+
+# Load environment variables from .env files
+if os.path.exists("/opt/bnb-api/.env"):
+    load_dotenv("/opt/bnb-api/.env")
+else:
+    load_dotenv()
 
 # Import all ORM models so Alembic's autogenerate can detect them.
 # This must happen BEFORE accessing Base.metadata.

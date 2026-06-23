@@ -200,6 +200,12 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - Hardened `.github/workflows/deploy-api.yml` to call `bash /opt/bnb-api/deploy/api/deploy.sh` directly, removing execution-bit dependency on checkout.
 - **Verification:**
   - Verified local pytest run (82/82 green). Staged and committed files, pushed to `prod` branch.
+- **Versioning (v0.1.1):**
+  - Bumped version to `0.1.1` in `apps/api/pyproject.toml`, FastAPI configuration in `apps/api/app/main.py`, `apps/web/package.json`, and `packages/ui/package.json`. Synced and updated lockfiles.
+- **Alembic & Deploy script Env Hardening:**
+  - Integrated `python-dotenv` inside `apps/api/alembic/env.py` to automatically load environment variables (falling back to `/opt/bnb-api/.env` on the VPS) to avoid database connection failure if environment variables are not pre-exported.
+  - Hardened `deploy/api/deploy.sh` to load and parse `.env` files using a robust `while-read` loop that handles spaces, quotes, and special characters cleanly (preventing ampersand and bracket failures in SMTP configurations).
+
 
 
 

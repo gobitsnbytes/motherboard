@@ -54,7 +54,14 @@ uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
 echo "--> Running database migrations..."
 if [ -f "$APP_DIR/.env" ]; then
     echo "--> Loading environment variables from .env..."
-    export $(grep -v '^#' "$APP_DIR/.env" | xargs)
+    # Read line by line, split on first '=', strip outer quotes, and export safely
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ ! "$line" =~ ^# ]] && [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
+            key=$(echo "$line" | cut -d'=' -f1)
+            val=$(echo "$line" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            export "$key=$val" 2>/dev/null || true
+        fi
+    done < "$APP_DIR/.env"
 fi
 # Set path to include virtualenv bin
 export PATH="$API_DIR/.venv/bin:$PATH"
