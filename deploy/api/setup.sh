@@ -78,17 +78,17 @@ chown -R deploy:deploy /opt/bnb-api
 
 if [ ! -d /opt/bnb-api/.git ]; then
     echo "--> Cloning motherboard repository..."
-    sudo -u deploy git clone -b prod https://github.com/gobitsnbytes/motherboard.git /opt/bnb-api
+    su -s /bin/bash deploy -c "git clone -b prod https://github.com/gobitsnbytes/motherboard.git /opt/bnb-api"
 else
     echo "--> Repository already cloned. Fetching latest prod branch..."
-    sudo -u deploy git -C /opt/bnb-api fetch origin prod
-    sudo -u deploy git -C /opt/bnb-api reset --hard origin/prod
+    su -s /bin/bash deploy -c "git -C /opt/bnb-api fetch origin prod"
+    su -s /bin/bash deploy -c "git -C /opt/bnb-api reset --hard origin/prod"
 fi
 
 # 7. Setup Production Environment variables (.env)
 if [ ! -f /opt/bnb-api/.env ]; then
     echo "--> Generating production .env file from template..."
-    sudo -u deploy cp /opt/bnb-api/deploy/api/.env.production.example /opt/bnb-api/.env
+    cp /opt/bnb-api/deploy/api/.env.production.example /opt/bnb-api/.env
     
     # Generate secrets
     SESSION_SEC=$(openssl rand -hex 32)
@@ -96,9 +96,13 @@ if [ ! -f /opt/bnb-api/.env ]; then
     NEXTAUTH_SEC=$(openssl rand -hex 32)
     
     # Replace secrets in .env
-    sudo -u deploy sed -i "s/SESSION_SECRET=\"\"/SESSION_SECRET=\"$SESSION_SEC\"/" /opt/bnb-api/.env
-    sudo -u deploy sed -i "s/API_INTERNAL_SECRET=\"\"/API_INTERNAL_SECRET=\"$API_INTERNAL_SEC\"/" /opt/bnb-api/.env
-    sudo -u deploy sed -i "s/NEXTAUTH_SECRET=\"\"/NEXTAUTH_SECRET=\"$NEXTAUTH_SEC\"/" /opt/bnb-api/.env
+    sed -i "s/SESSION_SECRET=\"\"/SESSION_SECRET=\"$SESSION_SEC\"/" /opt/bnb-api/.env
+    sed -i "s/API_INTERNAL_SECRET=\"\"/API_INTERNAL_SECRET=\"$API_INTERNAL_SEC\"/" /opt/bnb-api/.env
+    sed -i "s/NEXTAUTH_SECRET=\"\"/NEXTAUTH_SECRET=\"$NEXTAUTH_SEC\"/" /opt/bnb-api/.env
+    
+    # Set permissions and ownership
+    chown deploy:deploy /opt/bnb-api/.env
+    chmod 600 /opt/bnb-api/.env
     
     echo "--> .env template created. PLEASE UPDATE /opt/bnb-api/.env WITH YOUR REAL CREDENTIALS (Redis URL)!"
 else
@@ -107,7 +111,8 @@ fi
 
 # 8. Sync Python Dependencies
 echo "--> Syncing Python dependencies using uv..."
-sudo -u deploy uv sync --project /opt/bnb-api/apps/api --frozen --no-dev --python python3.12
+su -s /bin/bash deploy -c "uv sync --project /opt/bnb-api/apps/api --frozen --no-dev --python python3.12"
+
 
 # 9. Configure Caddy (Reverse Proxy + Auto-TLS)
 echo "--> Installing Caddy server..."
