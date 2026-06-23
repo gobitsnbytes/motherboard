@@ -191,3 +191,12 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - Confirmed the `deploy` user can log in to the VPS via SSH.
   - Ran the backend test suite: **82/82 tests passed** (15.92s).
 
+**S27 — CI/CD Pipeline & Permissions Fixes:**
+- **CI/CD Pytest Configuration:**
+  - Fixed the backend test runner in `.github/workflows/deploy-api.yml` by adding `working-directory: apps/api` and running `uv run python -m pytest`. Running pytest inside `apps/api` ensures it discovers and loads `apps/api/pytest.ini` (`asyncio_mode = auto`), resolving `async def functions are not natively supported` failures.
+- **Script Executable Permissions:**
+  - Staged file mode changes (`100755` executable bit) for `deploy/api/deploy.sh` and `deploy/api/setup.sh` in the Git index using `git update-index --chmod=+x`. This ensures git checkout on the VPS automatically grants execute permissions to the shell scripts.
+- **Verification:**
+  - Verified local pytest run (82/82 green). Staged and committed files, pushed to `prod` branch.
+
+
