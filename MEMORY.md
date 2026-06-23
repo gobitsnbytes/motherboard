@@ -209,7 +209,9 @@ IAM PERMISSIONS: 403     CORS: 200/200
 ### 2026-06-23 (Later)
 
 **S28 — NextAuth Fix & Rigorous Live API Testing:**
-- **NextAuth Fix:** Explicitly passed `clientId` and `clientSecret` referencing `process.env.DISCORD_CLIENT_ID` and `process.env.DISCORD_CLIENT_SECRET` to the Discord provider options in [auth.ts](file:///d:/motherboard/apps/web/lib/auth.ts). This resolves the `client_id` being `"undefined"` as a string and returning the `"Value \"undefined\" is not snowflake"` error from Discord's API.
+- **NextAuth Fix:** Explicitly passed `clientId` and `clientSecret` referencing `process.env.DISCORD_CLIENT_ID` and `process.env.DISCORD_CLIENT_SECRET` to the Discord provider options in [auth.ts](file:///d:/motherboard/apps/web/lib/auth.ts). This resolves the `client_id` being `"undefined"` as a string and returning the `"Value \"undefined\" is not snowflake"` error from Discord's API. Supported fallbacks to default `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET` env variables and configured Turborepo `globalEnv` in [turbo.json](file:///d:/motherboard/turbo.json).
+- **Vercel Production Branch Git Config:** Created [vercel.json](file:///d:/motherboard/vercel.json) at the repository root to configure Vercel to treat the `prod` branch as the official Production Branch for automatic deployment.
+- **Redis Timeout Log Fix:** Patched [bus.py](file:///d:/motherboard/apps/api/app/events/bus.py) to gracefully catch `redis.exceptions.TimeoutError` and `asyncio.TimeoutError` from the Upstash Redis listener during inactive periods, pinging the connection and looping back cleanly without log pollution or connection churn.
 - **Rigorous Live API Testing ([live_audit.py](file:///d:/motherboard/apps/api/live_audit.py)):**
   - Created and executed a rigorous, self-contained auditing script targeting `https://api.gobitsnbytes.org`.
   - Audited and passed tests for:
