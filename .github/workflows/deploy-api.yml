@@ -23,7 +23,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install uv
-        uses: bootstrap-actions/setup-uv@v1
+        uses: astral-sh/setup-uv@v2
         with:
           enable-cache: true
 
