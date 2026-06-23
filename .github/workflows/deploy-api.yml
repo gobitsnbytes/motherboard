@@ -62,4 +62,4 @@ jobs:
           script_stop: true
           script: |
             echo "Starting deployment on VPS..."
-            /opt/bnb-api/deploy/api/deploy.sh
+            bash /opt/bnb-api/deploy/api/deploy.sh

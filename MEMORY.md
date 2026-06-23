@@ -194,9 +194,12 @@ IAM PERMISSIONS: 403     CORS: 200/200
 **S27 — CI/CD Pipeline & Permissions Fixes:**
 - **CI/CD Pytest Configuration:**
   - Fixed the backend test runner in `.github/workflows/deploy-api.yml` by adding `working-directory: apps/api` and running `uv run python -m pytest`. Running pytest inside `apps/api` ensures it discovers and loads `apps/api/pytest.ini` (`asyncio_mode = auto`), resolving `async def functions are not natively supported` failures.
-- **Script Executable Permissions:**
-  - Staged file mode changes (`100755` executable bit) for `deploy/api/deploy.sh` and `deploy/api/setup.sh` in the Git index using `git update-index --chmod=+x`. This ensures git checkout on the VPS automatically grants execute permissions to the shell scripts.
+- **Script Executable Permissions & VPS Workaround:**
+  - Staged file mode changes (`100755` executable bit) for `deploy/api/deploy.sh` and `deploy/api/setup.sh` in the Git index using `git update-index --chmod=+x`.
+  - Manually marked `deploy.sh` and `setup.sh` as executable on the VPS using SSH: `chmod +x /opt/bnb-api/deploy/api/*.sh`.
+  - Hardened `.github/workflows/deploy-api.yml` to call `bash /opt/bnb-api/deploy/api/deploy.sh` directly, removing execution-bit dependency on checkout.
 - **Verification:**
   - Verified local pytest run (82/82 green). Staged and committed files, pushed to `prod` branch.
+
 
 
