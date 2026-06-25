@@ -1080,6 +1080,34 @@ If you cannot determine a deadline for an action item, omit the deadline field."
 
 
 # ---------------------------------------------------------------------------
+# Public Endpoints (no auth required – used by Chrono booking portal)
+# ---------------------------------------------------------------------------
+
+@router.get("/public/hosts", response_model=List[UserAvailabilitySchema])
+async def list_public_hosts(db: DbSession):
+    """Return all users who have a booking link set. Public – no auth needed.
+    Used by the Chrono booking portal (cal.gobitsnbytes.org) to render host cards.
+    """
+    stmt = select(UserAvailability).where(UserAvailability.booking_link.isnot(None))
+    res = await db.execute(stmt)
+    hosts = res.scalars().all()
+    return [UserAvailabilitySchema.model_validate(h) for h in hosts]
+
+
+@router.get("/public/availability/{booking_link}", response_model=UserAvailabilitySchema)
+async def get_public_availability_by_link(booking_link: str, db: DbSession):
+    """Return a user's public availability profile by their booking link slug.
+    Public – no auth needed. Used by the Chrono booking flow.
+    """
+    stmt = select(UserAvailability).where(UserAvailability.booking_link == booking_link)
+    res = await db.execute(stmt)
+    avail = res.scalar_one_or_none()
+    if not avail:
+        raise HTTPException(status_code=404, detail="Booking link not found")
+    return UserAvailabilitySchema.model_validate(avail)
+
+
+# ---------------------------------------------------------------------------
 # Availability Endpoint
 # ---------------------------------------------------------------------------
 
