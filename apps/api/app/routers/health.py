@@ -5,12 +5,12 @@ import httpx
 from typing import Dict, Any
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.config import get_settings
 from app.dependencies import DbDep, CurrentUserDep
 from app.events import event_bus
-from app.db.models import SyncRun
+from app.db.models import SyncRun, Group, Permission, DiscordRoleMapping
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,21 @@ async def get_detailed_status(db: DbDep, current_user: CurrentUserDep) -> dict[s
     except Exception:
         pass
 
+    import os
+    env_name = os.environ.get("APP_ENV") or os.environ.get("NODE_ENV") or "development"
+    # Read version from config or standard constant
+    app_version = "0.1.1"
+
+    groups_count = 0
+    permissions_count = 0
+    role_mappings_count = 0
+    try:
+        groups_count = await db.scalar(select(func.count()).select_from(Group)) or 0
+        permissions_count = await db.scalar(select(func.count()).select_from(Permission)) or 0
+        role_mappings_count = await db.scalar(select(func.count()).select_from(DiscordRoleMapping)) or 0
+    except Exception as e:
+        logger.error("Failed to query counts for health status: %s", e)
+
     return {
         "status": "ok",
         "database": db_status,
@@ -119,5 +134,10 @@ async def get_detailed_status(db: DbDep, current_user: CurrentUserDep) -> dict[s
         "discord": discord_status,
         "sync": sync_status,
         "last_sync_at": last_sync_time,
+        "version": app_version,
+        "environment": env_name,
+        "groups_count": groups_count,
+        "permissions_count": permissions_count,
+        "role_mappings_count": role_mappings_count,
     }
 
