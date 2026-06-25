@@ -21,6 +21,9 @@ export function OverviewContent() {
     forks: 0,
     plugins: 0,
     apiStatus: "loading",
+    databaseStatus: "loading",
+    discordStatus: "loading",
+    syncStatus: "loading",
   });
   const [activity, setActivity] = useState<any[]>([]);
   const [forks, setForks] = useState<any[]>([]);
@@ -122,25 +125,28 @@ export function OverviewContent() {
 
               <div className="flex justify-between">
                 <span>Database</span>
-                <Badge>
-                  {/* // TODO: Replace with backend status endpoint */}
-                  Healthy
+                <Badge
+                  variant={stats.databaseStatus === "healthy" ? "success" : stats.databaseStatus === "loading" ? "neutral" : "danger"}
+                >
+                  {stats.databaseStatus === "healthy" ? "Healthy" : stats.databaseStatus === "loading" ? "Loading..." : "Degraded"}
                 </Badge>
               </div>
 
               <div className="flex justify-between">
                 <span>Discord</span>
-                <Badge>
-                  {/* // TODO: Replace with backend status endpoint */}
-                  Connected
+                <Badge
+                  variant={stats.discordStatus === "connected" ? "success" : stats.discordStatus === "unconfigured" ? "neutral" : stats.discordStatus === "loading" ? "neutral" : "danger"}
+                >
+                  {stats.discordStatus === "connected" ? "Connected" : stats.discordStatus === "unconfigured" ? "Unconfigured" : stats.discordStatus === "loading" ? "Loading..." : "Disconnected"}
                 </Badge>
               </div>
 
               <div className="flex justify-between">
                 <span>Sync</span>
-                <Badge>
-                  {/* // TODO: Replace with backend status endpoint */}
-                  Healthy
+                <Badge
+                  variant={stats.syncStatus === "healthy" ? "success" : stats.syncStatus === "syncing" ? "warning" : stats.syncStatus === "no_runs" ? "neutral" : stats.syncStatus === "loading" ? "neutral" : "danger"}
+                >
+                  {stats.syncStatus === "healthy" ? "Healthy" : stats.syncStatus === "syncing" ? "Syncing" : stats.syncStatus === "no_runs" ? "No Runs" : stats.syncStatus === "loading" ? "Loading..." : "Unhealthy"}
                 </Badge>
               </div>
             </div>
