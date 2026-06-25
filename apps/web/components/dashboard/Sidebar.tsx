@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,7 +11,25 @@ import {
   Settings,
   Menu,
   X,
+  Puzzle,
 } from "lucide-react";
+import * as Lucide from "lucide-react";
+
+interface UiPanel {
+  id: string;
+  title: string;
+  route_segment: string;
+  placement: string;
+  required_permission?: string;
+  icon: string;
+}
+
+interface ActivePlugin {
+  id: string;
+  name: string;
+  version: string;
+  ui_panels: UiPanel[];
+}
 
 const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
@@ -21,8 +39,30 @@ const navItems = [
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ] as const;
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function DynamicIcon({ name, className }: { name: string; className?: string }) {
+  const IconComponent = (Lucide as any)[name] || Puzzle;
+  return <IconComponent className={className} />;
+}
+
+function NavList({
+  plugins,
+  onNavigate,
+}: {
+  plugins: ActivePlugin[];
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
+
+  // Extract all sidebar panels from active plugins
+  const sidebarPanels = plugins.flatMap((plugin) =>
+    plugin.ui_panels
+      .filter((panel) => panel.placement === "sidebar")
+      .map((panel) => ({
+        ...panel,
+        pluginId: plugin.id,
+        href: `/dashboard/plugins/${plugin.id}/${panel.route_segment}`,
+      }))
+  );
 
   return (
     <nav className="flex flex-col gap-1">
@@ -34,10 +74,10 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
               isActive
-                ? "bg-main text-main-foreground border-2 border-border"
-                : "text-foreground hover:bg-main/10 hover:text-main-foreground border-2 border-transparent"
+                ? "bg-main text-main-foreground border-2 border-border shadow-light translate-x-[2px] translate-y-[2px]"
+                : "text-foreground hover:bg-main/10 hover:text-foreground border-2 border-transparent"
             }`}
           >
             <item.icon className="size-4 shrink-0" />
@@ -45,14 +85,56 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })}
+
+      {sidebarPanels.length > 0 && (
+        <>
+          <p className="mt-4 mb-2 px-3 text-[10px] uppercase tracking-widest text-muted-foreground font-heading">
+            Plugins
+          </p>
+          {sidebarPanels.map((panel) => {
+            const isActive =
+              pathname === panel.href || pathname.startsWith(panel.href + "/");
+            return (
+              <Link
+                key={panel.id}
+                href={panel.href}
+                onClick={onNavigate}
+                className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-main text-main-foreground border-2 border-border shadow-light translate-x-[2px] translate-y-[2px]"
+                    : "text-foreground hover:bg-main/10 hover:text-foreground border-2 border-transparent"
+                }`}
+              >
+                <DynamicIcon name={panel.icon} className="size-4 shrink-0" />
+                <span className="truncate">{panel.title}</span>
+              </Link>
+            );
+          })}
+        </>
+      )}
     </nav>
   );
 }
 
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-
+  const [plugins, setPlugins] = useState<ActivePlugin[]>([]);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
+
+  useEffect(() => {
+    async function fetchPlugins() {
+      try {
+        const res = await fetch("/api/plugins/active");
+        if (res.ok) {
+          const data = await res.json();
+          setPlugins(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch active plugins in sidebar:", err);
+      }
+    }
+    fetchPlugins();
+  }, []);
 
   return (
     <>
@@ -72,11 +154,11 @@ export default function Sidebar() {
           <p className="mb-2 px-3 text-[10px] uppercase tracking-widest text-muted-foreground font-heading">
             Navigation
           </p>
-          <NavList />
+          <NavList plugins={plugins} />
         </div>
         <div className="border-t-2 border-border p-3">
           <p className="text-[10px] text-muted-foreground font-heading uppercase tracking-widest text-center">
-            motherboard v0.1
+            motherboard v0.1.1
           </p>
         </div>
       </aside>
@@ -124,7 +206,7 @@ export default function Sidebar() {
               <p className="mb-2 px-3 text-[10px] uppercase tracking-widest text-muted-foreground font-heading">
                 Navigation
               </p>
-              <NavList onNavigate={closeMobile} />
+              <NavList plugins={plugins} onNavigate={closeMobile} />
             </div>
           </aside>
         </div>

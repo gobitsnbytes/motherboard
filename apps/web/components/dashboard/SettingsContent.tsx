@@ -132,7 +132,7 @@ export function SettingsContent() {
           <CardContent className="space-y-4">
             <div className="flex justify-between">
               <span>Version</span>
-              <span>0.1.0</span>
+              <span>0.1.1</span>
             </div>
 
             <div className="flex justify-between">

@@ -48,12 +48,12 @@ export function AuditContent() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Filtered Events</CardTitle>
+          </CardHeader>
+          <CardContent>
             <p className="text-3xl font-bold">
               {loading ? "..." : filteredLogs.length}
             </p>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">--</p>
           </CardContent>
         </Card>
       </div>

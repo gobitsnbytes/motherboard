@@ -4,7 +4,7 @@ export async function getDashboardStats() {
       fetch("/api/users"),
       fetch("/api/forks"),
       fetch("/api/plugins"),
-      fetch("/api/health"),
+      fetch("/api/health/status"),
     ]);
     
 
@@ -18,6 +18,9 @@ export async function getDashboardStats() {
     forks: forks.length,
     plugins: plugins.length,
     apiStatus: health.status,
+    databaseStatus: health.database,
+    discordStatus: health.discord,
+    syncStatus: health.sync,
   };
 
 }

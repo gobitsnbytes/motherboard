@@ -15,7 +15,7 @@
     },
     "apps/web": {
       "name": "@bnb/web",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@bnb/ui": "workspace:*",
         "framer-motion": "^12.40.0",
@@ -39,7 +39,7 @@
     },
     "packages/ui": {
       "name": "@bnb/ui",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@hookform/resolvers": "^5.4.0",
         "@radix-ui/react-accordion": "^1.2.14",
@@ -90,11 +90,22 @@
         "react-dom": "^19.0.0",
       },
     },
+    "plugins/sample_plugin": {
+      "name": "@bnb-plugins/sample_plugin",
+      "version": "0.1.0",
+      "dependencies": {
+        "lucide-react": "^1.20.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+    },
   },
   "packages": {
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
     "@auth/core": ["@auth/core@0.41.2", "", { "dependencies": { "@panva/hkdf": "^1.2.1", "jose": "^6.0.6", "oauth4webapi": "^3.3.0", "preact": "10.24.3", "preact-render-to-string": "6.5.11" }, "peerDependencies": { "@simplewebauthn/browser": "^9.0.1", "@simplewebauthn/server": "^9.0.2", "nodemailer": "^7.0.7" }, "optionalPeers": ["@simplewebauthn/browser", "@simplewebauthn/server", "nodemailer"] }, "sha512-Hx5MNBxN2fJTbJKGUKAA0wca43D0Akl3TvufY54Gn8lop7F+34vU1zA1pn0vQfIoVuLIrpfc2nkyjwIaPJMW7w=="],
+
+    "@bnb-plugins/sample_plugin": ["@bnb-plugins/sample_plugin@workspace:plugins/sample_plugin"],
 
     "@bnb/ui": ["@bnb/ui@workspace:packages/ui"],
 

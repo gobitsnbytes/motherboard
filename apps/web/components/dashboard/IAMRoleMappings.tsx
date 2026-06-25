@@ -34,12 +34,9 @@ interface DiscordRoleMapping {
 const API_BASE = "/api";
 
 function getHeaders() {
-  const uid = typeof window !== "undefined" ? localStorage.getItem("x-user-id") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (uid) {
-    headers["X-User-Id"] = uid;
-  }
-  return headers;
+  return {
+    "Content-Type": "application/json",
+  };
 }
 
 export default function IAMRoleMappings() {
