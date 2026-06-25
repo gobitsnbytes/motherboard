@@ -289,3 +289,14 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - Verified all 208 bot tests pass 100% green via `bunx jest` and all 93 Motherboard backend tests pass 100% green via `pytest`.
   - Created a detailed [walkthrough.md](file:///C:/Users/akshat/.gemini/antigravity/brain/17b7ba91-d25a-4d15-8f72-8ab6d2b45ea0/walkthrough.md) in the brain artifacts directory.
 
+**S35 — Chrono Portal Availability Fix:**
+- **Root Cause**: After the Neon PostgreSQL migration (S34), `user_availability` data lives exclusively in Motherboard's DB. The Chrono booking portal (`server.js`) was still querying the empty local SQLite, causing "Database Connection Failure" on every page load.
+- **Motherboard**: Added two new **public (no-auth)** endpoints to `app/routers/meetings.py`:
+  - `GET /api/meetings/public/hosts` — returns all users with a booking link set (used by Chrono landing page to render host cards).
+  - `GET /api/meetings/public/availability/{booking_link}` — looks up a single host by their booking slug (used by the Chrono booking flow).
+- **Discord Bot (`server.js`)**: Three endpoints updated to proxy through Motherboard in production, with SQLite fallback in test mode only:
+  - `GET /api/users` → proxies `GET /api/meetings/public/hosts`, enriches each record with Discord role metadata.
+  - `GET /api/availability/:bookingLink` → resolves host profiles from `GET /api/meetings/public/availability/:link`.
+  - `GET /dashboard` gate → falls back to Motherboard host list check if SQLite returns nothing.
+- **Auth Callback Sync**: When a contributor logs in via Discord OAuth, their profile is now fire-and-forget synced to Motherboard's `POST /api/meetings/availability` so the Chrono portal reflects them immediately.
+- **Tests**: All 208 bot tests and 93 Motherboard backend tests remain 100% green. Commits pushed: `dbc15d7` (bot `main`) and `a193405` (motherboard `prod`).
