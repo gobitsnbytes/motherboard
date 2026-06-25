@@ -10,7 +10,7 @@ APP_DIR="/opt/bnb-api"
 API_DIR="$APP_DIR/apps/api"
 SERVICE_NAME="bnb-api"
 HEALTH_CHECK_URL="http://127.0.0.1:8000/health"
-MAX_HEALTH_ATTEMPTS=6
+MAX_HEALTH_ATTEMPTS=15
 HEALTH_DELAY_SECONDS=5
 
 echo "=== Deployment Started: $(date) ==="
@@ -99,8 +99,8 @@ if [ $SUCCESS -ne 1 ]; then
     rollback
 fi
 
-# 6. Reload Caddy (in case Caddyfile changed)
-echo "--> Reloading Caddy configuration..."
-sudo systemctl reload caddy
+# 6. Reload Nginx (in case configuration changed)
+echo "--> Reloading Nginx configuration..."
+sudo systemctl reload nginx
 
 echo "=== Deployment Completed Successfully! ==="
