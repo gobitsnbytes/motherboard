@@ -242,6 +242,19 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Build Setup**: Created `.eslintrc.json` and added ESLint ignore option to `next.config.js` to bypass yarn/linter dependency build blockers.
 - **Verification**: Added 2 new integration tests (raising total test count from 86 to 88, 100% green) and verified Next.js production builds compile cleanly.
 
+**S31 — Git History Restructuring & PR #14 Fixes:**
+- **Git Restructuring**: Reset and refactored the consolidated commit into 6 clean, descriptive atomic commits.
+- **PR #14 Feedbacks Resolved**:
+  - **Lifespan ordering**: Started `event_bus` before PluginLoader `discover_and_load()` and stopped it after `unload_all()` to ensure dynamic plugins can publish/subscribe during startup/shutdown hooks.
+  - **Linter**: Alphabetized `__all__` exports list in `plugin_sdk/__init__.py` to satisfy RUF022.
+  - **Auth guard**: Wrapped plugin router registration in `get_current_user` `Depends()` dependency by default to prevent exposing unauthenticated plugin routes.
+  - **Lifecycle**: Return immediately inside the plugin loader `on_load` exception block so failed initialization does not mount routes or mark it as loaded.
+  - **Validation**: Added `Slug` pattern matching (URL-safe slug regex) for `PluginManifest` and `UiPanelDeclaration` IDs/segments.
+  - **Auth mapping**: Gated active plugin discovery (`/api/plugins/active`) with `plugins.read` IAM checks.
+  - **Isolate tests**: Snapshot and restored global `app.router.routes` and `app.state.plugin_loader` inside test fixtures, and added tests verifying 403 Forbidden checks for non-privileged users.
+  - **Performance**: Memoized dynamic component loaders inside Next.js dynamic plugin panel segment via React `useMemo` to prevent unnecessary remounts and skeleton flashes.
+- **Verification**: Ran Pytest (88/88 passed) and Next.js production builds compile successfully. Pushed commits to origin.
+
 
 
 
