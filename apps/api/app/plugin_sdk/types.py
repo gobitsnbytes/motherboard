@@ -1,7 +1,9 @@
-from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional
+from typing import Annotated, Any, Callable, Coroutine, Dict, List, Literal, Optional
 from fastapi import APIRouter, FastAPI
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+
+Slug = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]*$")]
 
 
 class PluginContext(BaseModel):
@@ -20,9 +22,9 @@ class PermissionDeclaration(BaseModel):
 
 
 class UiPanelDeclaration(BaseModel):
-    id: str
+    id: Slug
     title: str
-    route_segment: str
+    route_segment: Slug
     placement: Literal["sidebar", "modal", "embedded"]
     required_permission: Optional[str] = None
     icon: str
@@ -31,7 +33,7 @@ class UiPanelDeclaration(BaseModel):
 class PluginManifest(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: str
+    id: Slug
     name: str
     version: str
     description: Optional[str] = None

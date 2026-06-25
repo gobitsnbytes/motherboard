@@ -108,14 +108,7 @@ class PluginLoader:
 
         # 3. Mount routes and call startup hooks if enabled
         if is_enabled:
-            logger.info(f"Plugin {manifest.id} is enabled. Mounting router and running on_load...")
-            if manifest.router:
-                self.app.include_router(
-                    manifest.router,
-                    prefix=f"/api/plugins/{manifest.id}",
-                    tags=[f"plugin:{manifest.id}"]
-                )
-
+            logger.info(f"Plugin {manifest.id} is enabled. Running on_load and mounting router...")
             if manifest.on_load:
                 # Open a new session for the on_load context
                 async with self.session_factory() as session:
@@ -131,6 +124,17 @@ class PluginLoader:
                     except Exception as e:
                         logger.exception(f"Error executing on_load for plugin {manifest.id}: {e}")
                         await session.rollback()
+                        return
+
+            if manifest.router:
+                from fastapi import Depends
+                from app.dependencies import get_current_user
+                self.app.include_router(
+                    manifest.router,
+                    prefix=f"/api/plugins/{manifest.id}",
+                    tags=[f"plugin:{manifest.id}"],
+                    dependencies=[Depends(get_current_user)]
+                )
 
             self.loaded_plugins[manifest.id] = manifest
             logger.info(f"Plugin {manifest.id} loaded successfully.")

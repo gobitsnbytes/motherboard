@@ -7,9 +7,9 @@ from app.plugin_sdk.types import (
 from app.plugin_sdk.loader import PluginLoader
 
 __all__ = [
-    "PluginManifest",
-    "PluginContext",
     "PermissionDeclaration",
-    "UiPanelDeclaration",
+    "PluginContext",
     "PluginLoader",
+    "PluginManifest",
+    "UiPanelDeclaration",
 ]

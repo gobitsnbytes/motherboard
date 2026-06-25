@@ -62,6 +62,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     async with session_factory() as session:
         await run_seeds(session)
 
+    # Start the event bus so that plugins can publish/subscribe during on_load
+    await event_bus.start(settings.redis_url)
+
     # Initialize and run dynamic PluginLoader
     from app.plugin_sdk.loader import PluginLoader
     plugin_loader = PluginLoader(application, session_factory)
@@ -77,21 +80,21 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             bot_token=settings.discord_bot_token,
         )
 
-    await event_bus.start(settings.redis_url)
     logger.info("bnb-api is ready.")
     yield
 
     # Shutdown lifecycle
-    await event_bus.stop()
-
     # Stop sync scheduler if enabled
     if settings.enable_sync_scheduler:
         from app.provisioning.scheduler import stop_scheduler
         await stop_scheduler()
 
-    # Unload plugins and trigger their on_unload hooks
+    # Unload plugins and trigger their on_unload hooks BEFORE stopping event_bus
     if hasattr(application.state, "plugin_loader"):
         await application.state.plugin_loader.unload_all()
+
+    # Stop the event bus after plugins have unloaded
+    await event_bus.stop()
 
     # Dispose the engine connection pool
     await get_engine().dispose()

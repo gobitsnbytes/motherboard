@@ -23,9 +23,11 @@ async def list_plugins(db: DbSession, current_user: CurrentUserDep) -> list[Plug
 @router.get("/active", response_model=list[ActivePluginOut])
 async def get_active_plugins(
     request: Request,
+    db: DbSession,
     current_user: CurrentUserDep,
 ) -> list[dict[str, Any]]:
     """Return all currently loaded active plugins and their UI panel declarations."""
+    await require_permission(db, current_user, "plugins.read")
     loader = getattr(request.app.state, "plugin_loader", None)
     if not loader:
         return []
