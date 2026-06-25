@@ -268,3 +268,10 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - Pushed commits to `feat/complete-motherboard` and merged/pushed into `prod`.
   - CI/CD Pipeline succeeded. VPS deployment successfully completed.
   - Public endpoint `https://api.gobitsnbytes.org/health` and readiness checks `/health/ready` verified and active (`200 OK` / `healthy`).
+
+**S33 — Dynamic Settings Dashboard & Danger Zone Integration:**
+- **Developer Privilege Elevation**: Set `is_super_admin = True` on developers' accounts (`Aero` and `Clushed?`) directly in the production Neon PostgreSQL database, resolving the 403 Forbidden blocking issues on IAM and Audit log pages.
+- **Dynamic Status**: Extended the backend `/api/health/status` endpoint to report version, environment, and database model counts (groups, permissions, role mappings).
+- **Admin Actions Router**: Implemented a new backend `admin.py` router with endpoints for resetting Redis cache, rebuilding core/plugin permissions from seed data, and clearing sync history. Registered and tested it with 5 new integration tests (93/93 passing 100% green).
+- **Settings Component Refactor**: Updated Next.js `SettingsContent.tsx` to dynamically query status on mount, formatting sync timers, counts, and health flags, and enabling functional Danger Zone buttons with action loading overlays and confirmation alerts.
+- **Verification**: Verified zero type-checking errors and verified that Next.js production builds successfully compile. Made descriptive atomic commits for backend and frontend changes.
