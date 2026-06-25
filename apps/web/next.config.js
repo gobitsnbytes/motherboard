@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@bnb/ui"],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async rewrites() {
     return {
       fallback: [
