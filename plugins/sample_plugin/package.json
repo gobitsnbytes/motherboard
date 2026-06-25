@@ -1,0 +1,11 @@
+{
+  "name": "@bnb-plugins/sample_plugin",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./ui/index.tsx",
+  "dependencies": {
+    "lucide-react": "^1.20.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

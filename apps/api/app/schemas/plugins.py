@@ -22,3 +22,21 @@ class PluginOut(BaseModel):
 class PluginUpdate(BaseModel):
     is_enabled: bool | None = None
     config: dict[str, Any] | None = None
+
+
+class UiPanelOut(BaseModel):
+    id: str
+    title: str
+    route_segment: str
+    placement: str
+    required_permission: str | None = None
+    icon: str
+
+
+class ActivePluginOut(BaseModel):
+    id: str
+    name: str
+    version: str
+    description: str | None = None
+    ui_panels: list[UiPanelOut] = []
+

@@ -58,17 +58,45 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     logger.info("Migrations complete.")
 
     # Seed reference data
-    async with get_sessionmaker()() as session:
+    session_factory = get_sessionmaker()
+    async with session_factory() as session:
         await run_seeds(session)
+
+    # Initialize and run dynamic PluginLoader
+    from app.plugin_sdk.loader import PluginLoader
+    plugin_loader = PluginLoader(application, session_factory)
+    application.state.plugin_loader = plugin_loader
+    await plugin_loader.discover_and_load()
+
+    # Start periodic Discord sync scheduler if enabled
+    if settings.enable_sync_scheduler:
+        from app.provisioning.scheduler import start_scheduler
+        await start_scheduler(
+            interval_minutes=settings.sync_interval_minutes,
+            guild_id=settings.discord_guild_id,
+            bot_token=settings.discord_bot_token,
+        )
 
     await event_bus.start(settings.redis_url)
     logger.info("bnb-api is ready.")
     yield
 
+    # Shutdown lifecycle
     await event_bus.stop()
-    # Shutdown — dispose the engine connection pool
+
+    # Stop sync scheduler if enabled
+    if settings.enable_sync_scheduler:
+        from app.provisioning.scheduler import stop_scheduler
+        await stop_scheduler()
+
+    # Unload plugins and trigger their on_unload hooks
+    if hasattr(application.state, "plugin_loader"):
+        await application.state.plugin_loader.unload_all()
+
+    # Dispose the engine connection pool
     await get_engine().dispose()
     logger.info("bnb-api shut down cleanly.")
+
 
 
 def create_app() -> FastAPI:
