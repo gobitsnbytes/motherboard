@@ -29,6 +29,18 @@ class Settings(BaseSettings):
     # RazorpayX API key — optional until real banking integration is wired
     razorpayx_api_key: str | None = Field(default=None, validation_alias="RAZORPAYX_API_KEY")
 
+    # Gemini API settings
+    gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-2.5-flash", validation_alias="GEMINI_MODEL")
+
+    # SMTP Mailer settings
+    smtp_host: str | None = Field(default=None, validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_user: str | None = Field(default=None, validation_alias="SMTP_USER")
+    smtp_pass: str | None = Field(default=None, validation_alias="SMTP_PASS")
+    smtp_from: str = Field(default="hello@gobitsnbytes.org", validation_alias="SMTP_FROM")
+
+
     @property
     def allowed_cors_origins(self) -> list[str]:
         origins = [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

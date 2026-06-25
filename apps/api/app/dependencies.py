@@ -97,13 +97,43 @@ async def get_current_user(
             detail="Invalid internal authentication signature",
         )
 
-    try:
-        user_uuid = uuid.UUID(x_internal_user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid internal user id format"
-        )
+    user_uuid = None
+    if x_internal_user_id in ("system", "discord_bot"):
+        from sqlalchemy import select
+        from app.db.models import User
+        res = await db.execute(select(User).where(User.is_super_admin == True).limit(1))
+        sys_user = res.scalar_one_or_none()
+        if sys_user:
+            user_uuid = sys_user.id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No super admin user found to bind system context"
+            )
+    else:
+        try:
+            user_uuid = uuid.UUID(x_internal_user_id)
+        except ValueError:
+            # Try to resolve via Discord Account ID if it is a digit-only snowflake
+            if x_internal_user_id.isdigit():
+                from sqlalchemy import select
+                from app.db.models import DiscordAccount
+                res = await db.execute(select(DiscordAccount).where(DiscordAccount.discord_id == x_internal_user_id))
+                acc = res.scalar_one_or_none()
+                if acc:
+                    user_uuid = acc.user_id
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=f"No local user found linked to Discord ID: {x_internal_user_id}"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid internal user id format"
+                )
+
+
     try:
         return await resolve_principal(db, user_uuid)
     except ValueError as e:
@@ -111,6 +141,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+
 
 CurrentUserDep = Annotated[ResolvedPrincipal, Depends(get_current_user)]
 

@@ -19,6 +19,8 @@ dependencies = [
   "pytest>=9.1.0",
   "pytest-asyncio>=1.4.0",
   "aiosqlite>=0.20.0",
+  "google-genai>=2.10.0",
+  "python-multipart>=0.0.32",
 ]
 
 [tool.fastapi]

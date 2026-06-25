@@ -275,3 +275,17 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Admin Actions Router**: Implemented a new backend `admin.py` router with endpoints for resetting Redis cache, rebuilding core/plugin permissions from seed data, and clearing sync history. Registered and tested it with 5 new integration tests (93/93 passing 100% green).
 - **Settings Component Refactor**: Updated Next.js `SettingsContent.tsx` to dynamically query status on mount, formatting sync timers, counts, and health flags, and enabling functional Danger Zone buttons with action loading overlays and confirmation alerts.
 - **Verification**: Verified zero type-checking errors and verified that Next.js production builds successfully compile. Made descriptive atomic commits for backend and frontend changes.
+
+### 2026-06-26
+
+**S34 — Motherboard Operations & Discord Bot Clerk Integration:**
+- **Discord Bot Clerk Refactoring**: Refactored the Discord bot commands `/meet-schedule`, `/meet-start`, `/meet-stop` to proxy all operations (meetings, calendar, scheduling, teams, handling, transcript handling) to Motherboard FastAPI APIs via secure signed HMAC requests (`callMotherboard`).
+- **Audio Transcription Offload**: Removed direct `@google/genai` dependency and local timeline coalescing from the bot, shifting raw meeting audio uploads entirely to Motherboard's `/api/meetings/{id}/transcribe` endpoint.
+- **Database Consolidation**: Eliminated direct database insertions or remote Turso/SQLite queries in production, utilizing only Notion registries and Motherboard Neon PostgreSQL for storage.
+- **Test Suite Modernization**:
+  - Cleaned up obsolete local transcription tests.
+  - Setup callMotherboard mocks in `/meet-schedule`, `/meet-start`, `/meet-stop` commands inside the Discord bot test suite (`tests/meetings.test.js`), updating the local SQLite test DB during mock executions to maintain correct state validation.
+  - Addressed Bun test runner module cache mock pollution by restructuring `jest.mock()` and `require()` ordering across all test files.
+  - Verified all 208 bot tests pass 100% green via `bunx jest` and all 93 Motherboard backend tests pass 100% green via `pytest`.
+  - Created a detailed [walkthrough.md](file:///C:/Users/akshat/.gemini/antigravity/brain/17b7ba91-d25a-4d15-8f72-8ab6d2b45ea0/walkthrough.md) in the brain artifacts directory.
+

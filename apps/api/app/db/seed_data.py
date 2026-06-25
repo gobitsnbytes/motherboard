@@ -171,6 +171,9 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
     {"key": "finance.requests.create", "description": "Submit a money request from pool or another account."},
     {"key": "finance.requests.approve", "description": "Approve or reject pending money requests."},
     {"key": "finance.admin", "description": "Full finance admin access — supersedes all individual finance permissions."},
+    # --- Meetings & Transcription ---
+    {"key": "meetings.read", "description": "View scheduled meetings, transcripts, and preferences."},
+    {"key": "meetings.write", "description": "Schedule, reschedule, start, stop, and configure meetings."},
 ]
 
 

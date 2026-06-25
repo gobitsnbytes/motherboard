@@ -870,5 +870,215 @@ class VirtualTransaction(Base):
         "VirtualAccount", back_populates="credits", foreign_keys=[destination_account_id]
     )
 
+
+# ---------------------------------------------------------------------------
+# Discord Bot Tables
+# ---------------------------------------------------------------------------
+
+class BotMeeting(Base):
+    __tablename__ = "meetings"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scheduled_time: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    location_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    location_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    temp_channel_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False)
+    creator_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    calcom_booking_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    calcom_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    end_time: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    external_emails: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recording_status: Mapped[str] = mapped_column(String(50), default="none", server_default="none", nullable=False)
+    meet_code: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
+    booked_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    scope: Mapped[str] = mapped_column(String(50), default="invite", server_default="invite", nullable=False)
+    activated_at: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+
+class UserAvailability(Base):
+    __tablename__ = "user_availability"
+
+    discord_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    username: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    timezone: Mapped[str] = mapped_column(String(100), default="Asia/Kolkata", server_default="Asia/Kolkata", nullable=False)
+    weekly_hours: Mapped[str | None] = mapped_column(Text, nullable=True)
+    booking_link: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calcom_event_type_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    associated_role_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class PendingNotionProfile(Base):
+    __tablename__ = "pending_notion_profiles"
+
+    discord_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    city: Mapped[str] = mapped_column(String(100), primary_key=True)
+    assigned_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_reminded_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", server_default="pending", nullable=False)
+
+
+class MeetingEmailPreference(Base):
+    __tablename__ = "meeting_email_preferences"
+
+    discord_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    notify_on_invite: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    notify_on_reminder: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    updated_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class WebSession(Base):
+    __tablename__ = "web_sessions"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    username: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    expires_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class BotJobRun(Base):
+    __tablename__ = "bot_job_runs"
+
+    job_name: Mapped[str] = mapped_column(String(255), primary_key=True)
+    period_key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    ran_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class MeetingAttendee(Base):
+    __tablename__ = "meeting_attendees"
+
+    meeting_id: Mapped[str] = mapped_column(String(255), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
+    attendee_type: Mapped[str] = mapped_column(String(100), primary_key=True)
+    discord_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+
+
+class MeetingReminderSent(Base):
+    __tablename__ = "meeting_reminders_sent"
+
+    meeting_id: Mapped[str] = mapped_column(String(255), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
+    reminder_type: Mapped[str] = mapped_column(String(100), primary_key=True)
+    sent_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class MeetingAttendancePing(Base):
+    __tablename__ = "meeting_attendance_pings"
+
+    meeting_id: Mapped[str] = mapped_column(String(255), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    last_ping_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class MeetingTranscript(Base):
+    __tablename__ = "meeting_transcripts"
+
+    meeting_id: Mapped[str] = mapped_column(String(255), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    key_decisions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_items: Mapped[str | None] = mapped_column(Text, nullable=True)
+    full_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    timestamped_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vc_text_messages: Mapped[str | None] = mapped_column(Text, nullable=True)
+    audio_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    speaker_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    processed_at: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class MeetingRescheduleHistory(Base):
+    __tablename__ = "meeting_reschedule_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    meeting_id: Mapped[str] = mapped_column(String(255), ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
+    old_scheduled_time: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    old_end_time: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    new_scheduled_time: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    new_end_time: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    rescheduled_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    rescheduled_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    endpoint: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    p256dh: Mapped[str] = mapped_column(Text, nullable=False)
+    auth: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class ActionItem(Base):
+    __tablename__ = "action_items"
+    __table_args__ = (
+        Index("idx_action_items_discord_status", "discord_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    meeting_id: Mapped[str] = mapped_column(String(255), ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
+    assignee: Mapped[str] = mapped_column(String(255), nullable=False)
+    discord_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    task: Mapped[str] = mapped_column(Text, nullable=False)
+    deadline: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="pending", server_default="pending", nullable=False)
+    notified_at: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class TeamMemberCache(Base):
+    __tablename__ = "team_members"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    fork_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    discord_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    joined_date: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class EventCache(Base):
+    __tablename__ = "events"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    fork_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    date: Mapped[str] = mapped_column(String(100), nullable=False)
+    type: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_attendees: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    actual_attendees: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class ReportCache(Base):
+    __tablename__ = "reports"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    fork_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    type: Mapped[str] = mapped_column(String(100), nullable=False)
+    submitted_date: Mapped[str] = mapped_column(String(100), nullable=False)
+    attachment_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class BotSetting(Base):
+    __tablename__ = "bot_settings"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    val: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
     def __repr__(self) -> str:
         return f"<VirtualTransaction id={self.id} amount={self.amount_paise} type={self.reference_type!r}>"
