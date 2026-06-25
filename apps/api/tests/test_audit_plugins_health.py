@@ -147,3 +147,30 @@ async def test_plugin_registry_endpoints(db_session: AsyncSession, super_admin: 
         # Update nonexistent plugin (404)
         response = await request_as(ac, super_admin.id, "PATCH", "/api/plugins/nonexistent.id", json=payload)
         assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_health_ready():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get("/health/ready")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["database"] == "healthy"
+        assert data["redis"] == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_detailed_status(super_admin: User):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await request_as(ac, super_admin.id, "GET", "/api/health/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "database" in data
+        assert "redis" in data
+        assert "discord" in data
+        assert "sync" in data
+
