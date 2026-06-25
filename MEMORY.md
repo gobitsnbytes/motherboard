@@ -255,7 +255,16 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - **Performance**: Memoized dynamic component loaders inside Next.js dynamic plugin panel segment via React `useMemo` to prevent unnecessary remounts and skeleton flashes.
 - **Verification**: Ran Pytest (88/88 passed) and Next.js production builds compile successfully. Pushed commits to origin.
 
+### 2026-06-25 (Later)
 
-
-
-
+**S32 — Nginx Web Server Migration, SSL Setup & Deployment Timeout Fixes:**
+- **Nginx Migration**: Configured Nginx site configuration block for `api.gobitsnbytes.org` on the VPS to reverse proxy to `http://localhost:8000`, resolving port conflicts with other Nginx-managed subdomains (`cal.`, `mail.`).
+- **SSL Provisioning**: Ran Certbot's Nginx plugin on the VPS to obtain and install a valid Let's Encrypt SSL certificate for `api.gobitsnbytes.org`, resolving the SSL principal verification error (`SEC_E_WRONG_PRINCIPAL`) and fixing the Next.js login HTTP 500 error.
+- **Deploy Script Timeout Fixes**:
+  - Increased `MAX_HEALTH_ATTEMPTS` to `15` (75 seconds total wait window) inside `deploy.sh` to allow the slow ASGI startup lifespan (migrations, seeds, Upstash Redis connection) to complete without triggering rollbacks.
+  - Replaced Caddy reload command with Nginx reload command.
+  - Updated `setup.sh` and VPS sudoers configuration to support Nginx reload/status permissions instead of Caddy.
+- **Verification**:
+  - Pushed commits to `feat/complete-motherboard` and merged/pushed into `prod`.
+  - CI/CD Pipeline succeeded. VPS deployment successfully completed.
+  - Public endpoint `https://api.gobitsnbytes.org/health` and readiness checks `/health/ready` verified and active (`200 OK` / `healthy`).
