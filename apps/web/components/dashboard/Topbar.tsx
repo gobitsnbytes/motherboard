@@ -2,19 +2,13 @@
 
 import React from "react";
 import { LogOut } from "lucide-react";
-import { signOut } from "next-auth/react";
-
-// TODO: Replace with real session data from backend auth
-const MOCK_USER = {
-  name: "Akshat",
-  email: "akshat@gobitsnbytes.org",
-  image: null,
-};
+import { signOut, useSession } from "next-auth/react";
 
 export default function Topbar() {
-  const user = MOCK_USER;
+  const { data: session } = useSession();
+  const user = session?.user;
 
-  const displayName = user.name ?? user.email?.split("@")[0] ?? "User";
+  const displayName = user?.name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName
     .split(" ")
     .map((w) => w[0])
@@ -27,7 +21,7 @@ export default function Topbar() {
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <div className="relative flex size-8 shrink-0 overflow-hidden rounded-full border-2 border-border">
-          {user.image ? (
+          {user?.image ? (
             <img
               src={user.image}
               alt={displayName}
