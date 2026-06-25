@@ -49,7 +49,7 @@ if ! id -u deploy >/dev/null 2>&1; then
     useradd -m -s /bin/bash deploy
     usermod -aG sudo deploy
     # Enable passwordless sudo for deploy user for managing the bnb-api service
-    echo "deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bnb-api, /usr/bin/systemctl reload caddy, /usr/bin/systemctl status bnb-api" >> /etc/sudoers.d/deploy
+    echo "deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bnb-api, /usr/bin/systemctl reload nginx, /usr/bin/systemctl status bnb-api" >> /etc/sudoers.d/deploy
     # Copy SSH authorized keys from ubuntu or root to deploy user
     mkdir -p /home/deploy/.ssh
     if [ -f /home/ubuntu/.ssh/authorized_keys ]; then
@@ -114,17 +114,20 @@ echo "--> Syncing Python dependencies using uv..."
 su -s /bin/bash deploy -c "uv sync --project /opt/bnb-api/apps/api --frozen --no-dev --python python3.12"
 
 
-# 9. Configure Caddy (Reverse Proxy + Auto-TLS)
-echo "--> Installing Caddy server..."
-apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-apt-get update -y
-apt-get install -y caddy
+# 9. Configure Nginx (Reverse Proxy + certbot SSL)
+echo "--> Installing Nginx and Certbot..."
+apt-get install -y nginx certbot python3-certbot-nginx
 
-echo "--> Configuring Caddyfile..."
-cp /opt/bnb-api/deploy/api/Caddyfile /etc/caddy/Caddyfile
-systemctl restart caddy
+echo "--> Configuring Nginx site for api.gobitsnbytes.org..."
+cp /opt/bnb-api/deploy/api/nginx.conf /etc/nginx/sites-available/api.gobitsnbytes.org
+ln -sf /etc/nginx/sites-available/api.gobitsnbytes.org /etc/nginx/sites-enabled/api.gobitsnbytes.org
+
+# Test configuration and restart nginx
+nginx -t
+systemctl restart nginx
+
+echo "--> Generating SSL certificate..."
+certbot --nginx -d api.gobitsnbytes.org --non-interactive --agree-tos -m gobitsnbytes@gmail.com || echo "Certbot failed, please run manually."
 
 # 10. Configure Systemd Service
 echo "--> Setting up systemd service..."
