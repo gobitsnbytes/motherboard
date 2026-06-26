@@ -322,4 +322,11 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Listener Client Fallback (`lib/voiceRecorder.js`)**: Wrapped the listener client channel resolution inside a validator to only overwrite the target voice channel when the listener bot client successfully resolves the channel. If it returns null, it falls back to the main bot's voice channel, preventing null property exceptions and joining crashes.
 - **Verification**: Ran the bot test suite verifying all 210 test assertions pass 100% green.
 
+### 2026-06-26 (Later Still)
+
+**S39 — Robust Meeting ID Display & Safe 404 Resolution:**
+- **Graceful Not-Found Handling (`commands/meet-start.js` & `commands/meet-stop.js`)**: Replaced direct API fetch calls to Motherboard with `meetingsDb.getMeeting(meetingId)`. This catches `404 Meeting not found` errors gracefully and returns a descriptive, user-friendly message to the user instead of throwing a generic `SYSTEM_FAILURE`.
+- **Visible Meeting IDs**: Added the `meeting.id` to the scheduled meeting confirmation embeds (`commands/meet-schedule.js`), start success command outputs (`commands/meet-start.js`), and the events channel live commencement embeds (`lib/meetingsHelper.js`).
+
+
 
