@@ -104,12 +104,6 @@ varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vWorldPosition;
 
-float hash(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-}
-
 // Faked "Environment Map" for the glass to refract. 
 // Adding invisible softboxes to the mathematical space gives the glass
 // high-contrast edges to bend, making it look incredibly realistic.
@@ -127,14 +121,6 @@ vec3 getEnvironment(vec2 uv) {
     // Faked Softbox Light 2 (Cool, Bottom Left)
     float light2 = smoothstep(0.4, 0.0, length(vec2((uv.x - 0.2) * 2.0, uv.y - 0.2)));
     color += vec3(0.02, 0.05, 0.1) * light2;
-    
-    // Procedural Stars
-    float star = hash(uv * uResolution);
-    if(star > 0.999) {
-        float brightness = (star - 0.999) * 800.0;
-        float flicker = sin(uTime * 2.0 + star * 100.0) * 0.5 + 0.5;
-        color += vec3(1.0, 0.9, 0.8) * brightness * flicker;
-    }
     
     return color;
 }
