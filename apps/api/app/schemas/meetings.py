@@ -141,7 +141,7 @@ class MeetingEmailPreferenceSchema(BaseModel):
     email: str
     notify_on_invite: int = 1
     notify_on_reminder: int = 1
-    updated_at: int
+    updated_at: int | None = None
 
 
 class MeetingEmailPreferenceUpdate(BaseModel):
