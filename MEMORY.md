@@ -300,3 +300,9 @@ IAM PERMISSIONS: 403     CORS: 200/200
   - `GET /dashboard` gate → falls back to Motherboard host list check if SQLite returns nothing.
 - **Auth Callback Sync**: When a contributor logs in via Discord OAuth, their profile is now fire-and-forget synced to Motherboard's `POST /api/meetings/availability` so the Chrono portal reflects them immediately.
 - **Tests**: All 208 bot tests and 93 Motherboard backend tests remain 100% green. Commits pushed: `dbc15d7` (bot `main`) and `a193405` (motherboard `prod`).
+
+**S36 — Discord Bot Test Hardening & DB Detection:**
+- **Test Suite Hardening**: Fixed sequential test runner leakages/pollution in Bun by refactoring `tests/auth.test.js`, `tests/forksInfo.test.js`, `tests/reportView.test.js`, `tests/channelSync.test.js`, and `tests/adminAddLead.test.js`. Replaced global `jest.mock('../lib/notion')` module-cache overrides with clean, isolated `jest.spyOn()` mocks inside `beforeEach` and added corresponding `jest.restoreAllMocks()` in `afterAll`/`afterEach`.
+- **Database Type Detection**: Updated `/ping` slash command in `commands/ping.js` to correctly detect and report `PostgreSQL` in production when `usePostgres` is active.
+- **Verification**: Verified that all 208 test cases in the Discord Bot test suite pass 100% green sequentially without any errors or leakage.
+
