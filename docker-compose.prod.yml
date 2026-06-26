@@ -22,6 +22,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://bnb:${POSTGRES_PASSWORD:-changeme}@postgres:5432/motherboard
       API_URL: http://api:8000
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - postgres
       - redis

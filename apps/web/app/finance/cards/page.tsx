@@ -54,8 +54,8 @@ export default function CardsPage() {
         setSimSuccess(false);
       }, 1500);
       load();
-    } catch (err: any) {
-      setSimError(err.message);
+    } catch (err: unknown) {
+      setSimError(err instanceof Error ? err.message : "Failed to simulate charge");
     } finally {
       setSimSubmitting(false);
     }
@@ -78,7 +78,16 @@ export default function CardsPage() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const payload: any = {
+      const payload: {
+        account_id: string;
+        holder_id: string;
+        card_name: string;
+        card_type: string;
+        expires_month: number;
+        expires_year: number;
+        daily_limit_paise?: number;
+        monthly_limit_paise?: number;
+      } = {
         account_id: form.account_id,
         holder_id: form.holder_id,
         card_name: form.card_name,
@@ -102,8 +111,8 @@ export default function CardsPage() {
       setShowCreate(false);
       setForm({ account_id: "", holder_id: "", card_name: "", card_type: "virtual", expires_month: "", expires_year: "", daily_limit_rupees: "", monthly_limit_rupees: "" });
       load();
-    } catch (e: any) {
-      setFormError(e.message);
+    } catch (e: unknown) {
+      setFormError(e instanceof Error ? e.message : "Failed to create card");
     } finally {
       setSubmitting(false);
     }

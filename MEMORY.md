@@ -306,3 +306,15 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Database Type Detection**: Updated `/ping` slash command in `commands/ping.js` to correctly detect and report `PostgreSQL` in production when `usePostgres` is active.
 - **Verification**: Verified that all 208 test cases in the Discord Bot test suite pass 100% green sequentially without any errors or leakage.
 
+
+**S37 — Phase 9/10 Gap Closure & Full Type Safety Sweep:**
+- **Phase 9 (Discord Role Mapping UI)**: Already fully implemented in `IAMRoleMappings.tsx` — blocked spinners, no optimistic updates, GET /api/iam/discord-roles + /api/iam/groups + PUT /api/iam/discord-mappings. No gaps found.
+- **Phase 10 (Docker Production)**: Both Dockerfiles exist. **Fixed**: `docker-compose.prod.yml` was missing `REDIS_URL: redis://redis:6379/0` for the API service, causing the EventBus to start in in-process mode in production despite a Redis container being present.
+- **Type Safety Sweep** (all `any` eliminated across frontend):
+  - `IAMContent.tsx`: Added `IamGroup`, `IamPermission`, `IamDiscordMapping` interfaces replacing `any[]` state
+  - `Sidebar.tsx`: Replaced `(Lucide as any)` with `as unknown as Record<string, ComponentType>` typed lookup
+  - `meetings/page.tsx`: All `err: any` → `err: unknown` + `instanceof Error` narrowing; added `useRouter` 401 redirect; typed `(item: any)` action items
+  - `finance/cards/page.tsx`: `payload: any` → fully typed object; `err: any` → `err: unknown`
+  - `finance/requests/new/page.tsx`, `finance/accounts/page.tsx`: `err: any` → `err: unknown`
+- **New Test**: `apps/api/tests/test_meetings_permissions.py` — 4 tests verifying `meetings.read` / `meetings.write` are in `CORE_PERMISSIONS` seed data with descriptions and no duplicates.
+- **Final State**: 97/97 backend tests pass (up from 93), `bun run typecheck` clean, zero `any` violations in project-owned frontend files.

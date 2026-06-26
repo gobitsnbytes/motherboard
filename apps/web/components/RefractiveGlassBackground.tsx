@@ -70,26 +70,24 @@ float snoise(vec3 v) {
 void main() {
   vUv = uv;
   
-  // Base organic breathing
-  float noise = snoise(position * 1.5 + uTime * 0.2);
-  vec3 displacedPosition = position + normal * noise * 0.15;
+  // Extremely slow, subtle organic breathing (reduced amplitude)
+  float noise = snoise(position * 1.2 + uTime * 0.1);
+  vec3 displacedPosition = position + normal * noise * 0.06;
   
-  // Magnetic cursor physics
-  // uMouse is mapped to rough world coordinates at z=0
-  vec3 mouseWorld = vec3(uMouse.x * 5.0, uMouse.y * 5.0, 0.0);
+  // Magnetic cursor physics mapping
+  vec3 mouseWorld = vec3(uMouse.x * 4.0, uMouse.y * 4.0, 0.0);
   float dist = distance(displacedPosition, mouseWorld);
-  float influence = exp(-dist * dist * 0.5) * uMagneticStrength;
+  float influence = exp(-dist * dist * 0.8) * uMagneticStrength;
   
-  // Bend vertices towards or away from mouse slightly
+  // Subtle pull towards cursor
   vec3 dir = normalize(displacedPosition - mouseWorld);
-  displacedPosition += dir * influence * 0.3;
+  displacedPosition += dir * influence * 0.15;
   
   vec4 modelPosition = modelMatrix * vec4(displacedPosition, 1.0);
   vec4 mvPosition = viewMatrix * modelPosition;
   
-  // Recalculate normal approximation (simplistic approach for performance)
-  vNormal = normalize(normalMatrix * normal + dir * influence * 0.5);
-  
+  // Basic normal recalculation
+  vNormal = normalize(normalMatrix * normal + dir * influence * 0.3);
   vViewPosition = -mvPosition.xyz;
   vWorldPosition = modelPosition.xyz;
   
@@ -106,99 +104,107 @@ varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vWorldPosition;
 
-// Simple hash for procedural stars
 float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
 }
 
-// Procedural background matching the CSS background
-vec3 getBackground(vec2 uv) {
-    // Warm gray to black gradient
+// Faked "Environment Map" for the glass to refract. 
+// Adding invisible softboxes to the mathematical space gives the glass
+// high-contrast edges to bend, making it look incredibly realistic.
+vec3 getEnvironment(vec2 uv) {
     vec2 center = vec2(0.5);
     float dist = distance(uv, center);
-    vec3 color = mix(vec3(0.07, 0.06, 0.05), vec3(0.0), smoothstep(0.0, 0.8, dist));
     
-    // Sparse stars
+    // Deep warm gray base
+    vec3 color = mix(vec3(0.06, 0.05, 0.04), vec3(0.0), smoothstep(0.0, 0.9, dist));
+    
+    // Faked Softbox Light 1 (Warm, Top Right)
+    float light1 = smoothstep(0.3, 0.0, length(vec2(uv.x - 0.7, (uv.y - 0.8) * 1.5)));
+    color += vec3(0.15, 0.1, 0.05) * light1;
+    
+    // Faked Softbox Light 2 (Cool, Bottom Left)
+    float light2 = smoothstep(0.4, 0.0, length(vec2((uv.x - 0.2) * 2.0, uv.y - 0.2)));
+    color += vec3(0.02, 0.05, 0.1) * light2;
+    
+    // Procedural Stars
     float star = hash(uv * uResolution);
-    if(star > 0.998) {
-        float brightness = (star - 0.998) * 500.0;
-        float flicker = sin(uTime * 3.0 + star * 100.0) * 0.5 + 0.5;
+    if(star > 0.999) {
+        float brightness = (star - 0.999) * 800.0;
+        float flicker = sin(uTime * 2.0 + star * 100.0) * 0.5 + 0.5;
         color += vec3(1.0, 0.9, 0.8) * brightness * flicker;
     }
-    
-    // Vignette
-    color *= 1.0 - smoothstep(0.5, 1.5, dist);
     
     return color;
 }
 
-// Cosine palette for thin film interference
-vec3 palette( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d ) {
-    return a + b*cos( 6.28318*(c*t+d) );
-}
-
 void main() {
-    vec3 normal = normalize(vNormal);
-    vec3 viewDir = normalize(vViewPosition);
+    vec3 n = normalize(vNormal);
+    vec3 v = normalize(vViewPosition);
     
-    // Fresnel factor
-    float fresnel = dot(viewDir, normal);
-    fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
-    float fresnelPow = pow(fresnel, 3.0);
+    // Schlick's approximation for Fresnel
+    float f0 = 0.04;
+    float fresnel = f0 + (1.0 - f0) * pow(1.0 - max(dot(n, v), 0.0), 5.0);
     
-    // Screen-space UV for refraction
+    // Base Screen UV
     vec2 screenUv = gl_FragCoord.xy / uResolution.xy;
     
-    // Chromatic dispersion offsets
-    float distortion = 0.15 * fresnel;
-    vec2 refR = screenUv - normal.xy * distortion * 1.0;
-    vec2 refG = screenUv - normal.xy * distortion * 1.05;
-    vec2 refB = screenUv - normal.xy * distortion * 1.1;
+    // Physical Refraction using IOR (Borosilicate ~ 1.47)
+    // We refract the view vector through the normal
+    float iorR = 1.0 / 1.45;
+    float iorG = 1.0 / 1.47;
+    float iorB = 1.0 / 1.49;
     
-    vec3 bgColor;
-    bgColor.r = getBackground(refR).r;
-    bgColor.g = getBackground(refG).g;
-    bgColor.b = getBackground(refB).b;
+    vec3 refRayR = refract(-v, n, iorR);
+    vec3 refRayG = refract(-v, n, iorG);
+    vec3 refRayB = refract(-v, n, iorB);
     
-    // Thin Film Interference (Iridescence)
-    // Shift colors based on view angle and normal to simulate dielectric layer
-    float filmThickness = vWorldPosition.y * 0.1 + uTime * 0.05 + fresnel;
-    vec3 iridescence = palette(
-        filmThickness, 
-        vec3(0.5, 0.5, 0.5),      // a
-        vec3(0.5, 0.5, 0.5),      // b
-        vec3(1.0, 1.0, 1.0),      // c
-        vec3(0.0, 0.33, 0.67)     // d (shifts towards gold/blue/violet)
+    float thickness = 0.2; // Apparent thickness mapping
+    
+    vec2 uvR = screenUv + refRayR.xy * thickness;
+    vec2 uvG = screenUv + refRayG.xy * thickness;
+    vec2 uvB = screenUv + refRayB.xy * thickness;
+    
+    vec3 refractionColor;
+    refractionColor.r = getEnvironment(uvR).r;
+    refractionColor.g = getEnvironment(uvG).g;
+    refractionColor.b = getEnvironment(uvB).b;
+    
+    // Internal Reflection Bounce
+    vec3 internalRay = reflect(-v, n);
+    vec3 internalColor = getEnvironment(screenUv + internalRay.xy * 0.4) * 0.25;
+    
+    // Subtle Thin-Film Interference (Dielectric Iridescence)
+    float filmPhase = dot(v, n) * 4.0 + vWorldPosition.y * 0.5 + uTime * 0.1;
+    vec3 filmColor = vec3(
+        0.5 + 0.4 * cos(filmPhase + 0.0),
+        0.5 + 0.4 * cos(filmPhase + 2.0),
+        0.5 + 0.4 * cos(filmPhase + 4.0)
     );
+    // Desaturate to keep it premium and subtle (no neon)
+    filmColor = mix(vec3(dot(filmColor, vec3(0.33))), filmColor, 0.25);
     
-    // Only apply iridescence aggressively on the edges (high fresnel)
-    iridescence *= smoothstep(0.4, 1.0, fresnelPow) * 1.5;
+    // High-end Cinematic Specular Lighting
+    vec3 lightDir1 = normalize(vec3(1.0, 1.5, 1.0)); // Warm key
+    vec3 lightDir2 = normalize(vec3(-1.0, -1.0, 0.5)); // Cool fill
     
-    // Internal reflection / soft caustic glow in the center
-    float internalCaustic = pow(max(0.0, dot(viewDir, normal)), 4.0) * 0.1;
-    vec3 causticColor = vec3(1.0, 0.9, 0.8) * internalCaustic;
+    vec3 half1 = normalize(lightDir1 + v);
+    vec3 half2 = normalize(lightDir2 + v);
     
-    // Lighting
-    // Warm key light
-    vec3 lightDir1 = normalize(vec3(1.0, 1.0, 1.0));
-    float diff1 = max(0.0, dot(normal, lightDir1));
-    vec3 spec1 = vec3(1.0, 0.8, 0.6) * pow(max(0.0, dot(reflect(-lightDir1, normal), viewDir)), 32.0);
+    float spec1 = pow(max(dot(n, half1), 0.0), 128.0) * 1.5;
+    float spec2 = pow(max(dot(n, half2), 0.0), 64.0) * 0.5;
     
-    // Cool rim light
-    vec3 lightDir2 = normalize(vec3(-1.0, -1.0, -1.0));
-    float diff2 = max(0.0, dot(normal, lightDir2));
-    vec3 spec2 = vec3(0.4, 0.6, 1.0) * pow(max(0.0, dot(reflect(-lightDir2, normal), viewDir)), 32.0);
+    vec3 specular = vec3(1.0, 0.9, 0.8) * spec1 + vec3(0.7, 0.8, 1.0) * spec2;
     
-    // Combine everything
-    vec3 finalColor = bgColor;
-    finalColor += iridescence * 0.4; // Subtle thin film
-    finalColor += causticColor; // Subtle internal bounce
-    finalColor += (spec1 + spec2) * fresnel; // Specular highlights driven by fresnel
+    // Composite
+    vec3 finalColor = refractionColor + internalColor;
     
-    // Edge brightening
-    finalColor += vec3(0.1, 0.1, 0.1) * fresnelPow;
+    // Add iridescent film strictly to grazing angles
+    finalColor += filmColor * fresnel * 0.6;
+    
+    // Add crisp specular highlights
+    finalColor += specular;
     
     gl_FragColor = vec4(finalColor, 1.0);
 }
@@ -208,15 +214,14 @@ const GlassObject = () => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   
-  // Critically damped spring for mouse tracking
-  const mouseX = useSpring(0, { stiffness: 50, damping: 20 });
-  const mouseY = useSpring(0, { stiffness: 50, damping: 20 });
+  // Critically damped spring for premium, heavy feel
+  const mouseX = useSpring(0, { stiffness: 40, damping: 25 });
+  const mouseY = useSpring(0, { stiffness: 40, damping: 25 });
   
   const { viewport } = useThree();
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // Normalize mouse to -1 to +1
       const x = (e.clientX / window.innerWidth) * 2 - 1;
       const y = -(e.clientY / window.innerHeight) * 2 + 1;
       mouseX.set(x);
@@ -224,7 +229,6 @@ const GlassObject = () => {
     };
     
     const handleMouseLeave = () => {
-      // Return to center when mouse leaves
       mouseX.set(0);
       mouseY.set(0);
     };
@@ -243,7 +247,7 @@ const GlassObject = () => {
       uTime: { value: 0 },
       uResolution: { value: new THREE.Vector2() },
       uMouse: { value: new THREE.Vector2(0, 0) },
-      uMagneticStrength: { value: 1.0 },
+      uMagneticStrength: { value: 0.0 },
     }),
     []
   );
@@ -257,31 +261,26 @@ const GlassObject = () => {
           window.innerWidth * window.devicePixelRatio,
           window.innerHeight * window.devicePixelRatio
         );
-        u.uMouse.value.set(
-          mouseX.get(),
-          mouseY.get()
-        );
+        u.uMouse.value.set(mouseX.get(), mouseY.get());
         
-        // Calculate cursor velocity/distance for dynamic magnetic strength
         const distToCenter = Math.sqrt(mouseX.get() ** 2 + mouseY.get() ** 2);
         u.uMagneticStrength.value = THREE.MathUtils.lerp(
           u.uMagneticStrength.value,
-          distToCenter > 0.05 ? 1.5 : 0.0,
-          0.1
+          distToCenter > 0.05 ? 1.0 : 0.0,
+          0.05
         );
       }
     }
     
     if (meshRef.current) {
-      // Extremely slow natural rotation
-      meshRef.current.rotation.y += 0.001;
-      meshRef.current.rotation.x += 0.0005;
+      meshRef.current.rotation.y += 0.0005;
+      meshRef.current.rotation.x += 0.0002;
     }
   });
 
   return (
     <mesh ref={meshRef}>
-      <icosahedronGeometry args={[1.5, 8]} />
+      <icosahedronGeometry args={[1.5, 6]} />
       <shaderMaterial
         ref={materialRef}
         vertexShader={vertexShader}
@@ -298,10 +297,7 @@ export default function RefractiveGlassBackground() {
   return (
     <div 
       className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none"
-      style={{
-        // Matching the CSS background mathematically to the shader's getBackground
-        background: "radial-gradient(circle at center, #120f0c 0%, #000000 80%)"
-      }}
+      style={{ background: "radial-gradient(circle at center, #120f0c 0%, #000000 80%)" }}
     >
       <Canvas
         camera={{ position: [0, 0, 5], fov: 45 }}
