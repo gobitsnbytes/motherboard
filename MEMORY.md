@@ -315,3 +315,11 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Meeting Recovery Loop Fix (`jobs/meetingRecovery.js`)**: Fixed an infinite meeting recovery loop where stale VC meetings with missing `metadata.json` were repeatedly checked. These are now correctly marked as completed.
 - **Verification**: Added 2 new integration test suites in `tests/meetings.test.js` validating the meeting recovery status transitions and Cal.com synchronizer rescheduling functionality. Ran the bot test suite verifying all 210 test assertions pass 100% green. Commits pushed to `origin/main` branch.
 
+### 2026-06-26 (Later)
+
+**S38 — On-Demand VC Joining Cache Resolution & Listener Fallback:**
+- **Robust Cache Resolution (`events/voiceStateUpdate.js`)**: Resolved cache race condition where `newState.channel` evaluated to null immediately after a user joined the channel. Implemented channel fetching fallback via `newState.guild.channels.fetch` to ensure the bot can resolve the target voice channel on-demand.
+- **Listener Client Fallback (`lib/voiceRecorder.js`)**: Wrapped the listener client channel resolution inside a validator to only overwrite the target voice channel when the listener bot client successfully resolves the channel. If it returns null, it falls back to the main bot's voice channel, preventing null property exceptions and joining crashes.
+- **Verification**: Ran the bot test suite verifying all 210 test assertions pass 100% green.
+
+
