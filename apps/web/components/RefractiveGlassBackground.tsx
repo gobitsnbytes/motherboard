@@ -3,7 +3,7 @@
 import React, { useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useSpring } from "framer-motion";
+import { useSpring, useMotionValue, useMotionTemplate, motion } from "framer-motion";
 
 const vertexShader = `
 uniform float uTime;
@@ -130,6 +130,7 @@ void main() {
 const fragmentShader = `
 uniform float uTime;
 uniform vec2 uResolution;
+uniform vec2 uMouse;
 
 varying vec2 vUv;
 varying vec3 vNormal;
@@ -200,8 +201,11 @@ void main() {
     // Physical Refraction Vector for seeing "inside" the liquid
     vec3 refRay = refract(-v, n, 1.0 / 1.45);
     
+    // Dynamic Parallax Offset using uMouse
+    vec3 parallaxOffset = vec3(uMouse.x, uMouse.y, 0.0) * 0.3;
+    
     // Sample the internal volume using 3D noise along the refracted ray
-    vec3 samplePos = vWorldPosition + refRay * 1.5;
+    vec3 samplePos = vWorldPosition + refRay * 1.5 - parallaxOffset;
     float internalNoise1 = snoise(samplePos * 1.2 + uTime * 0.4);
     float internalNoise2 = snoise(samplePos * 2.5 - uTime * 0.6);
     float fluidMix = smoothstep(-1.0, 1.0, internalNoise1 + internalNoise2 * 0.5 + vNoise * 2.0);
@@ -231,9 +235,9 @@ void main() {
     // Combine internal glowing fluid with the holographic surface
     vec3 finalColor = mix(fluidColor, iridescence, fresnelPow * 0.6);
     
-    // Intense Cinematic Lighting
-    vec3 light1 = normalize(vec3(1.0, 2.0, 1.5));
-    vec3 light2 = normalize(vec3(-2.0, -1.0, -0.5));
+    // Intense Cinematic Lighting with Mouse Parallax
+    vec3 light1 = normalize(vec3(1.0 + uMouse.x, 2.0 + uMouse.y, 1.5));
+    vec3 light2 = normalize(vec3(-2.0 + uMouse.x, -1.0 + uMouse.y, -0.5));
     
     // Sharp Blinn-Phong Specular
     vec3 half1 = normalize(light1 + v);
@@ -253,37 +257,13 @@ void main() {
 }
 `;
 
-const GlassObject = () => {
+const GlassObject = ({ rawMouseX, rawMouseY }: { rawMouseX: any, rawMouseY: any }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   
   // Springy magnetic cursor interaction
-  const mouseX = useSpring(0, { stiffness: 60, damping: 15 });
-  const mouseY = useSpring(0, { stiffness: 60, damping: 15 });
-  
-  const { viewport } = useThree();
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const x = (e.clientX / window.innerWidth) * 2 - 1;
-      const y = -(e.clientY / window.innerHeight) * 2 + 1;
-      mouseX.set(x);
-      mouseY.set(y);
-    };
-    
-    const handleMouseLeave = () => {
-      mouseX.set(0);
-      mouseY.set(0);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseleave", handleMouseLeave);
-    
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [mouseX, mouseY]);
+  const nMouseX = useSpring(0, { stiffness: 60, damping: 15 });
+  const nMouseY = useSpring(0, { stiffness: 60, damping: 15 });
 
   const uniforms = useMemo(
     () => ({
@@ -296,6 +276,13 @@ const GlassObject = () => {
   );
 
   useFrame((state) => {
+    // Convert raw pixel coordinates to normalized -1 to +1 space
+    const targetX = (rawMouseX.get() / window.innerWidth) * 2 - 1;
+    const targetY = -(rawMouseY.get() / window.innerHeight) * 2 + 1;
+    
+    nMouseX.set(targetX);
+    nMouseY.set(targetY);
+
     if (materialRef.current) {
       const u = materialRef.current.uniforms;
       if (u && u.uTime && u.uResolution && u.uMouse && u.uMagneticStrength) {
@@ -305,9 +292,9 @@ const GlassObject = () => {
           window.innerWidth * window.devicePixelRatio,
           window.innerHeight * window.devicePixelRatio
         );
-        u.uMouse.value.set(mouseX.get(), mouseY.get());
+        u.uMouse.value.set(nMouseX.get(), nMouseY.get());
         
-        const distToCenter = Math.sqrt(mouseX.get() ** 2 + mouseY.get() ** 2);
+        const distToCenter = Math.sqrt(nMouseX.get() ** 2 + nMouseY.get() ** 2);
         u.uMagneticStrength.value = THREE.MathUtils.lerp(
           u.uMagneticStrength.value,
           distToCenter > 0.05 ? 1.0 : 0.0,
@@ -341,10 +328,36 @@ const GlassObject = () => {
 };
 
 export default function RefractiveGlassBackground() {
+  const rawMouseX = useMotionValue(0);
+  const rawMouseY = useMotionValue(0);
+
+  // Smooth springs for the background spotlight
+  const bgX = useSpring(rawMouseX, { stiffness: 40, damping: 20 });
+  const bgY = useSpring(rawMouseY, { stiffness: 40, damping: 20 });
+
+  useEffect(() => {
+    // Initial center position to avoid jumping from top-left
+    if (typeof window !== "undefined") {
+      rawMouseX.set(window.innerWidth / 2);
+      rawMouseY.set(window.innerHeight / 2);
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      rawMouseX.set(e.clientX);
+      rawMouseY.set(e.clientY);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [rawMouseX, rawMouseY]);
+
+  // A dark radial gradient that acts like a subtle flashlight following the cursor
+  const bgStyle = useMotionTemplate`radial-gradient(circle at ${bgX}px ${bgY}px, #1a0a1f 0%, #000000 60%)`;
+
   return (
-    <div 
+    <motion.div 
       className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none"
-      style={{ background: "radial-gradient(circle at center, #0a0510 0%, #000000 100%)" }}
+      style={{ background: bgStyle }}
     >
       <Canvas
         camera={{ position: [0, 0, 5], fov: 45 }}
@@ -355,8 +368,8 @@ export default function RefractiveGlassBackground() {
             powerPreference: "high-performance"
         }}
       >
-        <GlassObject />
+        <GlassObject rawMouseX={rawMouseX} rawMouseY={rawMouseY} />
       </Canvas>
-    </div>
+    </motion.div>
   );
 }
