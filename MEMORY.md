@@ -306,3 +306,12 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Database Type Detection**: Updated `/ping` slash command in `commands/ping.js` to correctly detect and report `PostgreSQL` in production when `usePostgres` is active.
 - **Verification**: Verified that all 208 test cases in the Discord Bot test suite pass 100% green sequentially without any errors or leakage.
 
+### 2026-06-26
+
+**S37 — Cal.com Sync & Webhook Hardening & Meeting Recovery Fixes:**
+- **Cal.com Rescheduling Sync Correction (`lib/calcomWebhook.js`)**: Updated the poll sync logic to call `meetingsDb.rescheduleMeeting` in production instead of running raw SQL updates directly on the meetings table (which is managed by Motherboard).
+- **Instant `BOOKING_RESCHEDULED` Webhook (`server.js`)**: Added a handler for `BOOKING_RESCHEDULED` trigger event in the Cal.com webhook listener, allowing meetings to be updated and reminders to be reset instantly when rescheduled by hosts/guests.
+- **Instant Booking Location Updates (`server.js`)**: Integrated `calcom.updateBookingLocation` inside the `BOOKING_CREATED` webhook handler, ensuring that bookings created through the webhook instantly get updated on Cal.com with the custom voice channel redirection link.
+- **Meeting Recovery Loop Fix (`jobs/meetingRecovery.js`)**: Fixed an infinite meeting recovery loop where stale VC meetings with missing `metadata.json` were repeatedly checked. These are now correctly marked as completed.
+- **Verification**: Added 2 new integration test suites in `tests/meetings.test.js` validating the meeting recovery status transitions and Cal.com synchronizer rescheduling functionality. Ran the bot test suite verifying all 210 test assertions pass 100% green. Commits pushed to `origin/main` branch.
+
