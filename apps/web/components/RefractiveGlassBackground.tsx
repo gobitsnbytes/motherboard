@@ -206,16 +206,17 @@ void main() {
     float internalNoise2 = snoise(samplePos * 2.5 - uTime * 0.6);
     float fluidMix = smoothstep(-1.0, 1.0, internalNoise1 + internalNoise2 * 0.5 + vNoise * 2.0);
     
-    // Core Brand Colors (Dark Matter + Neon Plasma)
-    vec3 colDark = vec3(0.02, 0.01, 0.04);   // Obsidian / Deep Space Purple
-    vec3 colBurgundy = vec3(0.5, 0.0, 0.2);  // Brand Burgundy
-    vec3 colOrange = vec3(1.0, 0.4, 0.0);    // Brand Orange (Glowing)
-    vec3 colCyan = vec3(0.0, 0.9, 1.0);      // High-energy Electric Cyan
+    // Core Brand Colors (Dark Matter + Neon Plasma) - Darkened for mood
+    vec3 colDark = vec3(0.01, 0.005, 0.02);   // Pitch Obsidian
+    vec3 colBurgundy = vec3(0.2, 0.0, 0.08); // Deep Burgundy
+    vec3 colOrange = vec3(0.6, 0.15, 0.0);    // Burned Orange
+    vec3 colCyan = vec3(0.0, 0.4, 0.5);      // Deep Electric Blue
     
     // Mix the internal fluid colors based on the chaotic noise
-    vec3 fluidColor = mix(colDark, colBurgundy, smoothstep(0.0, 0.4, fluidMix));
-    fluidColor = mix(fluidColor, colOrange, smoothstep(0.4, 0.7, fluidMix));
-    fluidColor = mix(fluidColor, colCyan, smoothstep(0.7, 1.0, fluidMix));
+    // Shifted the steps so it spends most of its time in dark/burgundy territory
+    vec3 fluidColor = mix(colDark, colBurgundy, smoothstep(-0.2, 0.5, fluidMix));
+    fluidColor = mix(fluidColor, colOrange, smoothstep(0.6, 0.9, fluidMix));
+    fluidColor = mix(fluidColor, colCyan, smoothstep(0.95, 1.0, fluidMix));
     
     // Edge Holographic Rim (Iridescent Oil Slick Effect)
     float iridescencePhase = dot(v, n) * 6.0 + uTime * 0.5 + vNoise * 3.0;
@@ -224,28 +225,29 @@ void main() {
         0.5 + 0.5 * cos(iridescencePhase + 2.0),
         0.5 + 0.5 * cos(iridescencePhase + 4.0)
     );
+    // Darken the iridescence significantly
+    iridescence *= 0.3;
     
     // Combine internal glowing fluid with the holographic surface
-    // The surface becomes completely iridescent at grazing angles
-    vec3 finalColor = mix(fluidColor, iridescence, fresnelPow * 0.8);
+    vec3 finalColor = mix(fluidColor, iridescence, fresnelPow * 0.6);
     
     // Intense Cinematic Lighting
     vec3 light1 = normalize(vec3(1.0, 2.0, 1.5));
     vec3 light2 = normalize(vec3(-2.0, -1.0, -0.5));
     
-    // Sharp Blinn-Phong Specular for that "wet glossy" look
+    // Sharp Blinn-Phong Specular
     vec3 half1 = normalize(light1 + v);
     vec3 half2 = normalize(light2 + v);
     
-    float spec1 = pow(max(dot(n, half1), 0.0), 128.0) * 2.0;
-    float spec2 = pow(max(dot(n, half2), 0.0), 64.0) * 1.5;
+    float spec1 = pow(max(dot(n, half1), 0.0), 128.0) * 1.0;
+    float spec2 = pow(max(dot(n, half2), 0.0), 64.0) * 0.5;
     
     // Add the specular light hits (Warm Key + Cool Fill)
     finalColor += vec3(1.0, 0.8, 0.6) * spec1;
     finalColor += vec3(0.3, 0.7, 1.0) * spec2;
     
-    // Add a highly saturated electric rim light
-    finalColor += colCyan * fresnelGlow * 0.3;
+    // Add a highly saturated electric rim light, but very faint
+    finalColor += colCyan * fresnelGlow * 0.1;
     
     gl_FragColor = vec4(finalColor, 1.0);
 }
