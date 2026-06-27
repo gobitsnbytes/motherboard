@@ -49,8 +49,8 @@ export default function AccountsPage() {
       setShowCreate(false);
       setForm({ name: "", description: "", owner_id: "" });
       load();
-    } catch (e: any) {
-      setFormError(e.message);
+    } catch (e: unknown) {
+      setFormError(e instanceof Error ? e.message : "Failed to create account");
     } finally {
       setSubmitting(false);
     }

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import FadingVideo from "./FadingVideo";
 import BlurText from "./BlurText";
 import Link from "next/link";
+import RefractiveGlassBackground from "./RefractiveGlassBackground";
 
 export default function HeroSection() {
   return (
@@ -12,12 +13,8 @@ export default function HeroSection() {
       id="home"
       className="h-screen w-full relative flex flex-col justify-between items-center overflow-hidden bg-black select-none font-body py-8 md:py-12 px-6"
     >
-      {/* Background Video */}
-      <FadingVideo
-        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_080021_d598092b-c4c2-4e53-8e46-94cf9064cd50.mp4"
-        className="absolute left-1/2 top-0 -translate-x-1/2 object-cover object-top z-0 opacity-40"
-        style={{ width: "120%", height: "120%" }}
-      />
+      {/* Background Refractive Glass */}
+      <RefractiveGlassBackground />
 
       {/* Top Navbar */}
       <nav className="fixed top-6 left-0 right-0 px-8 lg:px-16 z-50 flex items-center justify-between pointer-events-none">
@@ -76,11 +73,11 @@ export default function HeroSection() {
             bits&bytes™ (GOBITSNBYTES FOUNDATION)
           </p>
           <Link
-  href="/login"
-  className="w-full mb-6 rounded-[1rem] bg-orange text-black font-heading font-bold py-3 px-4 text-center transition-all duration-200 hover:scale-[1.02]"
->
-  Access Platform
-</Link>
+            href="/login"
+            className="w-full mb-6 rounded-[1rem] bg-orange text-black font-heading font-bold py-3 px-4 text-center transition-all duration-200 hover:scale-[1.02]"
+          >
+            Access Platform
+          </Link>
           {/* Info Section */}
           <div className="flex flex-col gap-2.5 w-full border-t border-white/10 pt-5 text-xs text-white/70">
             <div className="flex justify-between items-center px-1">

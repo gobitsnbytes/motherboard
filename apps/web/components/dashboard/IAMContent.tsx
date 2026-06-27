@@ -3,6 +3,28 @@
 import { Card, CardContent, CardHeader, CardTitle, Input } from "@bnb/ui";
 import { getDiscordMappings, getPermissions, getGroups } from "lib/iam";
 
+interface IamGroup {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  is_system: boolean;
+}
+
+interface IamPermission {
+  key: string;
+  description: string;
+}
+
+interface IamDiscordMapping {
+  id: string;
+  discord_role_id: string;
+  discord_role_name: string;
+  group_id: string;
+  sync_enabled: boolean;
+  priority: number;
+}
+
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -10,9 +32,9 @@ export function IAMContent() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [groups, setGroups] = useState<any[]>([]);
-  const [permissions, setPermissions] = useState<any[]>([]);
-  const [mappings, setMappings] = useState<any[]>([]);
+  const [groups, setGroups] = useState<IamGroup[]>([]);
+  const [permissions, setPermissions] = useState<IamPermission[]>([]);
+  const [mappings, setMappings] = useState<IamDiscordMapping[]>([]);
   useEffect(() => {
     async function loadIAM() {
       try {

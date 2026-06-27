@@ -42,8 +42,8 @@ export default function NewRequestPage() {
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.detail ?? "Failed"); }
       router.push("/finance/requests");
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit request");
     } finally {
       setSubmitting(false);
     }
