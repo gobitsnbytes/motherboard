@@ -1,6 +1,9 @@
 [Unit]
 Description=BNB API (FastAPI/Uvicorn)
 After=network.target
+# Restart if it exits for any reason, but cap burst to 5 restarts in 60s
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -8,11 +11,17 @@ User=deploy
 Group=deploy
 WorkingDirectory=/opt/bnb-api/apps/api
 EnvironmentFile=/opt/bnb-api/.env
-ExecStart=/opt/bnb-api/apps/api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --limit-max-requests 10000
+# No --limit-max-requests: at BnB traffic levels (~10k req/day) this causes
+# unnecessary cycling. The previous --limit-max-requests 10000 was causing
+# the process to gracefully exit (code 0) and then hang forever on background
+# tasks, leaving a zombie that systemd would never restart.
+ExecStart=/opt/bnb-api/apps/api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --timeout-graceful-shutdown 30
 Restart=always
-RestartSec=5
+RestartSec=10
+# Also restart on clean exit (code 0) — uvicorn --limit-max-requests exits 0
+RestartForceExitStatus=0
 
-# Strict resource limits for 300MB VPS
+# Resource limits for VPS
 MemoryMax=200M
 MemoryHigh=150M
 
