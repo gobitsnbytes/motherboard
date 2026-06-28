@@ -13,6 +13,7 @@ import {
   X,
   Puzzle,
   Calendar,
+  Coins,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -36,6 +37,7 @@ const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
   { label: "Members", href: "/dashboard/members", icon: Users },
+  { label: "Finance", href: "/finance", icon: Coins },
   { label: "IAM", href: "/dashboard/iam", icon: Shield },
   { label: "Audit Log", href: "/dashboard/audit", icon: ScrollText },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },

@@ -15,6 +15,7 @@ interface CreateForm { name: string; description: string; owner_id: string; }
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [users, setUsers] = useState<{ id: string; display_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -31,6 +32,11 @@ export default function AccountsPage() {
       .then((d) => setAccounts(Array.isArray(d) ? d : []))
       .catch(() => setError("Failed to load accounts."))
       .finally(() => setLoading(false));
+
+    fetch(`${API}/api/users`, { headers: getHeaders() })
+      .then((r) => r.json())
+      .then((d) => setUsers(Array.isArray(d) ? d : []))
+      .catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -83,16 +89,27 @@ export default function AccountsPage() {
             style={{ background: "#111", border: "2px solid #fc920d", borderRadius: "4px", padding: "28px", width: "420px", boxShadow: "6px 6px 0 0 rgba(252,146,13,0.3)" }}>
             <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#fff", margin: "0 0 20px" }}>Create Virtual Account</h2>
             <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              {[
-                { key: "name", label: "Account Name *", placeholder: "e.g. Delhi Fork Budget", req: true },
-                { key: "description", label: "Description", placeholder: "Optional description", req: false },
-                { key: "owner_id", label: "Owner User ID *", placeholder: "UUID of the account owner", req: true },
-              ].map(({ key, label, placeholder, req }) => (
-                <div key={key}>
-                  <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>{label}</label>
-                  <input required={req} value={(form as any)[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} style={inputStyle} />
-                </div>
-              ))}
+              <div>
+                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Account Name *</label>
+                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Delhi Fork Budget" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Description</label>
+                <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Optional description" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Owner *</label>
+                {users.length > 0 ? (
+                  <select required value={form.owner_id} onChange={(e) => setForm((f) => ({ ...f, owner_id: e.target.value }))} style={{ ...inputStyle, padding: "9px 8px" }}>
+                    <option value="">Select owner…</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>{u.display_name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input required value={form.owner_id} onChange={(e) => setForm((f) => ({ ...f, owner_id: e.target.value }))} placeholder="UUID of the account owner" style={inputStyle} />
+                )}
+              </div>
               {formError && <div style={{ fontSize: "12px", color: "#ef4444" }}>{formError}</div>}
               <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
                 <button type="submit" disabled={submitting}
