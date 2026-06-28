@@ -352,6 +352,7 @@ async def list_meetings(
     db: DbSession,
     status_filter: Optional[str] = None,
     creator_id: Optional[str] = None,
+    calcom_booking_id: Optional[str] = None,
     current_user: ResolvedPrincipal = Depends(get_current_user),
 ):
     """Retrieve all meetings matching filters."""
@@ -362,29 +363,49 @@ async def list_meetings(
         query = query.where(BotMeeting.status == status_filter)
     if creator_id:
         query = query.where(BotMeeting.creator_id == creator_id)
+    if calcom_booking_id:
+        query = query.where(
+            (BotMeeting.calcom_booking_id == calcom_booking_id) |
+            (BotMeeting.calcom_uid == calcom_booking_id)
+        )
     query = query.order_by(BotMeeting.scheduled_time.desc())
 
     res = await db.execute(query)
     meetings = res.scalars().all()
 
+    if not meetings:
+        return []
+
+    meeting_ids = [m.id for m in meetings]
+
+    # Bulk load attendees
+    att_stmt = select(MeetingAttendee).where(MeetingAttendee.meeting_id.in_(meeting_ids))
+    res_att = await db.execute(att_stmt)
+    all_attendees = res_att.scalars().all()
+    attendees_by_meet = {}
+    for a in all_attendees:
+        attendees_by_meet.setdefault(a.meeting_id, []).append(a)
+
+    # Bulk load transcripts
+    tr_stmt = select(MeetingTranscript).where(MeetingTranscript.meeting_id.in_(meeting_ids))
+    res_tr = await db.execute(tr_stmt)
+    all_transcripts = res_tr.scalars().all()
+    transcript_by_meet = {t.meeting_id: t for t in all_transcripts}
+
+    # Bulk load reschedule histories
+    rh_stmt = select(MeetingRescheduleHistory).where(MeetingRescheduleHistory.meeting_id.in_(meeting_ids))
+    res_rh = await db.execute(rh_stmt)
+    all_resched = res_rh.scalars().all()
+    resched_by_meet = {}
+    for rh in all_resched:
+        resched_by_meet.setdefault(rh.meeting_id, []).append(rh)
+
     meetings_out = []
     for m in meetings:
-        # Load attendees
-        att_stmt = select(MeetingAttendee).where(MeetingAttendee.meeting_id == m.id)
-        res_att = await db.execute(att_stmt)
-        attendees = res_att.scalars().all()
+        attendees = attendees_by_meet.get(m.id, [])
+        transcript = transcript_by_meet.get(m.id, None)
+        resched_hist = resched_by_meet.get(m.id, [])
 
-        # Load transcript
-        tr_stmt = select(MeetingTranscript).where(MeetingTranscript.meeting_id == m.id)
-        res_tr = await db.execute(tr_stmt)
-        transcript = res_tr.scalar_one_or_none()
-
-        # Load reschedule history
-        rh_stmt = select(MeetingRescheduleHistory).where(MeetingRescheduleHistory.meeting_id == m.id)
-        res_rh = await db.execute(rh_stmt)
-        resched_hist = res_rh.scalars().all()
-
-        # Build output structure
         m_dict = {c.name: getattr(m, c.name) for c in m.__table__.columns}
         m_dict["attendees"] = [
             {"meeting_id": a.meeting_id, "attendee_type": a.attendee_type, "discord_id": a.discord_id}
@@ -436,6 +457,8 @@ async def schedule_meeting(
         meet_code=meet_code,
         booked_by="motherboard",
         scope=body.scope,
+        calcom_booking_id=body.calcom_booking_id,
+        calcom_uid=body.calcom_uid,
     )
     db.add(new_meet)
 
