@@ -42,7 +42,8 @@ const navItems = [
 ] as const;
 
 function DynamicIcon({ name, className }: { name: string; className?: string }) {
-  const IconComponent = (Lucide as any)[name] || Puzzle;
+  const icons = Lucide as unknown as Record<string, React.ComponentType<{ className?: string }> | undefined>;
+  const IconComponent = icons[name] ?? Puzzle;
   return <IconComponent className={className} />;
 }
 

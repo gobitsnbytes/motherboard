@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Calendar as CalendarIcon,
@@ -85,6 +86,7 @@ export default function MeetingsPage() {
   const { data: session } = useSession();
   const discordId = session?.user?.discordId;
   const username = session?.user?.name || "User";
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"meetings" | "availability" | "preferences">("meetings");
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -136,8 +138,12 @@ export default function MeetingsPage() {
       if (!res.ok) throw new Error("Failed to load meetings");
       const data = await res.json();
       setMeetings(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Response && err.status === 401) {
+        router.push("/login");
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Failed to load meetings");
     } finally {
       setLoading(false);
     }
@@ -248,8 +254,8 @@ export default function MeetingsPage() {
       
       // Reload meetings
       fetchMeetings();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to schedule meeting");
     } finally {
       setScheduleLoading(false);
     }
@@ -280,8 +286,8 @@ export default function MeetingsPage() {
 
       if (!res.ok) throw new Error("Failed to save availability");
       setAvailSuccess(true);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to save availability");
     } finally {
       setAvailLoading(false);
     }
@@ -309,8 +315,8 @@ export default function MeetingsPage() {
 
       if (!res.ok) throw new Error("Failed to save preferences");
       setPrefSuccess(true);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to save preferences");
     } finally {
       setPrefLoading(false);
     }
@@ -324,8 +330,8 @@ export default function MeetingsPage() {
       alert("Meeting cancelled successfully");
       setSelectedMeeting(null);
       fetchMeetings();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to cancel meeting");
     }
   };
 
@@ -908,7 +914,7 @@ export default function MeetingsPage() {
                             </td>
                           </tr>
                         ) : (
-                          JSON.parse(selectedMeeting.transcript.action_items || "[]").map((item: any, i: number) => (
+                          JSON.parse(selectedMeeting.transcript.action_items || "[]").map((item: { assignee?: string; task?: string; deadline?: string }, i: number) => (
                             <tr key={i} className="border-b border-neutral-800 last:border-b-0">
                               <td className="py-2.5 font-bold text-white">{item.assignee}</td>
                               <td className="py-2.5 text-gray-300">{item.task}</td>
