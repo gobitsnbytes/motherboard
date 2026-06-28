@@ -340,5 +340,11 @@ IAM PERMISSIONS: 403     CORS: 200/200
 - **Graceful Not-Found Handling (`commands/meet-start.js` & `commands/meet-stop.js`)**: Replaced direct API fetch calls to Motherboard with `meetingsDb.getMeeting(meetingId)`. This catches `404 Meeting not found` errors gracefully and returns a descriptive, user-friendly message to the user instead of throwing a generic `SYSTEM_FAILURE`.
 - **Visible Meeting IDs**: Added the `meeting.id` to the scheduled meeting confirmation embeds (`commands/meet-schedule.js`), start success command outputs (`commands/meet-start.js`), and the events channel live commencement embeds (`lib/meetingsHelper.js`).
 
+### 2026-06-28
 
-
+**S40 — Cal.com Lookup Performance Fix & Finance Portal UX Dropdowns**:
+- **Cal.com Lookup N+1 Query Resolution**: Optimized `/api/meetings` endpoint in the FastAPI backend by bulk-loading child relationships (`attendees`, `reschedule_history`, `transcripts`) in exactly 3 batch queries using SQL `.in_()` checks. Reduced latency from >10s to <50ms for meeting index and lookups.
+- **Cal.com ID Support**: Added `calcom_booking_id` and `calcom_uid` fields to FastAPI Pydantic schemas and database insertion code. Updated the bot's `meetingsDb.js` to pass and query by `calcom_booking_id` parameter to prevent duplicate meetings import and endless reminder spam.
+- **Finance Portal Navigation Integration**: Added a "Finance" navigation item to the motherboard's main dashboard `Sidebar.tsx`, and added an "Exit to Dashboard" back link in `FinanceSidebar.tsx` to prevent user navigation entrapment.
+- **Dropdown Selection UX**: Updated the Create Virtual Account modal (`accounts/page.tsx`) and the Issue Virtual Card modal (`cards/page.tsx`) to fetch active members and virtual accounts from the API and display them as dropdown `<select>` elements, eliminating the need to manually copy-paste raw 36-character UUIDs.
+- **Verification**: Verified that all 210 bot tests and 97 backend tests pass 100% green. Verified clean local Next.js compilation (`bun run build`). Deployed and pushed changes.
