@@ -143,3 +143,20 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Finance Portal Navigation Integration**: Added a "Finance" navigation item to the motherboard's main dashboard `Sidebar.tsx`, and added an "Exit to Dashboard" back link in `FinanceSidebar.tsx` to prevent user navigation entrapment.
 - **Dropdown Selection UX**: Updated the Create Virtual Account modal (`accounts/page.tsx`) and the Issue Virtual Card modal (`cards/page.tsx`) to fetch active members and virtual accounts from the API and display them as dropdown `<select>` elements, eliminating the need to manually copy-paste raw 36-character UUIDs.
 - **Verification**: Verified that all 210 bot tests and 97 backend tests pass 100% green. Verified clean local Next.js compilation (`bun run build`). Deployed and pushed changes.
+
+### 2026-07-16
+
+**S41 — Command Database Wiring, DNS Routing & Cal.com Schema Migration:**
+- **Forks Dashboard Crash Fix (`commands/forks-info.js`)**: Removed the `NODE_ENV === 'test'` condition from the `bot_settings` table creation block. The table is now created idempotently on startup in all environments (including production Neon Postgres), preventing subsequent `db.get()` from crashing with a missing relation error.
+- **Event Update Performance & Direct DB Query (`commands/event-update.js`)**: Fixed a performance bottleneck by replacing the full-table scan/filter block (`notion.getEvents()`) with an optimized direct database row lookup by ID.
+- **Report Point Award Correction (`commands/report-submit.js`)**: Updated point awarding to use the canonical `gamification.POINTS.REPORT_SUBMISSION` (15 points) rather than a hardcoded `5` points to maintain system points parity.
+- **Announcement Channel Centralization (`commands/admin-add-lead.js`)**: Replaced a hardcoded channel ID string with `config.CHANNEL_IDS.announcement` for configuration parity.
+- **Dynamic Achievements Streak (`commands/fork-badges.js`)**: Removed a hardcoded `pulseStreak: 0` and replaced it with a dynamic weekly streak calculation derived from the fork's actual `Last Pulse` date in Notion, making the `PULSE_MASTER` badge earnable in Discord commands.
+- **Cal.com Database Schema Migration (`notion.js` & Motherboard model/migration)**:
+  - Added `calcom_booking_id` and `calcom_uid` columns to the events schema initialization in `lib/notion.js`.
+  - Updated `createEvent()` and `updateEvent()` to support writing and updating Cal.com IDs in the database.
+  - Added `calcom_booking_id` and `calcom_uid` properties to Motherboard's `EventCache` ORM model (`apps/api/app/db/models.py`).
+  - Created and ran a new Alembic database migration (`a1b2c3d4e5f6`) to add these columns to the production Neon PostgreSQL database.
+- **Local DNS Routing Fix on VPS**: Changed `MOTHERBOARD_API_URL` from `localhost:8000` to `127.0.0.1:8000` inside the bot's `.env` configuration on the VPS to resolve IPv6 loopback routing failures on local API requests.
+- **Vercel Deployment Sync**: Merged all changes from the `prod` branch to the `main` branch on the Motherboard repository and pushed to GitHub, triggering a clean production deployment on Vercel.
+- **Verification**: Verified that all 210 bot tests and 93 python backend tests pass 100% green. Restarted the bot and API services on the VPS; logs verified clean with no connection or query errors.
