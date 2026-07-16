@@ -943,15 +943,34 @@ If you cannot determine a deadline for an action item, omit the deadline field."
         uploaded_file = client.files.upload(file=temp_file_path, config={"mime_type": "audio/ogg"})
         logger.info("[TRANSCRIBER] File uploaded to Gemini: %s", uploaded_file.uri)
 
-        # Generate transcript content
-        logger.info("[TRANSCRIBER] Generating content with model %s...", settings.gemini_model)
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=[uploaded_file, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
+        # Generate transcript content with fallback support
+        try:
+            logger.info("[TRANSCRIBER] Generating content with model %s...", settings.gemini_model)
+            response = client.models.generate_content(
+                model=settings.gemini_model,
+                contents=[uploaded_file, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                )
             )
-        )
+        except Exception as primary_err:
+            fallback_model = "gemini-2.5-flash"
+            if settings.gemini_model != fallback_model:
+                logger.warning(
+                    "[TRANSCRIBER] Primary model %s failed: %s. Falling back to %s...",
+                    settings.gemini_model,
+                    primary_err,
+                    fallback_model
+                )
+                response = client.models.generate_content(
+                    model=fallback_model,
+                    contents=[uploaded_file, prompt],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                    )
+                )
+            else:
+                raise primary_err
 
         text_out = response.text
         if not text_out:
