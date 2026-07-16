@@ -1059,6 +1059,8 @@ class EventCache(Base):
     expected_attendees: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     actual_attendees: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    calcom_booking_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    calcom_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 class ReportCache(Base):
