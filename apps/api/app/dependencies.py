@@ -63,8 +63,6 @@ async def get_current_user(
     x_internal_timestamp: Annotated[str | None, Header(alias="X-Internal-Timestamp")] = None,
     x_internal_signature: Annotated[str | None, Header(alias="X-Internal-Signature")] = None,
 ) -> ResolvedPrincipal:
-    import logging
-    logging.getLogger("uvicorn").info(f"[AUTH_DEBUG] Headers: {list(request.headers.items())}")
     # 1. API Key Auth Fallback
     api_key = request.headers.get("x-api-key")
     if not api_key:
