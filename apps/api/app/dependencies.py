@@ -63,6 +63,35 @@ async def get_current_user(
     x_internal_timestamp: Annotated[str | None, Header(alias="X-Internal-Timestamp")] = None,
     x_internal_signature: Annotated[str | None, Header(alias="X-Internal-Signature")] = None,
 ) -> ResolvedPrincipal:
+    # 1. API Key Auth Fallback
+    api_key = request.headers.get("x-api-key")
+    if not api_key:
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.strip().startswith("Bearer "):
+            api_key = auth_header.split("Bearer ", 1)[1].strip()
+
+    if api_key:
+        settings = get_settings()
+        expected_api_key = settings.api_internal_secret
+        if hmac.compare_digest(api_key, expected_api_key):
+            from sqlalchemy import select
+            from app.db.models import User
+            res = await db.execute(select(User).where(User.is_super_admin == True).limit(1))
+            sys_user = res.scalar_one_or_none()
+            if sys_user:
+                return await resolve_principal(db, sys_user.id)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="No super admin user found to bind system context"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API Key"
+            )
+
+    # 2. Next.js internal auth headers
     if not x_internal_user_id or not x_internal_timestamp or not x_internal_signature:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
