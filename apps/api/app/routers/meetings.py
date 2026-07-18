@@ -1675,3 +1675,5 @@ async def update_action_item_status(
     await db.commit()
     await db.refresh(ai)
     return ai
+
+# Trigger rebuild for sudoers fix
