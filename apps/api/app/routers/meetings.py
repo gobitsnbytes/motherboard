@@ -1386,6 +1386,115 @@ async def get_availability_slots(
     return utc_slots
 
 
+from pydantic import BaseModel
+
+class GuestCancelRequest(BaseModel):
+    email: str
+    reason: Optional[str] = None
+
+class GuestRescheduleRequest(BaseModel):
+    email: str
+    new_slot_iso: str
+    duration_minutes: int = 30
+    reason: Optional[str] = None
+
+
+@router.get("/public/guest/mine")
+async def get_guest_meetings(email: str, db: DbSession):
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email format")
+    
+    stmt = select(BotMeeting).where(
+        (BotMeeting.status == "scheduled") | (BotMeeting.status == "active"),
+        BotMeeting.external_emails.ilike(f"%{email}%")
+    ).limit(20)
+    
+    res = await db.execute(stmt)
+    meetings = res.scalars().all()
+    
+    return [
+        {
+            "id": m.id,
+            "title": m.title,
+            "status": m.status,
+            "scheduled_time": m.scheduled_time,
+            "end_time": m.end_time,
+            "meet_code": m.meet_code
+        }
+        for m in meetings
+    ]
+
+
+@router.post("/public/guest/{meeting_id}/cancel")
+async def cancel_guest_meeting(meeting_id: str, body: GuestCancelRequest, db: DbSession):
+    stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
+    res = await db.execute(stmt)
+    meeting = res.scalar_one_or_none()
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    if meeting.status not in ["scheduled", "active"]:
+        raise HTTPException(status_code=400, detail="Meeting cannot be cancelled from its current state")
+        
+    if not meeting.external_emails or body.email.lower() not in meeting.external_emails.lower():
+        raise HTTPException(status_code=403, detail="Unauthorized: email not found in guest list")
+        
+    meeting.status = "cancelled"
+    await db.commit()
+    
+    return {"status": "cancelled", "meeting_id": meeting_id}
+
+
+@router.post("/public/guest/{meeting_id}/reschedule")
+async def reschedule_guest_meeting(meeting_id: str, body: GuestRescheduleRequest, db: DbSession):
+    stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
+    res = await db.execute(stmt)
+    meeting = res.scalar_one_or_none()
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    if meeting.status not in ["scheduled", "active"]:
+        raise HTTPException(status_code=400, detail="Meeting cannot be rescheduled from its current state")
+        
+    if not meeting.external_emails or body.email.lower() not in meeting.external_emails.lower():
+        raise HTTPException(status_code=403, detail="Unauthorized: email not found in guest list")
+        
+    try:
+        new_slot_dt = datetime.datetime.fromisoformat(body.new_slot_iso.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid new_slot_iso format. Expected ISO 8601 string.")
+        
+    new_scheduled_ms = int(new_slot_dt.timestamp() * 1000)
+    new_end_ms = new_scheduled_ms + body.duration_minutes * 60 * 1000
+    now_ms = int(time.time() * 1000)
+    
+    history_entry = MeetingRescheduleHistory(
+        meeting_id=meeting.id,
+        old_scheduled_time=meeting.scheduled_time,
+        old_end_time=meeting.end_time,
+        new_scheduled_time=new_scheduled_ms,
+        new_end_time=new_end_ms,
+        reason=body.reason or "Guest requested reschedule",
+        rescheduled_by=body.email,
+        rescheduled_at=now_ms
+    )
+    
+    db.add(history_entry)
+    meeting.scheduled_time = new_scheduled_ms
+    meeting.end_time = new_end_ms
+    
+    await db.commit()
+    
+    return {
+        "status": "rescheduled",
+        "meeting_id": meeting_id,
+        "new_scheduled_time": new_scheduled_ms,
+        "new_end_time": new_end_ms
+    }
+
+
 # ---------------------------------------------------------------------------
 # Availability Endpoint
 # ---------------------------------------------------------------------------
