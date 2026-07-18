@@ -56,11 +56,20 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 # ICS and Email Notification Helpers (Unified in Python)
 # ---------------------------------------------------------------------------
 
-def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
+def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: int, description: str, location: str, organizer_email: str = "gobitsnbytes@gmail.com", attendee_emails: List[str] = None) -> str:
     """Generate a valid, minimal iCalendar (.ics) request body."""
     dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dt_stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    
+    attendee_lines = []
+    if attendee_emails:
+        for email in attendee_emails:
+            attendee_lines.append(f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=\"{email}\":mailto:{email}")
+    attendee_str = "\n".join(attendee_lines)
+    attendee_block = f"\n{attendee_str}" if attendee_str else ""
+    
+    desc_escaped = (description or "").replace("\r\n", "\\n").replace("\n", "\\n")
     
     return f"""BEGIN:VCALENDAR
 VERSION:2.0
@@ -73,12 +82,84 @@ DTSTAMP:{dt_stamp}
 DTSTART:{dt_start}
 DTEND:{dt_end}
 SUMMARY:{title}
-DESCRIPTION:{description or ''}
+DESCRIPTION:{desc_escaped}
 LOCATION:{location or 'Discord VC'}
+ORGANIZER;CN="bits&bytes™":mailto:{organizer_email}{attendee_block}
 STATUS:CONFIRMED
 SEQUENCE:0
 END:VEVENT
 END:VCALENDAR"""
+
+
+def get_invite_html(title: str, formatted_time: str, vc_link: str, description: Optional[str]) -> str:
+    desc_html = f"<p><strong>Description:</strong> {description}</p>" if description else ""
+    content_html = f"""
+    <h2>You have been invited to a meeting!</h2>
+    <div class="card">
+        <h3 class="card-title">{title}</h3>
+        <div class="detail-row">
+            <span class="detail-label">When:</span>
+            <span class="detail-value">{formatted_time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Where:</span>
+            <span class="detail-value"><a href="{vc_link}" style="color: #ff7a1b; text-decoration: underline;">{vc_link}</a></span>
+        </div>
+        {desc_html}
+    </div>
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{vc_link}" class="btn">Join Meeting</a>
+    </div>
+    """
+    return get_base_email_html(content_html, "Meeting Invitation")
+
+
+def get_cancel_html(title: str, formatted_time: str) -> str:
+    content_html = f"""
+    <h2 style="color: #97192c;">Meeting Cancelled</h2>
+    <div class="card" style="border-color: rgba(151, 25, 44, 0.4);">
+        <h3 class="card-title" style="text-decoration: line-through; color: rgba(247, 241, 236, 0.6);">{title}</h3>
+        <div class="detail-row">
+            <span class="detail-label">Original Time:</span>
+            <span class="detail-value">{formatted_time}</span>
+        </div>
+    </div>
+    <p>This scheduled meeting has been cancelled. If this is an error, please contact the coordinator.</p>
+    """
+    return get_base_email_html(content_html, "Meeting Cancelled")
+
+
+def get_reschedule_html(title: str, old_time: str, new_time: str, reason: str, rescheduled_by: str, vc_link: str) -> str:
+    content_html = f"""
+    <h2>Meeting Rescheduled</h2>
+    <div class="card">
+        <h3 class="card-title">{title}</h3>
+        <div class="detail-row">
+            <span class="detail-label">Previous Time:</span>
+            <span class="detail-value" style="text-decoration: line-through; color: rgba(247, 241, 236, 0.6);">{old_time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">New Time:</span>
+            <span class="detail-value" style="color: #ff7a1b; font-weight: bold;">{new_time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Rescheduled By:</span>
+            <span class="detail-value">{rescheduled_by}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Reason:</span>
+            <span class="detail-value"><em>{reason}</em></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Where:</span>
+            <span class="detail-value"><a href="{vc_link}" style="color: #ff7a1b; text-decoration: underline;">{vc_link}</a></span>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{vc_link}" class="btn">Join Meeting</a>
+    </div>
+    """
+    return get_base_email_html(content_html, "Meeting Rescheduled")
 
 
 def get_base_email_html(content_html: str, title: str = "BITS&BYTES PROTOCOL") -> str:
@@ -198,24 +279,38 @@ def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html
         logger.warning("[SMTP] SMTP mailer not configured. Skipping email dispatch.")
         return
 
-    msg = MIMEMultipart("mixed" if ics_content else "alternative")
+    # Root container is mixed to support files/attachments
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
     msg["To"] = ", ".join(to_emails)
 
+    # Alternative container holds the HTML version and the inline calendar invite
+    alt_part = MIMEMultipart("alternative")
+    
+    # 1. Attach HTML body
     body_part = MIMEText(html_body, "html")
-    if ics_content:
-        alt_part = MIMEMultipart("alternative")
-        alt_part.attach(body_part)
-        msg.attach(alt_part)
-    else:
-        msg.attach(body_part)
+    alt_part.attach(body_part)
 
+    # 2. Attach inline iCal REQUEST part to alternative (enables interactive RSVP buttons in Gmail/Outlook)
+    if ics_content:
+        cal_inline = MIMEBase("text", "calendar", method="REQUEST", charset="UTF-8")
+        cal_inline.set_payload(ics_content.encode("utf-8"))
+        cal_inline.add_header("Content-Class", "urn:content-classes:calendarmessage")
+        cal_inline.add_header("Content-Transfer-Encoding", "8bit")
+        alt_part.attach(cal_inline)
+
+    msg.attach(alt_part)
+
+    # 3. Attach downloadable .ics attachment (enables opening file directly in other calendar clients)
     if ics_content:
         part = MIMEBase("text", "calendar", method="REQUEST")
         part.set_payload(ics_content.encode("utf-8"))
         part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
         part.add_header("Content-Class", "urn:content-classes:calendarmessage")
+        part.add_header("Content-Transfer-Encoding", "base64")
+        import email.encoders
+        email.encoders.encode_base64(part)
         msg.attach(part)
 
     try:
@@ -321,7 +416,16 @@ async def send_meeting_emails_task(meeting_id: str, email_type: str, settings: S
 
         if email_type == "invite":
             subject = f"📅 Invitation: {meeting.title}"
-            ics_content = generate_ics(meeting.id, meeting.title, meeting.scheduled_time, meeting.end_time or (meeting.scheduled_time + 1800000), meeting.description, vc_link)
+            ics_content = generate_ics(
+                meeting.id, 
+                meeting.title, 
+                meeting.scheduled_time, 
+                meeting.end_time or (meeting.scheduled_time + 1800000), 
+                meeting.description, 
+                vc_link,
+                settings.smtp_from or "gobitsnbytes@gmail.com",
+                to_emails
+            )
             html = get_invite_html(meeting.title, formatted_time, vc_link, meeting.description)
             send_smtp_email(settings, to_emails, subject, html, ics_content, "invite.ics")
 
@@ -332,15 +436,43 @@ async def send_meeting_emails_task(meeting_id: str, email_type: str, settings: S
 
         elif email_type == "reschedule":
             subject = f"🔄 Rescheduled: {meeting.title}"
+            
+            # Retrieve the previous scheduled time from reschedule history database
+            old_time_str = "Previous scheduled time"
+            history_stmt = (
+                select(MeetingRescheduleHistory)
+                .where(MeetingRescheduleHistory.meeting_id == meeting_id)
+                .order_by(MeetingRescheduleHistory.created_at.desc())
+                .limit(1)
+            )
+            res_history = await db.execute(history_stmt)
+            history_entry = res_history.scalar_one_or_none()
+            if history_entry:
+                old_time_str = datetime.datetime.fromtimestamp(
+                    history_entry.old_scheduled_time / 1000, 
+                    tz=datetime.timezone.utc
+                ).astimezone(
+                    datetime.timezone(datetime.timedelta(hours=5, minutes=30)) # IST
+                ).strftime("%I:%M %p, %d %b %Y IST")
+
             html = get_reschedule_html(
                 meeting.title,
-                "Previous scheduled time", # Or load from reschedule history
+                old_time_str,
                 formatted_time,
                 reschedule_reason or "Time update",
                 rescheduled_by or "HQ Organizer",
                 vc_link
             )
-            ics_content = generate_ics(meeting.id, meeting.title, meeting.scheduled_time, meeting.end_time or (meeting.scheduled_time + 1800000), meeting.description, vc_link)
+            ics_content = generate_ics(
+                meeting.id, 
+                meeting.title, 
+                meeting.scheduled_time, 
+                meeting.end_time or (meeting.scheduled_time + 1800000), 
+                meeting.description, 
+                vc_link,
+                settings.smtp_from or "gobitsnbytes@gmail.com",
+                to_emails
+            )
             send_smtp_email(settings, to_emails, subject, html, ics_content, "invite.ics")
 
 # ---------------------------------------------------------------------------
@@ -1147,6 +1279,111 @@ async def get_public_availability_by_link(booking_link: str, db: DbSession):
     if not avail:
         raise HTTPException(status_code=404, detail="Booking link not found")
     return UserAvailabilitySchema.model_validate(avail)
+
+
+@router.get("/public/availability/{booking_link}/slots", response_model=List[str])
+async def get_availability_slots(
+    booking_link: str,
+    date: str,
+    db: DbSession,
+    duration: int = 30
+):
+    """Calculate free slots for a host by booking link slug. Public endpoint."""
+    stmt = select(UserAvailability).where(UserAvailability.booking_link == booking_link)
+    res = await db.execute(stmt)
+    host = res.scalar_one_or_none()
+    if not host:
+        raise HTTPException(status_code=404, detail="Host not found")
+
+    import zoneinfo
+    try:
+        tz = zoneinfo.ZoneInfo(host.timezone or "Asia/Kolkata")
+    except Exception:
+        tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+
+    try:
+        target_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
+
+    local_start = datetime.datetime.combine(target_date, datetime.time.min).replace(tzinfo=tz)
+    local_end = datetime.datetime.combine(target_date, datetime.time.max).replace(tzinfo=tz)
+
+    start_utc_ms = int(local_start.timestamp() * 1000)
+    end_utc_ms = int(local_end.timestamp() * 1000)
+    now_ms = int(time.time() * 1000)
+
+    # Fetch scheduled meetings for the host (as creator or attendee)
+    meeting_stmt = (
+        select(BotMeeting)
+        .outerjoin(MeetingAttendee, BotMeeting.id == MeetingAttendee.meeting_id)
+        .where(
+            (BotMeeting.status != "cancelled") &
+            ((BotMeeting.creator_id == host.discord_id) | (MeetingAttendee.discord_id == host.discord_id))
+        )
+    )
+    res_meetings = await db.execute(meeting_stmt)
+    meetings = res_meetings.scalars().all()
+
+    # Deduplicate meetings list
+    meetings_dict = {m.id: m for m in meetings}
+    meetings = list(meetings_dict.values())
+
+    try:
+        weekly_hours = json.loads(host.weekly_hours or "{}")
+    except Exception:
+        weekly_hours = {}
+
+    utc_slots = []
+
+    for day_offset in [-1, 0, 1]:
+        d = target_date + datetime.timedelta(days=day_offset)
+        day_of_week_name = d.strftime("%A").lower()
+        daily_slots = weekly_hours.get(day_of_week_name, [])
+
+        for slot_range in daily_slots:
+            start_str = slot_range.get("start", "")
+            end_str = slot_range.get("end", "")
+            if not start_str or not end_str:
+                continue
+
+            try:
+                start_h, start_m = map(int, start_str.split(":"))
+                end_h, end_m = map(int, end_str.split(":"))
+            except ValueError:
+                continue
+
+            current_min = start_h * 60 + start_m
+            end_min = end_h * 60 + end_m
+
+            while current_min + duration <= end_min:
+                h = current_min // 60
+                m = current_min % 60
+
+                slot_time = datetime.time(h, m)
+                slot_local_dt = datetime.datetime.combine(d, slot_time).replace(tzinfo=tz)
+
+                slot_start_ms = int(slot_local_dt.timestamp() * 1000)
+                slot_end_ms = slot_start_ms + duration * 60 * 1000
+
+                if start_utc_ms <= slot_start_ms <= end_utc_ms and slot_start_ms > now_ms:
+                    overlaps = False
+                    for m in meetings:
+                        m_start = m.scheduled_time
+                        m_end = m.end_time if m.end_time else (m_start + 30 * 60 * 1000)
+
+                        if slot_start_ms < m_end and slot_end_ms > m_start:
+                            overlaps = True
+                            break
+
+                    if not overlaps:
+                        utc_slot_dt = datetime.datetime.fromtimestamp(slot_start_ms / 1000, tz=datetime.timezone.utc)
+                        utc_slots.append(utc_slot_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+
+                current_min += 15
+
+    utc_slots.sort()
+    return utc_slots
 
 
 # ---------------------------------------------------------------------------
