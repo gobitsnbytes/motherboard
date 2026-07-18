@@ -181,3 +181,12 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **VPS Deployment**: Pulled latest updates to `/opt/bnb-api` and `/opt/bits-bytes-bot` on the VPS. Fixed permissions on `/opt/bnb-api/apps/bot/data` to be owned by `ubuntu` (since the bot service runs as `ubuntu`), enabling database directory initialization.
 - **Verification**: Verified all 210 bot tests pass locally with 100% success. Checked service states on VPS, verifying that both `bnb-bot` (using `bun:sqlite`) and `bnb-api` are fully online, healthy, and communicating without errors.
 
+### 2026-07-19 (Later Still)
+
+**S44 — Motherboard Slots API & Interactive Calendar RSVP Widget Integration:**
+- **Motherboard Slots API (`app/routers/meetings.py`)**: Designed and exposed a public availability slots route `/api/meetings/public/availability/{booking_link}/slots` on Motherboard to encapsulate the host weekly hours, timezone boundaries, and database-level active meeting overlap calculations.
+- **Chrono availability synchronization (`server.js`)**: Configured the Express booking backend (in both the monorepo `@bnb/bot` and the standalone `Bits-bytes-bot` repositories) to fetch availabilities via Motherboard's public slots API in production, keeping local mock database checks as fallback for tests.
+- **MIME Multipart RFC-2446 Email RSVP widget (`app/routers/meetings.py`)**: Modified `send_smtp_email` mailer to construct a structured `multipart/mixed` MIME message containing a `multipart/alternative` block hosting the HTML version alongside the raw `text/calendar; method=REQUEST` inline iCalendar, triggering Gmail and Outlook client native RSVP checkmarks.
+- **Deduplicated .ics Attendees & Organizer**: Enriched the `.ics` generator signature with dynamic `ORGANIZER` and `ATTENDEE` tags containing matching `CN` and `mailto:` values, enabling mail clients to associate the invitation widget with the recipient. Loaded reschedule history to resolve previous scheduled times.
+- **Verification**: Verified that all 97 backend FastAPI unit tests (`pytest`) and all 210 bot Express integration tests (`bun test`) pass 100% green. Pushed code changes successfully to Motherboard `prod` and standalone bot `main` branches.
+
