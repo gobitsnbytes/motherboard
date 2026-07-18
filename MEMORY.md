@@ -171,3 +171,13 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Dynamic Routing Fix**: Refactored the dynamic booking page route `GET /:bookingLink` and booking creator route `POST /api/book/:bookingLink` in `server.js` to resolve host profiles using a global `resolveHostByLink` helper, fetching from Motherboard's public availability API instead of querying the local database, fixing dynamic routing on `cal.gobitsnbytes.org/:bookingLink`.
 - **Verification**: Ran `bun install --ignore-scripts` to build monorepo package locks. Verified that all 210 bot tests and 97 backend python tests pass 100% green. Verified Next.js monorepo build (`bun run build`) compiles cleanly with zero errors.
 
+### 2026-07-19 (Continued)
+
+**S43 — CI/CD Trigger Expansion, native compilation resolution & bun:sqlite migration:**
+- **Trigger Path Configuration**: Updated paths in `deploy-api.yml` to trigger on all bot, monorepo configs, deploy scripts, and workflow files (`apps/bot/**`, `package.json`, `bun.lock`, `.github/workflows/**`).
+- **deploy.sh Service Reload**: Configured `deploy.sh` to run `bun install` recursively and automatically restart the bot service (`bnb-bot`) on code changes.
+- **SQLite Native Bindings Refactor (`db.js`)**: Replaced the native C++ `sqlite3` npm package in the Discord bot with Bun's built-in `bun:sqlite` (`Database` from `bun:sqlite`), eliminating the external Node C++ native module dependency, resolving local GLIBC binary compilation conflicts on the VPS (Ubuntu 22.04 LTS), and removing compile-time dependencies.
+- **Parity Syncing**: Synchronized `db.js`, `audioProcessor.js`, and `server.js` modifications back to the standalone bot repository (`gobitsnbytes/bitsnbytes-discord-utility`) and pushed to origin/main.
+- **VPS Deployment**: Pulled latest updates to `/opt/bnb-api` and `/opt/bits-bytes-bot` on the VPS. Fixed permissions on `/opt/bnb-api/apps/bot/data` to be owned by `ubuntu` (since the bot service runs as `ubuntu`), enabling database directory initialization.
+- **Verification**: Verified all 210 bot tests pass locally with 100% success. Checked service states on VPS, verifying that both `bnb-bot` (using `bun:sqlite`) and `bnb-api` are fully online, healthy, and communicating without errors.
+
