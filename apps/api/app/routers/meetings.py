@@ -1387,22 +1387,127 @@ async def get_availability_slots(
 
 
 from pydantic import BaseModel
+import random
+import hmac
+import hashlib
+
+# Transient storage for OTP codes: email -> {"code": str, "expires_at": float}
+guest_otp_store: dict[str, dict[str, Any]] = {}
+
+# Transient storage for verified guest tokens: token -> {"email": str, "expires_at": float}
+verified_guest_tokens: dict[str, dict[str, Any]] = {}
+
+class GuestVerificationSendRequest(BaseModel):
+    email: str
+
+class GuestVerificationVerifyRequest(BaseModel):
+    email: str
+    code: str
 
 class GuestCancelRequest(BaseModel):
     email: str
+    token: str
     reason: Optional[str] = None
 
 class GuestRescheduleRequest(BaseModel):
     email: str
+    token: str
     new_slot_iso: str
     duration_minutes: int = 30
     reason: Optional[str] = None
 
+def check_guest_token(token: Optional[str], email: str) -> bool:
+    if not token:
+        return False
+    entry = verified_guest_tokens.get(token)
+    if not entry:
+        return False
+    if time.time() > entry["expires_at"]:
+        verified_guest_tokens.pop(token, None)
+        return False
+    return entry["email"] == email.strip().lower()
 
-@router.get("/public/guest/mine")
-async def get_guest_meetings(email: str, db: DbSession):
+@router.post("/public/guest/verification/send")
+async def send_guest_otp(body: GuestVerificationSendRequest, settings: Settings = Depends(get_settings)):
+    email = body.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=422, detail="Invalid email format")
+    
+    # Generate 6-digit OTP
+    otp = f"{random.randint(100000, 999999)}"
+    guest_otp_store[email] = {
+        "code": otp,
+        "expires_at": time.time() + 600 # 10 mins
+    }
+    
+    # Format email body
+    html_body = get_base_email_html(f"""
+    <div class="card">
+        <h2 class="card-title">VERIFY YOUR EMAIL</h2>
+        <p style="font-size: 14px; line-height: 1.6; color: #f7f1ec;">
+            You requested a verification code to manage your bookings on bits&bytes™. Use the 6-digit OTP code below:
+        </p>
+        <div style="background-color: rgba(255, 122, 27, 0.1); border: 2px dashed #ff7a1b; border-radius: 12px; padding: 20px; text-align: center; margin: 25px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #ff7a1b; font-family: monospace;">{otp}</span>
+        </div>
+        <p style="font-size: 11px; color: rgba(247, 241, 236, 0.4); line-height: 1.4; margin-top: 15px;">
+            This verification code is transient and will expire in 10 minutes. If you did not initiate this request, you can safely ignore this email.
+        </p>
+    </div>
+    """, "Verify Email")
+
+    # Send the email via SMTP helper
+    send_smtp_email(
+        settings=settings,
+        to_emails=[email],
+        subject=f"bits&bytes™ Verification Code: {otp}",
+        html_body=html_body
+    )
+    
+    return {"status": "sent", "email": email}
+
+
+@router.post("/public/guest/verification/verify")
+async def verify_guest_otp(body: GuestVerificationVerifyRequest, settings: Settings = Depends(get_settings)):
+    email = body.email.strip().lower()
+    code = body.code.strip()
+    
+    entry = guest_otp_store.get(email)
+    if not entry:
+        raise HTTPException(status_code=400, detail="No verification code sent or it has expired. Please request a new code.")
+        
+    if time.time() > entry["expires_at"]:
+        guest_otp_store.pop(email, None)
+        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+        
+    if entry["code"] != code:
+        raise HTTPException(status_code=400, detail="Invalid verification code. Please try again.")
+        
+    # Generate secure token
+    token = hmac.new(
+        settings.api_internal_secret.encode(),
+        f"{email}:{time.time()}:{random.random()}".encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    # Store token valid for 1 hour
+    verified_guest_tokens[token] = {
+        "email": email,
+        "expires_at": time.time() + 3600
+    }
+    
+    # Clean up OTP
+    guest_otp_store.pop(email, None)
+    
+    return {"status": "verified", "token": token}
+
+
+@router.get("/public/guest/mine")
+async def get_guest_meetings(email: str, token: str, db: DbSession):
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email format")
+    if not check_guest_token(token, email):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification token")
     
     stmt = select(BotMeeting).where(
         (BotMeeting.status == "scheduled") | (BotMeeting.status == "active"),
@@ -1427,6 +1532,9 @@ async def get_guest_meetings(email: str, db: DbSession):
 
 @router.post("/public/guest/{meeting_id}/cancel")
 async def cancel_guest_meeting(meeting_id: str, body: GuestCancelRequest, db: DbSession):
+    if not check_guest_token(body.token, body.email):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification token")
+
     stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
     res = await db.execute(stmt)
     meeting = res.scalar_one_or_none()
@@ -1448,6 +1556,9 @@ async def cancel_guest_meeting(meeting_id: str, body: GuestCancelRequest, db: Db
 
 @router.post("/public/guest/{meeting_id}/reschedule")
 async def reschedule_guest_meeting(meeting_id: str, body: GuestRescheduleRequest, db: DbSession):
+    if not check_guest_token(body.token, body.email):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification token")
+
     stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
     res = await db.execute(stmt)
     meeting = res.scalar_one_or_none()
