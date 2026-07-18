@@ -46,6 +46,11 @@ if [ "$PREV_COMMIT" = "$NEW_COMMIT" ]; then
     echo "--> No new code changes. Verifying dependencies and restarting..."
 fi
 
+# 1.5. Install monorepo JS dependencies
+echo "--> Installing monorepo Node/Bun dependencies..."
+sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" || rollback
+sudo chown -R deploy:deploy "$APP_DIR"
+
 # 2. Sync python dependencies
 echo "--> Syncing python dependencies..."
 uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
@@ -67,9 +72,11 @@ fi
 export PATH="$API_DIR/.venv/bin:$PATH"
 (cd "$API_DIR" && alembic upgrade head) || rollback
 
-# 4. Restart service
+# 4. Restart services
 echo "--> Restarting bnb-api systemd service..."
 sudo systemctl restart "$SERVICE_NAME" || rollback
+echo "--> Restarting bnb-bot systemd service..."
+sudo systemctl restart bnb-bot || rollback
 
 # 5. Health check loop
 echo "--> Performing health checks..."
