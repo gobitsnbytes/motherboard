@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chrono // dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2.5rem;
+        }
+        @media(min-width: 900px) {
+            .dashboard-container {
+                grid-template-columns: 340px 1fr;
+            }
+        }
+        .profile-summary {
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+        }
+        .profile-summary .user-avatar {
+            margin: 0 auto 1.25rem auto;
+            width: 80px;
+            height: 80px;
+            font-size: 2.25rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .alert-popup {
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius);
+            margin-bottom: 2rem;
+            display: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            animation: modalSlide 0.2s ease-out;
+        }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+        .alert-error {
+            background: rgba(244, 63, 94, 0.08);
+            color: var(--error);
+            border: 1px solid rgba(244, 63, 94, 0.25);
+        }
+        .link-display-box {
+            background: rgba(9, 9, 11, 0.6);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .link-text {
+            font-family: monospace;
+            font-size: 0.825rem;
+            color: var(--primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        .copy-btn {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            color: var(--muted-foreground);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        .copy-btn:hover {
+            color: var(--primary);
+            background: #27272a;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="https://gobitsnbytes.org/logo" alt="Bits&Bytes Logo">
+            <span class="logo-text">chrono</span>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="btn btn-secondary">Home</a>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="alert-popup" id="alert-message"></div>
+
+        <div class="dashboard-container">
+            <!-- Sidebar: User profile Info -->
+            <div class="glass-card" style="height: fit-content;">
+                <div class="profile-summary">
+                    <div class="user-avatar" id="sidebar-avatar">?</div>
+                    <h2 id="sidebar-username">Loading...</h2>
+                    <p id="sidebar-email" style="color: var(--muted-foreground); font-size: 0.85rem; margin-top: 0.25rem;">loading email...</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                     <div>
+                         <span style="font-size: 0.75rem; font-weight: 700; color: var(--muted-foreground); display: block; text-transform: uppercase; letter-spacing: 0.05em;">Public Booking URL</span>
+                         <div class="link-display-box">
+                             <span class="link-text" id="public-booking-url">Configure link handle first</span>
+                             <button type="button" class="copy-btn" id="copy-link-btn" onclick="copyBookingLink()">Copy</button>
+                         </div>
+                     </div>
+                     <div id="associated-fork-container" style="display: none; margin-top: 0.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                         <span style="font-size: 0.75rem; font-weight: 700; color: var(--muted-foreground); display: block; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Connected Fork</span>
+                         <span id="associated-fork-label" style="font-size: 0.85rem; font-weight: 600; color: var(--primary);"></span>
+                     </div>
+                 </div>
+            </div>
+
+            <!-- Main Panel: Configuration Form -->
+            <div class="glass-card">
+                <h2>Configure Availability & Booking Info</h2>
+                <p class="subtitle" style="margin-bottom: 2.5rem;">Setup your bio and weekly availability ranges. These configurations determine exactly when external guests are allowed to schedule voice conferences with you.</p>
+
+                <form id="availability-form">
+                    <div class="profile-grid">
+                        <div class="form-group">
+                            <label for="title">Display Title</label>
+                            <input type="text" id="title" class="form-control" placeholder="e.g. Akshat Kapoor (Tech Coordinator)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="booking-link">Booking Handle (Link URL)</label>
+                            <input type="text" id="booking-link" class="form-control" placeholder="e.g. akshat" pattern="^[a-zA-Z0-9-_]+$" title="Only letters, numbers, hyphens, and underscores allowed" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Short Bio / Booking Intro</label>
+                        <textarea id="description" class="form-control" placeholder="Tell visitors what they can expect from booking a meeting with you..."></textarea>
+                    </div>
+
+                    <div class="form-group" style="position: relative;">
+                        <label for="timezone-search">Timezone</label>
+                        <input type="text" id="timezone-search" class="form-control" placeholder="Search timezone (e.g. Kolkata, New York)..." autocomplete="off" style="width: 100%;">
+                        <div id="timezone-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto; background: #18181b; border: 1px solid var(--border); border-radius: var(--radius); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 4px;">
+                            <!-- Dynamically populated -->
+                        </div>
+                        <input type="hidden" id="timezone" name="timezone" value="Asia/Kolkata">
+                    </div>
+
+                     <div class="form-group" style="background: rgba(252,146,13,0.07); border: 1px solid rgba(252,146,13,0.25); border-radius: var(--radius); padding: 0.85rem 1rem; display: flex; align-items: flex-start; gap: 0.6rem;">
+                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fc920d" stroke-width="2" style="margin-top: 0.2rem; flex-shrink: 0;">
+                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                             <line x1="16" y1="2" x2="16" y2="6"></line>
+                             <line x1="8" y1="2" x2="8" y2="6"></line>
+                             <line x1="3" y1="10" x2="21" y2="10"></line>
+                         </svg>
+                         <div>
+                             <span style="font-size: 0.8125rem; font-weight: 600; color: #fc920d;">Google Calendar sync is automatic</span>
+                             <span style="font-size: 0.775rem; color: var(--muted-foreground); display: block; margin-top: 0.2rem;">Every booking made through your link is automatically pushed to the BnB Google Calendar via Cal.com — no extra setup needed. Meeting duration determines the event type used.</span>
+                         </div>
+                     </div>
+
+                    <h3 style="margin: 3rem 0 1rem 0; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">Weekly Availability Hours</h3>
+
+                    <!-- Bulk action toolbar -->
+                    <div class="availability-toolbar">
+                        <span style="font-size: 0.75rem; color: var(--muted-foreground); margin-right: 0.25rem;">Quick select:</span>
+                        <button type="button" class="avail-action-btn" onclick="selectDays('weekdays')">Weekdays</button>
+                        <button type="button" class="avail-action-btn" onclick="selectDays('weekend')">Weekend</button>
+                        <button type="button" class="avail-action-btn" onclick="selectDays('all')">All days</button>
+                        <button type="button" class="avail-action-btn" onclick="selectDays('none')">Clear all</button>
+                    </div>
+
+                    <div id="days-container">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div style="margin-top: 3rem; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2.25rem;">Save Configuration</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2026 Bits&Bytes Foundation. Powered by Discord Voice Infrastructure.</p>
+    </footer>
+
+    <script>
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        
+        const ianaTimezones = [
+            "Africa/Cairo", "Africa/Casablanca", "Africa/Johannesburg", "Africa/Lagos", "Africa/Nairobi",
+            "America/Anchorage", "America/Argentina/Buenos_Aires", "America/Bogota", "America/Caracas",
+            "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Mexico_City",
+            "America/New_York", "America/Phoenix", "America/Sao_Paulo", "America/Toronto", "America/Vancouver",
+            "Asia/Baghdad", "Asia/Bangkok", "Asia/Dubai", "Asia/Hong_Kong", "Asia/Jakarta", "Asia/Jerusalem",
+            "Asia/Kabul", "Asia/Karachi", "Asia/Kathmandu", "Asia/Kolkata", "Asia/Kuala_Lumpur", "Asia/Riyadh",
+            "Asia/Seoul", "Asia/Shanghai", "Asia/Singapore", "Asia/Taipei", "Asia/Tashkent", "Asia/Tokyo",
+            "Atlantic/Azores", "Atlantic/Reykjavik", "Australia/Adelaide", "Australia/Brisbane", "Australia/Darwin",
+            "Australia/Melbourne", "Australia/Perth", "Australia/Sydney", "Europe/Amsterdam", "Europe/Berlin",
+            "Europe/Brussels", "Europe/Bucharest", "Europe/Budapest", "Europe/Dublin", "Europe/Istanbul",
+            "Europe/Kyiv", "Europe/Lisbon", "Europe/London", "Europe/Madrid", "Europe/Moscow", "Europe/Paris",
+            "Europe/Prague", "Europe/Rome", "Europe/Vienna", "Europe/Warsaw", "Europe/Zurich",
+            "Pacific/Auckland", "Pacific/Fiji", "Pacific/Honolulu", "UTC"
+        ];
+
+        const tzSearch = document.getElementById('timezone-search');
+        const tzDropdown = document.getElementById('timezone-dropdown');
+        const tzHidden = document.getElementById('timezone');
+
+        function initTimezoneSelector() {
+            let detectedTz = "Asia/Kolkata";
+            try {
+                detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            } catch (e) {
+                console.warn("Could not auto-detect timezone, defaulting to Asia/Kolkata");
+            }
+            
+            if (!tzHidden.value || tzHidden.value === 'Asia/Kolkata') {
+                updateTimezoneValue(detectedTz);
+            }
+
+            renderDropdownItems(ianaTimezones);
+
+            tzSearch.addEventListener('focus', () => {
+                tzDropdown.style.display = 'block';
+            });
+
+            tzSearch.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                const filtered = ianaTimezones.filter(tz => tz.toLowerCase().includes(query));
+                renderDropdownItems(filtered);
+                tzDropdown.style.display = 'block';
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!tzSearch.contains(e.target) && !tzDropdown.contains(e.target)) {
+                    tzDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        function renderDropdownItems(list) {
+            tzDropdown.innerHTML = '';
+            if (list.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'padding: 0.75rem; font-size: 0.85rem; color: var(--muted-foreground); text-align: center;';
+                empty.textContent = 'No matching timezones found';
+                tzDropdown.appendChild(empty);
+                return;
+            }
+
+            list.forEach(tz => {
+                const item = document.createElement('div');
+                item.className = 'timezone-item';
+                item.style.cssText = 'padding: 0.6rem 0.85rem; font-size: 0.85rem; color: var(--primary); cursor: pointer; transition: all 0.15s ease; border-bottom: 1px solid rgba(255,255,255,0.02);';
+                
+                if (tzHidden.value === tz) {
+                    item.style.background = '#97192c';
+                    item.style.color = '#fafafa';
+                    item.style.fontWeight = '700';
+                }
+
+                item.textContent = tz;
+                item.addEventListener('mouseenter', () => {
+                    if (tzHidden.value !== tz) {
+                        item.style.background = 'rgba(255, 255, 255, 0.05)';
+                    }
+                });
+                item.addEventListener('mouseleave', () => {
+                    if (tzHidden.value !== tz) {
+                        item.style.background = '';
+                    }
+                });
+
+                item.addEventListener('click', () => {
+                    updateTimezoneValue(tz);
+                    tzDropdown.style.display = 'none';
+                });
+                tzDropdown.appendChild(item);
+            });
+        }
+
+        function updateTimezoneValue(tz) {
+            tzHidden.value = tz;
+            tzSearch.value = tz;
+        }
+        
+
+        // Render day rows with toggle switches and copy-to-all
+        const daysContainer = document.getElementById('days-container');
+        const weekdays = ['monday','tuesday','wednesday','thursday','friday'];
+        const weekend = ['saturday','sunday'];
+
+        days.forEach(day => {
+            const dayCap = day.charAt(0).toUpperCase() + day.slice(1);
+            const row = document.createElement('div');
+            row.className = 'day-availability-row day-disabled';
+            row.id = `row-${day}`;
+            row.innerHTML = `
+                <div class="day-info">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="check-${day}">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <label for="check-${day}" style="font-weight: 600; cursor: pointer; user-select: none;">${dayCap}</label>
+                </div>
+                <div class="time-slots-inputs">
+                    <input type="time" id="start-${day}" class="time-input" value="09:00" disabled>
+                    <span style="color: var(--muted-foreground); font-size: 0.8rem;">to</span>
+                    <input type="time" id="end-${day}" class="time-input" value="17:00" disabled>
+                    <button type="button" class="copy-row-btn" onclick="copyRowToAll('${day}')" title="Copy these hours to all active days">
+                        Copy to all
+                    </button>
+                </div>
+            `;
+            daysContainer.appendChild(row);
+
+            const checkbox = document.getElementById(`check-${day}`);
+            const startInput = document.getElementById(`start-${day}`);
+            const endInput = document.getElementById(`end-${day}`);
+
+            checkbox.addEventListener('change', () => {
+                const enabled = checkbox.checked;
+                startInput.disabled = !enabled;
+                endInput.disabled = !enabled;
+                row.classList.toggle('day-disabled', !enabled);
+                const copyBtn = row.querySelector('.copy-row-btn');
+                if (copyBtn) {
+                    copyBtn.disabled = !enabled;
+                }
+            });
+        });
+
+        // Bulk select helper
+        function selectDays(mode) {
+            const targets = mode === 'weekdays' ? weekdays
+                          : mode === 'weekend'  ? weekend
+                          : mode === 'all'      ? days
+                          : [];
+            days.forEach(day => {
+                const cb = document.getElementById(`check-${day}`);
+                const shouldCheck = targets.includes(day);
+                if (cb.checked !== shouldCheck) {
+                    cb.checked = shouldCheck;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
+        // Copy this row's time range to all currently enabled days
+        function copyRowToAll(sourceDay) {
+            const start = document.getElementById(`start-${sourceDay}`).value;
+            const end   = document.getElementById(`end-${sourceDay}`).value;
+            days.forEach(day => {
+                const cb = document.getElementById(`check-${day}`);
+                if (cb.checked) {
+                    document.getElementById(`start-${day}`).value = start;
+                    document.getElementById(`end-${day}`).value   = end;
+                }
+            });
+            // Brief flash on the button for feedback
+             const btn = document.querySelector(`#row-${sourceDay} .copy-row-btn`);
+             if (btn) {
+                 const original = btn.textContent;
+                 btn.textContent = 'Applied';
+                 btn.style.color = '#22c55e';
+                 setTimeout(() => { btn.textContent = original; btn.style.color = ''; }, 1500);
+             }
+        }
+
+        function showAlert(msg, type = 'success') {
+            const alert = document.getElementById('alert-message');
+            alert.textContent = msg;
+            alert.className = `alert-popup alert-${type}`;
+            alert.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        let fullBookingUrl = '';
+
+        function copyBookingLink() {
+            if (!fullBookingUrl) return;
+            navigator.clipboard.writeText(fullBookingUrl);
+            const copyBtn = document.getElementById('copy-link-btn');
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => {
+                copyBtn.textContent = 'Copy';
+            }, 2000);
+        }
+
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/user/me');
+                if (!res.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+                
+                const user = await res.json();
+                
+                // Sidebar details
+                document.getElementById('sidebar-username').textContent = user.username;
+                document.getElementById('sidebar-email').textContent = user.email || 'No email registered';
+                document.getElementById('sidebar-avatar').textContent = user.username.charAt(0).toUpperCase();
+                
+                // Form values
+                document.getElementById('title').value = user.title || user.username;
+                document.getElementById('booking-link').value = user.booking_link || '';
+                document.getElementById('description').value = user.description || '';
+                if (user.timezone) {
+                    updateTimezoneValue(user.timezone);
+                }
+                
+                if (user.booking_link) {
+                    fullBookingUrl = `${window.location.origin}/${user.booking_link}`;
+                    const linkText = document.getElementById('public-booking-url');
+                    linkText.textContent = `${window.location.host}/${user.booking_link}`;
+                    linkText.style.color = 'var(--primary)';
+                }
+
+                 if (user.associated_role_name) {
+                     document.getElementById('associated-fork-container').style.display = 'block';
+                     document.getElementById('associated-fork-label').textContent = user.associated_role_name;
+                 } else {
+                    document.getElementById('associated-fork-container').style.display = 'none';
+                }
+
+                // Set availability hours
+                if (user.weekly_hours) {
+                    const hours = JSON.parse(user.weekly_hours);
+                    days.forEach(day => {
+                        if (hours[day] && hours[day].length > 0) {
+                            const cb = document.getElementById(`check-${day}`);
+                            cb.checked = true;
+                            cb.dispatchEvent(new Event('change'));
+                            document.getElementById(`start-${day}`).value = hours[day][0].start;
+                            document.getElementById(`end-${day}`).value = hours[day][0].end;
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to load user profile:', err);
+                showAlert('Error loading profile. Check backend connection.', 'error');
+            }
+        }
+
+        document.getElementById('availability-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('title').value.trim();
+            const bookingLink = document.getElementById('booking-link').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const timezone = document.getElementById('timezone').value;
+            
+            
+            // Build availability JSON
+            const weekly_hours = {};
+            let hasActiveDay = false;
+            days.forEach(day => {
+                const checked = document.getElementById(`check-${day}`).checked;
+                if (checked) {
+                    const start = document.getElementById(`start-${day}`).value;
+                    const end = document.getElementById(`end-${day}`).value;
+                    weekly_hours[day] = [{ start, end }];
+                    hasActiveDay = true;
+                } else {
+                    weekly_hours[day] = [];
+                }
+            });
+
+            if (!hasActiveDay) {
+                // Apply default schedule: Mon-Fri 09:00 to 17:00
+                weekdays.forEach(day => {
+                    const cb = document.getElementById(`check-${day}`);
+                    cb.checked = true;
+                    cb.dispatchEvent(new Event('change'));
+                    document.getElementById(`start-${day}`).value = '09:00';
+                    document.getElementById(`end-${day}`).value = '17:00';
+                    weekly_hours[day] = [{ start: '09:00', end: '17:00' }];
+                });
+                alert('Availability schedule is required! We have automatically applied a default Monday-Friday 9:00 AM - 5:00 PM schedule for you.');
+            }
+            
+            try {
+                const res = await fetch('/api/user/availability', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        booking_link: bookingLink,
+                        description,
+                        timezone,
+                        weekly_hours: JSON.stringify(weekly_hours)
+                    })
+                });
+                
+                if (res.ok) {
+                    showAlert('Availability and profile successfully updated!');
+                    fullBookingUrl = `${window.location.origin}/${bookingLink}`;
+                    const linkText = document.getElementById('public-booking-url');
+                    linkText.textContent = `${window.location.host}/${bookingLink}`;
+                } else {
+                    const err = await res.json();
+                    showAlert(err.error || 'Failed to update configuration', 'error');
+                }
+            } catch (err) {
+                console.error('Failed to submit:', err);
+                showAlert('Network error while updating configuration', 'error');
+            }
+        });
+
+        initTimezoneSelector();
+        loadProfile();
+    </script>
+</body>
+</html>

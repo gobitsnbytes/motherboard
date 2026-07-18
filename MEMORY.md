@@ -161,3 +161,13 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Gemini Transcription Fallback (`apps/api/app/routers/meetings.py`)**: Implemented a model fallback mechanism. If generating the transcription with the primary model fails (e.g. 503 unavailability on `gemini-3.5-flash`), the system automatically falls back to `gemini-2.5-flash` to ensure 100% successful meeting briefs.
 - **Calendar & Meetings Programmatic API Key Auth (`apps/api/app/dependencies.py`)**: Implemented a secure, API key-authorized fallback (supporting `X-API-Key` and `Authorization: Bearer <API_KEY>`) to `get_current_user` in the FastAPI backend (`motherboard.gobitsnbytes.org`). This enables external calendars, Cal.com scripts, and bots to query and modify scheduled meetings and user availability host lists without browser NextAuth sessions.
 - **Verification**: Verified that all 210 bot tests and 97 python backend tests pass 100% green. Tested the fallback directly on the VPS via python request calls, verifying successful 200 OK responses on the meetings index. Restarted all services.
+
+### 2026-07-19
+
+**S42 — Monorepo Consolidation, Database Decoupling & API Routing fixes:**
+- **Monorepo Integration**: Consolidated the Discord Bot into `apps/bot` under Turborepo, naming it `@bnb/bot`.
+- **Audio Workflow Migration**: Moved `merge-audio.yml` workflow to `.github/workflows/merge-audio.yml` and updated the dispatch repository target in `audioProcessor.js` to `gobitsnbytes/motherboard`.
+- **Database Decoupling**: Disabled direct Neon PostgreSQL database access in `db.js` completely (setting `usePostgres = false`). The bot now uses local SQLite (`data/bot.db`) for bot-only ephemeral tables (reminders, pings, registrations, subscriptions) and `callMotherboard()` API endpoints for all shared global meetings, transcripts, and preferences.
+- **Dynamic Routing Fix**: Refactored the dynamic booking page route `GET /:bookingLink` and booking creator route `POST /api/book/:bookingLink` in `server.js` to resolve host profiles using a global `resolveHostByLink` helper, fetching from Motherboard's public availability API instead of querying the local database, fixing dynamic routing on `cal.gobitsnbytes.org/:bookingLink`.
+- **Verification**: Ran `bun install --ignore-scripts` to build monorepo package locks. Verified that all 210 bot tests and 97 backend python tests pass 100% green. Verified Next.js monorepo build (`bun run build`) compiles cleanly with zero errors.
+
