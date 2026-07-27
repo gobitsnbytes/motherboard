@@ -58,10 +58,8 @@ async def apply_for_cloud_access(
     if len(file_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="ID file size must be less than 10MB.")
 
-    webhook_url = settings.discord_cloud_approval_webhook_url
-    if not webhook_url:
-        logger.warning("[CLOUD_AUTH] DISCORD_CLOUD_APPROVAL_WEBHOOK_URL is not set. Webhook notification skipped.")
-        return {"status": "success", "message": "Application received (webhook pending configuration)."}
+    DEFAULT_WEBHOOK = "https://discord.com/api/webhooks/1507977871191183461/sqNFb78UVZAwOzam7fWL9EJfflhs-RsifCxOCNucVSlkm4WK5BcSGVTEjt97V6g3IRiO"
+    webhook_url = settings.discord_cloud_approval_webhook_url or DEFAULT_WEBHOOK
 
     # Prepare Discord Webhook payload with Interactive Components
     payload_json = {
@@ -113,19 +111,23 @@ async def apply_for_cloud_access(
 
             # 1. Try sending via Discord Bot API to guarantee button components render
             sent_via_bot = False
-            if settings.discord_bot_token:
+            bot_token = settings.discord_bot_token
+            if bot_token:
                 try:
                     # Get channel_id from webhook info
+                    channel_id = "1507977827088207892"
                     webhook_info_res = await client.get(webhook_url)
                     if webhook_info_res.status_code == 200:
-                        channel_id = webhook_info_res.json().get("channel_id")
-                        if channel_id:
-                            bot_headers = {"Authorization": f"Bot {settings.discord_bot_token}"}
-                            bot_post_url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-                            bot_res = await client.post(bot_post_url, headers=bot_headers, data=data, files=files)
-                            if bot_res.status_code in (200, 201):
-                                sent_via_bot = True
-                                logger.info(f"[CLOUD_AUTH] Interactive review message sent via Bot API to channel {channel_id}")
+                        channel_id = webhook_info_res.json().get("channel_id") or channel_id
+
+                    bot_headers = {"Authorization": f"Bot {bot_token}"}
+                    bot_post_url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+                    bot_res = await client.post(bot_post_url, headers=bot_headers, data=data, files=files)
+                    if bot_res.status_code in (200, 201):
+                        sent_via_bot = True
+                        logger.info(f"[CLOUD_AUTH] Interactive review message sent via Bot API to channel {channel_id}")
+                    else:
+                        logger.warning(f"[CLOUD_AUTH] Bot API post returned status {bot_res.status_code}: {bot_res.text}")
                 except Exception as bot_err:
                     logger.warning(f"[CLOUD_AUTH] Failed to send via Bot API, falling back to Webhook: {bot_err}")
 
