@@ -43,6 +43,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Ensure Alembic can discover DATABASE_URL from the environment
     _ensure_alembic_env(settings)
 
+    # Session factory for DB access
+    session_factory = get_sessionmaker()
+
     # Run Alembic migrations programmatically (graceful fallback if DB is offline/quota exceeded)
     try:
         logger.info("Running Alembic migrations…")
@@ -59,20 +62,25 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         logger.info("Migrations complete.")
 
         # Seed reference data
-        session_factory = get_sessionmaker()
         async with session_factory() as session:
             await run_seeds(session)
     except Exception as db_err:
         logger.warning(f"Database startup initialization skipped (DB unavailable or quota exceeded): {db_err}")
 
     # Start the event bus so that plugins can publish/subscribe during on_load
-    await event_bus.start(settings.redis_url)
+    try:
+        await event_bus.start(settings.redis_url)
+    except Exception as redis_err:
+        logger.warning(f"EventBus startup skipped: {redis_err}")
 
     # Initialize and run dynamic PluginLoader
-    from app.plugin_sdk.loader import PluginLoader
-    plugin_loader = PluginLoader(application, session_factory)
-    application.state.plugin_loader = plugin_loader
-    await plugin_loader.discover_and_load()
+    try:
+        from app.plugin_sdk.loader import PluginLoader
+        plugin_loader = PluginLoader(application, session_factory)
+        application.state.plugin_loader = plugin_loader
+        await plugin_loader.discover_and_load()
+    except Exception as plugin_err:
+        logger.warning(f"PluginLoader startup skipped: {plugin_err}")
 
     # Start periodic Discord sync scheduler if enabled
     if settings.enable_sync_scheduler:
