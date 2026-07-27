@@ -4,6 +4,7 @@ Handles applicant form submissions, forwards interactive embeds to Discord,
 and dispatches decision emails upon approval/denial by admins.
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -107,7 +108,7 @@ async def apply_for_cloud_access(
             files = {
                 "files[0]": (id_file.filename, file_bytes, id_file.content_type or "application/octet-stream"),
             }
-            data = {"payload_json": httpx.json.dumps(payload_json)}
+            data = {"payload_json": json.dumps(payload_json)}
 
             # 1. Try sending via Discord Bot API to guarantee button components render
             sent_via_bot = False
