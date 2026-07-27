@@ -43,24 +43,27 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Ensure Alembic can discover DATABASE_URL from the environment
     _ensure_alembic_env(settings)
 
-    # Run Alembic migrations programmatically
-    logger.info("Running Alembic migrations…")
-    import asyncio
-    from alembic import command
-    from alembic.config import Config as AlembicConfig
+    # Run Alembic migrations programmatically (graceful fallback if DB is offline/quota exceeded)
+    try:
+        logger.info("Running Alembic migrations…")
+        import asyncio
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
 
-    def _run_migrations() -> None:
-        alembic_cfg = AlembicConfig("alembic.ini")
-        alembic_cfg.set_main_option("skip_logging_config", "True")
-        command.upgrade(alembic_cfg, "head")
+        def _run_migrations() -> None:
+            alembic_cfg = AlembicConfig("alembic.ini")
+            alembic_cfg.set_main_option("skip_logging_config", "True")
+            command.upgrade(alembic_cfg, "head")
 
-    await asyncio.to_thread(_run_migrations)
-    logger.info("Migrations complete.")
+        await asyncio.to_thread(_run_migrations)
+        logger.info("Migrations complete.")
 
-    # Seed reference data
-    session_factory = get_sessionmaker()
-    async with session_factory() as session:
-        await run_seeds(session)
+        # Seed reference data
+        session_factory = get_sessionmaker()
+        async with session_factory() as session:
+            await run_seeds(session)
+    except Exception as db_err:
+        logger.warning(f"Database startup initialization skipped (DB unavailable or quota exceeded): {db_err}")
 
     # Start the event bus so that plugins can publish/subscribe during on_load
     await event_bus.start(settings.redis_url)
