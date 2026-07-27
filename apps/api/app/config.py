@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     smtp_pass: str | None = Field(default=None, validation_alias="SMTP_PASS")
     smtp_from: str = Field(default="hello@gobitsnbytes.org", validation_alias="SMTP_FROM")
 
+    # SparkCloud Verification settings
+    discord_cloud_approval_webhook_url: str | None = Field(default=None, validation_alias="DISCORD_CLOUD_APPROVAL_WEBHOOK_URL")
+    sparkcloud_join_url: str = Field(default="https://sparkden.org/org/join/HJ6POGpRWhZRvT8jtEYqmMpMhmLiMOEo", validation_alias="SPARKCLOUD_JOIN_URL")
+
 
     @property
     def allowed_cors_origins(self) -> list[str]:
