@@ -110,14 +110,36 @@ async def apply_for_cloud_access(
                 "files[0]": (id_file.filename, file_bytes, id_file.content_type or "application/octet-stream"),
             }
             data = {"payload_json": httpx.json.dumps(payload_json)}
-            res = await client.post(webhook_url, data=data, files=files)
 
-        if res.status_code not in (200, 204):
-            logger.error(f"[CLOUD_AUTH] Webhook dispatch failed: {res.status_code} - {res.text}")
-            raise HTTPException(status_code=502, detail="Failed to dispatch review request to Discord.")
+            # 1. Try sending via Discord Bot API to guarantee button components render
+            sent_via_bot = False
+            if settings.discord_bot_token:
+                try:
+                    # Get channel_id from webhook info
+                    webhook_info_res = await client.get(webhook_url)
+                    if webhook_info_res.status_code == 200:
+                        channel_id = webhook_info_res.json().get("channel_id")
+                        if channel_id:
+                            bot_headers = {"Authorization": f"Bot {settings.discord_bot_token}"}
+                            bot_post_url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+                            bot_res = await client.post(bot_post_url, headers=bot_headers, data=data, files=files)
+                            if bot_res.status_code in (200, 201):
+                                sent_via_bot = True
+                                logger.info(f"[CLOUD_AUTH] Interactive review message sent via Bot API to channel {channel_id}")
+                except Exception as bot_err:
+                    logger.warning(f"[CLOUD_AUTH] Failed to send via Bot API, falling back to Webhook: {bot_err}")
 
+            # 2. Fallback to Webhook if Bot API message wasn't sent
+            if not sent_via_bot:
+                res = await client.post(webhook_url, data=data, files=files)
+                if res.status_code not in (200, 204):
+                    logger.error(f"[CLOUD_AUTH] Webhook dispatch failed: {res.status_code} - {res.text}")
+                    raise HTTPException(status_code=502, detail="Failed to dispatch review request to Discord.")
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"[CLOUD_AUTH] Error posting to Discord webhook: {e}")
+        logger.error(f"[CLOUD_AUTH] Error posting to Discord: {e}")
         raise HTTPException(status_code=500, detail="Internal server error sending review request.")
 
     return {"status": "success", "message": "Application submitted successfully for review."}
