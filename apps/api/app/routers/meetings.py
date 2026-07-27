@@ -281,8 +281,21 @@ def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html
 
     # Root container is mixed to support files/attachments
     msg = MIMEMultipart("mixed")
+    from email.utils import formataddr
+    import re
+
+    # Parse display name and address from smtp_from (e.g. "bits&bytes™ <hello@gobitsnbytes.org>")
+    _from_raw = settings.smtp_from or settings.smtp_user
+    _match = re.match(r'^(.*?)<([^>]+)>\s*$', _from_raw)
+    if _match:
+        _display = _match.group(1).strip()
+        _addr = _match.group(2).strip()
+    else:
+        _display = ''
+        _addr = _from_raw.strip()
+
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_from
+    msg["From"] = formataddr((_display, _addr))
     msg["To"] = ", ".join(to_emails)
 
     # Alternative container holds the HTML version and the inline calendar invite
@@ -317,7 +330,7 @@ def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
             server.starttls()
             server.login(settings.smtp_user, settings.smtp_pass)
-            server.sendmail(settings.smtp_from, to_emails, msg.as_string())
+            server.sendmail(_addr, to_emails, msg.as_string())
         logger.info("[SMTP] Email successfully dispatched to: %s", to_emails)
     except Exception as e:
         logger.error("[SMTP] Failed to send email to %s: %s", to_emails, e)
