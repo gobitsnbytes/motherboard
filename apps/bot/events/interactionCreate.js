@@ -67,9 +67,43 @@ module.exports = {
 				console.error('[AUTOCOMPLETE_ERROR]', error);
 			}
 		} else if (interaction.isModalSubmit()) {
-			// Handle Modal Submissions if any (future use)
+			if (interaction.customId === 'cloud_approve_modal' || interaction.customId === 'cloud_deny_modal') {
+				try {
+					const { handleCloudModalSubmit } = require('../lib/cloudAuth');
+					await handleCloudModalSubmit(interaction);
+				} catch (error) {
+					console.error('[MODAL_ERROR] Cloud modal submission error:', error);
+					await interaction.reply({ content: `❌ Error: ${error.message}`, ephemeral: true }).catch(() => null);
+				}
+			}
+		} else if (typeof interaction.isStringSelectMenu === 'function' && interaction.isStringSelectMenu()) {
+			if (interaction.customId === 'cloud_deny_select') {
+				try {
+					const { handleCloudDenySelect } = require('../lib/cloudAuth');
+					await handleCloudDenySelect(interaction);
+				} catch (error) {
+					console.error('[SELECT_ERROR] Cloud deny select error:', error);
+					await interaction.reply({ content: `❌ Error: ${error.message}`, ephemeral: true }).catch(() => null);
+				}
+			}
 		} else if (interaction.isButton()) {
-			if (interaction.customId === 'refresh_forks_info') {
+			if (interaction.customId === 'cloud_approve') {
+				try {
+					const { handleCloudApproveButton } = require('../lib/cloudAuth');
+					await handleCloudApproveButton(interaction);
+				} catch (error) {
+					console.error('[BUTTON_ERROR] Cloud approve error:', error);
+					await interaction.reply({ content: `❌ Error: ${error.message}`, ephemeral: true }).catch(() => null);
+				}
+			} else if (interaction.customId === 'cloud_deny') {
+				try {
+					const { handleCloudDenyButton } = require('../lib/cloudAuth');
+					await handleCloudDenyButton(interaction);
+				} catch (error) {
+					console.error('[BUTTON_ERROR] Cloud deny error:', error);
+					await interaction.reply({ content: `❌ Error: ${error.message}`, ephemeral: true }).catch(() => null);
+				}
+			} else if (interaction.customId === 'refresh_forks_info') {
 				const command = interaction.client.commands.get('forks-info');
 				if (command && typeof command.handleButton === 'function') {
 					try {
