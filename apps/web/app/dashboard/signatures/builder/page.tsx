@@ -89,12 +89,16 @@ export default function SignatureBuilderPage() {
     }
   };
 
+  const [idempotencyKey] = useState(() => `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+
   const handleDispatch = async () => {
+    if (sending) return;
     setSending(true);
 
     const payload = {
       title: title || "Signature Request",
       file_path: filePath,
+      idempotency_key: idempotencyKey,
       recipients: recipients.map((r, i) => ({
         name: r.name,
         email: r.email,
@@ -117,7 +121,10 @@ export default function SignatureBuilderPage() {
     try {
       const res = await fetch("/api/signatures/requests", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify(payload),
       });
 
@@ -126,7 +133,6 @@ export default function SignatureBuilderPage() {
       }
     } catch (e) {
       console.error("Failed to send signature request", e);
-    } finally {
       setSending(false);
     }
   };

@@ -1101,6 +1101,7 @@ class SignatureRequest(Base):
     original_file_path: Mapped[str] = mapped_column(Text, nullable=False)
     signed_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     document_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -77,6 +77,7 @@ class SignatureRequestCreate(BaseModel):
     recipients: List[RecipientCreate]
     fields: List[FieldCreate]
     expires_in_days: Optional[int] = Field(default=30, ge=1, le=365)
+    idempotency_key: Optional[str] = Field(default=None, max_length=100)
 
 
 class SignatureRequestResponse(BaseModel):
@@ -88,6 +89,7 @@ class SignatureRequestResponse(BaseModel):
     original_file_path: str
     signed_file_path: Optional[str] = None
     document_hash: Optional[str] = None
+    idempotency_key: Optional[str] = None
     created_by: Optional[uuid.UUID] = None
     expires_at: Optional[datetime] = None
     created_at: datetime

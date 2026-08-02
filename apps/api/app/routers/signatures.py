@@ -108,9 +108,29 @@ async def create_signature_request(
     db: DbSession = None,
     current_user: ResolvedPrincipal = Depends(get_current_user),
 ):
-    """Create a new signature request draft or active contract dispatch."""
+    """Create a new signature request draft or active contract dispatch with idempotency protection."""
     if not os.path.exists(payload.file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Uploaded file not found")
+
+    idempotency_key = (
+        req.headers.get("x-idempotency-key")
+        or req.headers.get("idempotency-key")
+        or payload.idempotency_key
+    )
+
+    if idempotency_key:
+        stmt_existing = (
+            select(SignatureRequest)
+            .options(
+                selectinload(SignatureRequest.recipients),
+                selectinload(SignatureRequest.fields),
+            )
+            .where(SignatureRequest.idempotency_key == idempotency_key)
+        )
+        res_existing = await db.execute(stmt_existing)
+        existing = res_existing.scalar_one_or_none()
+        if existing:
+            return existing
 
     expires_at = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days or 30)
 
@@ -118,6 +138,7 @@ async def create_signature_request(
         title=payload.title,
         status="pending",
         original_file_path=payload.file_path,
+        idempotency_key=idempotency_key,
         created_by=current_user.user_id,
         expires_at=expires_at,
     )
@@ -363,6 +384,13 @@ async def submit_signature(
 
     if not recipient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature link")
+
+    if recipient.status == "signed":
+        return {
+            "status": "already_signed",
+            "message": "Signature already recorded",
+            "completed": True,
+        }
 
     sig_request = recipient.request
 
