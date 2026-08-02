@@ -58,10 +58,16 @@ async def upsert_discord_identity(
                 detail="Discord account is linked to a missing user",
             )
     else:
+        # If this is the very first user in the database, make them super admin
+        from sqlalchemy import func
+        user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
+        is_first_user = user_count == 0
+
         user = User(
             display_name=_display_name(payload),
             email=payload.email,
             avatar_url=_avatar_url(payload.discord_id, payload.avatar),
+            is_super_admin=is_first_user,
         )
         db.add(user)
         await db.flush()
