@@ -13,7 +13,7 @@ import {
   X,
   Puzzle,
   Calendar,
-  Coins,
+  FileSignature,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -36,6 +36,7 @@ interface ActivePlugin {
 const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
+  { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
   { label: "Members", href: "/dashboard/members", icon: Users },
   { label: "Finance", href: "/finance", icon: Coins },
   { label: "IAM", href: "/dashboard/iam", icon: Shield },

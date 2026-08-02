@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
     smtp_user: str | None = Field(default=None, validation_alias="SMTP_USER")
     smtp_pass: str | None = Field(default=None, validation_alias="SMTP_PASS")
-    smtp_from: str = Field(default="hello@gobitsnbytes.org", validation_alias="SMTP_FROM")
+    smtp_from: str = Field(default="legal@gobitsnbytes.org", validation_alias="SMTP_FROM")
 
     # SparkCloud Verification settings
     discord_cloud_approval_webhook_url: str | None = Field(default=None, validation_alias="DISCORD_CLOUD_APPROVAL_WEBHOOK_URL")

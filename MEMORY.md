@@ -190,3 +190,21 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Deduplicated .ics Attendees & Organizer**: Enriched the `.ics` generator signature with dynamic `ORGANIZER` and `ATTENDEE` tags containing matching `CN` and `mailto:` values, enabling mail clients to associate the invitation widget with the recipient. Loaded reschedule history to resolve previous scheduled times.
 - **Verification**: Verified that all 97 backend FastAPI unit tests (`pytest`) and all 210 bot Express integration tests (`bun test`) pass 100% green. Pushed code changes successfully to Motherboard `prod` and standalone bot `main` branches.
 
+### 2026-08-02
+
+**S45 — VPS Database Recovery & End-to-End Digital Signature System (`bnb-signatures`)**:
+- **VPS Database Recovery**: Diagnosed `POST /api/auth/upsert` HTTP 500 errors on `bnb-backend`. Extracted `asyncpg.exceptions.InsufficientResourcesError` from journalctl logs caused by Neon Postgres compute quota limits. Deployed persistent Docker container `bnb-postgres` (`postgres:16-alpine`), updated `.env` configs, ran Alembic migrations (`alembic upgrade head`), and executed `run_seeds`. Restored `bnb-api` and `bnb-bot` service health (HTTP 200).
+- **Backend Signature Engine (`app/services/signature_engine.py`)**: Implemented PyMuPDF 150 DPI base64 page preview generator, `.docx` to PDF converter (`python-docx` + `reportlab`), 1-page Audit Certificate generator, signature image overlay embedding, and SHA-256 tamper-evident checksum sealing.
+- **ORM & Alembic DDL Migration (`f1a2b3c4d5e6`)**: Added `SignatureRequest`, `SignatureRecipient`, `SignatureField`, and `SignatureAuditLog` tables.
+- **REST Router (`app/routers/signatures.py`)**: Exposed `/upload`, `/requests`, `/sign/{token}`, `/requests/{id}/download`, and `/verify/{id}` endpoints.
+- **Pytest Suite (`tests/test_signatures_router.py`)**: Verified 103/103 tests pass 100% green across `apps/api`.
+- **Frontend Signature Platform (`apps/web`)**:
+  - `SignatureCanvas.tsx`: HTML5 canvas for drawing mouse/touch bezier curves or typing cursive script signatures.
+  - `DocumentEditor.tsx`: Responsive PDF previewer with drag & drop field placement.
+  - Overview Dashboard (`/dashboard/signatures`): Contract filter tabs, status badges, PDF download triggers, and verification links.
+  - 4-Step Builder (`/dashboard/signatures/builder`): Document upload $\rightarrow$ Signatories $\rightarrow$ Visual canvas $\rightarrow$ Review & Dispatch.
+  - Public Signing Portal (`/sign/[token]`): Tokenized recipient signing view with passcode security gate and legal consent agreement.
+  - Public Verification Portal (`/verify/[documentId]`): Public authenticity check rendering SHA-256 checksums and audit trail timeline.
+  - Navigation: Linked `Signatures` to `Sidebar.tsx`.
+
+

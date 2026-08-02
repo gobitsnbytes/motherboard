@@ -28,6 +28,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -1084,3 +1085,89 @@ class BotSetting(Base):
 
     def __repr__(self) -> str:
         return f"<VirtualTransaction id={self.id} amount={self.amount_paise} type={self.reference_type!r}>"
+
+
+# ---------------------------------------------------------------------------
+# Digital Signatures System (bnb-signatures)
+# ---------------------------------------------------------------------------
+
+class SignatureRequest(Base):
+    """Master record for a digital signature contract request."""
+    __tablename__ = "signature_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="draft", nullable=False)  # draft, pending, completed, voided, expired
+    original_file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    signed_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    document_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    recipients: Mapped[list["SignatureRecipient"]] = relationship("SignatureRecipient", back_populates="request", cascade="all, delete-orphan", order_by="SignatureRecipient.signing_order")
+    fields: Mapped[list["SignatureField"]] = relationship("SignatureField", back_populates="request", cascade="all, delete-orphan")
+    audit_logs: Mapped[list["SignatureAuditLog"]] = relationship("SignatureAuditLog", back_populates="request", cascade="all, delete-orphan", order_by="SignatureAuditLog.created_at")
+
+
+class SignatureRecipient(Base):
+    """Signatory or viewer associated with a signature request."""
+    __tablename__ = "signature_recipients"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default="signer", nullable=False)  # signer, viewer, cc
+    signing_order: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, sent, viewed, signed, declined
+    access_token: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    access_passcode: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="recipients")
+    fields: Mapped[list["SignatureField"]] = relationship("SignatureField", back_populates="recipient", cascade="all, delete-orphan")
+
+
+class SignatureField(Base):
+    """Interactive field overlay placed on document page canvas."""
+    __tablename__ = "signature_fields"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    recipient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_recipients.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # signature, fullname, date, text, checkbox
+    page_number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-indexed
+    pos_x: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    pos_y: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    width: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    height: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)  # filled text / signature base64 image data URL
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="fields")
+    recipient: Mapped["SignatureRecipient"] = relationship("SignatureRecipient", back_populates="fields")
+
+
+class SignatureAuditLog(Base):
+    """Immutable event log for all signature workflow steps."""
+    __tablename__ = "signature_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    recipient_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_recipients.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)  # created, sent, viewed, signed, declined, completed, voided
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="audit_logs")
+
