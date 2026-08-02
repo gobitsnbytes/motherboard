@@ -3,6 +3,6 @@
   "github": {
     "productionBranch": "prod"
   },
-  "buildCommand": "npx turbo run build --filter=@bnb/web",
+  "buildCommand": "cd apps/web && bun run build",
   "framework": "nextjs"
 }
