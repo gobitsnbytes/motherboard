@@ -14,6 +14,7 @@ import {
   Puzzle,
   Calendar,
   FileSignature,
+  Coins,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
