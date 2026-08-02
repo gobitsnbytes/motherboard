@@ -161,11 +161,10 @@ async def create_signature_request(
         )
         db.add(recipient)
         await db.flush()
-        recipients_map[r_in.email] = recipient
+        recipients_map[str(r_in.email).lower().strip()] = recipient
 
     # Create fields
     for f_in in payload.fields:
-        # Match recipient by ID or fallback
         field = SignatureField(
             request_id=sig_request.id,
             recipient_id=f_in.recipient_id,
@@ -199,7 +198,7 @@ async def create_signature_request(
     if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
         from app.routers.meetings import send_smtp_email
         for r_in in payload.recipients:
-            rec_obj = recipients_map.get(r_in.email)
+            rec_obj = recipients_map.get(str(r_in.email).lower().strip())
             if rec_obj:
                 sign_url = f"{settings.nextauth_url}/sign/{rec_obj.access_token}"
                 subject = f"Action Required: Signature Request for {payload.title}"

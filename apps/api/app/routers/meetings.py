@@ -295,7 +295,7 @@ def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html
         _addr = _from_raw.strip()
 
     msg["Subject"] = subject
-    msg["From"] = formataddr((_display, _addr))
+    msg["From"] = formataddr((_display, _addr), charset="utf-8")
     msg["To"] = ", ".join(to_emails)
 
     # Alternative container holds the HTML version and the inline calendar invite
