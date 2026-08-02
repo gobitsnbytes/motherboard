@@ -12,12 +12,12 @@ const SCRIPT_FONTS = [
   { name: "Cursive Classic", fontClass: "font-serif italic" },
   { name: "Monospace Draft", fontClass: "font-mono" },
   { name: "Bold Script", fontClass: "font-sans font-bold italic" },
-];
+] as const;
 
 export function SignatureCanvas({ onSave, onCancel }: SignatureCanvasProps) {
   const [activeTab, setActiveTab] = useState<"draw" | "type">("draw");
   const [typedName, setTypedName] = useState("");
-  const [selectedFont, setSelectedFont] = useState(SCRIPT_FONTS[0].fontClass);
+  const [selectedFont, setSelectedFont] = useState<string>(SCRIPT_FONTS[0].fontClass);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawing = useRef(false);
 
