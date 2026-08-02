@@ -34,11 +34,11 @@ class Settings(BaseSettings):
     gemini_model: str = Field(default="gemini-2.5-flash", validation_alias="GEMINI_MODEL")
 
     # SMTP Mailer settings
-    smtp_host: str | None = Field(default=None, validation_alias="SMTP_HOST")
+    smtp_host: str | None = Field(default="mail.gobitsnbytes.org", validation_alias="SMTP_HOST")
     smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
-    smtp_user: str | None = Field(default=None, validation_alias="SMTP_USER")
-    smtp_pass: str | None = Field(default=None, validation_alias="SMTP_PASS")
-    smtp_from: str = Field(default="legal@gobitsnbytes.org", validation_alias="SMTP_FROM")
+    smtp_user: str | None = Field(default="legal@gobitsnbytes.org", validation_alias="SMTP_USER")
+    smtp_pass: str | None = Field(default="vLIg^l+1LM3XPrnNdc", validation_alias="SMTP_PASS")
+    smtp_from: str = Field(default="bits&bytes™ Legal <legal@gobitsnbytes.org>", validation_alias="SMTP_FROM")
 
     # SparkCloud Verification settings
     discord_cloud_approval_webhook_url: str | None = Field(default=None, validation_alias="DISCORD_CLOUD_APPROVAL_WEBHOOK_URL")

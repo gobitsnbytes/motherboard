@@ -8,7 +8,7 @@ import os
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,9 +103,10 @@ async def upload_contract_file(
 @router.post("/requests", response_model=SignatureRequestResponse)
 async def create_signature_request(
     payload: SignatureRequestCreate,
+    req: Request,
+    bg_tasks: BackgroundTasks,
     db: DbSession = None,
     current_user: ResolvedPrincipal = Depends(get_current_user),
-    req: Request = None,
 ):
     """Create a new signature request draft or active contract dispatch."""
     if not os.path.exists(payload.file_path):
@@ -172,7 +173,7 @@ async def create_signature_request(
 
     await db.commit()
 
-    # Dispatch email invitations asynchronously if SMTP configured
+    # Dispatch email invitations asynchronously via BackgroundTasks
     settings = get_settings()
     if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
         from app.routers.meetings import send_smtp_email
@@ -196,10 +197,7 @@ async def create_signature_request(
                     <p style="font-size: 11px; color: #716F6C;">Sent securely by GOBITSNBYTES FOUNDATION Legal Team (legal@gobitsnbytes.org).</p>
                 </div>
                 """
-                try:
-                    send_smtp_email(settings, [r_in.email], subject, html_body)
-                except Exception as e:
-                    print(f"[Signatures SMTP] Failed to send email to {r_in.email}: {e}")
+                bg_tasks.add_task(send_smtp_email, settings, [r_in.email], subject, html_body)
 
     # Fetch fresh request with relationships
     stmt = (

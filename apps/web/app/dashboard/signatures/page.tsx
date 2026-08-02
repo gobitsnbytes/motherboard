@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search } from "lucide-react";
+import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check } from "lucide-react";
 
 interface SignatureRequestItem {
   id: string;
@@ -16,6 +16,7 @@ interface SignatureRequestItem {
     name: string;
     email: string;
     status: string;
+    access_token: string;
     signed_at?: string;
   }>;
 }
@@ -25,6 +26,7 @@ export default function SignaturesDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRequests();
@@ -42,6 +44,13 @@ export default function SignaturesDashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCopyLink = (accessToken: string) => {
+    const fullUrl = `${window.location.origin}/sign/${accessToken}`;
+    navigator.clipboard.writeText(fullUrl);
+    setCopiedToken(accessToken);
+    setTimeout(() => setCopiedToken(null), 2500);
   };
 
   const filteredRequests = requests.filter((r) => {
@@ -62,7 +71,7 @@ export default function SignaturesDashboardPage() {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#3C0A12] text-white p-6 rounded-2xl border-2 border-[#120F0A] shadow-[6px_6px_0px_0px_#120F0A]">
         <div>
-          <h1 className="text-2xl font-black tracking-tight font-sans">Digital Signatures & Contracts</h1>
+          <h1 className="text-2xl font-black tracking-tight font-sans">Digital Signatures &amp; Contracts</h1>
           <p className="text-xs text-[#FED39E] mt-1 font-medium">
             Cryptographic, legally-binding contract workflow management (`bnb-signatures`).
           </p>
@@ -103,7 +112,7 @@ export default function SignaturesDashboardPage() {
           </div>
           <div>
             <div className="text-2xl font-black text-[#120F0A]">{completedCount}</div>
-            <div className="text-xs font-bold text-[#716F6C] uppercase tracking-wider">Executed & Sealed</div>
+            <div className="text-xs font-bold text-[#716F6C] uppercase tracking-wider">Executed &amp; Sealed</div>
           </div>
         </div>
       </div>
@@ -169,7 +178,7 @@ export default function SignaturesDashboardPage() {
                 <tr>
                   <th className="p-4">Document Title</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">Signatories</th>
+                  <th className="p-4">Signatories &amp; Links</th>
                   <th className="p-4">Created Date</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
@@ -188,7 +197,7 @@ export default function SignaturesDashboardPage() {
                     <td className="p-4">
                       {req.status === "completed" ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-800">
-                          <CheckCircle2 className="w-3 h-3" /> Completed & Sealed
+                          <CheckCircle2 className="w-3 h-3" /> Completed &amp; Sealed
                         </span>
                       ) : req.status === "pending" ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-800">
@@ -201,18 +210,34 @@ export default function SignaturesDashboardPage() {
                       )}
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-1.5">
-                        {req.recipients.map((r, i) => (
-                          <div
-                            key={i}
-                            title={`${r.name} (${r.email}): ${r.status}`}
-                            className={`w-6 h-6 rounded-full border border-[#120F0A] flex items-center justify-center text-[10px] font-bold ${
-                              r.status === "signed" ? "bg-green-500 text-white" : "bg-gray-200 text-[#120F0A]"
-                            }`}
-                          >
-                            {r.name.charAt(0).toUpperCase()}
-                          </div>
-                        ))}
+                      <div className="space-y-1.5">
+                        {req.recipients.map((r) => {
+                          const isCopied = copiedToken === r.access_token;
+                          return (
+                            <div key={r.id} className="flex items-center gap-2 text-xs">
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full border border-[#120F0A] shrink-0 ${
+                                  r.status === "signed" ? "bg-green-500" : "bg-amber-400"
+                                }`}
+                                title={r.status}
+                              />
+                              <span className="font-bold text-[#120F0A] truncate max-w-[120px]">{r.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyLink(r.access_token)}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold transition-all ${
+                                  isCopied
+                                    ? "bg-green-600 text-white border-green-800"
+                                    : "bg-[#FEE9CF] text-[#120F0A] border-[#120F0A] hover:bg-[#FC920D]"
+                                }`}
+                                title="Copy direct signing link"
+                              >
+                                {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                {isCopied ? "Copied Link!" : "Copy Link"}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="p-4 text-[#716F6C]">
