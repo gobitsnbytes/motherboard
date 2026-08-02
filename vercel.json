@@ -3,7 +3,6 @@
   "github": {
     "productionBranch": "prod"
   },
-  "buildCommand": "bun run build --filter=@bnb/web",
-  "installCommand": "bun install --no-save",
+  "buildCommand": "npx turbo run build --filter=@bnb/web",
   "framework": "nextjs"
 }
