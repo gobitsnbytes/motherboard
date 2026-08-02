@@ -3,6 +3,6 @@
   "github": {
     "productionBranch": "prod"
   },
-  "buildCommand": "cd apps/web && bun run build",
+  "buildCommand": "next build",
   "framework": "nextjs"
 }
