@@ -1,5 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "github": {
     "productionBranch": "prod"
-  }
+  },
+  "buildCommand": "bun run build --filter=@bnb/web",
+  "installCommand": "bun install --no-save",
+  "framework": "nextjs"
 }
