@@ -38,6 +38,19 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
       }
       const portalData = await res.json();
       setData(portalData);
+
+      // Pre-fill fullname and date defaults
+      const defaults: Record<string, string> = {};
+      const todayStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      portalData.fields?.forEach((f: any) => {
+        if (f.type === "fullname") {
+          defaults[f.id] = portalData.recipient.name;
+        } else if (f.type === "date") {
+          defaults[f.id] = todayStr;
+        }
+      });
+      setFieldValues(defaults);
+
       if (!portalData.recipient.requires_passcode) {
         setUnlocked(true);
       }
@@ -96,7 +109,7 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6 text-xs font-bold text-[#716F6C]">
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6 text-xs font-black uppercase tracking-wider text-[#716F6C] font-heading">
         Loading digital contract signing portal...
       </div>
     );
@@ -107,7 +120,7 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6">
         <div className="bg-white border-2 border-[#120F0A] p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full text-center space-y-4">
           <AlertCircle className="w-12 h-12 mx-auto text-[#97192C]" />
-          <h1 className="text-lg font-black text-[#120F0A]">Unable to Load Contract</h1>
+          <h1 className="text-lg font-black text-[#120F0A] font-heading">Unable to Load Contract</h1>
           <p className="text-xs text-[#716F6C] font-medium">{error}</p>
         </div>
       </div>
@@ -118,14 +131,14 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
     return (
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6">
         <div className="bg-white border-2 border-[#120F0A] p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-green-100 border-2 border-green-800 text-green-800 mx-auto flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#EFECE6] border-2 border-green-800 text-green-800 mx-auto flex items-center justify-center shadow-[2px_2px_0px_0px_#120F0A]">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h1 className="text-xl font-black text-[#120F0A]">Contract Signed Successfully!</h1>
-          <p className="text-xs text-[#716F6C] font-medium">
-            Thank you, {data.recipient.name}. Your signature has been recorded and cryptographically sealed.
+          <h1 className="text-xl font-black text-[#120F0A] font-heading">Contract Signed Successfully!</h1>
+          <p className="text-xs text-[#716F6C] font-medium leading-relaxed">
+            Thank you, <b>{data.recipient.name}</b>. Your signature has been recorded and cryptographically sealed with a 1-page audit certificate.
           </p>
-          <div className="pt-2 text-[10px] text-[#716F6C] font-mono">
+          <div className="pt-2 text-[10px] text-[#716F6C] font-mono border-t border-[#D0CFCE]">
             Audit Event Recorded · SHA-256 Checksum Executed
           </div>
         </div>
@@ -137,24 +150,24 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
     return (
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6">
         <form onSubmit={handleVerifyPasscode} className="bg-white border-2 border-[#120F0A] p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-[#FEE9CF] border-2 border-[#120F0A] mx-auto flex items-center justify-center text-[#97192C]">
-            <Lock className="w-6 h-6" />
+          <div className="w-14 h-14 rounded-2xl bg-[#FEE9CF] border-2 border-[#120F0A] mx-auto flex items-center justify-center text-[#97192C] shadow-[2px_2px_0px_0px_#120F0A]">
+            <Lock className="w-7 h-7" />
           </div>
-          <h1 className="text-lg font-black text-center text-[#120F0A]">Passcode Protected Contract</h1>
-          <p className="text-xs text-center text-[#716F6C]">Enter the access passcode provided by the contract sender to view and sign.</p>
+          <h1 className="text-lg font-black text-center text-[#120F0A] font-heading">Passcode Protected Contract</h1>
+          <p className="text-xs text-center text-[#716F6C] font-medium">Enter the access passcode provided by the contract sender to view and sign.</p>
 
           <input
             type="password"
             placeholder="Enter security passcode..."
             value={passcode}
             onChange={(e) => setPasscode(e.target.value)}
-            className="w-full px-3 py-2 border-2 border-[#120F0A] rounded-xl text-xs font-bold bg-white"
+            className="w-full px-4 py-2.5 border-2 border-[#120F0A] rounded-xl text-xs font-bold bg-white text-[#120F0A] shadow-[2px_2px_0px_0px_#120F0A]"
           />
           <button
             type="submit"
             className="w-full py-2.5 bg-[#97192C] text-white font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A]"
           >
-            Unlock & View Contract
+            Unlock &amp; View Contract
           </button>
         </form>
       </div>
@@ -168,13 +181,13 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
         <div>
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-[#97192C]" />
-            <h1 className="text-lg font-black">{data.title}</h1>
+            <h1 className="text-lg font-black font-heading">{data.title}</h1>
           </div>
-          <p className="text-xs text-[#716F6C] mt-0.5">
+          <p className="text-xs text-[#716F6C] mt-0.5 font-medium">
             Signing as <b>{data.recipient.name}</b> (&lt;{data.recipient.email}&gt;)
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-bold text-green-800 bg-green-50 border border-green-700 px-3 py-1.5 rounded-lg">
+        <div className="flex items-center gap-2 text-xs font-bold text-green-800 bg-green-50 border-2 border-green-800 px-3.5 py-1.5 rounded-xl shadow-[2px_2px_0px_0px_#120F0A]">
           <ShieldCheck className="w-4 h-4" /> Cryptographic E-Sign SSL
         </div>
       </div>
@@ -187,11 +200,11 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
 
           return (
             <div key={pageNum} className="bg-white border-2 border-[#120F0A] rounded-2xl overflow-hidden shadow-[6px_6px_0px_0px_#120F0A] relative">
-              <div className="bg-[#FAF8F5] border-b border-[#120F0A] px-4 py-2 text-xs font-bold text-[#716F6C]">
+              <div className="bg-[#FAF8F5] border-b-2 border-[#120F0A] px-4 py-2 text-xs font-black text-[#716F6C] font-mono">
                 Page {pageNum} of {data.previews.length}
               </div>
               <div className="relative">
-                <img src={imgUrl} alt={`Page ${pageNum}`} className="w-full h-auto pointer-events-none select-none" />
+                <img src={imgUrl} alt={`Page ${pageNum}`} className="w-full h-auto pointer-events-none select-none block" />
 
                 {/* Assigned Fields Overlays */}
                 {pageFields.map((f: any) => {
@@ -210,18 +223,18 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
                           setActiveSigFieldId(f.id);
                         }
                       }}
-                      className={`absolute border-2 rounded p-1 flex items-center justify-center cursor-pointer transition-all ${
+                      className={`absolute border-2 rounded-xl p-1.5 flex items-center justify-center cursor-pointer transition-all ${
                         val
-                          ? "border-green-600 bg-green-50/80"
-                          : "border-[#97192C] bg-[#F4D9D1] animate-pulse"
+                          ? "border-green-700 bg-green-50/90 shadow-md"
+                          : "border-[#97192C] bg-[#F4D9D1] shadow-lg animate-pulse"
                       }`}
                     >
                       {f.type === "signature" ? (
                         val ? (
                           <img src={val} alt="Signature" className="max-h-full max-w-full object-contain" />
                         ) : (
-                          <span className="flex items-center gap-1 text-xs font-bold text-[#97192C]">
-                            <PenTool className="w-3.5 h-3.5" /> Click to Sign
+                          <span className="flex items-center gap-1.5 text-xs font-black text-[#97192C] font-heading">
+                            <PenTool className="w-4 h-4" /> Click to Sign
                           </span>
                         )
                       ) : (
@@ -230,7 +243,7 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
                           placeholder={`Enter ${f.type}`}
                           value={val || ""}
                           onChange={(e) => setFieldValues({ ...fieldValues, [f.id]: e.target.value })}
-                          className="w-full h-full bg-transparent text-xs font-bold px-1 focus:outline-none"
+                          className="w-full h-full bg-transparent text-xs font-bold text-[#120F0A] px-1 focus:outline-none"
                         />
                       )}
                     </div>
@@ -244,7 +257,7 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
 
       {/* Signature Canvas Overlay Modal */}
       {activeSigFieldId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <SignatureCanvas
             onSave={handleSaveSignature}
             onCancel={() => setActiveSigFieldId(null)}
