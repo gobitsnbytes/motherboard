@@ -9,10 +9,17 @@ grow one without limit.
 
 import asyncio
 import json
+import time
 
 import pytest
 
-from app.events.sse import HEARTBEAT_SECONDS, MAX_QUEUED_EVENTS, SseHub
+from app.events.sse import (
+    DEDUPE_MAX_ENTRIES,
+    DEDUPE_SECONDS,
+    HEARTBEAT_SECONDS,
+    MAX_QUEUED_EVENTS,
+    SseHub,
+)
 
 
 async def read_frames(hub: SseHub, count: int, timeout: float = 2.0) -> list[str]:
@@ -101,6 +108,78 @@ async def test_slow_client_drops_oldest_events_instead_of_growing():
     assert remaining[0]["payload"]["n"] > 0
 
     await stream.aclose()
+
+
+async def test_redis_echo_is_not_delivered_twice():
+    """
+    EventBus.publish dispatches locally *and* republishes to Redis, whose
+    listener on this same node dispatches it again. Caught in a live smoke
+    test: every browser saw each change twice.
+    """
+    hub = SseHub()
+    stream = hub.stream()
+    await stream.__anext__()
+
+    payload = {"company_id": "abc", "name": "Swiggy"}
+    hub.broadcast("dyslexic.company.created", payload)
+    hub.broadcast("dyslexic.company.created", dict(payload))  # the Redis echo
+
+    queue = next(iter(hub._subscribers))
+    assert queue.qsize() == 1
+
+    await stream.aclose()
+
+
+async def test_distinct_events_are_both_delivered():
+    """De-duplication must not swallow two genuinely different changes."""
+    hub = SseHub()
+    stream = hub.stream()
+    await stream.__anext__()
+
+    hub.broadcast("dyslexic.company.created", {"company_id": "one"})
+    hub.broadcast("dyslexic.company.created", {"company_id": "two"})
+
+    queue = next(iter(hub._subscribers))
+    assert queue.qsize() == 2
+
+    await stream.aclose()
+
+
+async def test_the_same_change_later_is_delivered_again(monkeypatch):
+    """
+    The window only covers the local/Redis echo gap. A contact genuinely
+    claimed, released, then re-claimed produces an identical payload and must
+    still notify — so de-duplication is time-bounded, not count-bounded.
+    """
+    hub = SseHub()
+    stream = hub.stream()
+    await stream.__anext__()
+
+    hub.broadcast("dyslexic.contact.claimed", {"contact_id": "abc"})
+
+    # Jump past the dedupe window rather than sleeping through it.
+    real_monotonic = time.monotonic
+    monkeypatch.setattr(
+        time, "monotonic", lambda: real_monotonic() + DEDUPE_SECONDS + 1
+    )
+    hub.broadcast("dyslexic.contact.claimed", {"contact_id": "abc"})
+
+    queue = next(iter(hub._subscribers))
+    seen = [queue.get_nowait() for _ in range(queue.qsize())]
+    claims = [event for event in seen if event["type"] == "dyslexic.contact.claimed"]
+    assert len(claims) == 2
+
+    await stream.aclose()
+
+
+async def test_dedupe_map_stays_bounded():
+    """A burst of distinct events must not grow the fingerprint map forever."""
+    hub = SseHub()
+
+    for index in range(DEDUPE_MAX_ENTRIES * 3):
+        hub.broadcast("dyslexic.company.updated", {"n": index})
+
+    assert len(hub._recent) <= DEDUPE_MAX_ENTRIES + 1
 
 
 async def test_broadcast_with_no_clients_is_harmless():
