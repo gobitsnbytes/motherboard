@@ -186,22 +186,31 @@ async def research_company(name: str, website: str | None) -> ResearchResult:
     return ResearchResult(ok=True, model=model, data=data, raw=text, sources=sources)
 
 
+def _session_factory():
+    """
+    Where the background task gets its database session.
+
+    A module-level indirection, like :func:`_call_model`, so tests can lend the
+    task their own session — by the time this runs the request's session is long
+    gone.
+    """
+    from app.database import get_sessionmaker
+
+    return get_sessionmaker()
+
+
 async def run_research_task(company_id: uuid.UUID) -> None:
     """
     Background entry point: research a company and store the outcome.
 
-    Opens its own session because the request's session is gone by the time this
-    runs. Wrapped end to end — an unhandled exception here must never leave a
-    company stuck showing "researching" forever.
+    Wrapped end to end — an unhandled exception here must never leave a company
+    stuck showing "researching" forever.
     """
-    from sqlalchemy import select
-
-    from app.database import get_sessionmaker
     from app.db.models import DyslexicCompany
     from app.dyslexic import service
     from app.events import event_bus
 
-    session_factory = get_sessionmaker()
+    session_factory = _session_factory()
 
     try:
         async with session_factory() as session:

@@ -39,6 +39,7 @@ from app.db.models import (
 from app.dependencies import CurrentUserDep, DbSession
 from app.dyslexic import service
 from app.dyslexic.research import run_research_task
+from app.dyslexic.stats import dashboard_stats, leaderboard
 from app.events import event_bus
 from app.schemas.dyslexic import (
     CompanyCreate,
@@ -52,9 +53,11 @@ from app.schemas.dyslexic import (
     EventOut,
     FollowUpOut,
     FollowUpResolveIn,
+    LeaderboardRowOut,
     OutcomeIn,
     OutreachOut,
     SendIn,
+    StatsOut,
 )
 
 logger = logging.getLogger(__name__)
@@ -159,6 +162,46 @@ async def _get_contact_or_404(db: AsyncSession, contact_id: uuid.UUID) -> Dyslex
     if contact is None:
         raise HTTPException(status_code=404, detail="Contact not found.")
     return contact
+
+
+# ---------------------------------------------------------------------------
+# Dashboard, activity, leaderboard
+# ---------------------------------------------------------------------------
+
+@router.get("/stats", response_model=StatsOut)
+async def get_stats(db: DbSession, current_user: CurrentUserDep) -> StatsOut:
+    """The dashboard tiles, including this volunteer's own overdue count."""
+    return StatsOut(**await dashboard_stats(db, current_user.user_id))
+
+
+@router.get("/activity", response_model=list[EventOut])
+async def get_activity(
+    db: DbSession,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[EventOut]:
+    """What everyone has been doing, newest first."""
+    events = (
+        await db.execute(
+            select(DyslexicEvent)
+            .order_by(DyslexicEvent.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).scalars().all()
+    return await _events_out(db, list(events), with_company=True)
+
+
+@router.get("/leaderboard", response_model=list[LeaderboardRowOut])
+async def get_leaderboard(
+    db: DbSession,
+    current_user: CurrentUserDep,
+    period: Annotated[str, Query(pattern="^(all|30d)$")] = "all",
+) -> list[LeaderboardRowOut]:
+    """Volunteer contributions, ranked. Outcomes weigh more than volume."""
+    rows = await leaderboard(db, period=period)
+    return [LeaderboardRowOut(**row) for row in rows]
 
 
 # ---------------------------------------------------------------------------
