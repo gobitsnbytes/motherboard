@@ -36,6 +36,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -1080,5 +1081,331 @@ class BotSetting(Base):
     val: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+# ---------------------------------------------------------------------------
+# Dyslexic — Sponsorship & Outreach
+# ---------------------------------------------------------------------------
+
+class DyslexicCompany(Base):
+    """A prospective sponsor. Research is AI-generated and advisory only."""
+
+    __tablename__ = "dyslexic_companies"
+    __table_args__ = (
+        Index("ix_dyslexic_companies_stage", "stage"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Lowercased, scheme/www/path stripped. Unique so the same sponsor cannot
+    # be added twice. Null when no website was supplied.
+    normalized_domain: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True, index=True
+    )
+    stage: Mapped[str] = mapped_column(String(30), default="research", nullable=False)
+    research_status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False
+    )
+    research_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Model output kept verbatim when JSON parsing fails, so a bad response is
+    # debuggable instead of lost.
+    research_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
+    research_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    research_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    research_model: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    added_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    fork_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("forks.id", ondelete="SET NULL"), nullable=True
+    )
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    contacts: Mapped[list["DyslexicContact"]] = relationship(
+        "DyslexicContact", back_populates="company", cascade="all, delete-orphan"
+    )
+    adder: Mapped["User | None"] = relationship("User", foreign_keys=[added_by])
+
     def __repr__(self) -> str:
-        return f"<VirtualTransaction id={self.id} amount={self.amount_paise} type={self.reference_type!r}>"
+        return f"<DyslexicCompany name={self.name!r} stage={self.stage!r}>"
+
+
+class DyslexicContact(Base):
+    """A person at a prospective sponsor, and the outreach state for them."""
+
+    __tablename__ = "dyslexic_contacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "email", name="uq_dyslexic_contact_company_email"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # Always stored lowercased so uniqueness is case-insensitive in practice.
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="new", nullable=False)
+    # Set once at the first send and never overwritten — this is the record of
+    # who owns this outreach.
+    contacted_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    contacted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Soft claim while drafting. Expires on its own; no cleanup job.
+    claimed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claim_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    added_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    company: Mapped["DyslexicCompany"] = relationship(
+        "DyslexicCompany", back_populates="contacts"
+    )
+    contacter: Mapped["User | None"] = relationship("User", foreign_keys=[contacted_by])
+    claimer: Mapped["User | None"] = relationship("User", foreign_keys=[claimed_by])
+    adder: Mapped["User | None"] = relationship("User", foreign_keys=[added_by])
+
+    def __repr__(self) -> str:
+        return f"<DyslexicContact name={self.name!r} status={self.status!r}>"
+
+
+class DyslexicEmail(Base):
+    """A generated draft. Kept whether or not it was ever sent."""
+
+    __tablename__ = "dyslexic_emails"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), default="initial", nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    tone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    extra_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    generated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<DyslexicEmail contact={self.contact_id} kind={self.kind!r}>"
+
+
+class DyslexicOutreach(Base):
+    """One 'I've Sent Email' click. The duplicate guard lives here."""
+
+    __tablename__ = "dyslexic_outreach"
+    __table_args__ = (
+        # At most one initial email per contact, enforced by the database so a
+        # race between two volunteers cannot produce two.
+        Index(
+            "uq_dyslexic_outreach_initial_per_contact",
+            "contact_id",
+            unique=True,
+            postgresql_where=text("kind = 'initial'"),
+            sqlite_where=text("kind = 'initial'"),
+        ),
+        Index("ix_dyslexic_outreach_sent_by_kind", "sent_by", "kind"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Null when the volunteer wrote the email themselves instead of generating.
+    email_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_emails.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), default="initial", nullable=False)
+    sent_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    outcome: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    outcome_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    outcome_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    outcome_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<DyslexicOutreach contact={self.contact_id} kind={self.kind!r}>"
+
+
+class DyslexicFollowUp(Base):
+    """A reminder to chase. At most one pending per contact."""
+
+    __tablename__ = "dyslexic_follow_ups"
+    __table_args__ = (
+        Index(
+            "ix_dyslexic_follow_ups_assignee_due", "assigned_to", "status", "due_at"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    outreach_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_outreach.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<DyslexicFollowUp contact={self.contact_id} due={self.due_at}>"
+
+
+class DyslexicEvent(Base):
+    """
+    Per-company product timeline.
+
+    Distinct from audit_log, which stays a platform-wide forensic record
+    indexed by action rather than by company. Both are written; they serve
+    different readers.
+    """
+
+    __tablename__ = "dyslexic_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    summary: Mapped[str] = mapped_column(String(300), nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON, name="metadata", default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    actor: Mapped["User | None"] = relationship("User", foreign_keys=[actor_id])
+
+    def __repr__(self) -> str:
+        return f"<DyslexicEvent kind={self.kind!r} company={self.company_id}>"
