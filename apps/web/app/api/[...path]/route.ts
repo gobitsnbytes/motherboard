@@ -66,6 +66,21 @@ async function proxy(request: Request, context: RouteContext) {
     responseHeaders.delete(header);
   }
 
+  // Server-sent events must stream through. Buffering the body below would wait
+  // for a response that never ends, so the connection would hang open forever
+  // and no event would ever reach the browser.
+  const upstreamType = upstreamResponse.headers.get("content-type") ?? "";
+  if (upstreamType.startsWith("text/event-stream")) {
+    responseHeaders.set("Cache-Control", "no-cache, no-transform");
+    responseHeaders.set("Connection", "keep-alive");
+    responseHeaders.set("X-Accel-Buffering", "no");
+    return new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      headers: responseHeaders,
+    });
+  }
+
   return new Response(await upstreamResponse.arrayBuffer(), {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,

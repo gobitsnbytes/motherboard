@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,6 +43,7 @@ from app.dyslexic.emails import generate_email
 from app.dyslexic.research import run_research_task
 from app.dyslexic.stats import dashboard_stats, leaderboard
 from app.events import event_bus
+from app.events.sse import sse_hub
 from app.schemas.dyslexic import (
     CompanyCreate,
     CompanyDetailOut,
@@ -165,6 +167,45 @@ async def _get_contact_or_404(db: AsyncSession, contact_id: uuid.UUID) -> Dyslex
     if contact is None:
         raise HTTPException(status_code=404, detail="Contact not found.")
     return contact
+
+
+DYSLEXIC_EVENT_TYPES = [
+    "dyslexic.company.created",
+    "dyslexic.company.updated",
+    "dyslexic.research.completed",
+    "dyslexic.contact.created",
+    "dyslexic.contact.updated",
+    "dyslexic.contact.claimed",
+    "dyslexic.contact.released",
+    "dyslexic.email.sent",
+    "dyslexic.outcome.recorded",
+    "dyslexic.follow_up.resolved",
+]
+
+
+@router.get("/stream")
+async def stream_events(current_user: CurrentUserDep) -> StreamingResponse:
+    """
+    Live change notifications, so volunteers see each other's work as it lands.
+
+    Payloads carry ids and a summary, never whole records — the client refetches
+    what an event touched. That keeps the stream cheap and makes a dropped
+    event harmless.
+
+    Note for deployment: the Next.js proxy passes `text/event-stream` through
+    unbuffered, and any nginx in front of this path needs `proxy_buffering off`.
+    Without those the events arrive in clumps, or never.
+    """
+    sse_hub.wire(DYSLEXIC_EVENT_TYPES)
+    return StreamingResponse(
+        sse_hub.stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
