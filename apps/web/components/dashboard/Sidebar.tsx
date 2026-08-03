@@ -13,6 +13,7 @@ import {
   X,
   Puzzle,
   Calendar,
+  Handshake,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -35,6 +36,7 @@ interface ActivePlugin {
 const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
+  { label: "Dyslexic", href: "/dashboard/dyslexic", icon: Handshake },
   { label: "Members", href: "/dashboard/members", icon: Users },
   { label: "IAM", href: "/dashboard/iam", icon: Shield },
   { label: "Audit Log", href: "/dashboard/audit", icon: ScrollText },
