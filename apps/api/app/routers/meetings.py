@@ -10,7 +10,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks
@@ -257,9 +257,6 @@ def get_base_email_html(content_html: str, title: str = "BITS&BYTES PROTOCOL") -
     </head>
     <body>
         <div class="container">
-            <div class="header">
-                <h1>{title}</h1>
-            </div>
             <div class="content">
                 {content_html}
             </div>
@@ -272,12 +269,194 @@ def get_base_email_html(content_html: str, title: str = "BITS&BYTES PROTOCOL") -
     </html>
     """
 
+    def format_ics_date(ts_ms: int) -> str:
+        dt = datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc)
+        return dt.strftime("%Y%M%dT%H%M%SZ")
 
-def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html_body: str, ics_content: Optional[str] = None, filename: str = "invite.ics"):
-    """Send SMTP email containing HTML and optional iCalendar attachment."""
+    dt_stamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%M%dT%H%M%SZ")
+    dt_start = format_ics_date(start_time_ms)
+    dt_end = format_ics_date(end_time_ms)
+
+    attendee_lines = ""
+    if attendee_emails:
+        for email in attendee_emails:
+            attendee_lines += f"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={email}:mailto:{email}\n"
+
+    ics = (
+        "BEGIN:VCALENDAR\n"
+        "VERSION:2.0\n"
+        "PRODID:-//BitsAndBytes//Motherboard Scheduler//EN\n"
+        "CALSCALE:GREGORIAN\n"
+        "METHOD:REQUEST\n"
+        "BEGIN:VEVENT\n"
+        f"UID:{meeting_id}@gobitsnbytes.org\n"
+        f"DTSTAMP:{dt_stamp}\n"
+        f"DTSTART:{dt_start}\n"
+        f"DTEND:{dt_end}\n"
+        f"SUMMARY:{title}\n"
+        f"DESCRIPTION:{description or ''}\n"
+        f"LOCATION:{location or ''}\n"
+        f"ORGANIZER;CN=BitsAndBytes:mailto:{organizer_email}\n"
+        f"{attendee_lines}"
+        "STATUS:CONFIRMED\n"
+        "SEQUENCE:0\n"
+        "END:VEVENT\n"
+        "END:VCALENDAR\n"
+    )
+    return ics
+
+
+def get_invite_html(meeting_title: str, formatted_time: str, vc_link: str, description: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card {{ max-width: 600px; margin: 0 auto; background-color: #1A1612; border: 3px solid #FC920D; padding: 32px; box-shadow: 6px 6px 0px 0px #FC920D; }}
+            .header {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #FC920D; margin-bottom: 16px; border-bottom: 2px solid #332B22; padding-bottom: 12px; }}
+            .text {{ font-size: 15px; line-height: 1.6; color: #D0CFCE; margin-bottom: 20px; }}
+            .btn {{ display: inline-block; background-color: #FC920D; color: #120F0A; font-weight: 900; font-size: 16px; text-transform: uppercase; text-decoration: none; padding: 14px 28px; border: 2px solid #FFFFFF; margin-top: 12px; margin-bottom: 24px; }}
+            .time-box {{ background-color: #241F1A; border-left: 4px solid #FC920D; padding: 12px 16px; margin-bottom: 20px; font-size: 16px; font-weight: bold; color: #FED39E; }}
+            .footer {{ font-size: 12px; color: #716F6C; margin-top: 32px; border-top: 1px solid #332B22; padding-top: 16px; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">⚡ Meeting Invitation</div>
+            <p class="text">You have been scheduled to attend an upcoming bits&bytes™ sync/meeting.</p>
+            
+            <div class="time-box">
+                📌 {meeting_title}<br>
+                🕒 {formatted_time}
+            </div>
+
+            <p class="text">{description or 'No additional details provided.'}</p>
+
+            <a href="{vc_link or '#'}" class="btn" target="_blank">Join Voice / Virtual Room &rarr;</a>
+
+            <p class="text" style="font-size: 13px; color: #A09F9D;">
+                <em>An interactive calendar event (.ics) is attached to this email. You can add it directly to Google Calendar, Apple Calendar, or Outlook.</em>
+            </p>
+
+            <div class="footer">
+                bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def get_cancel_html(meeting_title: str, formatted_time: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card {{ max-width: 600px; margin: 0 auto; background-color: #1A1612; border: 3px solid #EF4444; padding: 32px; box-shadow: 6px 6px 0px 0px #EF4444; }}
+            .header {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #EF4444; margin-bottom: 16px; border-bottom: 2px solid #332B22; padding-bottom: 12px; }}
+            .text {{ font-size: 15px; line-height: 1.6; color: #D0CFCE; margin-bottom: 20px; }}
+            .footer {{ font-size: 12px; color: #716F6C; margin-top: 32px; border-top: 1px solid #332B22; padding-top: 16px; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">❌ Meeting Cancelled</div>
+            <p class="text">The following meeting has been cancelled by the organizer:</p>
+            
+            <p class="text"><strong>{meeting_title}</strong><br>Scheduled for: {formatted_time}</p>
+
+            <div class="footer">
+                bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def get_reschedule_html(meeting_title: str, old_time: str, new_time: str, reason: str, rescheduled_by: str, vc_link: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card {{ max-width: 600px; margin: 0 auto; background-color: #1A1612; border: 3px solid #3B82F6; padding: 32px; box-shadow: 6px 6px 0px 0px #3B82F6; }}
+            .header {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #3B82F6; margin-bottom: 16px; border-bottom: 2px solid #332B22; padding-bottom: 12px; }}
+            .text {{ font-size: 15px; line-height: 1.6; color: #D0CFCE; margin-bottom: 20px; }}
+            .time-box {{ background-color: #241F1A; border-left: 4px solid #3B82F6; padding: 12px 16px; margin-bottom: 20px; font-size: 15px; color: #93C5FD; }}
+            .btn {{ display: inline-block; background-color: #3B82F6; color: #FFFFFF; font-weight: 900; font-size: 16px; text-transform: uppercase; text-decoration: none; padding: 14px 28px; border: 2px solid #FFFFFF; margin-top: 12px; margin-bottom: 24px; }}
+            .footer {{ font-size: 12px; color: #716F6C; margin-top: 32px; border-top: 1px solid #332B22; padding-top: 16px; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">🔄 Meeting Rescheduled</div>
+            <p class="text">The scheduled time for <strong>{meeting_title}</strong> has been updated by <strong>{rescheduled_by}</strong>.</p>
+            
+            <div class="time-box">
+                ❌ <s>Original Time: {old_time}</s><br>
+                ✅ <strong>New Time: {new_time}</strong>
+            </div>
+
+            <p class="text"><strong>Reason:</strong> {reason}</p>
+
+            <a href="{vc_link or '#'}" class="btn" target="_blank">Join Updated Room &rarr;</a>
+
+            <div class="footer">
+                bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def send_smtp_email(
+    settings: Settings,
+    to_emails: Union[List[str], str],
+    subject: str,
+    html_body: str,
+    ics_content: Optional[str] = None,
+    filename: str = "invite.ics",
+    bcc_emails: Optional[Union[List[str], str]] = None,
+):
+    """Send SMTP email containing HTML and optional iCalendar attachment with proper To/Bcc envelope dispatch."""
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
         logger.warning("[SMTP] SMTP mailer not configured. Skipping email dispatch.")
         return
+
+    # Normalize `to_emails` to a clean list of strings
+    if isinstance(to_emails, str):
+        to_emails = [to_emails]
+    clean_to_emails = [e.strip() for e in to_emails if e and isinstance(e, str) and e.strip()]
+
+    if not clean_to_emails:
+        logger.warning("[SMTP] No valid recipient email addresses provided. Skipping email dispatch.")
+        return
+
+    # Normalize `bcc_emails`
+    clean_bcc_emails = []
+    if bcc_emails:
+        if isinstance(bcc_emails, str):
+            bcc_emails = [bcc_emails]
+        clean_bcc_emails = [e.strip() for e in bcc_emails if e and isinstance(e, str) and e.strip()]
+
+    # Collect settings.smtp_bcc
+    if getattr(settings, "smtp_bcc", None):
+        for bcc in settings.smtp_bcc.split(","):
+            b_clean = bcc.strip()
+            if b_clean and b_clean not in clean_bcc_emails:
+                clean_bcc_emails.append(b_clean)
+
+    # Build unique envelope recipients set (both To and Bcc) for SMTP RCPT TO
+    envelope_recipients = list(dict.fromkeys(clean_to_emails + clean_bcc_emails))
 
     # Root container is mixed to support files/attachments
     msg = MIMEMultipart("mixed")
@@ -296,7 +475,7 @@ def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html
 
     msg["Subject"] = subject
     msg["From"] = formataddr((_display, _addr), charset="utf-8")
-    msg["To"] = ", ".join(to_emails)
+    msg["To"] = ", ".join(clean_to_emails)
 
     # Alternative container holds the HTML version and the inline calendar invite
     alt_part = MIMEMultipart("alternative")
@@ -330,10 +509,10 @@ def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
             server.starttls()
             server.login(settings.smtp_user, settings.smtp_pass)
-            server.sendmail(_addr, to_emails, msg.as_string())
-        logger.info("[SMTP] Email successfully dispatched to: %s", to_emails)
+            server.sendmail(_addr, envelope_recipients, msg.as_string())
+        logger.info("[SMTP] Email successfully dispatched to envelope recipients: %s (To: %s)", envelope_recipients, clean_to_emails)
     except Exception as e:
-        logger.error("[SMTP] Failed to send email to %s: %s", to_emails, e)
+        logger.error("[SMTP] Failed to send email to envelope recipients %s: %s", envelope_recipients, e)
 
 
 async def resolve_emails_for_attendees(db: AsyncSession, settings: Settings, attendees: List[MeetingAttendee]) -> List[str]:
