@@ -38,6 +38,7 @@ from app.db.models import (
 )
 from app.dependencies import CurrentUserDep, DbSession
 from app.dyslexic import service
+from app.dyslexic.emails import generate_email
 from app.dyslexic.research import run_research_task
 from app.dyslexic.stats import dashboard_stats, leaderboard
 from app.events import event_bus
@@ -50,6 +51,8 @@ from app.schemas.dyslexic import (
     ContactCreateOut,
     ContactOut,
     ContactUpdate,
+    EmailGenerateIn,
+    EmailOut,
     EventOut,
     FollowUpOut,
     FollowUpResolveIn,
@@ -654,6 +657,127 @@ async def release_contact_claim(
         "dyslexic.contact.released",
         {"company_id": str(contact.company_id), "contact_id": str(contact_id)},
     )
+
+
+# ---------------------------------------------------------------------------
+# Email drafting
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/contacts/{contact_id}/generate-email",
+    response_model=EmailOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_contact_email(
+    contact_id: uuid.UUID,
+    payload: EmailGenerateIn,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> EmailOut:
+    """
+    Draft a sponsor email.
+
+    Claims the contact first, so everyone else sees that this one is being
+    written before the volunteer has spent ten minutes on it. Nothing is sent —
+    the draft is copied into Gmail by hand.
+    """
+    contact = await _get_contact_or_404(db, contact_id)
+    company = await _get_company_or_404(db, contact.company_id)
+
+    try:
+        await service.claim_contact(
+            db, contact_id=contact_id, user_id=current_user.user_id
+        )
+    except service.DyslexicError as error:
+        await db.rollback()
+        _raise(error)
+    await db.commit()
+
+    previous_subject = previous_body = None
+    days_ago = 3
+    if payload.kind == "follow_up":
+        previous = await db.scalar(
+            select(DyslexicEmail)
+            .where(DyslexicEmail.contact_id == contact_id)
+            .order_by(DyslexicEmail.created_at.asc())
+            .limit(1)
+        )
+        if previous:
+            previous_subject, previous_body = previous.subject, previous.body
+        if contact.contacted_at:
+            sent_at = contact.contacted_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            days_ago = max((datetime.now(timezone.utc) - sent_at).days, 1)
+
+    result = await generate_email(
+        company_name=company.name,
+        research_json=company.research_json,
+        contact_name=contact.name,
+        contact_role=contact.role,
+        kind=payload.kind,
+        tone=payload.tone,
+        extra_context=payload.extra_context,
+        previous_subject=previous_subject,
+        previous_body=previous_body,
+        days_ago=days_ago,
+    )
+
+    if not result.ok:
+        # 503 rather than 500: the module is fine, the model is not, and the
+        # volunteer can still write the email themselves and log the send.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"message": result.error},
+        )
+
+    email = DyslexicEmail(
+        contact_id=contact_id,
+        company_id=company.id,
+        kind=payload.kind,
+        subject=result.subject,
+        body=result.body,
+        tone=payload.tone,
+        extra_context=payload.extra_context,
+        model=result.model,
+        generated_by=current_user.user_id,
+    )
+    db.add(email)
+
+    company.stage = service.advance_stage(company.stage, "email_generated")
+
+    actor = await db.scalar(
+        select(User.display_name).where(User.id == current_user.user_id)
+    )
+    await service.record_event(
+        db,
+        company_id=company.id,
+        contact_id=contact_id,
+        actor_id=current_user.user_id,
+        kind="email.generated",
+        summary=f"Draft written for {contact.name} by {actor or 'a volunteer'}",
+        metadata={"kind": payload.kind},
+    )
+    await db.commit()
+    await db.refresh(email)
+
+    return EmailOut.model_validate(email)
+
+
+@router.get("/contacts/{contact_id}/emails", response_model=list[EmailOut])
+async def list_contact_emails(
+    contact_id: uuid.UUID, db: DbSession, current_user: CurrentUserDep
+) -> list[EmailOut]:
+    """Every draft written for this contact, newest first."""
+    await _get_contact_or_404(db, contact_id)
+    rows = (
+        await db.execute(
+            select(DyslexicEmail)
+            .where(DyslexicEmail.contact_id == contact_id)
+            .order_by(DyslexicEmail.created_at.desc())
+        )
+    ).scalars().all()
+    return [EmailOut.model_validate(row) for row in rows]
 
 
 # ---------------------------------------------------------------------------
