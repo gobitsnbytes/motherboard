@@ -127,17 +127,82 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
     );
   }
 
+  const [statusDetails, setStatusDetails] = useState<any>(null);
+
+  const fetchStatusDetails = async () => {
+    try {
+      const res = await fetch(`/api/signatures/sign/${token}/status`);
+      if (res.ok) {
+        const json = await res.json();
+        setStatusDetails(json);
+      }
+    } catch (e) {
+      console.error("Failed to fetch status details", e);
+    }
+  };
+
+  useEffect(() => {
+    if (completed) {
+      fetchStatusDetails();
+    }
+  }, [completed]);
+
   if (completed) {
+    const isFullyCompleted = statusDetails?.request_status === "completed";
+    const pendingSigners = statusDetails?.recipients?.filter((r: any) => r.status !== "signed") || [];
+
     return (
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6">
-        <div className="bg-white border-2 border-[#120F0A] p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-[#EFECE6] border-2 border-green-800 text-green-800 mx-auto flex items-center justify-center shadow-[2px_2px_0px_0px_#120F0A]">
+        <div className="bg-white border-2 border-[#120F0A] p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full text-center space-y-5">
+          <div className={`w-16 h-16 rounded-2xl border-2 mx-auto flex items-center justify-center shadow-[2px_2px_0px_0px_#120F0A] ${
+            isFullyCompleted ? "bg-[#EFECE6] border-green-800 text-green-800" : "bg-[#FEE9CF] border-[#FC920D] text-[#FC920D]"
+          }`}>
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h1 className="text-xl font-black text-[#120F0A] font-heading">Contract Signed Successfully!</h1>
+          
+          <h1 className="text-xl font-black text-[#120F0A] font-heading">
+            {isFullyCompleted ? "Contract Fully Executed & Sealed!" : "Signature Recorded Successfully!"}
+          </h1>
+          
           <p className="text-xs text-[#716F6C] font-medium leading-relaxed">
-            Thank you, <b>{data.recipient.name}</b>. Your signature has been recorded and cryptographically sealed with a 1-page audit certificate.
+            Thank you, <b>{data.recipient.name}</b>. Your signature has been recorded with a cryptographic timestamp.
           </p>
+
+          {isFullyCompleted ? (
+            <div className="bg-green-50 border-2 border-green-800 p-3 rounded-xl text-left text-xs space-y-1 font-medium text-green-900">
+              <div className="font-bold flex items-center gap-1.5"><ShieldCheck className="w-4 h-4" /> Cryptographically Sealed Document</div>
+              <div>All required signatories have signed. The contract envelope is finalized.</div>
+              {statusDetails?.document_hash && (
+                <div className="text-[10px] font-mono text-green-800 truncate mt-1">
+                  SHA-256: {statusDetails.document_hash}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-[#FEE9CF]/50 border-2 border-[#120F0A] p-4 rounded-xl text-left space-y-2">
+              <div className="text-xs font-bold text-[#120F0A] flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-[#97192C]" /> Envelope Pending Remaining Signatures
+              </div>
+              <p className="text-[11px] text-[#413F3B]">
+                The contract will move to <b>Completed & Sealed</b> once all signatories have finished:
+              </p>
+              <div className="space-y-1.5 pt-1">
+                {statusDetails?.recipients?.map((r: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-[#120F0A]">{r.name} ({r.role})</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${
+                      r.status === "signed"
+                        ? "bg-green-100 text-green-800 border-green-800"
+                        : "bg-amber-100 text-amber-900 border-amber-800"
+                    }`}>
+                      {r.status === "signed" ? "Signed" : "Pending Signature"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="pt-2 text-[10px] text-[#716F6C] font-mono border-t border-[#D0CFCE]">
             Audit Event Recorded · SHA-256 Checksum Executed
           </div>

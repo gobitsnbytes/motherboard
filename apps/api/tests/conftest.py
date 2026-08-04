@@ -31,6 +31,12 @@ from sqlalchemy.ext.compiler import compiles
 def compile_jsonb_sqlite(type_, compiler, **kw):
     return "JSON"
 
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
+@compiles(PG_UUID, 'sqlite')
+def compile_uuid_sqlite(type_, compiler, **kw):
+    return "CHAR(36)"
+
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
 engine = create_async_engine(TEST_DATABASE_URL)

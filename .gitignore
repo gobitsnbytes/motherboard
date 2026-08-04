@@ -50,3 +50,7 @@ next-env.d.ts
 
 
 .vercel
+
+# Local signature uploads & test artifacts
+data/signatures/
+apps/api/data/signatures/

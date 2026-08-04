@@ -16,8 +16,10 @@ from app.db.models import User
 from conftest import internal_auth_headers, request_as
 
 
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
+import pytest_asyncio
+
+@pytest_asyncio.fixture(autouse=True)
+async def override_db(db_session: AsyncSession):
     async def _get_test_session():
         yield db_session
     app.dependency_overrides[get_session] = _get_test_session

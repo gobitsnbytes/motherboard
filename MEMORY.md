@@ -123,6 +123,20 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Meeting Recovery Loop Fix (`jobs/meetingRecovery.js`)**: Fixed an infinite meeting recovery loop where stale VC meetings with missing `metadata.json` were repeatedly checked. These are now correctly marked as completed.
 - **Verification**: Added 2 new integration test suites in `tests/meetings.test.js` validating the meeting recovery status transitions and Cal.com synchronizer rescheduling functionality. Ran the bot test suite verifying all 210 test assertions pass 100% green. Commits pushed to `origin/main` branch.
 
+### 2026-08-04
+
+**S46 — Internal Contract Assistant & bnb-signatures Overhaul**:
+- **Signature Canvas Overhaul (`SignatureCanvas.tsx`)**: Added Upload tab (for image files of wet signatures), 5 script font picker options for typed signatures, and draw canvas clear/pressure support.
+- **Envelope Status Resolution & Contextual Signing Portal (`/sign/[token]/page.tsx` & `signatures.py`)**: Added `GET /api/signatures/sign/{token}/status` endpoint. Updated public signing page to poll envelope status after signing and render contextual state ("Fully Executed & Sealed" vs "Signature Recorded — Pending Remaining Signatories").
+- **Email Security & Dispatch Formatting (`signatures.py`)**: Cleaned email HTML formatting, added List-Unsubscribe headers, direct non-tracked link fallbacks, and proper display names.
+- **Inbound Email Domain Restriction (`contract_assistant.py`)**: Added strict `@gobitsnbytes.org` sender check (HTTP 401 on unauthorized domains) to `/api/contract-assistant/inbound-email` webhook.
+- **Contract Assistant Database ORM Models (`models.py`)**: Added `ContractAssistantContract`, `ContractAssistantClause`, `ContractAssistantFinding`, `ContractAssistantSignatory`, `ContractAssistantEnvelope`, and `ContractAssistantEvent` ORM models.
+- **Contract Dispatch & Search Endpoints (`contract_assistant.py`)**: Added `/dispatch` (with high-risk unresolved gate check) and `/ask` (RAG across OKF documents).
+- **Kanban Pipeline Board (`dashboard/contract-assistant/page.tsx`)**: Rebuilt Contract Assistant landing page into a 3-column Kanban pipeline board (`In Review`, `Out for Signature`, `Dotted & Sealed`) with quick search and contract upload triggers.
+- **OKF Rules Reference Panel (`dashboard/contract-assistant/rules/page.tsx`)**: Built read-only reference panel displaying 35 OKF policy rules with search and tag filters.
+- **Contract Review & Triage Screen (`dashboard/contract-assistant/[contractId]/page.tsx`)**: Built 2-pane review layout featuring clause text viewer, findings list with source badges (`⚡ OKF Rule` vs `✨ AI Pass`), Tier-1/Tier-2 redline diff modal, per-clause chat, and sticky dispatch gate bottom bar.
+- **Verification**: Verified `bun run typecheck` passes cleanly (code 0). Verified `pytest` passes 100% green across signature router tests and contract assistant test suites.
+
 ### 2026-06-26 (Later)
 
 **S38 — On-Demand VC Joining Cache Resolution & Listener Fallback:**

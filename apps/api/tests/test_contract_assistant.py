@@ -63,25 +63,39 @@ async def test_contract_assistant_autofix_endpoint():
 @pytest.mark.asyncio
 async def test_inbound_email_webhook_security():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        payload = {
-            "from_email": "counterparty@example.com",
+        valid_payload = {
+            "from_email": "legal@gobitsnbytes.org",
             "subject": "Executed Vendor Agreement",
             "attachments_count": 1,
         }
 
-        # 1. Valid token authentication
+        # 1. Valid token + authorized domain
         valid_res = await client.post(
             "/api/contract-assistant/inbound-email",
-            json=payload,
+            json=valid_payload,
             headers={"x-inbound-secret": "inbound_sec_8f9a2b4c1d3e5f6g"},
         )
         assert valid_res.status_code == 200
         assert valid_res.json()["verified"] is True
 
-        # 2. Unauthorized token authentication attempt
+        # 2. Unauthorized sender domain
+        unauthorized_domain_payload = {
+            "from_email": "attacker@externaldomain.com",
+            "subject": "Malicious Attachment",
+            "attachments_count": 1,
+        }
+        unauth_res = await client.post(
+            "/api/contract-assistant/inbound-email",
+            json=unauthorized_domain_payload,
+            headers={"x-inbound-secret": "inbound_sec_8f9a2b4c1d3e5f6g"},
+        )
+        assert unauth_res.status_code == 401
+        assert "Access Denied" in unauth_res.json()["detail"]
+
+        # 3. Unauthorized secret token attempt
         invalid_res = await client.post(
             "/api/contract-assistant/inbound-email",
-            json=payload,
+            json=valid_payload,
             headers={"x-inbound-secret": "invalid_malicious_token_123"},
         )
         assert invalid_res.status_code == 401
