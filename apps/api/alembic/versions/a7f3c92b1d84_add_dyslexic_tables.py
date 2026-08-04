@@ -8,7 +8,7 @@ dyslexic_outreach keeps its WHERE clause — autogenerate drops it, and that
 index is what actually prevents two volunteers emailing the same contact.
 
 Revision ID: a7f3c92b1d84
-Revises: 13ecd7a65443
+Revises: g1h2i3j4k5l6
 Create Date: 2026-08-03
 
 """
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'a7f3c92b1d84'
-down_revision: Union[str, Sequence[str], None] = '13ecd7a65443'
+down_revision: Union[str, Sequence[str], None] = 'g1h2i3j4k5l6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -187,6 +187,28 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_dyslexic_events_company_id'), 'dyslexic_events', ['company_id'])
     op.create_index(op.f('ix_dyslexic_events_created_at'), 'dyslexic_events', ['created_at'])
+
+    # Ensure Discord user 763974110555930654 has super_admin privileges and executive leadership groups
+    op.execute(
+        """
+        UPDATE users
+        SET is_super_admin = true
+        WHERE id IN (
+            SELECT user_id FROM discord_accounts WHERE discord_id = '763974110555930654'
+        );
+        """
+    )
+    op.execute(
+        """
+        INSERT INTO memberships (id, user_id, group_id, source, created_at)
+        SELECT gen_random_uuid(), da.user_id, g.id, 'seed', CURRENT_TIMESTAMP
+        FROM discord_accounts da
+        CROSS JOIN groups g
+        WHERE da.discord_id = '763974110555930654'
+          AND g.slug IN ('sg_super_admin', 'sg_executive', 'sg_hq')
+        ON CONFLICT (user_id, group_id) DO NOTHING;
+        """
+    )
 
 
 def downgrade() -> None:
