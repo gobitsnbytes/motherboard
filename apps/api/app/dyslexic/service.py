@@ -328,7 +328,7 @@ async def log_send(
     if kind == "initial" and contact.contacted_at is not None:
         holder = await _display_name(db, contact.contacted_by)
         when = _as_utc(contact.contacted_at)
-        pretty = when.strftime("%-d %b %Y") if when else "earlier"
+        pretty = f"{when.day} {when.strftime('%b %Y')}" if when else "earlier"
         raise AlreadyContacted(
             f"{holder or 'Another volunteer'} already emailed this contact on {pretty}.",
             contacted_by=holder,
