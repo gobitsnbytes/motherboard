@@ -136,7 +136,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, cloud, signatures, contract_assistant
+    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic, cloud, signatures, contract_assistant
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
@@ -149,6 +149,7 @@ def create_app() -> FastAPI:
     application.include_router(iam.router, prefix="/api/iam", tags=["iam"])
     application.include_router(meetings.router)
     application.include_router(admin.router)
+    application.include_router(dyslexic.router)
     application.include_router(cloud.router)
     application.include_router(signatures.router)
     application.include_router(contract_assistant.router)

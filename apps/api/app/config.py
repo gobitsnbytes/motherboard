@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-2.5-flash", validation_alias="GEMINI_MODEL")
 
+    # Dyslexic uses its own model setting so sponsorship research and email
+    # drafting can move independently of the meeting transcription pipeline.
+    dyslexic_gemini_model: str = Field(
+        default="gemini-3.6-flash", validation_alias="DYSLEXIC_GEMINI_MODEL"
+    )
+
     # SMTP Mailer settings
     smtp_host: str | None = Field(default="mail.gobitsnbytes.org", validation_alias="SMTP_HOST")
     smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
