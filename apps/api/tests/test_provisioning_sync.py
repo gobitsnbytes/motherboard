@@ -14,7 +14,7 @@ from app.provisioning.sync import run_sync
 @pytest.mark.asyncio
 async def test_sync_happy_path(db_session: AsyncSession):
     # 1. Create a group
-    group = Group(slug="sg_tech_lead", name="Tech Lead", is_system=True)
+    group = Group(slug="test_sync_group_1", name="Tech Lead", is_system=True)
     db_session.add(group)
     await db_session.commit()
 
@@ -84,7 +84,7 @@ async def test_sync_happy_path(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_sync_removes_stale_memberships(db_session: AsyncSession):
     # User currently has membership from discord_sync, but role is removed on Discord
-    group = Group(slug="sg_tech_lead", name="Tech Lead", is_system=True)
+    group = Group(slug="test_sync_group_2", name="Tech Lead", is_system=True)
     db_session.add(group)
     await db_session.commit()
 
@@ -146,7 +146,7 @@ async def test_sync_removes_stale_memberships(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     # Manual membership should not be deleted even if roles don't match
-    group = Group(slug="sg_tech_lead", name="Tech Lead", is_system=True)
+    group = Group(slug="test_sync_group_3", name="Tech Lead", is_system=True)
     db_session.add(group)
     await db_session.commit()
 
