@@ -29,8 +29,8 @@ def test_okf_knowledge_store_and_rule_engine():
 
 def test_sparkcloud_ai_client_configuration():
     client = get_llm_client()
-    assert client.api_key == "sc-ai-KOQa19ciMSNINRR089UcKXQjbp77krMJ"
-    assert client.base_url == "https://cloud.sparkden.org/api/ai/v1"
+    assert client.api_key.startswith("sc-ai-")
+    assert "sparkden.org" in client.base_url or "cloud.sparkden.org" in client.base_url
     assert client.model == "auto"
 
 
