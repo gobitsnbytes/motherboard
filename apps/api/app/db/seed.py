@@ -216,70 +216,80 @@ CITY_FORKS: list[dict[str, Any]] = [
         "city_name": "Lucknow HQ",
         "discord_city_role_id": "1490411988902477824",
         "discord_contributor_role_id": None,
-        "metadata": {"node_code": "Node 01", "is_hq": True, "address": "Lucknow, Uttar Pradesh, India"},
+        "is_active": True,
+        "metadata": {"node_code": "Node 01", "is_hq": True, "address": "Lucknow, Uttar Pradesh, India", "status": "active"},
     },
     {
         "slug": "delhi",
         "city_name": "Delhi",
         "discord_city_role_id": "1490411548752085094",
         "discord_contributor_role_id": None,
-        "metadata": {"node_code": "Node 02"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 02", "status": "onboarding"},
     },
     {
         "slug": "bangalore",
         "city_name": "Bangalore",
         "discord_city_role_id": "1490412532152930315",
         "discord_contributor_role_id": "1508766945091260436",
-        "metadata": {"node_code": "Node 03"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 03", "status": "onboarding"},
     },
     {
         "slug": "hyderabad",
         "city_name": "Hyderabad",
         "discord_city_role_id": "1490412746951626752",
         "discord_contributor_role_id": "1508767008660000840",
-        "metadata": {"node_code": "Node 04"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 04", "status": "onboarding"},
     },
     {
         "slug": "mumbai",
         "city_name": "Mumbai",
         "discord_city_role_id": "1490411614292283552",
         "discord_contributor_role_id": None,
-        "metadata": {"node_code": "Node 05"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 05", "status": "onboarding"},
     },
     {
         "slug": "kanpur",
         "city_name": "Kanpur",
         "discord_city_role_id": "1490411774472753198",
         "discord_contributor_role_id": None,
-        "metadata": {"node_code": "Node 06"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 06", "status": "onboarding"},
     },
     {
         "slug": "jaipur",
         "city_name": "Jaipur",
         "discord_city_role_id": "1508052382229987470",
         "discord_contributor_role_id": "1508767044567306310",
-        "metadata": {"node_code": "Node 07"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 07", "status": "onboarding"},
     },
     {
         "slug": "kolkata",
         "city_name": "Kolkata",
         "discord_city_role_id": "1490413148543385822",
         "discord_contributor_role_id": "1508767029593899160",
-        "metadata": {"node_code": "Node 08"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 08", "status": "onboarding"},
     },
     {
         "slug": "solan",
         "city_name": "Solan",
         "discord_city_role_id": "1508052399338688613",
         "discord_contributor_role_id": "1508767065308135525",
-        "metadata": {"node_code": "Node 09"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 09", "status": "onboarding"},
     },
     {
         "slug": "beawar",
         "city_name": "Beawar",
         "discord_city_role_id": "1508052414215749683",
         "discord_contributor_role_id": "1508767089081450587",
-        "metadata": {"node_code": "Node 10"},
+        "is_active": False,
+        "metadata": {"node_code": "Node 10", "status": "onboarding"},
     },
 ]
 
@@ -772,10 +782,12 @@ async def seed_city_forks(session: AsyncSession) -> None:
                     :slug, :city_name,
                     :discord_city_role_id,
                     :discord_contributor_role_id,
-                    true,
+                    :is_active,
                     :metadata
                 )
-                ON CONFLICT (slug) DO NOTHING
+                ON CONFLICT (slug) DO UPDATE SET
+                    is_active = EXCLUDED.is_active,
+                    metadata = EXCLUDED.metadata
                 """
             ),
             {
@@ -784,10 +796,11 @@ async def seed_city_forks(session: AsyncSession) -> None:
                 "city_name": fork["city_name"],
                 "discord_city_role_id": fork.get("discord_city_role_id"),
                 "discord_contributor_role_id": fork.get("discord_contributor_role_id"),
+                "is_active": fork.get("is_active", False),
                 "metadata": json.dumps(fork.get("metadata", {})),
             },
         )
-    logger.info("Seeded %d city forks.", len(CITY_FORKS))
+    logger.info("Seeded %d city forks (Lucknow HQ active, 9 onboarding nodes).", len(CITY_FORKS))
 
 
 async def seed_team_profiles(session: AsyncSession) -> None:
