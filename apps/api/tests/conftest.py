@@ -44,9 +44,14 @@ engine = create_async_engine(TEST_DATABASE_URL)
 TestingSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def cleanup_engine():
+async def init_session_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
     await engine.dispose()
+
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db(request):
@@ -55,17 +60,11 @@ async def setup_db(request):
     from app.config import get_settings
     clear_db_cache()
     get_settings.cache_clear()
-
-    # Skip setup/teardown if the test is in test_phase1 to avoid interference
-    if "test_phase1" in request.module.__name__:
-        yield
-        return
-
+    
+    # Ensure tables exist
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
     yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
 
 
 @pytest_asyncio.fixture
