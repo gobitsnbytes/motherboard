@@ -17,7 +17,17 @@ export default function Topbar() {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-end border-b-2 border-border bg-[#111] px-4 md:px-6">
+    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b-2 border-border bg-[#111] px-4 md:px-6">
+      <div className="flex items-center gap-2">
+        <a
+          href="/dashboard/dyslexic"
+          className="inline-flex items-center gap-2 rounded-base border-2 border-border bg-main/10 px-3 py-1.5 text-xs font-bold text-foreground transition-all hover:bg-main hover:text-main-foreground"
+        >
+          <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Dyslexic</span>
+        </a>
+      </div>
+
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <div className="relative flex size-8 shrink-0 overflow-hidden rounded-full border-2 border-border">

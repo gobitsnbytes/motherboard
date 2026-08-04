@@ -1,6 +1,7 @@
 "use client";
-import { Users, GitBranch, Puzzle, RefreshCw } from "lucide-react";
+import { Users, GitBranch, Puzzle, RefreshCw, Handshake } from "lucide-react";
 import StatCard from "components/dashboard/StatCard";
+import Link from "next/link";
 import {
   Badge,
   Button,
@@ -20,6 +21,7 @@ export function OverviewContent() {
     members: 0,
     forks: 0,
     plugins: 0,
+    dyslexicCompanies: 0,
     apiStatus: "loading",
     databaseStatus: "loading",
     discordStatus: "loading",
@@ -71,6 +73,15 @@ export function OverviewContent() {
           description="Installed"
           icon={<Puzzle className="size-5" />}
         />
+
+        <Link href="/dashboard/dyslexic" className="block transition-transform hover:-translate-y-0.5">
+          <StatCard
+            title="Dyslexic"
+            value={loading ? "..." : stats.dyslexicCompanies}
+            description="Sponsorship pipeline"
+            icon={<Handshake className="size-5 text-primary" />}
+          />
+        </Link>
       </div>
       <Card>
         <CardContent className="py-6">

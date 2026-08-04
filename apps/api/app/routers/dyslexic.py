@@ -212,6 +212,8 @@ async def stream_events(current_user: CurrentUserDep) -> StreamingResponse:
 # Dashboard, activity, leaderboard
 # ---------------------------------------------------------------------------
 
+@router.get("", response_model=StatsOut, include_in_schema=False)
+@router.get("/", response_model=StatsOut, include_in_schema=False)
 @router.get("/stats", response_model=StatsOut)
 async def get_stats(db: DbSession, current_user: CurrentUserDep) -> StatsOut:
     """The dashboard tiles, including this volunteer's own overdue count."""

@@ -252,3 +252,12 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - **Notification Preferences Tab**: Refactored into a balanced 2-column layout (`lg:col-span-7` settings card + `lg:col-span-5` integrations info card).
 - **Verification**: Ran `npx tsc --noEmit` cleanly with zero TypeScript errors.
 
+**S48 — Dyslexic UI, Root Route Aliases & Ground-Truth City Forks Cleanup**:
+- **Dyslexic Root Redirect (`apps/web/app/dyslexic/page.tsx`)**: Created `/app/dyslexic/page.tsx` with server-side auto-redirect to `/dashboard/dyslexic` so navigating directly to `/dyslexic` in the browser URL resolves without a `404 Not Found`.
+- **Top Header Quick Button (`apps/web/components/dashboard/Topbar.tsx`)**: Added a 1-click Dyslexic access button with a live pulse indicator to the top bar header.
+- **Overview Dashboard Card (`apps/web/components/dashboard/OverviewContent.tsx`)**: Added a dedicated Dyslexic StatCard on the main overview dashboard linking to `/dashboard/dyslexic`. Updated `lib/dashboard.ts` to fetch live Dyslexic metrics via `/api/dyslexic/stats`.
+- **Root Router Handlers (`apps/api/app/routers/dyslexic.py`)**: Added `@router.get("")` and `@router.get("/")` root endpoints on `APIRouter(prefix="/api/dyslexic")` to return dashboard stats and prevent direct GET `404` errors.
+- **Ground-Truth Seeding Cleanup (`apps/api/app/db/seed.py`)**: Updated `seed_city_forks` to purge non-ground-truth fake/legacy forks and enforced real Notion ground-truth city forks (Lucknow HQ, Noida, Kolkata) and real team profiles in `run_seeds`.
+- **Verification**: All 195 backend tests passed 100% green via `pytest`.
+
+

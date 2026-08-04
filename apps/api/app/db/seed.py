@@ -736,7 +736,13 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
 
 
 async def seed_city_forks(session: AsyncSession) -> None:
-    """Insert known city forks — idempotent on slug conflict."""
+    """Insert known city forks — idempotent on slug conflict. Removes obsolete non-ground-truth forks."""
+    valid_slugs = {f["slug"] for f in CITY_FORKS}
+    all_existing = await session.execute(text("SELECT id, slug FROM forks"))
+    for row in all_existing.fetchall():
+        if row.slug not in valid_slugs:
+            await session.execute(text("DELETE FROM forks WHERE id = :id"), {"id": str(row.id)})
+
     for fork in CITY_FORKS:
         await session.execute(
             text(
@@ -908,11 +914,14 @@ timestamp: 2026-08-04T00:00:00Z
 
 
 async def run_seeds(session: AsyncSession) -> None:
-    """Run system infrastructure and OKF rules seeds (no dummy/fake data seeding)."""
-    logger.info("Running database infrastructure and OKF seeds…")
+    """Run real ground-truth infrastructure and OKF rules seeds (HQ + Noida + Kolkata city forks)."""
+    logger.info("Running ground-truth infrastructure and OKF seeds…")
     await seed_system_groups(session)
     await seed_core_permissions(session)
     await seed_discord_role_mappings(session)
+    await seed_city_forks(session)
+    await seed_team_profiles(session)
+    await seed_chart_of_accounts(session)
     seed_okf_rules()
     await session.commit()
-    logger.info("Database infrastructure seeds completed successfully.")
+    logger.info("Ground-truth infrastructure seeds completed successfully.")
