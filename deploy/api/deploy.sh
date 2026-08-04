@@ -34,8 +34,9 @@ rollback() {
     exit 1
 }
 
-# 1. Pull latest code
-echo "--> Pulling latest code from prod..."
+# 1. Ensure working directory ownership & pull latest code
+echo "--> Fixing directory ownership and pulling latest code from prod..."
+sudo chown -R $(whoami):$(id -gn) "$APP_DIR"
 git -C "$APP_DIR" fetch origin prod
 git -C "$APP_DIR" reset --hard origin/prod
 
@@ -45,6 +46,11 @@ echo "New commit: $NEW_COMMIT"
 if [ "$PREV_COMMIT" = "$NEW_COMMIT" ]; then
     echo "--> No new code changes. Verifying dependencies and restarting..."
 fi
+
+# 1.5. Install monorepo JS dependencies
+echo "--> Installing monorepo Node/Bun dependencies..."
+sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" || rollback
+sudo chown -R deploy:deploy "$APP_DIR"
 
 # 2. Sync python dependencies
 echo "--> Syncing python dependencies..."
@@ -67,9 +73,11 @@ fi
 export PATH="$API_DIR/.venv/bin:$PATH"
 (cd "$API_DIR" && alembic upgrade head) || rollback
 
-# 4. Restart service
+# 4. Restart services
 echo "--> Restarting bnb-api systemd service..."
 sudo systemctl restart "$SERVICE_NAME" || rollback
+echo "--> Restarting bnb-bot systemd service..."
+sudo systemctl restart bnb-bot || rollback
 
 # 5. Health check loop
 echo "--> Performing health checks..."

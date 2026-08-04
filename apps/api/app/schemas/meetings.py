@@ -29,6 +29,8 @@ class MeetingCreate(BaseModel):
     external_emails: list[str] = []
     notes: str | None = None
     scope: str = "invite"
+    calcom_booking_id: str | None = None
+    calcom_uid: str | None = None
 
 
 class MeetingRescheduleHistorySchema(BaseModel):
@@ -103,6 +105,8 @@ class MeetingUpdate(BaseModel):
     scope: str | None = None
     reschedule_reason: str | None = None
     rescheduled_by: str | None = None
+    calcom_booking_id: str | None = None
+    calcom_uid: str | None = None
 
 
 class UserAvailabilitySchema(BaseModel):

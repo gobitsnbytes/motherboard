@@ -55,3 +55,9 @@ apps/api/*.db
 apps/api/*.db-journal
 apps/api/*.db-wal
 apps/api/*.db-shm
+
+.vercel
+
+# Local signature uploads & test artifacts
+data/signatures/
+apps/api/data/signatures/

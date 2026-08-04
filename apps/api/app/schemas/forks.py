@@ -47,3 +47,40 @@ class ForkMemberOut(BaseModel):
     is_active: bool
     joined_at: datetime
     left_at: datetime | None
+
+
+class ComplianceCheckItem(BaseModel):
+    key: str
+    title: str
+    passed: bool
+    status: str  # "passed" | "failed" | "warning"
+    details: str
+    remedy: str | None = None
+
+
+class ForkComplianceCheckOut(BaseModel):
+    fork_id: uuid.UUID
+    city_name: str
+    slug: str
+    health_score: int
+    overall_status: str  # "compliant" | "warning" | "non_compliant"
+    passed_checks_count: int
+    total_checks_count: int
+    checks: list[ComplianceCheckItem]
+    assigned_track_leads: dict[str, str | None]
+    created_at: datetime
+    updated_at: datetime
+
+
+class ForkOnboardingItem(BaseModel):
+    fork_id: uuid.UUID
+    city_name: str
+    slug: str
+    stage: str  # "submitted" | "in_review" | "compliance_check" | "approved" | "archived"
+    is_active: bool
+    health_score: int
+    compliance_summary: ForkComplianceCheckOut
+    track_leads_assigned_count: int
+    member_count: int
+    remedies_needed: list[str]
+

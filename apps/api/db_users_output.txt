@@ -1,0 +1,7 @@
+=== USERS ===
+ID: 41058abe-fd20-496f-a9e9-8eb2a50682e5 | DisplayName: Aero | Email: akshatsingh14372@outlook.com
+ID: 7ef0a875-aab1-453b-90f1-7f8dfd68041b | DisplayName: Clushed✦ | Email: yashsinghv2770@gmail.com
+
+=== DISCORD ACCOUNTS ===
+UserID: 7ef0a875-aab1-453b-90f1-7f8dfd68041b | DiscordID: 763974110555930654 | Username: wellitsclushed | GlobalName: Clushed✦
+UserID: 41058abe-fd20-496f-a9e9-8eb2a50682e5 | DiscordID: 905658967005495356 | Username: a3rodev | GlobalName: Aero

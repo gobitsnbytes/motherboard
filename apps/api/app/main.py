@@ -43,33 +43,44 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Ensure Alembic can discover DATABASE_URL from the environment
     _ensure_alembic_env(settings)
 
-    # Run Alembic migrations programmatically
-    logger.info("Running Alembic migrations…")
-    import asyncio
-    from alembic import command
-    from alembic.config import Config as AlembicConfig
-
-    def _run_migrations() -> None:
-        alembic_cfg = AlembicConfig("alembic.ini")
-        alembic_cfg.set_main_option("skip_logging_config", "True")
-        command.upgrade(alembic_cfg, "head")
-
-    await asyncio.to_thread(_run_migrations)
-    logger.info("Migrations complete.")
-
-    # Seed reference data
+    # Session factory for DB access
     session_factory = get_sessionmaker()
-    async with session_factory() as session:
-        await run_seeds(session)
+
+    # Run Alembic migrations programmatically (graceful fallback if DB is offline/quota exceeded)
+    try:
+        logger.info("Running Alembic migrations…")
+        import asyncio
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+
+        def _run_migrations() -> None:
+            alembic_cfg = AlembicConfig("alembic.ini")
+            alembic_cfg.set_main_option("skip_logging_config", "True")
+            command.upgrade(alembic_cfg, "head")
+
+        await asyncio.to_thread(_run_migrations)
+        logger.info("Migrations complete.")
+
+        # Seed reference data
+        async with session_factory() as session:
+            await run_seeds(session)
+    except Exception as db_err:
+        logger.warning(f"Database startup initialization skipped (DB unavailable or quota exceeded): {db_err}")
 
     # Start the event bus so that plugins can publish/subscribe during on_load
-    await event_bus.start(settings.redis_url)
+    try:
+        await event_bus.start(settings.redis_url)
+    except Exception as redis_err:
+        logger.warning(f"EventBus startup skipped: {redis_err}")
 
     # Initialize and run dynamic PluginLoader
-    from app.plugin_sdk.loader import PluginLoader
-    plugin_loader = PluginLoader(application, session_factory)
-    application.state.plugin_loader = plugin_loader
-    await plugin_loader.discover_and_load()
+    try:
+        from app.plugin_sdk.loader import PluginLoader
+        plugin_loader = PluginLoader(application, session_factory)
+        application.state.plugin_loader = plugin_loader
+        await plugin_loader.discover_and_load()
+    except Exception as plugin_err:
+        logger.warning(f"PluginLoader startup skipped: {plugin_err}")
 
     # Start periodic Discord sync scheduler if enabled
     if settings.enable_sync_scheduler:
@@ -125,7 +136,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic
+    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic, cloud, signatures, contract_assistant
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
@@ -139,6 +150,9 @@ def create_app() -> FastAPI:
     application.include_router(meetings.router)
     application.include_router(admin.router)
     application.include_router(dyslexic.router)
+    application.include_router(cloud.router)
+    application.include_router(signatures.router)
+    application.include_router(contract_assistant.router)
 
 
     return application

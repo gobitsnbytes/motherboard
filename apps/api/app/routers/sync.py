@@ -107,3 +107,17 @@ async def trigger_sync(
     )
 
     return run
+
+
+@router.post("/notion")
+async def trigger_notion_sync(
+    db: DbDep,
+    current_user: CurrentUserDep,
+):
+    """
+    Synchronize real active forks directly from Notion database (`a5472585-73cd-4f6c-99b8-40c7cb63ce9e`).
+    """
+    await require_permission(db, current_user, "provisioning.sync.trigger")
+    from app.provisioning.notion_sync import sync_forks_from_notion
+    result = await sync_forks_from_notion(db)
+    return result

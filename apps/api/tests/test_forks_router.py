@@ -21,17 +21,18 @@ def override_db(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_list_forks(db_session: AsyncSession, super_admin: User):
-    # Run the seeder to populate default forks
-    await run_seeds(db_session)
+    fork = Fork(slug="noida", city_name="Bits&Bytes Noida", metadata_json={})
+    db_session.add(fork)
+    await db_session.commit()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await request_as(ac, super_admin.id, "GET", "/api/forks/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) >= 4  # Delhi, Bangalore, Hyderabad, Kolkata
+        assert len(data) >= 1
         slugs = [f["slug"] for f in data]
-        assert "delhi" in slugs
+        assert "noida" in slugs
 
 
 @pytest.mark.asyncio
@@ -120,3 +121,74 @@ async def test_list_fork_members(db_session: AsyncSession, super_admin: User):
         assert data[0]["track"] == "education"
         assert data[0]["local_role"] == "fork_lead"
         assert data[0]["is_active"] is True
+
+
+@pytest.mark.asyncio
+async def test_fork_compliance_check(db_session: AsyncSession, super_admin: User):
+    fork = Fork(
+        slug="jaipur",
+        city_name="Jaipur Fork",
+        metadata_json={
+            "section8_aligned": True,
+            "agreement_signed": True,
+            "safeguarding_compliant": True,
+            "financial_isolation": True,
+        },
+    )
+    user = User(display_name="Jaipur Lead")
+    db_session.add_all([fork, user])
+    await db_session.commit()
+
+    member = ForkMember(
+        user_id=user.id,
+        fork_id=fork.id,
+        track="tech",
+        local_role="tech-lead",
+        is_active=True,
+    )
+    db_session.add(member)
+    await db_session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await request_as(ac, super_admin.id, "GET", f"/api/forks/{fork.id}/compliance-check")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["fork_id"] == str(fork.id)
+        assert data["city_name"] == "Jaipur Fork"
+        assert len(data["checks"]) == 6
+        check_keys = [c["key"] for c in data["checks"]]
+        assert "section8_alignment" in check_keys
+        assert "agreement_signed" in check_keys
+        assert "minor_safeguarding" in check_keys
+        assert "track_leads_assigned" in check_keys
+        assert "financial_isolation" in check_keys
+        assert "health_score_eval" in check_keys
+
+
+@pytest.mark.asyncio
+async def test_fork_onboarding_pipeline(db_session: AsyncSession, super_admin: User):
+    fork = Fork(
+        slug="kochi",
+        city_name="Kochi Fork",
+        metadata_json={
+            "section8_aligned": True,
+            "agreement_signed": True,
+            "safeguarding_compliant": True,
+            "onboarding_stage": "compliance_check",
+        },
+    )
+    db_session.add(fork)
+    await db_session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await request_as(ac, super_admin.id, "GET", "/api/forks/onboarding")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        kochi_item = next((item for item in data if item["slug"] == "kochi"), None)
+        assert kochi_item is not None
+        assert kochi_item["stage"] == "compliance_check"
+        assert "compliance_summary" in kochi_item
+

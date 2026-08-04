@@ -28,6 +28,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -871,6 +872,9 @@ class VirtualTransaction(Base):
         "VirtualAccount", back_populates="credits", foreign_keys=[destination_account_id]
     )
 
+    def __repr__(self) -> str:
+        return f"<VirtualTransaction id={self.id} amount={self.amount_paise} type={self.reference_type!r}>"
+
 
 # ---------------------------------------------------------------------------
 # Discord Bot Tables
@@ -1060,6 +1064,8 @@ class EventCache(Base):
     expected_attendees: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     actual_attendees: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    calcom_booking_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    calcom_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 class ReportCache(Base):
@@ -1409,3 +1415,204 @@ class DyslexicEvent(Base):
 
     def __repr__(self) -> str:
         return f"<DyslexicEvent kind={self.kind!r} company={self.company_id}>"
+
+
+# ---------------------------------------------------------------------------
+# Digital Signatures System (bnb-signatures)
+# ---------------------------------------------------------------------------
+
+class SignatureRequest(Base):
+    """Master record for a digital signature contract request."""
+    __tablename__ = "signature_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="draft", nullable=False)  # draft, pending, completed, voided, expired
+    original_file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    signed_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    document_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    recipients: Mapped[list["SignatureRecipient"]] = relationship("SignatureRecipient", back_populates="request", cascade="all, delete-orphan", order_by="SignatureRecipient.signing_order")
+    fields: Mapped[list["SignatureField"]] = relationship("SignatureField", back_populates="request", cascade="all, delete-orphan")
+    audit_logs: Mapped[list["SignatureAuditLog"]] = relationship("SignatureAuditLog", back_populates="request", cascade="all, delete-orphan", order_by="SignatureAuditLog.created_at")
+
+
+class SignatureRecipient(Base):
+    """Signatory or viewer associated with a signature request."""
+    __tablename__ = "signature_recipients"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default="signer", nullable=False)  # signer, viewer, cc
+    signing_order: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, sent, viewed, signed, declined
+    access_token: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    access_passcode: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="recipients")
+    fields: Mapped[list["SignatureField"]] = relationship("SignatureField", back_populates="recipient", cascade="all, delete-orphan")
+
+
+class SignatureField(Base):
+    """Interactive field overlay placed on document page canvas."""
+    __tablename__ = "signature_fields"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    recipient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_recipients.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # signature, fullname, date, text, checkbox
+    page_number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-indexed
+    pos_x: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    pos_y: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    width: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    height: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)  # filled text / signature base64 image data URL
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="fields")
+    recipient: Mapped["SignatureRecipient"] = relationship("SignatureRecipient", back_populates="fields")
+
+
+class SignatureAuditLog(Base):
+    """Immutable event log for all signature workflow steps."""
+    __tablename__ = "signature_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    recipient_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_recipients.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)  # created, sent, viewed, signed, declined, completed, voided
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="audit_logs")
+
+
+class ContractAssistantContract(Base):
+    """Internal Contract Assistant reviewed contracts."""
+    __tablename__ = "ca_contracts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    counterparty: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="in_review", nullable=False)  # in_review, out_for_signature, dotted, archived
+    value: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    original_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    message_id: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)  # Deduplication for inbound email
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    clauses: Mapped[list["ContractAssistantClause"]] = relationship("ContractAssistantClause", back_populates="contract", cascade="all, delete-orphan")
+    findings: Mapped[list["ContractAssistantFinding"]] = relationship("ContractAssistantFinding", back_populates="contract", cascade="all, delete-orphan")
+    signatories: Mapped[list["ContractAssistantSignatory"]] = relationship("ContractAssistantSignatory", back_populates="contract", cascade="all, delete-orphan")
+    envelopes: Mapped[list["ContractAssistantEnvelope"]] = relationship("ContractAssistantEnvelope", back_populates="contract", cascade="all, delete-orphan")
+    events: Mapped[list["ContractAssistantEvent"]] = relationship("ContractAssistantEvent", back_populates="contract", cascade="all, delete-orphan")
+
+
+class ContractAssistantClause(Base):
+    """Parsed clauses of a contract."""
+    __tablename__ = "ca_clauses"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    ref: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., §4.2
+    heading: Mapped[str] = mapped_column(String(255), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    page_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="clauses")
+    findings: Mapped[list["ContractAssistantFinding"]] = relationship("ContractAssistantFinding", back_populates="clause", cascade="all, delete-orphan")
+
+
+class ContractAssistantFinding(Base):
+    """Merged findings list (Rule Engine + LLM Risk Pass)."""
+    __tablename__ = "ca_findings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    clause_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_clauses.id", ondelete="CASCADE"), nullable=True)
+    clause_ref: Mapped[str] = mapped_column(String(50), nullable=False)
+    heading: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)  # rule_engine | llm_judgment
+    severity: Mapped[str] = mapped_column(String(50), nullable=False)  # high | medium | low
+    risk_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    plain_english: Mapped[str] = mapped_column(Text, nullable=False)
+    suggested_action: Mapped[str] = mapped_column(Text, nullable=False)
+    policy_link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    template_fix: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_rewrite: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tier: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # 1 = Template swap, 2 = LLM redline
+    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)  # open, resolved, dismissed
+    dismissed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="findings")
+    clause: Mapped["ContractAssistantClause"] = relationship("ContractAssistantClause", back_populates="findings")
+
+
+class ContractAssistantSignatory(Base):
+    """Signatory tracked for contract assistant dispatch."""
+    __tablename__ = "ca_signatories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default="signer", nullable=False)
+    envelope_status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="signatories")
+
+
+class ContractAssistantEnvelope(Base):
+    """Linked bnb-signatures request envelope."""
+    __tablename__ = "ca_envelopes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    signature_request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="envelopes")
+    signature_request: Mapped["SignatureRequest"] = relationship("SignatureRequest")
+
+
+class ContractAssistantEvent(Base):
+    """Audit event trail for Contract Assistant actions."""
+    __tablename__ = "ca_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(String(100), nullable=False)  # ingested, analyzed, fix_applied, finding_dismissed, dispatched
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="events")
+
+
+>>>>>>> origin/prod

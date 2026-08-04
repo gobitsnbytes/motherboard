@@ -10,7 +10,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks
@@ -56,29 +56,148 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 # ICS and Email Notification Helpers (Unified in Python)
 # ---------------------------------------------------------------------------
 
-def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
-    """Generate a valid, minimal iCalendar (.ics) request body."""
+from urllib.parse import quote
+
+def get_google_cal_url(title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
+    dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dates = f"{dt_start}/{dt_end}"
+    return f"https://calendar.google.com/calendar/render?action=TEMPLATE&text={quote(title)}&dates={dates}&details={quote(description or '')}&location={quote(location or '')}"
+
+
+def get_outlook_cal_url(title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
+    dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return f"https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject={quote(title)}&startdt={dt_start}&enddt={dt_end}&body={quote(description or '')}&location={quote(location or '')}"
+
+
+def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: int, description: str, location: str, organizer_email: str = "gobitsnbytes@gmail.com", attendee_emails: List[str] = None, sequence: int = 0, method: str = "REQUEST") -> str:
+    """Generate a valid, minimal iCalendar (.ics) request body following RFC 5545 with RSVP parameters."""
     dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dt_stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     
+    attendee_lines = []
+    if attendee_emails:
+        for email in attendee_emails:
+            attendee_lines.append(f'ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="{email}":mailto:{email}')
+    attendee_str = "\n".join(attendee_lines)
+    attendee_block = f"\n{attendee_str}" if attendee_str else ""
+    
+    desc_escaped = (description or "").replace("\r\n", "\\n").replace("\n", "\\n")
+    
     return f"""BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Bits and Bytes Foundation//Motherboard//EN
+PRODID:-//GOBITSNBYTES FOUNDATION//Motherboard Scheduler//EN
 CALSCALE:GREGORIAN
-METHOD:REQUEST
+METHOD:{method}
 BEGIN:VEVENT
 UID:{meeting_id}@gobitsnbytes.org
 DTSTAMP:{dt_stamp}
 DTSTART:{dt_start}
 DTEND:{dt_end}
 SUMMARY:{title}
-DESCRIPTION:{description or ''}
+DESCRIPTION:{desc_escaped}
 LOCATION:{location or 'Discord VC'}
+ORGANIZER;CN="bits&bytes™":mailto:{organizer_email}{attendee_block}
 STATUS:CONFIRMED
-SEQUENCE:0
+SEQUENCE:{sequence}
+TRANSP:OPAQUE
+X-MICROSOFT-CDO-BUSYSTATUS:BUSY
+X-MICROSOFT-DISALLOW-COUNTER:FALSE
 END:VEVENT
 END:VCALENDAR"""
+
+
+def get_invite_html(title: str, formatted_time: str, vc_link: str, description: Optional[str], start_time_ms: int = 0, end_time_ms: int = 0) -> str:
+    desc_html = f"<p><strong>Description:</strong> {description}</p>" if description else ""
+    gcal_url = get_google_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), description or "", vc_link)
+    outlook_url = get_outlook_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), description or "", vc_link)
+    
+    content_html = f"""
+    <h2>⚡ You're Invited to a Meeting</h2>
+    <div class="card">
+        <h3 class="card-title">{title}</h3>
+        <div class="detail-row">
+            <span class="detail-label">When:</span>
+            <span class="detail-value">{formatted_time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Where:</span>
+            <span class="detail-value"><a href="{vc_link}" style="color: #ff7a1b; text-decoration: underline;">{vc_link}</a></span>
+        </div>
+        {desc_html}
+    </div>
+    <div style="text-align: center; margin-top: 24px; margin-bottom: 24px;">
+        <a href="{vc_link}" class="btn" style="margin-bottom: 12px; display: inline-block;">Join Room / VC</a>
+    </div>
+    <div style="background-color: rgba(255, 122, 27, 0.08); border: 1px border: 1px dashed rgba(255, 122, 27, 0.3); border-radius: 12px; padding: 16px; text-align: center;">
+        <p style="font-size: 12px; font-weight: bold; color: #ff7a1b; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px;">
+            Add Event To Your Calendar
+        </p>
+        <a href="{gcal_url}" target="_blank" style="display: inline-block; background-color: #4285F4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-right: 8px;">+ Google Calendar</a>
+        <a href="{outlook_url}" target="_blank" style="display: inline-block; background-color: #0078D4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold;">+ Outlook Web</a>
+    </div>
+    """
+    return get_base_email_html(content_html, "Meeting Invitation")
+
+
+def get_cancel_html(title: str, formatted_time: str) -> str:
+    content_html = f"""
+    <h2 style="color: #97192c;">❌ Meeting Cancelled</h2>
+    <div class="card" style="border-color: rgba(151, 25, 44, 0.4);">
+        <h3 class="card-title" style="text-decoration: line-through; color: rgba(247, 241, 236, 0.6);">{title}</h3>
+        <div class="detail-row">
+            <span class="detail-label">Original Time:</span>
+            <span class="detail-value">{formatted_time}</span>
+        </div>
+    </div>
+    <p style="font-size: 14px; color: #d0cfce;">This scheduled meeting has been cancelled. Your calendar will automatically update.</p>
+    """
+    return get_base_email_html(content_html, "Meeting Cancelled")
+
+
+def get_reschedule_html(title: str, old_time: str, new_time: str, reason: str, rescheduled_by: str, vc_link: str, start_time_ms: int = 0, end_time_ms: int = 0) -> str:
+    gcal_url = get_google_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), reason or "", vc_link)
+    outlook_url = get_outlook_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), reason or "", vc_link)
+
+    content_html = f"""
+    <h2>🔄 Meeting Rescheduled</h2>
+    <div class="card">
+        <h3 class="card-title">{title}</h3>
+        <div class="detail-row">
+            <span class="detail-label">Previous Time:</span>
+            <span class="detail-value" style="text-decoration: line-through; color: rgba(247, 241, 236, 0.6);">{old_time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">New Time:</span>
+            <span class="detail-value" style="color: #ff7a1b; font-weight: bold;">{new_time}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Rescheduled By:</span>
+            <span class="detail-value">{rescheduled_by}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Reason:</span>
+            <span class="detail-value"><em>{reason}</em></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Where:</span>
+            <span class="detail-value"><a href="{vc_link}" style="color: #ff7a1b; text-decoration: underline;">{vc_link}</a></span>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 24px; margin-bottom: 24px;">
+        <a href="{vc_link}" class="btn">Join Updated Room</a>
+    </div>
+    <div style="background-color: rgba(255, 122, 27, 0.08); border: 1px dashed rgba(255, 122, 27, 0.3); border-radius: 12px; padding: 16px; text-align: center;">
+        <p style="font-size: 12px; font-weight: bold; color: #ff7a1b; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px;">
+            Update Your Calendar
+        </p>
+        <a href="{gcal_url}" target="_blank" style="display: inline-block; background-color: #4285F4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-right: 8px;">Update Google Calendar</a>
+        <a href="{outlook_url}" target="_blank" style="display: inline-block; background-color: #0078D4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold;">Update Outlook Web</a>
+    </div>
+    """
+    return get_base_email_html(content_html, "Meeting Rescheduled")
 
 
 def get_base_email_html(content_html: str, title: str = "BITS&BYTES PROTOCOL") -> str:
@@ -176,9 +295,6 @@ def get_base_email_html(content_html: str, title: str = "BITS&BYTES PROTOCOL") -
     </head>
     <body>
         <div class="container">
-            <div class="header">
-                <h1>{title}</h1>
-            </div>
             <div class="content">
                 {content_html}
             </div>
@@ -191,41 +307,250 @@ def get_base_email_html(content_html: str, title: str = "BITS&BYTES PROTOCOL") -
     </html>
     """
 
+    def format_ics_date(ts_ms: int) -> str:
+        dt = datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc)
+        return dt.strftime("%Y%M%dT%H%M%SZ")
 
-def send_smtp_email(settings: Settings, to_emails: List[str], subject: str, html_body: str, ics_content: Optional[str] = None, filename: str = "invite.ics"):
-    """Send SMTP email containing HTML and optional iCalendar attachment."""
+    dt_stamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%M%dT%H%M%SZ")
+    dt_start = format_ics_date(start_time_ms)
+    dt_end = format_ics_date(end_time_ms)
+
+    attendee_lines = ""
+    if attendee_emails:
+        for email in attendee_emails:
+            attendee_lines += f"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={email}:mailto:{email}\n"
+
+    ics = (
+        "BEGIN:VCALENDAR\n"
+        "VERSION:2.0\n"
+        "PRODID:-//BitsAndBytes//Motherboard Scheduler//EN\n"
+        "CALSCALE:GREGORIAN\n"
+        "METHOD:REQUEST\n"
+        "BEGIN:VEVENT\n"
+        f"UID:{meeting_id}@gobitsnbytes.org\n"
+        f"DTSTAMP:{dt_stamp}\n"
+        f"DTSTART:{dt_start}\n"
+        f"DTEND:{dt_end}\n"
+        f"SUMMARY:{title}\n"
+        f"DESCRIPTION:{description or ''}\n"
+        f"LOCATION:{location or ''}\n"
+        f"ORGANIZER;CN=BitsAndBytes:mailto:{organizer_email}\n"
+        f"{attendee_lines}"
+        "STATUS:CONFIRMED\n"
+        "SEQUENCE:0\n"
+        "END:VEVENT\n"
+        "END:VCALENDAR\n"
+    )
+    return ics
+
+
+def get_invite_html(meeting_title: str, formatted_time: str, vc_link: str, description: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card {{ max-width: 600px; margin: 0 auto; background-color: #1A1612; border: 3px solid #FC920D; padding: 32px; box-shadow: 6px 6px 0px 0px #FC920D; }}
+            .header {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #FC920D; margin-bottom: 16px; border-bottom: 2px solid #332B22; padding-bottom: 12px; }}
+            .text {{ font-size: 15px; line-height: 1.6; color: #D0CFCE; margin-bottom: 20px; }}
+            .btn {{ display: inline-block; background-color: #FC920D; color: #120F0A; font-weight: 900; font-size: 16px; text-transform: uppercase; text-decoration: none; padding: 14px 28px; border: 2px solid #FFFFFF; margin-top: 12px; margin-bottom: 24px; }}
+            .time-box {{ background-color: #241F1A; border-left: 4px solid #FC920D; padding: 12px 16px; margin-bottom: 20px; font-size: 16px; font-weight: bold; color: #FED39E; }}
+            .footer {{ font-size: 12px; color: #716F6C; margin-top: 32px; border-top: 1px solid #332B22; padding-top: 16px; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">⚡ Meeting Invitation</div>
+            <p class="text">You have been scheduled to attend an upcoming bits&bytes™ sync/meeting.</p>
+            
+            <div class="time-box">
+                📌 {meeting_title}<br>
+                🕒 {formatted_time}
+            </div>
+
+            <p class="text">{description or 'No additional details provided.'}</p>
+
+            <a href="{vc_link or '#'}" class="btn" target="_blank">Join Voice / Virtual Room &rarr;</a>
+
+            <p class="text" style="font-size: 13px; color: #A09F9D;">
+                <em>An interactive calendar event (.ics) is attached to this email. You can add it directly to Google Calendar, Apple Calendar, or Outlook.</em>
+            </p>
+
+            <div class="footer">
+                bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def get_cancel_html(meeting_title: str, formatted_time: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card {{ max-width: 600px; margin: 0 auto; background-color: #1A1612; border: 3px solid #EF4444; padding: 32px; box-shadow: 6px 6px 0px 0px #EF4444; }}
+            .header {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #EF4444; margin-bottom: 16px; border-bottom: 2px solid #332B22; padding-bottom: 12px; }}
+            .text {{ font-size: 15px; line-height: 1.6; color: #D0CFCE; margin-bottom: 20px; }}
+            .footer {{ font-size: 12px; color: #716F6C; margin-top: 32px; border-top: 1px solid #332B22; padding-top: 16px; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">❌ Meeting Cancelled</div>
+            <p class="text">The following meeting has been cancelled by the organizer:</p>
+            
+            <p class="text"><strong>{meeting_title}</strong><br>Scheduled for: {formatted_time}</p>
+
+            <div class="footer">
+                bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def get_reschedule_html(meeting_title: str, old_time: str, new_time: str, reason: str, rescheduled_by: str, vc_link: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card {{ max-width: 600px; margin: 0 auto; background-color: #1A1612; border: 3px solid #3B82F6; padding: 32px; box-shadow: 6px 6px 0px 0px #3B82F6; }}
+            .header {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #3B82F6; margin-bottom: 16px; border-bottom: 2px solid #332B22; padding-bottom: 12px; }}
+            .text {{ font-size: 15px; line-height: 1.6; color: #D0CFCE; margin-bottom: 20px; }}
+            .time-box {{ background-color: #241F1A; border-left: 4px solid #3B82F6; padding: 12px 16px; margin-bottom: 20px; font-size: 15px; color: #93C5FD; }}
+            .btn {{ display: inline-block; background-color: #3B82F6; color: #FFFFFF; font-weight: 900; font-size: 16px; text-transform: uppercase; text-decoration: none; padding: 14px 28px; border: 2px solid #FFFFFF; margin-top: 12px; margin-bottom: 24px; }}
+            .footer {{ font-size: 12px; color: #716F6C; margin-top: 32px; border-top: 1px solid #332B22; padding-top: 16px; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">🔄 Meeting Rescheduled</div>
+            <p class="text">The scheduled time for <strong>{meeting_title}</strong> has been updated by <strong>{rescheduled_by}</strong>.</p>
+            
+            <div class="time-box">
+                ❌ <s>Original Time: {old_time}</s><br>
+                ✅ <strong>New Time: {new_time}</strong>
+            </div>
+
+            <p class="text"><strong>Reason:</strong> {reason}</p>
+
+            <a href="{vc_link or '#'}" class="btn" target="_blank">Join Updated Room &rarr;</a>
+
+            <div class="footer">
+                bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def send_smtp_email(
+    settings: Settings,
+    to_emails: Union[List[str], str],
+    subject: str,
+    html_body: str,
+    ics_content: Optional[str] = None,
+    filename: str = "invite.ics",
+    bcc_emails: Optional[Union[List[str], str]] = None,
+):
+    """Send SMTP email containing HTML and optional iCalendar attachment with proper To/Bcc envelope dispatch."""
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
         logger.warning("[SMTP] SMTP mailer not configured. Skipping email dispatch.")
         return
 
-    msg = MIMEMultipart("mixed" if ics_content else "alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.smtp_from
-    msg["To"] = ", ".join(to_emails)
+    # Normalize `to_emails` to a clean list of strings
+    if isinstance(to_emails, str):
+        to_emails = [to_emails]
+    clean_to_emails = [e.strip() for e in to_emails if e and isinstance(e, str) and e.strip()]
 
-    body_part = MIMEText(html_body, "html")
-    if ics_content:
-        alt_part = MIMEMultipart("alternative")
-        alt_part.attach(body_part)
-        msg.attach(alt_part)
+    if not clean_to_emails:
+        logger.warning("[SMTP] No valid recipient email addresses provided. Skipping email dispatch.")
+        return
+
+    # Normalize `bcc_emails`
+    clean_bcc_emails = []
+    if bcc_emails:
+        if isinstance(bcc_emails, str):
+            bcc_emails = [bcc_emails]
+        clean_bcc_emails = [e.strip() for e in bcc_emails if e and isinstance(e, str) and e.strip()]
+
+    # Collect settings.smtp_bcc
+    if getattr(settings, "smtp_bcc", None):
+        for bcc in settings.smtp_bcc.split(","):
+            b_clean = bcc.strip()
+            if b_clean and b_clean not in clean_bcc_emails:
+                clean_bcc_emails.append(b_clean)
+
+    # Build unique envelope recipients set (both To and Bcc) for SMTP RCPT TO
+    envelope_recipients = list(dict.fromkeys(clean_to_emails + clean_bcc_emails))
+
+    # Root container is mixed to support files/attachments
+    msg = MIMEMultipart("mixed")
+    from email.utils import formataddr
+    import re
+
+    # Parse display name and address from smtp_from (e.g. "bits&bytes™ <hello@gobitsnbytes.org>")
+    _from_raw = settings.smtp_from or settings.smtp_user
+    _match = re.match(r'^(.*?)<([^>]+)>\s*$', _from_raw)
+    if _match:
+        _display = _match.group(1).strip()
+        _addr = _match.group(2).strip()
     else:
-        msg.attach(body_part)
+        _display = ''
+        _addr = _from_raw.strip()
 
+    msg["Subject"] = subject
+    msg["From"] = formataddr((_display, _addr), charset="utf-8")
+    msg["To"] = ", ".join(clean_to_emails)
+
+    # Alternative container holds the HTML version and the inline calendar invite
+    alt_part = MIMEMultipart("alternative")
+    
+    # 1. Attach HTML body
+    body_part = MIMEText(html_body, "html")
+    alt_part.attach(body_part)
+
+    # 2. Attach inline iCal REQUEST part to alternative (enables interactive RSVP buttons in Gmail/Outlook)
+    if ics_content:
+        cal_inline = MIMEBase("text", "calendar", method="REQUEST", charset="UTF-8")
+        cal_inline.set_payload(ics_content.encode("utf-8"))
+        cal_inline.add_header("Content-Class", "urn:content-classes:calendarmessage")
+        cal_inline.add_header("Content-Transfer-Encoding", "8bit")
+        alt_part.attach(cal_inline)
+
+    msg.attach(alt_part)
+
+    # 3. Attach downloadable .ics attachment (enables opening file directly in other calendar clients)
     if ics_content:
         part = MIMEBase("text", "calendar", method="REQUEST")
         part.set_payload(ics_content.encode("utf-8"))
         part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
         part.add_header("Content-Class", "urn:content-classes:calendarmessage")
+        part.add_header("Content-Transfer-Encoding", "base64")
+        import email.encoders
+        email.encoders.encode_base64(part)
         msg.attach(part)
 
     try:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
             server.starttls()
             server.login(settings.smtp_user, settings.smtp_pass)
-            server.sendmail(settings.smtp_from, to_emails, msg.as_string())
-        logger.info("[SMTP] Email successfully dispatched to: %s", to_emails)
+            server.sendmail(_addr, envelope_recipients, msg.as_string())
+        logger.info("[SMTP] Email successfully dispatched to envelope recipients: %s (To: %s)", envelope_recipients, clean_to_emails)
     except Exception as e:
-        logger.error("[SMTP] Failed to send email to %s: %s", to_emails, e)
+        logger.error("[SMTP] Failed to send email to envelope recipients %s: %s", envelope_recipients, e)
 
 
 async def resolve_emails_for_attendees(db: AsyncSession, settings: Settings, attendees: List[MeetingAttendee]) -> List[str]:
@@ -321,7 +646,16 @@ async def send_meeting_emails_task(meeting_id: str, email_type: str, settings: S
 
         if email_type == "invite":
             subject = f"📅 Invitation: {meeting.title}"
-            ics_content = generate_ics(meeting.id, meeting.title, meeting.scheduled_time, meeting.end_time or (meeting.scheduled_time + 1800000), meeting.description, vc_link)
+            ics_content = generate_ics(
+                meeting.id, 
+                meeting.title, 
+                meeting.scheduled_time, 
+                meeting.end_time or (meeting.scheduled_time + 1800000), 
+                meeting.description, 
+                vc_link,
+                settings.smtp_from or "gobitsnbytes@gmail.com",
+                to_emails
+            )
             html = get_invite_html(meeting.title, formatted_time, vc_link, meeting.description)
             send_smtp_email(settings, to_emails, subject, html, ics_content, "invite.ics")
 
@@ -332,15 +666,43 @@ async def send_meeting_emails_task(meeting_id: str, email_type: str, settings: S
 
         elif email_type == "reschedule":
             subject = f"🔄 Rescheduled: {meeting.title}"
+            
+            # Retrieve the previous scheduled time from reschedule history database
+            old_time_str = "Previous scheduled time"
+            history_stmt = (
+                select(MeetingRescheduleHistory)
+                .where(MeetingRescheduleHistory.meeting_id == meeting_id)
+                .order_by(MeetingRescheduleHistory.created_at.desc())
+                .limit(1)
+            )
+            res_history = await db.execute(history_stmt)
+            history_entry = res_history.scalar_one_or_none()
+            if history_entry:
+                old_time_str = datetime.datetime.fromtimestamp(
+                    history_entry.old_scheduled_time / 1000, 
+                    tz=datetime.timezone.utc
+                ).astimezone(
+                    datetime.timezone(datetime.timedelta(hours=5, minutes=30)) # IST
+                ).strftime("%I:%M %p, %d %b %Y IST")
+
             html = get_reschedule_html(
                 meeting.title,
-                "Previous scheduled time", # Or load from reschedule history
+                old_time_str,
                 formatted_time,
                 reschedule_reason or "Time update",
                 rescheduled_by or "HQ Organizer",
                 vc_link
             )
-            ics_content = generate_ics(meeting.id, meeting.title, meeting.scheduled_time, meeting.end_time or (meeting.scheduled_time + 1800000), meeting.description, vc_link)
+            ics_content = generate_ics(
+                meeting.id, 
+                meeting.title, 
+                meeting.scheduled_time, 
+                meeting.end_time or (meeting.scheduled_time + 1800000), 
+                meeting.description, 
+                vc_link,
+                settings.smtp_from or "gobitsnbytes@gmail.com",
+                to_emails
+            )
             send_smtp_email(settings, to_emails, subject, html, ics_content, "invite.ics")
 
 # ---------------------------------------------------------------------------
@@ -352,6 +714,7 @@ async def list_meetings(
     db: DbSession,
     status_filter: Optional[str] = None,
     creator_id: Optional[str] = None,
+    calcom_booking_id: Optional[str] = None,
     current_user: ResolvedPrincipal = Depends(get_current_user),
 ):
     """Retrieve all meetings matching filters."""
@@ -362,29 +725,49 @@ async def list_meetings(
         query = query.where(BotMeeting.status == status_filter)
     if creator_id:
         query = query.where(BotMeeting.creator_id == creator_id)
+    if calcom_booking_id:
+        query = query.where(
+            (BotMeeting.calcom_booking_id == calcom_booking_id) |
+            (BotMeeting.calcom_uid == calcom_booking_id)
+        )
     query = query.order_by(BotMeeting.scheduled_time.desc())
 
     res = await db.execute(query)
     meetings = res.scalars().all()
 
+    if not meetings:
+        return []
+
+    meeting_ids = [m.id for m in meetings]
+
+    # Bulk load attendees
+    att_stmt = select(MeetingAttendee).where(MeetingAttendee.meeting_id.in_(meeting_ids))
+    res_att = await db.execute(att_stmt)
+    all_attendees = res_att.scalars().all()
+    attendees_by_meet = {}
+    for a in all_attendees:
+        attendees_by_meet.setdefault(a.meeting_id, []).append(a)
+
+    # Bulk load transcripts
+    tr_stmt = select(MeetingTranscript).where(MeetingTranscript.meeting_id.in_(meeting_ids))
+    res_tr = await db.execute(tr_stmt)
+    all_transcripts = res_tr.scalars().all()
+    transcript_by_meet = {t.meeting_id: t for t in all_transcripts}
+
+    # Bulk load reschedule histories
+    rh_stmt = select(MeetingRescheduleHistory).where(MeetingRescheduleHistory.meeting_id.in_(meeting_ids))
+    res_rh = await db.execute(rh_stmt)
+    all_resched = res_rh.scalars().all()
+    resched_by_meet = {}
+    for rh in all_resched:
+        resched_by_meet.setdefault(rh.meeting_id, []).append(rh)
+
     meetings_out = []
     for m in meetings:
-        # Load attendees
-        att_stmt = select(MeetingAttendee).where(MeetingAttendee.meeting_id == m.id)
-        res_att = await db.execute(att_stmt)
-        attendees = res_att.scalars().all()
+        attendees = attendees_by_meet.get(m.id, [])
+        transcript = transcript_by_meet.get(m.id, None)
+        resched_hist = resched_by_meet.get(m.id, [])
 
-        # Load transcript
-        tr_stmt = select(MeetingTranscript).where(MeetingTranscript.meeting_id == m.id)
-        res_tr = await db.execute(tr_stmt)
-        transcript = res_tr.scalar_one_or_none()
-
-        # Load reschedule history
-        rh_stmt = select(MeetingRescheduleHistory).where(MeetingRescheduleHistory.meeting_id == m.id)
-        res_rh = await db.execute(rh_stmt)
-        resched_hist = res_rh.scalars().all()
-
-        # Build output structure
         m_dict = {c.name: getattr(m, c.name) for c in m.__table__.columns}
         m_dict["attendees"] = [
             {"meeting_id": a.meeting_id, "attendee_type": a.attendee_type, "discord_id": a.discord_id}
@@ -436,6 +819,8 @@ async def schedule_meeting(
         meet_code=meet_code,
         booked_by="motherboard",
         scope=body.scope,
+        calcom_booking_id=body.calcom_booking_id,
+        calcom_uid=body.calcom_uid,
     )
     db.add(new_meet)
 
@@ -920,15 +1305,34 @@ If you cannot determine a deadline for an action item, omit the deadline field."
         uploaded_file = client.files.upload(file=temp_file_path, config={"mime_type": "audio/ogg"})
         logger.info("[TRANSCRIBER] File uploaded to Gemini: %s", uploaded_file.uri)
 
-        # Generate transcript content
-        logger.info("[TRANSCRIBER] Generating content with model %s...", settings.gemini_model)
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=[uploaded_file, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
+        # Generate transcript content with fallback support
+        try:
+            logger.info("[TRANSCRIBER] Generating content with model %s...", settings.gemini_model)
+            response = client.models.generate_content(
+                model=settings.gemini_model,
+                contents=[uploaded_file, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                )
             )
-        )
+        except Exception as primary_err:
+            fallback_model = "gemini-2.5-flash"
+            if settings.gemini_model != fallback_model:
+                logger.warning(
+                    "[TRANSCRIBER] Primary model %s failed: %s. Falling back to %s...",
+                    settings.gemini_model,
+                    primary_err,
+                    fallback_model
+                )
+                response = client.models.generate_content(
+                    model=fallback_model,
+                    contents=[uploaded_file, prompt],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                    )
+                )
+            else:
+                raise primary_err
 
         text_out = response.text
         if not text_out:
@@ -1105,6 +1509,331 @@ async def get_public_availability_by_link(booking_link: str, db: DbSession):
     if not avail:
         raise HTTPException(status_code=404, detail="Booking link not found")
     return UserAvailabilitySchema.model_validate(avail)
+
+
+@router.get("/public/availability/{booking_link}/slots", response_model=List[str])
+async def get_availability_slots(
+    booking_link: str,
+    date: str,
+    db: DbSession,
+    duration: int = 30
+):
+    """Calculate free slots for a host by booking link slug. Public endpoint."""
+    stmt = select(UserAvailability).where(UserAvailability.booking_link == booking_link)
+    res = await db.execute(stmt)
+    host = res.scalar_one_or_none()
+    if not host:
+        raise HTTPException(status_code=404, detail="Host not found")
+
+    import zoneinfo
+    try:
+        tz = zoneinfo.ZoneInfo(host.timezone or "Asia/Kolkata")
+    except Exception:
+        tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+
+    try:
+        target_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD")
+
+    local_start = datetime.datetime.combine(target_date, datetime.time.min).replace(tzinfo=tz)
+    local_end = datetime.datetime.combine(target_date, datetime.time.max).replace(tzinfo=tz)
+
+    start_utc_ms = int(local_start.timestamp() * 1000)
+    end_utc_ms = int(local_end.timestamp() * 1000)
+    now_ms = int(time.time() * 1000)
+
+    # Fetch scheduled meetings for the host (as creator or attendee)
+    meeting_stmt = (
+        select(BotMeeting)
+        .outerjoin(MeetingAttendee, BotMeeting.id == MeetingAttendee.meeting_id)
+        .where(
+            (BotMeeting.status != "cancelled") &
+            ((BotMeeting.creator_id == host.discord_id) | (MeetingAttendee.discord_id == host.discord_id))
+        )
+    )
+    res_meetings = await db.execute(meeting_stmt)
+    meetings = res_meetings.scalars().all()
+
+    # Deduplicate meetings list
+    meetings_dict = {m.id: m for m in meetings}
+    meetings = list(meetings_dict.values())
+
+    try:
+        weekly_hours = json.loads(host.weekly_hours or "{}")
+    except Exception:
+        weekly_hours = {}
+
+    utc_slots = []
+
+    for day_offset in [-1, 0, 1]:
+        d = target_date + datetime.timedelta(days=day_offset)
+        day_of_week_name = d.strftime("%A").lower()
+        daily_slots = weekly_hours.get(day_of_week_name, [])
+
+        for slot_range in daily_slots:
+            start_str = slot_range.get("start", "")
+            end_str = slot_range.get("end", "")
+            if not start_str or not end_str:
+                continue
+
+            try:
+                start_h, start_m = map(int, start_str.split(":"))
+                end_h, end_m = map(int, end_str.split(":"))
+            except ValueError:
+                continue
+
+            current_min = start_h * 60 + start_m
+            end_min = end_h * 60 + end_m
+
+            while current_min + duration <= end_min:
+                h = current_min // 60
+                m = current_min % 60
+
+                slot_time = datetime.time(h, m)
+                slot_local_dt = datetime.datetime.combine(d, slot_time).replace(tzinfo=tz)
+
+                slot_start_ms = int(slot_local_dt.timestamp() * 1000)
+                slot_end_ms = slot_start_ms + duration * 60 * 1000
+
+                if start_utc_ms <= slot_start_ms <= end_utc_ms and slot_start_ms > now_ms:
+                    overlaps = False
+                    for m in meetings:
+                        m_start = m.scheduled_time
+                        m_end = m.end_time if m.end_time else (m_start + 30 * 60 * 1000)
+
+                        if slot_start_ms < m_end and slot_end_ms > m_start:
+                            overlaps = True
+                            break
+
+                    if not overlaps:
+                        utc_slot_dt = datetime.datetime.fromtimestamp(slot_start_ms / 1000, tz=datetime.timezone.utc)
+                        utc_slots.append(utc_slot_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+
+                current_min += 15
+
+    utc_slots.sort()
+    return utc_slots
+
+
+from pydantic import BaseModel
+import random
+import hmac
+import hashlib
+
+# Transient storage for OTP codes: email -> {"code": str, "expires_at": float}
+guest_otp_store: dict[str, dict[str, Any]] = {}
+
+# Transient storage for verified guest tokens: token -> {"email": str, "expires_at": float}
+verified_guest_tokens: dict[str, dict[str, Any]] = {}
+
+class GuestVerificationSendRequest(BaseModel):
+    email: str
+
+class GuestVerificationVerifyRequest(BaseModel):
+    email: str
+    code: str
+
+class GuestCancelRequest(BaseModel):
+    email: str
+    token: str
+    reason: Optional[str] = None
+
+class GuestRescheduleRequest(BaseModel):
+    email: str
+    token: str
+    new_slot_iso: str
+    duration_minutes: int = 30
+    reason: Optional[str] = None
+
+def check_guest_token(token: Optional[str], email: str) -> bool:
+    if not token:
+        return False
+    entry = verified_guest_tokens.get(token)
+    if not entry:
+        return False
+    if time.time() > entry["expires_at"]:
+        verified_guest_tokens.pop(token, None)
+        return False
+    return entry["email"] == email.strip().lower()
+
+@router.post("/public/guest/verification/send")
+async def send_guest_otp(body: GuestVerificationSendRequest, settings: Settings = Depends(get_settings)):
+    email = body.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email format")
+    
+    # Generate 6-digit OTP
+    otp = f"{random.randint(100000, 999999)}"
+    guest_otp_store[email] = {
+        "code": otp,
+        "expires_at": time.time() + 600 # 10 mins
+    }
+    
+    # Format email body
+    html_body = get_base_email_html(f"""
+    <div class="card">
+        <h2 class="card-title">VERIFY YOUR EMAIL</h2>
+        <p style="font-size: 14px; line-height: 1.6; color: #f7f1ec;">
+            You requested a verification code to manage your bookings on bits&bytes™. Use the 6-digit OTP code below:
+        </p>
+        <div style="background-color: rgba(255, 122, 27, 0.1); border: 2px dashed #ff7a1b; border-radius: 12px; padding: 20px; text-align: center; margin: 25px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #ff7a1b; font-family: monospace;">{otp}</span>
+        </div>
+        <p style="font-size: 11px; color: rgba(247, 241, 236, 0.4); line-height: 1.4; margin-top: 15px;">
+            This verification code is transient and will expire in 10 minutes. If you did not initiate this request, you can safely ignore this email.
+        </p>
+    </div>
+    """, "Verify Email")
+
+    # Send the email via SMTP helper
+    send_smtp_email(
+        settings=settings,
+        to_emails=[email],
+        subject=f"bits&bytes™ Verification Code: {otp}",
+        html_body=html_body
+    )
+    
+    return {"status": "sent", "email": email}
+
+
+@router.post("/public/guest/verification/verify")
+async def verify_guest_otp(body: GuestVerificationVerifyRequest, settings: Settings = Depends(get_settings)):
+    email = body.email.strip().lower()
+    code = body.code.strip()
+    
+    entry = guest_otp_store.get(email)
+    if not entry:
+        raise HTTPException(status_code=400, detail="No verification code sent or it has expired. Please request a new code.")
+        
+    if time.time() > entry["expires_at"]:
+        guest_otp_store.pop(email, None)
+        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+        
+    if entry["code"] != code:
+        raise HTTPException(status_code=400, detail="Invalid verification code. Please try again.")
+        
+    # Generate secure token
+    token = hmac.new(
+        settings.api_internal_secret.encode(),
+        f"{email}:{time.time()}:{random.random()}".encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    # Store token valid for 1 hour
+    verified_guest_tokens[token] = {
+        "email": email,
+        "expires_at": time.time() + 3600
+    }
+    
+    # Clean up OTP
+    guest_otp_store.pop(email, None)
+    
+    return {"status": "verified", "token": token}
+
+
+@router.get("/public/guest/mine")
+async def get_guest_meetings(email: str, token: str, db: DbSession):
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email format")
+    if not check_guest_token(token, email):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification token")
+    
+    stmt = select(BotMeeting).where(
+        (BotMeeting.status == "scheduled") | (BotMeeting.status == "active"),
+        BotMeeting.external_emails.ilike(f"%{email}%")
+    ).limit(20)
+    
+    res = await db.execute(stmt)
+    meetings = res.scalars().all()
+    
+    return [
+        {
+            "id": m.id,
+            "title": m.title,
+            "status": m.status,
+            "scheduled_time": m.scheduled_time,
+            "end_time": m.end_time,
+            "meet_code": m.meet_code
+        }
+        for m in meetings
+    ]
+
+
+@router.post("/public/guest/{meeting_id}/cancel")
+async def cancel_guest_meeting(meeting_id: str, body: GuestCancelRequest, db: DbSession):
+    if not check_guest_token(body.token, body.email):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification token")
+
+    stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
+    res = await db.execute(stmt)
+    meeting = res.scalar_one_or_none()
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    if meeting.status not in ["scheduled", "active"]:
+        raise HTTPException(status_code=400, detail="Meeting cannot be cancelled from its current state")
+        
+    if not meeting.external_emails or body.email.lower() not in meeting.external_emails.lower():
+        raise HTTPException(status_code=403, detail="Unauthorized: email not found in guest list")
+        
+    meeting.status = "cancelled"
+    await db.commit()
+    
+    return {"status": "cancelled", "meeting_id": meeting_id}
+
+
+@router.post("/public/guest/{meeting_id}/reschedule")
+async def reschedule_guest_meeting(meeting_id: str, body: GuestRescheduleRequest, db: DbSession):
+    if not check_guest_token(body.token, body.email):
+        raise HTTPException(status_code=401, detail="Invalid or expired verification token")
+
+    stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
+    res = await db.execute(stmt)
+    meeting = res.scalar_one_or_none()
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    if meeting.status not in ["scheduled", "active"]:
+        raise HTTPException(status_code=400, detail="Meeting cannot be rescheduled from its current state")
+        
+    if not meeting.external_emails or body.email.lower() not in meeting.external_emails.lower():
+        raise HTTPException(status_code=403, detail="Unauthorized: email not found in guest list")
+        
+    try:
+        new_slot_dt = datetime.datetime.fromisoformat(body.new_slot_iso.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid new_slot_iso format. Expected ISO 8601 string.")
+        
+    new_scheduled_ms = int(new_slot_dt.timestamp() * 1000)
+    new_end_ms = new_scheduled_ms + body.duration_minutes * 60 * 1000
+    now_ms = int(time.time() * 1000)
+    
+    history_entry = MeetingRescheduleHistory(
+        meeting_id=meeting.id,
+        old_scheduled_time=meeting.scheduled_time,
+        old_end_time=meeting.end_time,
+        new_scheduled_time=new_scheduled_ms,
+        new_end_time=new_end_ms,
+        reason=body.reason or "Guest requested reschedule",
+        rescheduled_by=body.email,
+        rescheduled_at=now_ms
+    )
+    
+    db.add(history_entry)
+    meeting.scheduled_time = new_scheduled_ms
+    meeting.end_time = new_end_ms
+    
+    await db.commit()
+    
+    return {
+        "status": "rescheduled",
+        "meeting_id": meeting_id,
+        "new_scheduled_time": new_scheduled_ms,
+        "new_end_time": new_end_ms
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1287,3 +2016,5 @@ async def update_action_item_status(
     await db.commit()
     await db.refresh(ai)
     return ai
+
+# Trigger rebuild for sudoers fix

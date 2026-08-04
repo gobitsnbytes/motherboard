@@ -35,7 +35,9 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
   });
 
   if (!response.ok) {
-    throw new Error("Failed to sync Discord identity with backend");
+    const errorText = await response.text().catch(() => "");
+    console.error(`[auth] Backend user upsert failed (${response.status}):`, errorText);
+    throw new Error(`Failed to sync Discord identity with backend (${response.status}): ${errorText}`);
   }
 
   const data = (await response.json()) as { user_id?: string };

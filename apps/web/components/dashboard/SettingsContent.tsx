@@ -51,7 +51,7 @@ export function SettingsContent() {
     discord: "loading",
     sync: "loading",
     last_sync_at: null,
-    version: "0.1.1",
+    version: "0.2.0",
     environment: "development",
     groups_count: 0,
     permissions_count: 0,

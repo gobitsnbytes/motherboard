@@ -14,6 +14,10 @@ import {
   Puzzle,
   Calendar,
   Handshake,
+  FileSignature,
+  Coins,
+  FileCheck,
+  GitBranch,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -35,9 +39,13 @@ interface ActivePlugin {
 
 const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
+  { label: "Contract Assistant", href: "/dashboard/contract-assistant", icon: FileCheck },
+  { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
   { label: "Dyslexic", href: "/dashboard/dyslexic", icon: Handshake },
   { label: "Members", href: "/dashboard/members", icon: Users },
+  { label: "Forks", href: "/dashboard/forks", icon: GitBranch },
+  { label: "Finance", href: "/dashboard/finance", icon: Coins },
   { label: "IAM", href: "/dashboard/iam", icon: Shield },
   { label: "Audit Log", href: "/dashboard/audit", icon: ScrollText },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },

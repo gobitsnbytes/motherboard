@@ -15,6 +15,8 @@ const CARD_GRADIENT: Record<string, string> = {
 
 export default function CardsPage() {
   const [cards, setCards] = useState<Card[]>([]);
+  const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; display_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<CreateCardForm>({ account_id: "", holder_id: "", card_name: "", card_type: "virtual", expires_month: "", expires_year: "", daily_limit_rupees: "", monthly_limit_rupees: "" });
@@ -69,6 +71,16 @@ export default function CardsPage() {
       .then(r => r.json())
       .then(d => setCards(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false));
+
+    fetch(`${API}/api/finance/accounts`, { headers: getHeaders() })
+      .then((r) => r.json())
+      .then((d) => setAccounts(Array.isArray(d) ? d : []))
+      .catch(() => {});
+
+    fetch(`${API}/api/users`, { headers: getHeaders() })
+      .then((r) => r.json())
+      .then((d) => setUsers(Array.isArray(d) ? d : []))
+      .catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -143,16 +155,44 @@ export default function CardsPage() {
             style={{ background: "#111", border: "2px solid #97192c", borderRadius: "4px", padding: "28px", width: "420px", boxShadow: "6px 6px 0 0 rgba(151,25,44,0.3)" }}>
             <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#fff", margin: "0 0 20px" }}>Issue Virtual Card</h2>
             <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              {[
-                { key: "account_id", label: "Account ID *", placeholder: "UUID of the virtual account" },
-                { key: "holder_id", label: "Holder User ID *", placeholder: "UUID of the cardholder" },
-                { key: "card_name", label: "Card Name *", placeholder: "e.g. Devaansh Pathak" },
-              ].map(({ key, label, placeholder }) => (
-                <div key={key}>
-                  <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>{label}</label>
-                  <input required value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} style={inputStyle} />
-                </div>
-              ))}
+              <div>
+                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Account *</label>
+                {accounts.length > 0 ? (
+                  <select required value={form.account_id} onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))} style={{ ...inputStyle, padding: "9px 8px" }}>
+                    <option value="">Select virtual account…</option>
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input required value={form.account_id} onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))} placeholder="UUID of the virtual account" style={inputStyle} />
+                )}
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Holder *</label>
+                {users.length > 0 ? (
+                  <select required value={form.holder_id} onChange={e => {
+                    const userId = e.target.value;
+                    const matchedUser = users.find(u => u.id === userId);
+                    setForm(f => ({
+                      ...f,
+                      holder_id: userId,
+                      card_name: matchedUser ? matchedUser.display_name : f.card_name
+                    }));
+                  }} style={{ ...inputStyle, padding: "9px 8px" }}>
+                    <option value="">Select cardholder…</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.display_name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input required value={form.holder_id} onChange={e => setForm(f => ({ ...f, holder_id: e.target.value }))} placeholder="UUID of the cardholder" style={inputStyle} />
+                )}
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Card Name *</label>
+                <input required value={form.card_name} onChange={e => setForm(f => ({ ...f, card_name: e.target.value }))} placeholder="e.g. Devaansh Pathak" style={inputStyle} />
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Daily Limit (₹)</label>
