@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # Inbound Email Webhook Security
     inbound_email_webhook_secret: str | None = Field(default="inbound_sec_8f9a2b4c1d3e5f6g", validation_alias="INBOUND_EMAIL_WEBHOOK_SECRET")
 
+    # Notion Sync Settings
+    notion_token: str | None = Field(default=None, validation_alias="NOTION_TOKEN")
+    notion_fork_registry_db: str = Field(default="a5472585-73cd-4f6c-99b8-40c7cb63ce9e", validation_alias="NOTION_FORK_REGISTRY_DB")
+    notion_team_db: str | None = Field(default=None, validation_alias="NOTION_TEAM_DB")
+
 
     @property
     def allowed_cors_origins(self) -> list[str]:
