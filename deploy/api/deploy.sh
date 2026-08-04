@@ -34,8 +34,9 @@ rollback() {
     exit 1
 }
 
-# 1. Pull latest code
-echo "--> Pulling latest code from prod..."
+# 1. Ensure working directory ownership & pull latest code
+echo "--> Fixing directory ownership and pulling latest code from prod..."
+sudo chown -R $(whoami):$(id -gn) "$APP_DIR"
 git -C "$APP_DIR" fetch origin prod
 git -C "$APP_DIR" reset --hard origin/prod
 
