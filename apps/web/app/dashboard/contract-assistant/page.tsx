@@ -142,7 +142,7 @@ export default function ContractAssistantPage() {
               Internal Contract Assistant
             </h1>
             <span className="bg-[#97192C] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-              Dottr.io Clone
+              Legal Due Diligence
             </span>
           </div>
           <p className="text-xs sm:text-sm text-[#716F6C] font-medium">
