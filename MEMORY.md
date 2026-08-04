@@ -21,9 +21,10 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - [x] **Phase 7: Web Dashboard** (`apps/web`) ✅ — shell + NextAuth v5 + landing page + `/finance` double-entry ledger + dynamic page mounting for active plugins, sidebar plugin navigation
 - [x] **Phase 8: Core Plugins** ✅ — sample plugin with API router + permissions + React view dynamic dashboard loading
 - [x] **Phase 9: Docker Production** ✅ — audited Docker and Compose setups, programmatic Alembic lifespan execution, optimized build dependencies
-
+- [x] **Phase 10: chrono ↔ Motherboard Meetings Unification** ✅ — seamless integration of all chrono features into the Motherboard meetings tab. See §6.
 
 ---
+
 
 ## 2. Architecture
 
@@ -208,3 +209,18 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - Navigation: Linked `Signatures` to `Sidebar.tsx`.
 
 
+**S46 — chrono ↔ Motherboard Meetings Unification (Phase 10)**:
+- **Problem**: Two parallel systems — `chrono` (bot/public/*.html Express portal) and `apps/web/app/dashboard/meetings/page.tsx` — sharing the same FastAPI `/api/meetings/` backend but feeling like completely separate apps. Critical data contract mismatch: `weekly_hours` was stored as structured JSON by chrono but free-text string by motherboard.
+- **New components (apps/web/components/dashboard/)**:
+  - `AvailabilityGrid.tsx` — Interactive 7-day availability grid with toggle switches, multi-slot-per-day support, "copy to all" UX. Reads/writes same JSON format as chrono's `dashboard.html` (`{"monday": [{"start": "09:00", "end": "17:00"}], ...}`). Includes preset buttons (Weekdays/Weekend/All/Clear).
+  - `ChronoHostGrid.tsx` — Host discovery card grid, fetches from public `/api/meetings/public/hosts` endpoint. No auth required. Shows avatar, title, timezone. Click to select.
+  - `ChronoBookingPanel.tsx` — Full booking flow: duration selector, month calendar, slot list from `/api/meetings/public/availability/{link}/slots`, booking form (title/notes/scope), submits to authenticated `/api/meetings/schedule`.
+- **Meetings page (`apps/web/app/dashboard/meetings/page.tsx`) full rewrite**:
+  - ⚡ Instant Meet launcher (always visible at top, same scope options as chrono index.html including tech/creative/ops councils)
+  - **"Book a Sync" tab**: integrates `ChronoHostGrid` + `ChronoBookingPanel` inside the dashboard — no need to visit `cal.gobitsnbytes.org` for internal bookings.
+  - **"My Availability" tab**: now uses `AvailabilityGrid` component instead of free-text. Booking handle slug editor with `cal.gobitsnbytes.org/` prefix preview.
+  - **Meetings list**: "Join VC" button for active meetings, external meeting page deep-link (`cal.gobitsnbytes.org/m/{code}`) on every card.
+  - **Reschedule modal**: inline form fires `PATCH /api/meetings/{id}`.
+  - **Detail modal**: action bar with Join VC + Open Meeting Page + Reschedule + Cancel, full transcript with search.
+- **TypeScript**: all 3 new files pass strict typecheck (0 errors).
+- **Data contract**: `weekly_hours` is now always serialized as JSON object — `AvailabilityGrid` handles both empty/null and legacy object. Both surfaces write the same format.
