@@ -15,6 +15,7 @@ import {
   Calendar,
   FileSignature,
   Coins,
+  FileCheck,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -36,8 +37,9 @@ interface ActivePlugin {
 
 const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
-  { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
+  { label: "Contract Assistant", href: "/dashboard/contract-assistant", icon: FileCheck },
   { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
+  { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
   { label: "Members", href: "/dashboard/members", icon: Users },
   { label: "Finance", href: "/finance", icon: Coins },
   { label: "IAM", href: "/dashboard/iam", icon: Shield },

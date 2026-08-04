@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     discord_cloud_approval_webhook_url: str | None = Field(default=None, validation_alias="DISCORD_CLOUD_APPROVAL_WEBHOOK_URL")
     sparkcloud_join_url: str = Field(default="https://sparkden.org/org/join/HJ6POGpRWhZRvT8jtEYqmMpMhmLiMOEo", validation_alias="SPARKCLOUD_JOIN_URL")
 
+    # SparkCloud AI Proxy settings
+    sparkcloud_api_key: str = Field(default="sc-ai-KOQa19ciMSNINRR089UcKXQjbp77krMJ", validation_alias="SPARKCLOUD_API_KEY")
+    sparkcloud_base_url: str = Field(default="https://cloud.sparkden.org/api/ai/v1", validation_alias="SPARKCLOUD_BASE_URL")
+    sparkcloud_model: str = Field(default="auto", validation_alias="SPARKCLOUD_MODEL")
+
+    # Inbound Email Webhook Security
+    inbound_email_webhook_secret: str | None = Field(default="inbound_sec_8f9a2b4c1d3e5f6g", validation_alias="INBOUND_EMAIL_WEBHOOK_SECRET")
+
 
     @property
     def allowed_cors_origins(self) -> list[str]:

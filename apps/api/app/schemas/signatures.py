@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # ---------------------------------------------------------------------------
 
 class RecipientCreate(BaseModel):
+    id: Optional[str] = None
     name: str = Field(..., max_length=255)
     email: EmailStr
     role: str = Field(default="signer")  # signer, viewer, cc
@@ -40,7 +41,7 @@ class RecipientResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class FieldCreate(BaseModel):
-    recipient_id: uuid.UUID
+    recipient_id: str
     type: str = Field(..., description="signature, fullname, date, text, checkbox")
     page_number: int = Field(..., ge=1)
     pos_x: float = Field(..., ge=0, le=100)

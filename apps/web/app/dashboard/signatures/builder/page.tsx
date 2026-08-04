@@ -100,6 +100,7 @@ export default function SignatureBuilderPage() {
       file_path: filePath,
       idempotency_key: idempotencyKey,
       recipients: recipients.map((r, i) => ({
+        id: r.id,
         name: r.name,
         email: r.email,
         role: "signer",
@@ -130,9 +131,15 @@ export default function SignatureBuilderPage() {
 
       if (res.ok) {
         router.push("/dashboard/signatures");
+      } else {
+        const errData = await res.json().catch(() => null);
+        console.error("Failed to send signature request:", res.status, errData);
+        alert(`Failed to send request (${res.status}): ${errData?.detail || "Server error"}`);
       }
     } catch (e) {
       console.error("Failed to send signature request", e);
+      alert("Network error: Could not reach server to send signature request.");
+    } finally {
       setSending(false);
     }
   };

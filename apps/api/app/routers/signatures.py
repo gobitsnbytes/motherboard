@@ -147,9 +147,22 @@ async def create_signature_request(
 
     # Create recipients
     recipients_map = {}
+    recipient_id_map = {}
+    first_recipient_id = None
+
     for r_in in payload.recipients:
         access_token = hashlib.sha256(f"{sig_request.id}:{r_in.email}:{uuid.uuid4()}".encode()).hexdigest()[:32]
+        
+        # If client supplied a valid UUID as recipient id, we can preserve it or let DB generate
+        rec_id = None
+        if r_in.id:
+            try:
+                rec_id = uuid.UUID(r_in.id)
+            except ValueError:
+                rec_id = None
+
         recipient = SignatureRecipient(
+            id=rec_id or uuid.uuid4(),
             request_id=sig_request.id,
             name=r_in.name,
             email=r_in.email,
@@ -161,13 +174,27 @@ async def create_signature_request(
         )
         db.add(recipient)
         await db.flush()
+
+        if not first_recipient_id:
+            first_recipient_id = recipient.id
+
         recipients_map[str(r_in.email).lower().strip()] = recipient
+        if r_in.id:
+            recipient_id_map[str(r_in.id)] = recipient.id
+        recipient_id_map[str(recipient.id)] = recipient.id
 
     # Create fields
     for f_in in payload.fields:
+        target_rec_id = recipient_id_map.get(str(f_in.recipient_id))
+        if not target_rec_id:
+            try:
+                target_rec_id = uuid.UUID(f_in.recipient_id)
+            except ValueError:
+                target_rec_id = first_recipient_id
+
         field = SignatureField(
             request_id=sig_request.id,
-            recipient_id=f_in.recipient_id,
+            recipient_id=target_rec_id or first_recipient_id,
             type=f_in.type,
             page_number=f_in.page_number,
             pos_x=f_in.pos_x,
