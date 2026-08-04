@@ -200,8 +200,8 @@ def upgrade() -> None:
     )
     op.execute(
         """
-        INSERT INTO memberships (id, user_id, group_id, source, created_at)
-        SELECT gen_random_uuid(), da.user_id, g.id, 'seed', CURRENT_TIMESTAMP
+        INSERT INTO memberships (id, user_id, group_id, source)
+        SELECT gen_random_uuid(), da.user_id, g.id, 'seed'
         FROM discord_accounts da
         CROSS JOIN groups g
         WHERE da.discord_id = '763974110555930654'
