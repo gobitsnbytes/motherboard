@@ -56,8 +56,23 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 # ICS and Email Notification Helpers (Unified in Python)
 # ---------------------------------------------------------------------------
 
-def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: int, description: str, location: str, organizer_email: str = "gobitsnbytes@gmail.com", attendee_emails: List[str] = None) -> str:
-    """Generate a valid, minimal iCalendar (.ics) request body."""
+from urllib.parse import quote
+
+def get_google_cal_url(title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
+    dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dates = f"{dt_start}/{dt_end}"
+    return f"https://calendar.google.com/calendar/render?action=TEMPLATE&text={quote(title)}&dates={dates}&details={quote(description or '')}&location={quote(location or '')}"
+
+
+def get_outlook_cal_url(title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
+    dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return f"https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject={quote(title)}&startdt={dt_start}&enddt={dt_end}&body={quote(description or '')}&location={quote(location or '')}"
+
+
+def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: int, description: str, location: str, organizer_email: str = "gobitsnbytes@gmail.com", attendee_emails: List[str] = None, sequence: int = 0, method: str = "REQUEST") -> str:
+    """Generate a valid, minimal iCalendar (.ics) request body following RFC 5545 with RSVP parameters."""
     dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dt_end = datetime.datetime.fromtimestamp(end_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dt_stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -65,7 +80,7 @@ def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: i
     attendee_lines = []
     if attendee_emails:
         for email in attendee_emails:
-            attendee_lines.append(f"ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=\"{email}\":mailto:{email}")
+            attendee_lines.append(f'ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="{email}":mailto:{email}')
     attendee_str = "\n".join(attendee_lines)
     attendee_block = f"\n{attendee_str}" if attendee_str else ""
     
@@ -73,9 +88,9 @@ def generate_ics(meeting_id: str, title: str, start_time_ms: int, end_time_ms: i
     
     return f"""BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Bits and Bytes Foundation//Motherboard//EN
+PRODID:-//GOBITSNBYTES FOUNDATION//Motherboard Scheduler//EN
 CALSCALE:GREGORIAN
-METHOD:REQUEST
+METHOD:{method}
 BEGIN:VEVENT
 UID:{meeting_id}@gobitsnbytes.org
 DTSTAMP:{dt_stamp}
@@ -86,15 +101,21 @@ DESCRIPTION:{desc_escaped}
 LOCATION:{location or 'Discord VC'}
 ORGANIZER;CN="bits&bytes™":mailto:{organizer_email}{attendee_block}
 STATUS:CONFIRMED
-SEQUENCE:0
+SEQUENCE:{sequence}
+TRANSP:OPAQUE
+X-MICROSOFT-CDO-BUSYSTATUS:BUSY
+X-MICROSOFT-DISALLOW-COUNTER:FALSE
 END:VEVENT
 END:VCALENDAR"""
 
 
-def get_invite_html(title: str, formatted_time: str, vc_link: str, description: Optional[str]) -> str:
+def get_invite_html(title: str, formatted_time: str, vc_link: str, description: Optional[str], start_time_ms: int = 0, end_time_ms: int = 0) -> str:
     desc_html = f"<p><strong>Description:</strong> {description}</p>" if description else ""
+    gcal_url = get_google_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), description or "", vc_link)
+    outlook_url = get_outlook_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), description or "", vc_link)
+    
     content_html = f"""
-    <h2>You have been invited to a meeting!</h2>
+    <h2>⚡ You're Invited to a Meeting</h2>
     <div class="card">
         <h3 class="card-title">{title}</h3>
         <div class="detail-row">
@@ -107,8 +128,15 @@ def get_invite_html(title: str, formatted_time: str, vc_link: str, description: 
         </div>
         {desc_html}
     </div>
-    <div style="text-align: center; margin-top: 30px;">
-        <a href="{vc_link}" class="btn">Join Meeting</a>
+    <div style="text-align: center; margin-top: 24px; margin-bottom: 24px;">
+        <a href="{vc_link}" class="btn" style="margin-bottom: 12px; display: inline-block;">Join Room / VC</a>
+    </div>
+    <div style="background-color: rgba(255, 122, 27, 0.08); border: 1px border: 1px dashed rgba(255, 122, 27, 0.3); border-radius: 12px; padding: 16px; text-align: center;">
+        <p style="font-size: 12px; font-weight: bold; color: #ff7a1b; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px;">
+            Add Event To Your Calendar
+        </p>
+        <a href="{gcal_url}" target="_blank" style="display: inline-block; background-color: #4285F4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-right: 8px;">+ Google Calendar</a>
+        <a href="{outlook_url}" target="_blank" style="display: inline-block; background-color: #0078D4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold;">+ Outlook Web</a>
     </div>
     """
     return get_base_email_html(content_html, "Meeting Invitation")
@@ -116,7 +144,7 @@ def get_invite_html(title: str, formatted_time: str, vc_link: str, description: 
 
 def get_cancel_html(title: str, formatted_time: str) -> str:
     content_html = f"""
-    <h2 style="color: #97192c;">Meeting Cancelled</h2>
+    <h2 style="color: #97192c;">❌ Meeting Cancelled</h2>
     <div class="card" style="border-color: rgba(151, 25, 44, 0.4);">
         <h3 class="card-title" style="text-decoration: line-through; color: rgba(247, 241, 236, 0.6);">{title}</h3>
         <div class="detail-row">
@@ -124,14 +152,17 @@ def get_cancel_html(title: str, formatted_time: str) -> str:
             <span class="detail-value">{formatted_time}</span>
         </div>
     </div>
-    <p>This scheduled meeting has been cancelled. If this is an error, please contact the coordinator.</p>
+    <p style="font-size: 14px; color: #d0cfce;">This scheduled meeting has been cancelled. Your calendar will automatically update.</p>
     """
     return get_base_email_html(content_html, "Meeting Cancelled")
 
 
-def get_reschedule_html(title: str, old_time: str, new_time: str, reason: str, rescheduled_by: str, vc_link: str) -> str:
+def get_reschedule_html(title: str, old_time: str, new_time: str, reason: str, rescheduled_by: str, vc_link: str, start_time_ms: int = 0, end_time_ms: int = 0) -> str:
+    gcal_url = get_google_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), reason or "", vc_link)
+    outlook_url = get_outlook_cal_url(title, start_time_ms or int(time.time()*1000), end_time_ms or (int(time.time()*1000)+1800000), reason or "", vc_link)
+
     content_html = f"""
-    <h2>Meeting Rescheduled</h2>
+    <h2>🔄 Meeting Rescheduled</h2>
     <div class="card">
         <h3 class="card-title">{title}</h3>
         <div class="detail-row">
@@ -155,8 +186,15 @@ def get_reschedule_html(title: str, old_time: str, new_time: str, reason: str, r
             <span class="detail-value"><a href="{vc_link}" style="color: #ff7a1b; text-decoration: underline;">{vc_link}</a></span>
         </div>
     </div>
-    <div style="text-align: center; margin-top: 30px;">
-        <a href="{vc_link}" class="btn">Join Meeting</a>
+    <div style="text-align: center; margin-top: 24px; margin-bottom: 24px;">
+        <a href="{vc_link}" class="btn">Join Updated Room</a>
+    </div>
+    <div style="background-color: rgba(255, 122, 27, 0.08); border: 1px dashed rgba(255, 122, 27, 0.3); border-radius: 12px; padding: 16px; text-align: center;">
+        <p style="font-size: 12px; font-weight: bold; color: #ff7a1b; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px;">
+            Update Your Calendar
+        </p>
+        <a href="{gcal_url}" target="_blank" style="display: inline-block; background-color: #4285F4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-right: 8px;">Update Google Calendar</a>
+        <a href="{outlook_url}" target="_blank" style="display: inline-block; background-color: #0078D4; color: #ffffff; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold;">Update Outlook Web</a>
     </div>
     """
     return get_base_email_html(content_html, "Meeting Rescheduled")

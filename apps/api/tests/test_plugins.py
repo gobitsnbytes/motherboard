@@ -8,9 +8,11 @@ from app.database import get_session
 from app.db.models import PluginRegistry, Permission, User
 from app.plugin_sdk.loader import PluginLoader
 from app.plugin_sdk.types import PluginManifest, PermissionDeclaration, UiPanelDeclaration, PluginContext
-from conftest import request_as
+from conftest import request_as, engine
 from fastapi import APIRouter, FastAPI
 
+
+from contextlib import asynccontextmanager
 
 @pytest.fixture(autouse=True)
 def override_db(db_session: AsyncSession):
@@ -19,6 +21,14 @@ def override_db(db_session: AsyncSession):
     app.dependency_overrides[get_session] = _get_test_session
     yield
     app.dependency_overrides.clear()
+
+
+def make_session_factory(session: AsyncSession):
+    @asynccontextmanager
+    async def _factory():
+        yield session
+    return _factory
+
 
 
 # Mock Router and Lifecycle Hooks
@@ -75,7 +85,7 @@ async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
     on_load_called = False
     on_unload_called = False
 
-    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    session_factory = make_session_factory(db_session)
     test_app = FastAPI()
     loader = PluginLoader(test_app, session_factory)
 
@@ -122,7 +132,7 @@ async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
     db_session.add(disabled_plugin)
     await db_session.commit()
 
-    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    session_factory = make_session_factory(db_session)
     test_app = FastAPI()
     loader = PluginLoader(test_app, session_factory)
 
@@ -151,7 +161,7 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
     # The actual app runs the PluginLoader inside lifespan against the real plugins dir.
     # In tests, override_db provides the isolated DB session.
     # Let's seed a sample plugin registry record so that the loader enables it.
-    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    session_factory = make_session_factory(db_session)
     
     # Snapshot original routes and state to restore them after the test
     original_routes = list(app.router.routes)
@@ -226,3 +236,42 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
         else:
             if hasattr(app.state, "plugin_loader"):
                 delattr(app.state, "plugin_loader")
+
+
+@pytest.mark.asyncio
+async def test_plugin_loader_discovers_and_loads_real_plugins(db_session: AsyncSession):
+    session_factory = make_session_factory(db_session)
+    test_app = FastAPI()
+    loader = PluginLoader(test_app, session_factory)
+
+    # Run discovery and load against the real plugins directory
+    await loader.discover_and_load()
+
+    # Verify that all 3 operational plugins were discovered and loaded cleanly
+    expected_plugin_ids = {"fork_onboarding", "finance_ledger", "signatures_vault"}
+    assert expected_plugin_ids.issubset(set(loader.loaded_plugins.keys()))
+
+    # Verify fork_onboarding manifest details
+    fork_manifest = loader.loaded_plugins["fork_onboarding"]
+    assert fork_manifest.name == "Fork Onboarding & Compliance"
+    assert any(p.key == "fork_onboarding.read" for p in fork_manifest.permissions)
+
+    # Verify finance_ledger manifest details
+    finance_manifest = loader.loaded_plugins["finance_ledger"]
+    assert finance_manifest.name == "Section 8 Finance Ledger"
+    assert any(p.key == "finance_ledger.read" for p in finance_manifest.permissions)
+
+    # Verify signatures_vault manifest details
+    signatures_manifest = loader.loaded_plugins["signatures_vault"]
+    assert signatures_manifest.name == "Legal Signatures Vault"
+    assert any(p.key == "signatures_vault.read" for p in signatures_manifest.permissions)
+
+    # Verify database persistence of plugins
+    result = await db_session.execute(select(PluginRegistry))
+    db_plugins = {p.id for p in result.scalars().all()}
+    assert expected_plugin_ids.issubset(db_plugins)
+
+    # Clean unload
+    await loader.unload_all()
+    assert len(loader.loaded_plugins) == 0
+

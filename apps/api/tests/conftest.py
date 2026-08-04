@@ -20,6 +20,7 @@ os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import app.db.models  # Ensure all models are registered on Base.metadata
 from app.db.models import Base, User
 from app.dependencies import canonical_auth_path
 from sqlalchemy.dialects.postgresql import JSONB
@@ -64,7 +65,8 @@ async def setup_db(request):
         await conn.run_sync(Base.metadata.create_all)
     yield
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
+
 
 @pytest_asyncio.fixture
 async def db_session():
