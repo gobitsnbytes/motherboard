@@ -238,3 +238,17 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - **Detail modal**: action bar with Join VC + Open Meeting Page + Reschedule + Cancel, full transcript with search.
 - **TypeScript**: all 3 new files pass strict typecheck (0 errors).
 - **Data contract**: `weekly_hours` is now always serialized as JSON object — `AvailabilityGrid` handles both empty/null and legacy object. Both surfaces write the same format.
+
+### 2026-08-04 (Later)
+
+**S47 — Meetings Dashboard UI & Responsive Layout Overhaul**:
+- **Problem**: In the Meetings dashboard, selecting "My Availability" or "Notifications" rendered single-column forms constrained to `max-w-2xl` and `max-w-lg` aligned to the left half of the page, leaving a massive empty black void across the right half of wide screens.
+- **Full-Width Responsive Layout (`apps/web/app/dashboard/meetings/page.tsx`)**:
+  - Expanded wrapper max-width to `max-w-7xl` with responsive container padding (`p-4 sm:p-6 lg:p-8`).
+  - **My Availability Tab**: Refactored from narrow single column into a full-width 2-column grid (`grid grid-cols-1 lg:grid-cols-12 gap-6`).
+    - *Left Column (`lg:col-span-5`)*: Profile details (Email, Timezone, Title, Booking Handle, Short Bio, Cal.com Event Type ID) + **Live Guest Preview Card** showing how the host card renders to visitors on `cal.gobitsnbytes.org/{handle}`.
+    - *Right Column (`lg:col-span-7`)*: `AvailabilityGrid` schedule editor with preset chips, day toggles, multi-slot pickers, copy-to-all controls, Web Push & Discord DM notification notes, and full-width green "Save Availability Settings" CTA.
+  - **My Meetings Tab**: Added status filter chips ("All", "Scheduled", "Active", "Completed", "Cancelled"), meeting search bar, active meeting count badges, and responsive 3-column card grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`).
+  - **Notification Preferences Tab**: Refactored into a balanced 2-column layout (`lg:col-span-7` settings card + `lg:col-span-5` integrations info card).
+- **Verification**: Ran `npx tsc --noEmit` cleanly with zero TypeScript errors.
+
