@@ -11,14 +11,13 @@ import {
   ShieldCheck,
   ArrowRight,
   RefreshCw,
-  Send,
   BookOpen,
   Search,
   Plus,
   Clock,
   ExternalLink,
   ChevronRight,
-  Filter,
+  Inbox,
 } from "lucide-react";
 
 interface PipelineContract {
@@ -34,52 +33,51 @@ interface PipelineContract {
 }
 
 export default function ContractAssistantPage() {
-  const [contracts, setContracts] = useState<PipelineContract[]>([
-    {
-      id: "cntr_001",
-      title: "Akshat_Kushwaha_Resume",
-      counterparty: "GOBITSNBYTES FOUNDATION",
-      status: "in_review",
-      value: "₹5,00,000",
-      signatories_count: 2,
-      highest_risk: "high",
-      created_at: new Date().toISOString(),
-      days_in_stage: 1,
-    },
-    {
-      id: "cntr_002",
-      title: "Cloud_Infrastructure_Vendor_Agreement",
-      counterparty: "Amazon Web Services Inc",
-      status: "out_for_signature",
-      value: "$12,000/yr",
-      signatories_count: 3,
-      highest_risk: "medium",
-      created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-      days_in_stage: 3,
-    },
-    {
-      id: "cntr_003",
-      title: "Section_8_NonProfit_Auditor_MOU",
-      counterparty: "KPMG Advisory India",
-      status: "dotted",
-      value: "₹1,50,000",
-      signatories_count: 2,
-      highest_risk: "none",
-      created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
-      days_in_stage: 12,
-    },
-  ]);
-
+  const [contracts, setContracts] = useState<PipelineContract[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [rulesCount, setRulesCount] = useState<number>(35);
   const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
-    fetch("/api/contract-assistant/rules")
-      .then((res) => res.json())
-      .then((data) => setRulesCount(data.total_rules || 35))
-      .catch(() => setRulesCount(35));
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const [rulesRes, requestsRes] = await Promise.all([
+        fetch("/api/contract-assistant/rules").catch(() => null),
+        fetch("/api/signatures/requests").catch(() => null),
+      ]);
+
+      if (rulesRes && rulesRes.ok) {
+        const rulesData = await rulesRes.json();
+        setRulesCount(rulesData.total_rules || 35);
+      }
+
+      if (requestsRes && requestsRes.ok) {
+        const requestsData = await requestsRes.json();
+        if (Array.isArray(requestsData)) {
+          const mapped: PipelineContract[] = requestsData.map((req: any) => ({
+            id: req.id,
+            title: req.title,
+            counterparty: req.recipients?.[0]?.name || "Internal Legal",
+            status: req.status === "completed" ? "dotted" : req.status === "pending" ? "out_for_signature" : "in_review",
+            value: "Official Contract",
+            signatories_count: req.recipients?.length || 1,
+            highest_risk: "none",
+            created_at: req.created_at || new Date().toISOString(),
+            days_in_stage: Math.floor((Date.now() - new Date(req.created_at || Date.now()).getTime()) / 86400000),
+          }));
+          setContracts(mapped);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load contracts data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
@@ -98,11 +96,11 @@ export default function ContractAssistantPage() {
       if (res.ok) {
         const data = await res.json();
         const newContract: PipelineContract = {
-          id: data.contract_id,
+          id: data.contract_id || `cntr_${Date.now()}`,
           title: data.title || uploadedFile.name,
-          counterparty: "Under Review",
+          counterparty: "Pending Review",
           status: "in_review",
-          value: "TBD",
+          value: "Under Audit",
           signatories_count: 2,
           highest_risk: data.high_risks > 0 ? "high" : data.medium_risks > 0 ? "medium" : "low",
           created_at: new Date().toISOString(),
@@ -117,9 +115,10 @@ export default function ContractAssistantPage() {
     }
   };
 
-  const filteredContracts = contracts.filter((c) =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.counterparty.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredContracts = contracts.filter(
+    (c) =>
+      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.counterparty.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const inReviewContracts = filteredContracts.filter((c) => c.status === "in_review");
@@ -140,7 +139,7 @@ export default function ContractAssistantPage() {
             </span>
           </div>
           <p className="text-xs text-[#FED39E] font-medium">
-            CC <span className="font-mono underline font-bold">contracts@gobitsnbytes.org</span> to review, redline &amp; dispatch legal agreements.
+            CC <span className="font-mono underline font-bold">contracts@gobitsnbytes.org</span> or <span className="font-mono underline font-bold">legal@gobitsnbytes.org</span> to review, redline &amp; dispatch legal agreements.
           </p>
         </div>
 
@@ -165,7 +164,7 @@ export default function ContractAssistantPage() {
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#716F6C]" />
           <input
             type="text"
-            placeholder="Ask or search across all contracts..."
+            placeholder="Search active contracts or agreements..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-[#120F0A] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#97192C] shadow-[2px_2px_0px_0px_#120F0A]"
@@ -173,9 +172,9 @@ export default function ContractAssistantPage() {
         </div>
 
         <div className="flex items-center gap-4 text-xs font-bold text-[#716F6C]">
-          <span>{contracts.length} Total Envelopes</span>
+          <span>{contracts.length} Total Contracts</span>
           <span>•</span>
-          <span className="text-[#97192C]">{inReviewContracts.length} Pending Review</span>
+          <span className="text-[#97192C]">{inReviewContracts.length} In Review</span>
         </div>
       </div>
 
@@ -194,40 +193,40 @@ export default function ContractAssistantPage() {
           </div>
 
           <div className="space-y-3">
-            {inReviewContracts.map((c) => (
-              <div
-                key={c.id}
-                className="bg-white border-2 border-[#120F0A] rounded-xl p-4 shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-2px] transition-all space-y-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-bold text-xs text-[#120F0A] leading-snug">{c.title}</span>
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                      c.highest_risk === "high"
-                        ? "bg-red-600 animate-pulse"
-                        : c.highest_risk === "medium"
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                    }`}
-                    title={`Risk: ${c.highest_risk}`}
-                  />
-                </div>
-
-                <div className="text-[11px] text-[#716F6C] font-medium">{c.counterparty}</div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#D0CFCE] text-[10px] font-bold text-[#716F6C]">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> {c.days_in_stage}d in triage
-                  </span>
-                  <Link
-                    href={`/dashboard/contract-assistant/${c.id}`}
-                    className="flex items-center gap-1 text-[#97192C] font-black hover:underline"
-                  >
-                    Review Clause Risk <ChevronRight className="w-3 h-3" />
-                  </Link>
-                </div>
+            {inReviewContracts.length === 0 ? (
+              <div className="bg-white border-2 border-dashed border-[#D0CFCE] rounded-xl p-6 text-center text-xs text-[#716F6C]">
+                <Inbox className="w-6 h-6 mx-auto mb-2 text-[#A09F9D]" />
+                No contracts currently in review.
               </div>
-            ))}
+            ) : (
+              inReviewContracts.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-white border-2 border-[#120F0A] rounded-xl p-4 shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-2px] transition-all space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-xs text-[#120F0A] line-clamp-1">{c.title}</h3>
+                    <span className="px-2 py-0.5 bg-[#FEE9CF] text-[#120F0A] text-[10px] font-bold rounded border border-[#120F0A]">
+                      Reviewing
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#716F6C] font-medium">{c.counterparty}</p>
+
+                  <div className="flex items-center justify-between text-[10px] font-bold text-[#413F3B] pt-2 border-t border-gray-100">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-[#716F6C]" /> {c.days_in_stage}d in review
+                    </span>
+                    <Link
+                      href={`/dashboard/contract-assistant/${c.id}`}
+                      className="text-[#97192C] hover:underline flex items-center gap-0.5"
+                    >
+                      Audit <ChevronRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -238,37 +237,46 @@ export default function ContractAssistantPage() {
               <div className="w-3 h-3 rounded-full bg-[#FC920D]" />
               <h2 className="text-xs font-black uppercase tracking-wider text-[#120F0A]">Out for Signature</h2>
             </div>
-            <span className="px-2 py-0.5 bg-[#FED39E] border border-[#120F0A] rounded-md text-[10px] font-bold">
+            <span className="px-2 py-0.5 bg-[#FEE9CF] border border-[#120F0A] rounded-md text-[10px] font-bold">
               {outForSignatureContracts.length}
             </span>
           </div>
 
           <div className="space-y-3">
-            {outForSignatureContracts.map((c) => (
-              <div
-                key={c.id}
-                className="bg-white border-2 border-[#120F0A] rounded-xl p-4 shadow-[3px_3px_0px_0px_#120F0A] space-y-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-bold text-xs text-[#120F0A] leading-snug">{c.title}</span>
-                  <span className="bg-amber-100 text-amber-900 border border-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                    Dispatched
-                  </span>
-                </div>
-
-                <div className="text-[11px] text-[#716F6C] font-medium">{c.counterparty}</div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#D0CFCE] text-[10px] font-bold text-[#716F6C]">
-                  <span>{c.signatories_count} Signatories Tracked</span>
-                  <Link
-                    href="/dashboard/signatures"
-                    className="flex items-center gap-1 text-[#FC920D] font-black hover:underline"
-                  >
-                    Track Portal <ExternalLink className="w-3 h-3" />
-                  </Link>
-                </div>
+            {outForSignatureContracts.length === 0 ? (
+              <div className="bg-white border-2 border-dashed border-[#D0CFCE] rounded-xl p-6 text-center text-xs text-[#716F6C]">
+                <Clock className="w-6 h-6 mx-auto mb-2 text-[#A09F9D]" />
+                No active signature dispatches pending.
               </div>
-            ))}
+            ) : (
+              outForSignatureContracts.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-white border-2 border-[#120F0A] rounded-xl p-4 shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-2px] transition-all space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-xs text-[#120F0A] line-clamp-1">{c.title}</h3>
+                    <span className="px-2 py-0.5 bg-[#FED39E] text-[#120F0A] text-[10px] font-bold rounded border border-[#120F0A]">
+                      Dispatched
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#716F6C] font-medium">{c.counterparty}</p>
+
+                  <div className="flex items-center justify-between text-[10px] font-bold text-[#413F3B] pt-2 border-t border-gray-100">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-[#FC920D]" /> {c.signatories_count} signatories
+                    </span>
+                    <Link
+                      href={`/dashboard/contract-assistant/${c.id}`}
+                      className="text-[#97192C] hover:underline flex items-center gap-0.5"
+                    >
+                      Status <ChevronRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -276,38 +284,49 @@ export default function ContractAssistantPage() {
         <div className="bg-[#FAF8F5] border-2 border-[#120F0A] rounded-2xl p-4 shadow-[4px_4px_0px_0px_#120F0A] space-y-4">
           <div className="flex items-center justify-between border-b-2 border-[#120F0A] pb-3">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-600" />
-              <h2 className="text-xs font-black uppercase tracking-wider text-[#120F0A]">Dotted &amp; Sealed</h2>
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <h2 className="text-xs font-black uppercase tracking-wider text-[#120F0A]">Dotted &amp; Executed</h2>
             </div>
-            <span className="px-2 py-0.5 bg-emerald-100 border border-[#120F0A] rounded-md text-[10px] font-bold text-emerald-900">
+            <span className="px-2 py-0.5 bg-emerald-100 border border-[#120F0A] rounded-md text-[10px] font-bold text-emerald-800">
               {dottedContracts.length}
             </span>
           </div>
 
           <div className="space-y-3">
-            {dottedContracts.map((c) => (
-              <div
-                key={c.id}
-                className="bg-white border-2 border-[#120F0A] rounded-xl p-4 shadow-[3px_3px_0px_0px_#120F0A] space-y-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-bold text-xs text-[#120F0A] leading-snug">{c.title}</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                </div>
-
-                <div className="text-[11px] text-[#716F6C] font-medium">{c.counterparty}</div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#D0CFCE] text-[10px] font-bold text-emerald-800">
-                  <span>Cryptographically Sealed</span>
-                  <Link
-                    href={`/verify/${c.id}`}
-                    className="flex items-center gap-1 text-emerald-900 font-black hover:underline"
-                  >
-                    View SHA-256 <ShieldCheck className="w-3 h-3" />
-                  </Link>
-                </div>
+            {dottedContracts.length === 0 ? (
+              <div className="bg-white border-2 border-dashed border-[#D0CFCE] rounded-xl p-6 text-center text-xs text-[#716F6C]">
+                <ShieldCheck className="w-6 h-6 mx-auto mb-2 text-[#A09F9D]" />
+                No fully executed contracts archived yet.
               </div>
-            ))}
+            ) : (
+              dottedContracts.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-white border-2 border-[#120F0A] rounded-xl p-4 shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-2px] transition-all space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-xs text-[#120F0A] line-clamp-1">{c.title}</h3>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded border border-[#120F0A]">
+                      Executed
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#716F6C] font-medium">{c.counterparty}</p>
+
+                  <div className="flex items-center justify-between text-[10px] font-bold text-[#413F3B] pt-2 border-t border-gray-100">
+                    <span className="flex items-center gap-1 text-emerald-600 font-bold">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Sealed (SHA-256)
+                    </span>
+                    <Link
+                      href={`/verify/${c.id}`}
+                      className="text-[#97192C] hover:underline flex items-center gap-0.5"
+                    >
+                      Certificate <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
