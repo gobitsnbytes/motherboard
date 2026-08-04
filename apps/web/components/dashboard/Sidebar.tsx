@@ -16,6 +16,7 @@ import {
   FileSignature,
   Coins,
   FileCheck,
+  GitBranch,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -41,7 +42,8 @@ const navItems = [
   { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
   { label: "Members", href: "/dashboard/members", icon: Users },
-  { label: "Finance", href: "/finance", icon: Coins },
+  { label: "Forks", href: "/dashboard/forks", icon: GitBranch },
+  { label: "Finance", href: "/dashboard/finance", icon: Coins },
   { label: "IAM", href: "/dashboard/iam", icon: Shield },
   { label: "Audit Log", href: "/dashboard/audit", icon: ScrollText },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },

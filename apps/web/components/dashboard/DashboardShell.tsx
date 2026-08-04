@@ -3,6 +3,7 @@
 import React from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import DashboardFooter from "./DashboardFooter";
 
 export default function DashboardShell({
   children,
@@ -14,8 +15,12 @@ export default function DashboardShell({
       <Sidebar />
       <div className="flex flex-1 flex-col md:ml-64">
         <Topbar />
-        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        <main className="flex flex-1 flex-col justify-between overflow-auto p-4 md:p-6">
+          <div className="flex-1">{children}</div>
+          <DashboardFooter />
+        </main>
       </div>
     </div>
   );
 }
+

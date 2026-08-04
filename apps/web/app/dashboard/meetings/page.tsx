@@ -151,6 +151,63 @@ function parseStringArray(raw: string | null): string[] {
   try { return JSON.parse(raw || "[]"); } catch { return []; }
 }
 
+function downloadFile(filename: string, content: string, contentType: string) {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportActionItemsCSV(meeting: Meeting) {
+  const items = parseActionItems(meeting.transcript?.action_items ?? null);
+  const rows = [
+    ["Meeting Title", "Assignee", "Task Deliverable", "Deadline", "Status"],
+    ...items.map(it => [
+      meeting.title,
+      it.assignee || "Unassigned",
+      it.task || "",
+      it.deadline || "None",
+      "Pending"
+    ])
+  ];
+  const csvContent = rows.map(r => r.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  downloadFile(`action_items_${meeting.id}.csv`, csvContent, "text/csv;charset=utf-8;");
+}
+
+function exportActionItemsJSON(meeting: Meeting) {
+  const items = parseActionItems(meeting.transcript?.action_items ?? null);
+  const data = {
+    meeting_id: meeting.id,
+    meeting_title: meeting.title,
+    scheduled_time: meeting.scheduled_time,
+    action_items: items.map(it => ({
+      assignee: it.assignee || "Unassigned",
+      task: it.task || "",
+      deadline: it.deadline || null,
+      status: "pending"
+    }))
+  };
+  downloadFile(`action_items_${meeting.id}.json`, JSON.stringify(data, null, 2), "application/json");
+}
+
+function exportActionItemsMarkdown(meeting: Meeting) {
+  const items = parseActionItems(meeting.transcript?.action_items ?? null);
+  let md = `# Action Item Deliverables: ${meeting.title}\n\n`;
+  md += `- **Date**: ${formatTime(meeting.scheduled_time)}\n`;
+  md += `- **Total Deliverables**: ${items.length}\n\n`;
+  md += `| Assignee | Task Deliverable | Deadline | Status |\n`;
+  md += `| --- | --- | --- | --- |\n`;
+  for (const it of items) {
+    md += `| ${it.assignee || "Unassigned"} | ${it.task || ""} | ${it.deadline || "None"} | Pending |\n`;
+  }
+  downloadFile(`action_items_${meeting.id}.md`, md, "text/markdown;charset=utf-8;");
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -473,44 +530,68 @@ export default function MeetingsPage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
+  // Status filter state for meetings tab
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [meetingSearch, setMeetingSearch] = useState<string>("");
+
+  const filteredMeetings = meetings.filter((m) => {
+    const matchesStatus = statusFilter === "all" || m.status === statusFilter;
+    const matchesSearch =
+      !meetingSearch ||
+      m.title.toLowerCase().includes(meetingSearch.toLowerCase()) ||
+      (m.description && m.description.toLowerCase().includes(meetingSearch.toLowerCase())) ||
+      (m.meet_code && m.meet_code.toLowerCase().includes(meetingSearch.toLowerCase()));
+    return matchesStatus && matchesSearch;
+  });
+
+  const activeCount = meetings.filter((m) => m.status === "active").length;
+  const scheduledCount = meetings.filter((m) => m.status === "scheduled").length;
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4">
+    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#12100e] border-4 border-black p-5 rounded-base shadow-[6px_6px_0px_0px_#000]">
         <div>
-          <h1 className="text-3xl font-heading font-black tracking-tight text-white flex items-center gap-3">
-            MEETINGS
-            <span className="text-sm font-black text-[#ff7a1b] border-2 border-[#ff7a1b] px-2 py-0.5 rounded">
-              chrono
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-heading font-black tracking-tight text-white flex items-center gap-3">
+              MEETINGS & SCHEDULING
+            </h1>
+            <span className="text-xs font-black bg-[#ff7a1b] text-black border-2 border-black px-2.5 py-0.5 rounded shadow-[2px_2px_0px_0px_#000]">
+              chrono v2
             </span>
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Schedule, book, and manage calls — all in one place.
+            {activeCount > 0 && (
+              <span className="text-xs font-black bg-green-400 text-black border-2 border-black px-2.5 py-0.5 rounded animate-pulse">
+                ● {activeCount} LIVE NOW
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">
+            Manage availability, schedule calls, book syncs, and access AI-generated transcripts.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => { setShowScheduleModal(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 font-bold border-2 border-black bg-main text-main-foreground shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base text-sm"
+            onClick={() => setShowScheduleModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 font-bold border-2 border-black bg-[#ff7a1b] text-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base text-sm"
           >
             <Plus className="size-4 shrink-0" />
-            Schedule
+            Schedule Internal Call
           </button>
         </div>
       </div>
 
       {/* ⚡ Instant Meet Banner */}
-      <div className="border-2 border-black bg-[#1a1200] rounded-base p-4 shadow-[4px_4px_0px_0px_#000]">
+      <div className="border-4 border-black bg-[#1a1200] rounded-base p-4 shadow-[4px_4px_0px_0px_#000]">
         <div className="flex items-center gap-2 mb-3">
           <Zap className="size-4 text-[#ff7a1b] shrink-0" />
-          <span className="text-sm font-black text-white uppercase tracking-wider">⚡ Instant Meeting</span>
-          <span className="text-xs text-gray-500">— launch a live VC right now</span>
+          <span className="text-sm font-black text-white uppercase tracking-wider">⚡ Instant Voice Channel</span>
+          <span className="text-xs text-gray-400">— spin up a live temporary Discord VC with AI recording right now</span>
         </div>
         {instantResult ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-green-950 border-2 border-green-800 rounded-base">
             <CheckCircle className="size-5 text-green-400 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-green-200">Meeting created!</p>
+              <p className="text-sm font-black text-green-200">Meeting Room Live!</p>
               <p className="text-xs text-green-400 font-mono mt-0.5">
                 cal.gobitsnbytes.org/m/{instantResult.meet_code}
               </p>
@@ -519,9 +600,9 @@ export default function MeetingsPage() {
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(`https://cal.gobitsnbytes.org/m/${instantResult.meet_code}`)}
-                className="text-xs font-bold px-3 py-1.5 border-2 border-green-700 text-green-300 rounded hover:bg-green-900 transition-colors"
+                className="text-xs font-bold px-3 py-1.5 border-2 border-green-700 bg-green-900 text-green-200 rounded hover:bg-green-800 transition-colors"
               >
-                Copy Link
+                Copy Room Link
               </button>
               <button
                 type="button"
@@ -539,13 +620,13 @@ export default function MeetingsPage() {
               required
               value={instantTitle}
               onChange={(e) => setInstantTitle(e.target.value)}
-              placeholder="Meeting title (e.g. Quick sync, Sprint review…)"
-              className="flex-1 bg-[#222] border-2 border-black p-2 rounded-base text-sm text-white focus:outline-none focus:border-[#ff7a1b]"
+              placeholder="Meeting topic (e.g. Fork Onboarding, Architecture Review…)"
+              className="flex-1 bg-[#222] border-2 border-black p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-[#ff7a1b]"
             />
             <select
               value={instantScope}
               onChange={(e) => setInstantScope(e.target.value)}
-              className="bg-[#222] border-2 border-black p-2 rounded-base text-sm text-white focus:outline-none focus:border-[#ff7a1b] w-44 shrink-0"
+              className="bg-[#222] border-2 border-black p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-[#ff7a1b] w-full sm:w-48 shrink-0"
             >
               <option value="open">Open (All contributors)</option>
               <option value="invite">Invite Only</option>
@@ -557,7 +638,7 @@ export default function MeetingsPage() {
             <button
               type="submit"
               disabled={instantLoading}
-              className="flex items-center gap-2 px-4 py-2 font-bold border-2 border-black bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all rounded-base text-sm shrink-0 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 font-bold border-2 border-black bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all rounded-base text-sm shrink-0 disabled:opacity-50"
             >
               <Zap className="size-4 shrink-0" />
               {instantLoading ? "Launching…" : "Start Now"}
@@ -568,76 +649,108 @@ export default function MeetingsPage() {
 
       {/* Booking success banner */}
       {bookingSuccess && (
-        <div className="flex items-center gap-3 p-3 bg-green-950 border-2 border-green-800 rounded-base text-green-200 text-sm font-bold">
+        <div className="flex items-center gap-3 p-4 bg-green-950 border-4 border-black text-green-200 text-sm font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
           <CheckCircle className="size-5 shrink-0 text-green-400" />
-          Booking confirmed! The meeting has been scheduled and invites sent.
+          Booking confirmed! Calendar invite dispatched and notification sent to all participants.
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Navigation Tabs */}
       <div className="flex gap-2 border-b-4 border-black pb-2 overflow-x-auto">
-        <TabButton label="My Meetings" active={activeTab === "meetings"} onClick={() => setActiveTab("meetings")} />
+        <TabButton label={`My Meetings (${meetings.length})`} active={activeTab === "meetings"} onClick={() => setActiveTab("meetings")} />
         <TabButton label="Book a Sync" active={activeTab === "book"} onClick={() => setActiveTab("book")} />
         <TabButton label="My Availability" active={activeTab === "availability"} onClick={() => setActiveTab("availability")} />
-        <TabButton label="Notifications" active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")} />
+        <TabButton label="Notification Preferences" active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")} />
       </div>
 
-      {/* ── Tab: My Meetings ─────────────────────────────────────────────── */}
+      {/* ── Tab 1: My Meetings ─────────────────────────────────────────────── */}
       {activeTab === "meetings" && (
         <div className="space-y-4">
+          {/* Controls: Search and Status Filters */}
+          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-[#161412] border-2 border-black p-3 rounded-base shadow-[2px_2px_0px_0px_#000]">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 size-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search meetings by title, agenda, or meet code…"
+                value={meetingSearch}
+                onChange={(e) => setMeetingSearch(e.target.value)}
+                className="w-full bg-[#222] border-2 border-black pl-9 pr-3 py-1.5 rounded-base text-xs sm:text-sm text-white focus:outline-none focus:border-[#ff7a1b]"
+              />
+            </div>
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+              {["all", "scheduled", "active", "completed", "cancelled"].map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-base border-2 border-black transition-colors ${
+                    statusFilter === st
+                      ? "bg-[#ff7a1b] text-black"
+                      : "bg-[#222] text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {st} {st === "scheduled" && scheduledCount > 0 ? `(${scheduledCount})` : st === "active" && activeCount > 0 ? `(${activeCount})` : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {loading ? (
-            <div className="border-4 border-black bg-neutral-900 p-8 text-center text-white font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
-              Loading meetings…
+            <div className="border-4 border-black bg-neutral-900 p-12 text-center text-white font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
+              <RefreshCw className="size-8 animate-spin mx-auto mb-2 text-[#ff7a1b]" />
+              Loading your meetings schedule…
             </div>
           ) : error ? (
-            <div className="border-4 border-black bg-red-950 text-red-200 p-4 font-bold rounded-base flex items-center gap-3">
-              <AlertTriangle className="size-6 shrink-0" />
-              <span>{error}</span>
-              <button onClick={fetchMeetings} className="ml-auto text-xs underline">Retry</button>
+            <div className="border-4 border-black bg-red-950 text-red-200 p-4 font-bold rounded-base flex items-center gap-3 shadow-[4px_4px_0px_0px_#000]">
+              <AlertTriangle className="size-6 shrink-0 text-red-400" />
+              <span className="flex-1">{error}</span>
+              <button onClick={fetchMeetings} className="px-3 py-1 bg-red-900 border border-black rounded text-xs font-bold">Retry</button>
             </div>
-          ) : meetings.length === 0 ? (
-            <div className="border-4 border-black bg-neutral-900 p-8 text-center rounded-base shadow-[4px_4px_0px_0px_#000]">
-              <CalendarClock className="size-10 mx-auto mb-3 text-gray-600" />
-              <p className="text-gray-400 font-bold">No meetings yet.</p>
-              <p className="text-xs text-gray-600 mt-1">Use ⚡ Instant Meet, Schedule, or Book a Sync above.</p>
+          ) : filteredMeetings.length === 0 ? (
+            <div className="border-4 border-black bg-neutral-900 p-12 text-center rounded-base shadow-[4px_4px_0px_0px_#000]">
+              <CalendarClock className="size-12 mx-auto mb-3 text-gray-600" />
+              <p className="text-white font-black text-lg">No meetings found</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {statusFilter !== "all" || meetingSearch ? "Try adjusting your search query or status filter." : "Use ⚡ Instant Voice Channel, Schedule, or Book a Sync to get started."}
+              </p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {meetings.map((meeting) => (
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {filteredMeetings.map((meeting) => (
                 <div
                   key={meeting.id}
                   onClick={() => setSelectedMeeting(meeting)}
-                  className="border-4 border-black bg-[#161412] hover:bg-[#1a1816] p-5 rounded-base shadow-[4px_4px_0px_0px_#000] cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between"
+                  className="border-4 border-black bg-[#161412] hover:bg-[#1c1a17] p-5 rounded-base shadow-[4px_4px_0px_0px_#000] cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex justify-between items-start gap-2">
-                      <h2 className="text-lg font-heading font-black text-white line-clamp-1">{meeting.title}</h2>
-                      <span className={`text-xs font-black uppercase px-2.5 py-1 border-2 border-black rounded-full shrink-0 ${getStatusColor(meeting.status)}`}>
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <h2 className="text-base font-heading font-black text-white line-clamp-1">{meeting.title}</h2>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 border-2 border-black rounded-full shrink-0 ${getStatusColor(meeting.status)}`}>
                         {meeting.status}
                       </span>
                     </div>
                     {meeting.description && (
-                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">{meeting.description}</p>
+                      <p className="text-xs text-gray-400 line-clamp-2 mb-3">{meeting.description}</p>
                     )}
-                    <div className="mt-3 space-y-1.5">
-                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                    <div className="space-y-1.5 bg-[#111] p-3 border-2 border-black rounded-base text-xs">
+                      <div className="flex items-center gap-2 text-gray-300">
                         <Clock className="size-3.5 text-[#ff7a1b] shrink-0" />
                         <span>{formatTime(meeting.scheduled_time)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <div className="flex items-center gap-2 text-gray-300">
                         <MapPin className="size-3.5 text-[#ff7a1b] shrink-0" />
-                        <span>{meeting.location_type === "discord_vc" ? "Discord Voice Channel" : meeting.location_details || "External"}</span>
+                        <span className="truncate">{meeting.location_type === "discord_vc" ? "Discord Voice Channel" : meeting.location_details || "External Call"}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <div className="flex items-center gap-2 text-gray-300">
                         <Users className="size-3.5 text-[#ff7a1b] shrink-0" />
-                        <span>{meeting.attendees?.length || 1} attendee(s)</span>
+                        <span>{meeting.attendees?.length || 1} participant(s)</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-4 pt-3 border-t-2 border-neutral-800 flex justify-between items-center gap-2">
-                    <span className="text-xs text-gray-600 font-mono truncate">
-                      {meeting.meet_code ?? "No code"}
+                    <span className="text-[11px] text-gray-500 font-mono truncate">
+                      {meeting.meet_code ? `code: ${meeting.meet_code}` : "no code"}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
                       {meeting.status === "active" && meeting.temp_channel_id && (
@@ -646,7 +759,7 @@ export default function MeetingsPage() {
                           target="_blank"
                           rel="noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs font-black px-2 py-0.5 bg-green-400 text-black border border-black rounded hover:bg-green-300 transition-colors"
+                          className="text-xs font-black px-2.5 py-1 bg-green-400 text-black border-2 border-black rounded hover:bg-green-300 transition-colors shadow-[1px_1px_0px_0px_#000]"
                         >
                           Join VC
                         </a>
@@ -657,16 +770,16 @@ export default function MeetingsPage() {
                           target="_blank"
                           rel="noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-gray-500 hover:text-[#ff7a1b] transition-colors"
-                          title="Open meeting page"
+                          className="text-gray-400 hover:text-[#ff7a1b] transition-colors p-1"
+                          title="Open meeting portal page"
                         >
-                          <ExternalLink className="size-3.5" />
+                          <ExternalLink className="size-4" />
                         </a>
                       )}
                       {meeting.status === "completed" && (
-                        <span className="flex items-center gap-1 text-xs font-bold text-green-400">
-                          <FileText className="size-3.5 shrink-0" />
-                          AI Brief
+                        <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-950 px-2 py-0.5 border border-green-800 rounded">
+                          <FileText className="size-3 shrink-0" />
+                          Brief
                         </span>
                       )}
                     </div>
@@ -678,7 +791,7 @@ export default function MeetingsPage() {
         </div>
       )}
 
-      {/* ── Tab: Book a Sync ─────────────────────────────────────────────── */}
+      {/* ── Tab 2: Book a Sync ─────────────────────────────────────────────── */}
       {activeTab === "book" && (
         <div className="space-y-4">
           {selectedHost ? (
@@ -692,16 +805,19 @@ export default function MeetingsPage() {
             />
           ) : (
             <>
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-heading font-black text-white">BOOK A SYNC</h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-heading font-black text-white">BOOK A SYNC</h2>
+                  <p className="text-xs text-gray-400">Select a team member to view their availability and schedule a call.</p>
+                </div>
                 <a
                   href="https://cal.gobitsnbytes.org"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#ff7a1b] transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#ff7a1b] border-2 border-black bg-[#222] px-3 py-1.5 rounded-base hover:bg-[#333] transition-colors shadow-[2px_2px_0px_0px_#000]"
                 >
-                  <ExternalLink className="size-3" />
-                  Public portal
+                  <ExternalLink className="size-3.5" />
+                  Public Portal
                 </a>
               </div>
               <ChronoHostGrid
@@ -714,206 +830,277 @@ export default function MeetingsPage() {
         </div>
       )}
 
-      {/* ── Tab: My Availability ─────────────────────────────────────────── */}
+      {/* ── Tab 3: My Availability (Full-Width Responsive 2-Column Layout) ─── */}
       {activeTab === "availability" && (
-        <form onSubmit={handleSaveAvailability} className="space-y-5 max-w-2xl">
-          <div>
-            <h2 className="text-2xl font-heading font-black text-white">MY AVAILABILITY</h2>
-            <p className="text-xs text-gray-400 mt-1">
-              This powers your public booking page at{" "}
+        <form onSubmit={handleSaveAvailability} className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-2 border-neutral-800 pb-3">
+            <div>
+              <h2 className="text-2xl font-heading font-black text-white">MY AVAILABILITY & BOOKING PROFILE</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Configure your public booking handle, bio, and weekly availability hours for guest scheduling.
+              </p>
+            </div>
+            {availBookingLink && (
               <a
-                href={availBookingLink ? `https://cal.gobitsnbytes.org/${availBookingLink}` : "https://cal.gobitsnbytes.org"}
+                href={`https://cal.gobitsnbytes.org/${availBookingLink}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[#ff7a1b] hover:underline"
+                className="flex items-center gap-1.5 text-xs font-bold text-[#ff7a1b] border-2 border-black bg-[#1a1200] px-3 py-1.5 rounded-base hover:bg-[#2a1c00] transition-colors shrink-0"
               >
-                cal.gobitsnbytes.org/{availBookingLink || "…"}
+                <ExternalLink className="size-3.5" />
+                cal.gobitsnbytes.org/{availBookingLink}
               </a>
-            </p>
+            )}
           </div>
 
           {availSuccess && (
-            <div className="bg-green-950 text-green-200 border-2 border-green-800 p-3 rounded-base font-bold text-sm flex items-center gap-2">
-              <CheckCircle className="size-4 shrink-0" />
-              Availability saved! Your booking page is now live.
+            <div className="bg-green-950 text-green-200 border-4 border-black p-4 rounded-base font-bold text-sm flex items-center gap-3 shadow-[4px_4px_0px_0px_#000]">
+              <CheckCircle className="size-5 shrink-0 text-green-400" />
+              <span>Availability settings saved! Your public booking page is now active and updated.</span>
             </div>
           )}
 
-          <div className="border-2 border-black bg-[#161412] rounded-base p-4 shadow-[2px_2px_0px_0px_#000] space-y-4">
-            <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider">Profile</p>
+          {/* 2-Column Responsive Dashboard Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Profile Settings & Live Card Preview */}
+            <div className="lg:col-span-5 space-y-5">
+              <div className="border-4 border-black bg-[#161412] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
+                <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider border-b-2 border-neutral-800 pb-2">
+                  1. Profile Details
+                </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-400 uppercase">Email Address</label>
-                <input
-                  type="email"
-                  value={availEmail}
-                  onChange={(e) => setAvailEmail(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
-                  placeholder="you@gobitsnbytes.org"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-400 uppercase">Timezone</label>
-                <select
-                  value={availTimezone}
-                  onChange={(e) => setAvailTimezone(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
-                >
-                  {TIMEZONES.map((tz) => (
-                    <option key={tz} value={tz}>{tz}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-300 uppercase">Email Address</label>
+                  <input
+                    type="email"
+                    value={availEmail}
+                    onChange={(e) => setAvailEmail(e.target.value)}
+                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    placeholder="you@gobitsnbytes.org"
+                  />
+                </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-400 uppercase">Display Title</label>
-                <input
-                  type="text"
-                  value={availTitle}
-                  onChange={(e) => setAvailTitle(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
-                  placeholder="e.g. Fork Organizer"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-400 uppercase">Booking Handle</label>
-                <div className="flex items-center border-2 border-black rounded-base overflow-hidden bg-[#222]">
-                  <span className="text-gray-600 text-xs font-bold px-2 border-r border-neutral-700 bg-[#1a1a1a] py-2.5 shrink-0">cal.gobitsnbytes.org/</span>
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-300 uppercase">Timezone</label>
+                  <select
+                    value={availTimezone}
+                    onChange={(e) => setAvailTimezone(e.target.value)}
+                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                  >
+                    {TIMEZONES.map((tz) => (
+                      <option key={tz} value={tz}>{tz}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-300 uppercase">Display Title / Role</label>
                   <input
                     type="text"
-                    value={availBookingLink}
-                    onChange={(e) => setAvailBookingLink(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
-                    className="flex-1 bg-transparent p-2 text-white text-sm focus:outline-none"
-                    placeholder="your-handle"
+                    value={availTitle}
+                    onChange={(e) => setAvailTitle(e.target.value)}
+                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    placeholder="e.g. CTO, Fork Lead, Dev Lead"
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-300 uppercase">Custom Booking Handle</label>
+                  <div className="flex items-center border-2 border-black rounded-base overflow-hidden bg-[#222]">
+                    <span className="text-gray-500 text-xs font-mono font-bold px-2.5 py-2.5 border-r border-neutral-800 bg-[#181818] shrink-0 select-none">
+                      cal.gobitsnbytes.org/
+                    </span>
+                    <input
+                      type="text"
+                      value={availBookingLink}
+                      onChange={(e) => setAvailBookingLink(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                      className="flex-1 bg-transparent p-2.5 text-white text-sm focus:outline-none font-mono"
+                      placeholder="your-handle"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-300 uppercase">Short Bio / Booking Description</label>
+                  <textarea
+                    value={availDescription}
+                    onChange={(e) => setAvailDescription(e.target.value)}
+                    rows={3}
+                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b] resize-none"
+                    placeholder="Brief intro shown to guests when booking a sync with you"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-400 uppercase">Cal.com Event Type ID (Optional)</label>
+                  <input
+                    type="text"
+                    value={availCalcomId}
+                    onChange={(e) => setAvailCalcomId(e.target.value)}
+                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    placeholder="e.g. 12345"
+                  />
+                </div>
+              </div>
+
+              {/* Live Preview Card */}
+              <div className="border-4 border-black bg-[#111] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-3">
+                <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
+                  <span className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="size-3.5" /> Guest Preview
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-mono">Public Card</span>
+                </div>
+                <div className="border-2 border-black bg-[#1c1a17] p-4 rounded-base space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-full border-2 border-black bg-[#ff7a1b] text-black font-black flex items-center justify-center text-base">
+                      {username.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">{username}</h4>
+                      <p className="text-xs text-[#ff7a1b] font-bold">{availTitle || "Team Member"}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 line-clamp-2">
+                    {availDescription || "Available for 1-on-1 syncs, fork discussions, and technical reviews."}
+                  </p>
+                  <div className="flex justify-between items-center pt-2 border-t border-neutral-800 text-[11px] text-gray-500">
+                    <span>🌐 {availTimezone}</span>
+                    <span className="font-mono text-[#ff7a1b]">cal.gobitsnbytes.org/{availBookingLink || "..."}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-gray-400 uppercase">Short Bio / Booking Description</label>
-              <textarea
-                value={availDescription}
-                onChange={(e) => setAvailDescription(e.target.value)}
-                rows={2}
-                className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b] resize-none"
-                placeholder="Short description shown on your booking card"
-              />
-            </div>
+            {/* Right Column: Weekly Availability Hours Editor */}
+            <div className="lg:col-span-7 space-y-5">
+              <div className="border-4 border-black bg-[#161412] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
+                <div className="flex justify-between items-start border-b-2 border-neutral-800 pb-3">
+                  <div>
+                    <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider">
+                      2. Weekly Availability Schedule
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Toggle days and set specific hours when guests can book calls with you. (Times match your timezone).
+                    </p>
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-gray-400 uppercase">Cal.com Event Type ID (optional)</label>
-              <input
-                type="text"
-                value={availCalcomId}
-                onChange={(e) => setAvailCalcomId(e.target.value)}
-                className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
-                placeholder="e.g. 12345"
-              />
-            </div>
-          </div>
+                <AvailabilityGrid
+                  value={availWeeklyHours}
+                  onChange={setAvailWeeklyHours}
+                />
+              </div>
 
-          {/* Weekly availability grid */}
-          <div className="border-2 border-black bg-[#161412] rounded-base p-4 shadow-[2px_2px_0px_0px_#000] space-y-3">
-            <div>
-              <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider">Weekly Availability Hours</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Set which hours guests can book. Uses your timezone above.
-              </p>
-            </div>
-            <AvailabilityGrid
-              value={availWeeklyHours}
-              onChange={setAvailWeeklyHours}
-            />
-          </div>
+              {/* Web push notification note */}
+              <div className="flex items-start gap-3 p-4 border-2 border-black rounded-base bg-[#141210] text-xs text-gray-400 shadow-[2px_2px_0px_0px_#000]">
+                <Bell className="size-4 shrink-0 text-[#ff7a1b] mt-0.5" />
+                <span>
+                  <strong>Web Push & Discord Alerts:</strong> Bookings created through your link will trigger immediate Discord DMs and browser push notifications.
+                </span>
+              </div>
 
-          {/* Push notification note */}
-          <div className="flex items-start gap-3 p-3 border-2 border-neutral-800 rounded-base bg-[#111] text-xs text-gray-500">
-            <Bell className="size-4 shrink-0 text-gray-600 mt-0.5" />
-            <span>
-              To enable Web Push notifications for booking alerts,{" "}
-              <a
-                href="https://cal.gobitsnbytes.org/dashboard"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#ff7a1b] hover:underline"
+              {/* Save Button */}
+              <button
+                type="submit"
+                disabled={availLoading}
+                className="flex items-center justify-center gap-2 w-full p-4 font-black text-base border-4 border-black bg-green-400 text-black shadow-[6px_6px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0px_0px_#000] transition-all rounded-base disabled:opacity-50"
               >
-                open your chrono dashboard →
-              </a>
-            </span>
+                <Save className="size-5 shrink-0" />
+                {availLoading ? "Saving Availability Settings…" : "Save Availability Settings"}
+              </button>
+            </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={availLoading}
-            className="flex items-center justify-center gap-2 w-full p-3 font-bold border-2 border-black bg-green-400 text-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base disabled:opacity-50"
-          >
-            <Save className="size-4 shrink-0" />
-            {availLoading ? "Saving…" : "Save Availability"}
-          </button>
         </form>
       )}
 
-      {/* ── Tab: Notifications ───────────────────────────────────────────── */}
+      {/* ── Tab 4: Notifications (Balanced 2-Column Layout) ────────────────── */}
       {activeTab === "notifications" && (
-        <form onSubmit={handleSavePreferences} className="space-y-5 max-w-lg">
-          <div>
-            <h2 className="text-2xl font-heading font-black text-white">NOTIFICATIONS</h2>
-            <p className="text-xs text-gray-400 mt-1">Configure how you get notified about meetings.</p>
+        <form onSubmit={handleSavePreferences} className="space-y-6">
+          <div className="border-b-2 border-neutral-800 pb-3">
+            <h2 className="text-2xl font-heading font-black text-white">NOTIFICATION PREFERENCES</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Manage how and when you receive meeting invites and reminder alerts.</p>
           </div>
 
           {prefSuccess && (
-            <div className="bg-green-950 text-green-200 border-2 border-green-800 p-3 rounded-base font-bold text-sm flex items-center gap-2">
-              <CheckCircle className="size-4 shrink-0" />
-              Preferences saved!
+            <div className="bg-green-950 text-green-200 border-4 border-black p-4 rounded-base font-bold text-sm flex items-center gap-3 shadow-[4px_4px_0px_0px_#000]">
+              <CheckCircle className="size-5 shrink-0 text-green-400" />
+              <span>Notification preferences updated successfully!</span>
             </div>
           )}
 
-          <div className="border-2 border-black bg-[#161412] rounded-base p-4 shadow-[2px_2px_0px_0px_#000] space-y-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-gray-400 uppercase">Notification Email</label>
-              <input
-                type="email"
-                value={prefEmail}
-                onChange={(e) => setPrefEmail(e.target.value)}
-                required
-                className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
-                placeholder="you@example.com"
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7 border-4 border-black bg-[#161412] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-gray-300 uppercase">Notification Email Address</label>
+                <input
+                  type="email"
+                  value={prefEmail}
+                  onChange={(e) => setPrefEmail(e.target.value)}
+                  required
+                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-neutral-800">
+                <label className="flex items-start gap-3 cursor-pointer select-none p-2 rounded hover:bg-[#1f1d1a] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={prefNotifyInvite}
+                    onChange={(e) => setPrefNotifyInvite(e.target.checked)}
+                    className="mt-0.5 size-5 rounded border-2 border-black bg-[#222] text-[#ff7a1b] focus:ring-0"
+                  />
+                  <div>
+                    <span className="text-sm text-gray-200 font-bold block">Email on New Invitations</span>
+                    <span className="text-xs text-gray-500">Send an instant email notification whenever you are invited to a call.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none p-2 rounded hover:bg-[#1f1d1a] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={prefNotifyReminder}
+                    onChange={(e) => setPrefNotifyReminder(e.target.checked)}
+                    className="mt-0.5 size-5 rounded border-2 border-black bg-[#222] text-[#ff7a1b] focus:ring-0"
+                  />
+                  <div>
+                    <span className="text-sm text-gray-200 font-bold block">30-Minute Call Reminder</span>
+                    <span className="text-xs text-gray-500">Send a reminder alert 30 minutes before any scheduled meeting starts.</span>
+                  </div>
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={prefLoading}
+                className="flex items-center justify-center gap-2 w-full p-3 font-bold border-2 border-black bg-green-400 text-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base disabled:opacity-50 mt-4"
+              >
+                <Save className="size-4 shrink-0" />
+                {prefLoading ? "Saving Preferences…" : "Save Notification Preferences"}
+              </button>
             </div>
-            <div className="space-y-3 pt-1">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={prefNotifyInvite}
-                  onChange={(e) => setPrefNotifyInvite(e.target.checked)}
-                  className="size-5 rounded border-2 border-black bg-[#222] text-[#ff7a1b] focus:ring-0"
-                />
-                <span className="text-sm text-gray-200 font-bold">Email me when invited to a new meeting</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={prefNotifyReminder}
-                  onChange={(e) => setPrefNotifyReminder(e.target.checked)}
-                  className="size-5 rounded border-2 border-black bg-[#222] text-[#ff7a1b] focus:ring-0"
-                />
-                <span className="text-sm text-gray-200 font-bold">Reminder 30 mins before call starts</span>
-              </label>
+
+            <div className="lg:col-span-5 border-4 border-black bg-[#111] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
+              <span className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider block border-b border-neutral-800 pb-2">
+                Automated Integrations
+              </span>
+              <div className="space-y-3 text-xs text-gray-400">
+                <div className="p-3 bg-[#181614] border-2 border-black rounded-base space-y-1">
+                  <p className="font-bold text-white flex items-center gap-2">
+                    <Bell className="size-3.5 text-[#ff7a1b]" /> Discord DM Dispatch
+                  </p>
+                  <p>Bot automatically pings your Discord account when a room opens or recording is finalized.</p>
+                </div>
+                <div className="p-3 bg-[#181614] border-2 border-black rounded-base space-y-1">
+                  <p className="font-bold text-white flex items-center gap-2">
+                    <CalendarIcon className="size-3.5 text-[#ff7a1b]" /> Calendar ICS Sync
+                  </p>
+                  <p>All scheduled meetings attach standard .ics calendar files compatible with Google Calendar, Apple Calendar, and Outlook.</p>
+                </div>
+              </div>
             </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={prefLoading}
-            className="flex items-center justify-center gap-2 w-full p-3 font-bold border-2 border-black bg-green-400 text-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base disabled:opacity-50"
-          >
-            <Save className="size-4 shrink-0" />
-            {prefLoading ? "Saving…" : "Save Preferences"}
-          </button>
         </form>
       )}
 
@@ -1015,7 +1202,7 @@ export default function MeetingsPage() {
                   Cancel
                 </button>
                 <button type="submit" disabled={scheduleLoading}
-                  className="w-1/2 p-3 border-2 border-black bg-main text-main-foreground shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none font-bold rounded-base text-sm disabled:opacity-50">
+                  className="w-1/2 p-3 border-2 border-black bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none font-bold rounded-base text-sm disabled:opacity-50">
                   {scheduleLoading ? "Scheduling…" : "Schedule"}
                 </button>
               </div>
@@ -1029,7 +1216,7 @@ export default function MeetingsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
           <div className="border-4 border-black bg-[#12100e] max-w-sm w-full p-6 rounded-base shadow-[8px_8px_0px_0px_#000]">
             <div className="flex justify-between items-center border-b-2 border-neutral-800 pb-3 mb-4">
-              <h2 className="text-lg font-heading font-black text-white uppercase">Reschedule</h2>
+              <h2 className="text-lg font-heading font-black text-white uppercase">Reschedule Call</h2>
               <button onClick={() => setShowRescheduleModal(null)} className="text-gray-400 hover:text-white">
                 <X className="size-5" />
               </button>
@@ -1173,9 +1360,35 @@ export default function MeetingsPage() {
 
                 {/* Action items */}
                 <div className="border-2 border-black bg-neutral-900/50 p-4 rounded-base">
-                  <span className="flex items-center gap-1.5 text-xs font-black text-[#ff7a1b] uppercase mb-3">
-                    <Clock className="size-4 shrink-0" />Action Items
-                  </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-[#ff7a1b] uppercase">
+                      <Clock className="size-4 shrink-0" />Action Items Deliverables
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase mr-1">Export:</span>
+                      <button
+                        onClick={() => exportActionItemsCSV(selectedMeeting)}
+                        className="px-2 py-1 text-[11px] font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-[#ff7a1b] hover:text-black transition-colors"
+                        title="Download CSV report"
+                      >
+                        📄 CSV
+                      </button>
+                      <button
+                        onClick={() => exportActionItemsJSON(selectedMeeting)}
+                        className="px-2 py-1 text-[11px] font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-[#ff7a1b] hover:text-black transition-colors"
+                        title="Download JSON format"
+                      >
+                        { } JSON
+                      </button>
+                      <button
+                        onClick={() => exportActionItemsMarkdown(selectedMeeting)}
+                        className="px-2 py-1 text-[11px] font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-[#ff7a1b] hover:text-black transition-colors"
+                        title="Download Markdown summary"
+                      >
+                        📝 Markdown
+                      </button>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead>
