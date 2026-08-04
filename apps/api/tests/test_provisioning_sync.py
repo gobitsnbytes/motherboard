@@ -159,14 +159,14 @@ async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     )
     db_session.add(mapping)
 
-    user = User(display_name="Alice", is_active=True)
+    user = User(display_name="Alice Manual", is_active=True)
     db_session.add(user)
     await db_session.commit()
 
     da = DiscordAccount(
         user_id=user.id,
-        discord_id="discord_alice",
-        username="alice_on_discord",
+        discord_id="discord_alice_manual",
+        username="alice_on_discord_manual",
     )
     db_session.add(da)
 
@@ -183,7 +183,7 @@ async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     mock_client.get_guild_members = AsyncMock(
         return_value=[
             {
-                "user": {"id": "discord_alice", "username": "alice_on_discord"},
+                "user": {"id": "discord_alice_manual", "username": "alice_on_discord_manual"},
                 "roles": [],  # no mapped roles
             }
         ]
