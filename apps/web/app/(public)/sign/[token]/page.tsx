@@ -24,9 +24,29 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
+  const [statusDetails, setStatusDetails] = useState<any>(null);
+
   useEffect(() => {
     fetchPortalData();
   }, [token]);
+
+  const fetchStatusDetails = async () => {
+    try {
+      const res = await fetch(`/api/signatures/sign/${token}/status`);
+      if (res.ok) {
+        const json = await res.json();
+        setStatusDetails(json);
+      }
+    } catch (e) {
+      console.error("Failed to fetch status details", e);
+    }
+  };
+
+  useEffect(() => {
+    if (completed) {
+      fetchStatusDetails();
+    }
+  }, [completed]);
 
   const fetchPortalData = async () => {
     try {
@@ -127,25 +147,7 @@ export default function PublicSigningPage({ params }: SigningPageProps) {
     );
   }
 
-  const [statusDetails, setStatusDetails] = useState<any>(null);
 
-  const fetchStatusDetails = async () => {
-    try {
-      const res = await fetch(`/api/signatures/sign/${token}/status`);
-      if (res.ok) {
-        const json = await res.json();
-        setStatusDetails(json);
-      }
-    } catch (e) {
-      console.error("Failed to fetch status details", e);
-    }
-  };
-
-  useEffect(() => {
-    if (completed) {
-      fetchStatusDetails();
-    }
-  }, [completed]);
 
   if (completed) {
     const isFullyCompleted = statusDetails?.request_status === "completed";
