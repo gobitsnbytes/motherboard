@@ -365,8 +365,8 @@ class TestSeeder:
 
     async def test_city_forks_seeded(self, db: AsyncSession) -> None:
         from app.db.models import Fork
-        from app.provisioning.notion_sync import sync_forks_from_notion
-        await sync_forks_from_notion(db)
+        from app.db.seeder import run_seeds
+        await run_seeds(db)
         result = await db.execute(select(Fork))
         slugs = {f.slug for f in result.scalars().all()}
         assert "lucknow" in slugs or "noida" in slugs or "kolkata" in slugs

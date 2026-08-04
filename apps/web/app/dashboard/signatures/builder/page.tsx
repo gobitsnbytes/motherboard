@@ -30,6 +30,7 @@ export default function SignatureBuilderPage() {
 
   // Step 4 State: Dispatch
   const [sending, setSending] = useState(false);
+  const [idempotencyKey] = useState(() => `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -88,8 +89,6 @@ export default function SignatureBuilderPage() {
       setSelectedRecipientId(recipients[0].id);
     }
   };
-
-  const [idempotencyKey] = useState(() => `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
 
   const handleDispatch = async () => {
     if (sending) return;

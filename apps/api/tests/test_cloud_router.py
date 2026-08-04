@@ -2,6 +2,18 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+from app.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+@pytest.fixture(autouse=True)
+def override_db(db_session: AsyncSession):
+    async def _get_test_session():
+        yield db_session
+    app.dependency_overrides[get_session] = _get_test_session
+    yield
+    app.dependency_overrides.clear()
+
 
 client = TestClient(app)
 
@@ -46,6 +58,7 @@ def test_send_cloud_decision_approval(mock_send_smtp):
             "reason": "Approved builder profile",
             "reviewer": "admin#0001",
         },
+        headers={"X-API-Secret": "mock_internal_secret"},
     )
     assert response.status_code == 200
     assert response.json()["status"] == "success"

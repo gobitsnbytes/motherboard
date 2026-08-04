@@ -16,6 +16,8 @@ if not db_url or "sqlite" in db_url:
 os.environ.setdefault("SESSION_SECRET", "mock_session_secret_32_bytes_long_secret_123")
 os.environ.setdefault("API_INTERNAL_SECRET", "mock_internal_secret")
 os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
+os.environ.setdefault("SPARKCLOUD_API_KEY", "sc-ai-test_key_123")
+os.environ.setdefault("INBOUND_EMAIL_WEBHOOK_SECRET", "inbound_sec_8f9a2b4c1d3e5f6g")
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

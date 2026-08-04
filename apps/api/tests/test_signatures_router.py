@@ -16,10 +16,8 @@ from app.db.models import User
 from conftest import internal_auth_headers, request_as
 
 
-import pytest_asyncio
-
-@pytest_asyncio.fixture(autouse=True)
-async def override_db(db_session: AsyncSession):
+@pytest.fixture(autouse=True)
+def override_db(db_session: AsyncSession):
     async def _get_test_session():
         yield db_session
     app.dependency_overrides[get_session] = _get_test_session
@@ -37,10 +35,10 @@ def sample_pdf_bytes():
 
 
 @pytest.mark.asyncio
-async def test_upload_contract_pdf(sample_pdf_bytes: bytes):
+async def test_upload_contract_pdf(sample_pdf_bytes: bytes, super_admin):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         files = {"file": ("contract.pdf", sample_pdf_bytes, "application/pdf")}
-        response = await client.post("/api/signatures/upload", files=files)
+        response = await request_as(client, super_admin.id, "POST", "/api/signatures/upload", files=files)
 
         assert response.status_code == 200
         data = response.json()
@@ -61,7 +59,7 @@ async def test_signature_request_creation_and_signing_flow(db_session: AsyncSess
 
         # 1. Upload
         files = {"file": ("nda_contract.pdf", sample_pdf_bytes, "application/pdf")}
-        upload_res = await client.post("/api/signatures/upload", files=files)
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
         assert upload_res.status_code == 200
         file_path = upload_res.json()["file_path"]
 
@@ -92,13 +90,7 @@ async def test_signature_request_creation_and_signing_flow(db_session: AsyncSess
             "expires_in_days": 15,
         }
 
-        headers = internal_auth_headers(user.id, method="POST", path="/api/signatures/requests")
-        create_res = await client.post(
-            "/api/signatures/requests",
-            json=payload,
-            headers=headers,
-        )
-
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
         assert create_res.status_code == 200
         req_data = create_res.json()
         assert req_data["title"] == "Non-Disclosure Agreement 2026"

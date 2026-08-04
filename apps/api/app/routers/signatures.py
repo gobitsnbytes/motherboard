@@ -72,6 +72,7 @@ async def _log_audit_event(
 @router.post("/upload")
 async def upload_contract_file(
     file: UploadFile = File(...),
+    current_user: ResolvedPrincipal = Depends(get_current_user),
 ):
     """Upload a .pdf or .docx file, parse PDF format, and generate page preview images."""
     contents = await file.read()

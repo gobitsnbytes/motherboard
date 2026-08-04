@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Reque
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
+from app.dependencies import ResolvedPrincipal, get_current_user
 from app.services.llm_client import get_llm_client
 from app.services.okf_engine import DeterministicRuleEngine, get_okf_store
 from app.services.signature_engine import prepare_document_pdf, render_pdf_page_previews
@@ -104,6 +105,7 @@ async def get_okf_playbook_rules():
 @router.post("/analyze", response_model=ContractAnalysisResponse)
 async def analyze_contract_file(
     file: UploadFile = File(...),
+    current_user: ResolvedPrincipal = Depends(get_current_user),
 ):
     """Parse document (.pdf or .docx), run 2-pass analysis (OKF Rule Engine + SparkCloud AI)."""
     contents = await file.read()
@@ -229,7 +231,10 @@ async def analyze_contract_file(
 
 
 @router.post("/autofix", response_model=AutoFixResponse)
-async def generate_autofix(payload: AutoFixRequest):
+async def generate_autofix(
+    payload: AutoFixRequest,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
     """Generate Tier-1 template substitution or Tier-2 SparkCloud AI redline proposal."""
     if payload.tier == 1:
         okf_store = get_okf_store()
@@ -322,7 +327,10 @@ class DispatchRequest(BaseModel):
 
 
 @router.post("/dispatch")
-async def dispatch_contract_for_signature(payload: DispatchRequest):
+async def dispatch_contract_for_signature(
+    payload: DispatchRequest,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
     """
     Dispatch reviewed contract to bnb-signatures e-signature system.
     Server-side safety gate: ensures high-severity findings are resolved before sending out.
@@ -343,7 +351,10 @@ class AskQuestionRequest(BaseModel):
 
 
 @router.post("/ask")
-async def ask_across_contracts(payload: AskQuestionRequest):
+async def ask_across_contracts(
+    payload: AskQuestionRequest,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
     """Global AI search across parsed contracts and OKF policy documents."""
     llm_client = get_llm_client()
     okf_store = get_okf_store()

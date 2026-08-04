@@ -56,7 +56,7 @@ export function OverviewContent() {
         <StatCard
           title="Members"
           value={loading ? "..." : stats.members}
-          description="+24 this week"
+          description="Total registered"
           icon={<Users className="size-5" />}
         />
 
@@ -174,13 +174,20 @@ export function OverviewContent() {
             {loading ? (
               <div>Loading forks...</div>
             ) : (
-              forks.map((fork) => (
-                <div key={fork.id} className="flex justify-between">
-                  <span>{fork.city_name}</span>
+              forks.map((fork) => {
+                const score = fork.health_score ?? 100;
+                const isHealthy = score >= 70;
+                const isWarning = score >= 50 && score < 70;
+                const variant = isHealthy ? "success" : isWarning ? "warning" : "danger";
+                const label = isHealthy ? `Healthy (${score}/100)` : isWarning ? `Audit Required (${score}/100)` : `Critical (${score}/100)`;
 
-                  <Badge variant="success">Healthy</Badge>
-                </div>
-              ))
+                return (
+                  <div key={fork.id} className="flex justify-between items-center">
+                    <span className="font-bold text-xs">{fork.city_name || fork.name}</span>
+                    <Badge variant={variant}>{label}</Badge>
+                  </div>
+                );
+              })
             )}
           </div>
         </CardContent>

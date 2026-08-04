@@ -6,7 +6,7 @@ and dispatches decision emails upon approval/denial by admins.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -59,8 +59,12 @@ async def apply_for_cloud_access(
     if len(file_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="ID file size must be less than 10MB.")
 
-    DEFAULT_WEBHOOK = "https://discord.com/api/webhooks/1507977871191183461/sqNFb78UVZAwOzam7fWL9EJfflhs-RsifCxOCNucVSlkm4WK5BcSGVTEjt97V6g3IRiO"
-    webhook_url = settings.discord_cloud_approval_webhook_url or DEFAULT_WEBHOOK
+    webhook_url = settings.discord_cloud_approval_webhook_url
+    if not webhook_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Discord cloud approval webhook URL is not configured."
+        )
 
     # Prepare Discord Webhook payload with Interactive Components
     payload_json = {
@@ -76,7 +80,7 @@ async def apply_for_cloud_access(
                     {"name": "💼 LinkedIn Profile", "value": linkedin, "inline": False},
                     {"name": "🆔 ID Document", "value": f"`{id_file.filename}` (attached)", "inline": True},
                 ],
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "footer": {"text": "bits&bytes™ SparkCloud Anti-Abuse System"},
             }
         ],
@@ -160,8 +164,8 @@ async def send_cloud_decision(
     """
 
     if settings.api_internal_secret and x_api_secret != settings.api_internal_secret:
-        # If internal secret is configured, log warning if missing/mismatched
         logger.warning("[CLOUD_AUTH] Unauthorized attempt to send cloud decision email.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API secret header")
 
     email = req.email
     name = req.name
