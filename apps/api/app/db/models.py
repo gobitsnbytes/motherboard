@@ -1613,6 +1613,3 @@ class ContractAssistantEvent(Base):
 
     # Relationships
     contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="events")
-
-
->>>>>>> origin/prod
