@@ -29,7 +29,10 @@ class OKFKnowledgeStore:
 
     def __init__(self, knowledge_dir: Optional[str] = None):
         if not knowledge_dir:
-            knowledge_dir = os.path.join(os.getcwd(), "data", "company-knowledge")
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            repo_knowledge = os.path.join(base_dir, "data", "company-knowledge")
+            cwd_knowledge = os.path.join(os.getcwd(), "data", "company-knowledge")
+            knowledge_dir = repo_knowledge if os.path.exists(repo_knowledge) else cwd_knowledge
         self.knowledge_dir = knowledge_dir
         self.concepts: List[OKFConcept] = []
         self.load_bundle()
