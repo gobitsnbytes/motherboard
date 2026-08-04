@@ -207,89 +207,56 @@ DISCORD_ROLE_MAPPINGS: list[tuple[str, str, str, bool, int]] = [
 ]
 
 # ---------------------------------------------------------------------------
-# 4. Real City Forks (10 Nodes)
+# ---------------------------------------------------------------------------
+# 4. Real City Forks (Notion DB Ground Truth: HQ + Noida + Kolkata)
 # ---------------------------------------------------------------------------
 
 CITY_FORKS: list[dict[str, Any]] = [
     {
         "slug": "lucknow",
-        "city_name": "Lucknow HQ",
+        "city_name": "Lucknow (Pan-India HQ)",
         "discord_city_role_id": "1490411988902477824",
         "discord_contributor_role_id": None,
         "is_active": True,
-        "metadata": {"node_code": "Node 01", "is_hq": True, "address": "Lucknow, Uttar Pradesh, India", "status": "active"},
+        "metadata": {
+            "node_code": "HQ-01",
+            "is_hq": True,
+            "scale": "Pan-India",
+            "address": "Lucknow, Uttar Pradesh, India",
+            "status": "active"
+        },
     },
     {
-        "slug": "delhi",
-        "city_name": "Delhi",
+        "slug": "noida",
+        "city_name": "Bits&Bytes Noida",
         "discord_city_role_id": "1490411548752085094",
         "discord_contributor_role_id": None,
-        "is_active": False,
-        "metadata": {"node_code": "Node 02", "status": "onboarding"},
-    },
-    {
-        "slug": "bangalore",
-        "city_name": "Bangalore",
-        "discord_city_role_id": "1490412532152930315",
-        "discord_contributor_role_id": "1508766945091260436",
-        "is_active": False,
-        "metadata": {"node_code": "Node 03", "status": "onboarding"},
-    },
-    {
-        "slug": "hyderabad",
-        "city_name": "Hyderabad",
-        "discord_city_role_id": "1490412746951626752",
-        "discord_contributor_role_id": "1508767008660000840",
-        "is_active": False,
-        "metadata": {"node_code": "Node 04", "status": "onboarding"},
-    },
-    {
-        "slug": "mumbai",
-        "city_name": "Mumbai",
-        "discord_city_role_id": "1490411614292283552",
-        "discord_contributor_role_id": None,
-        "is_active": False,
-        "metadata": {"node_code": "Node 05", "status": "onboarding"},
-    },
-    {
-        "slug": "kanpur",
-        "city_name": "Kanpur",
-        "discord_city_role_id": "1490411774472753198",
-        "discord_contributor_role_id": None,
-        "is_active": False,
-        "metadata": {"node_code": "Node 06", "status": "onboarding"},
-    },
-    {
-        "slug": "jaipur",
-        "city_name": "Jaipur",
-        "discord_city_role_id": "1508052382229987470",
-        "discord_contributor_role_id": "1508767044567306310",
-        "is_active": False,
-        "metadata": {"node_code": "Node 07", "status": "onboarding"},
+        "is_active": True,
+        "metadata": {
+            "node_code": "FORK-01",
+            "lead_name": "Aryan Chauhan",
+            "lead_discord_id": "1116608716473638912",
+            "lead_email": "aryan22chauhan07@gmail.com",
+            "school": "GNIT IPU",
+            "health_score": 50,
+            "status": "active"
+        },
     },
     {
         "slug": "kolkata",
-        "city_name": "Kolkata",
+        "city_name": "Bits&Bytes Kolkata",
         "discord_city_role_id": "1490413148543385822",
         "discord_contributor_role_id": "1508767029593899160",
-        "is_active": False,
-        "metadata": {"node_code": "Node 08", "status": "onboarding"},
-    },
-    {
-        "slug": "solan",
-        "city_name": "Solan",
-        "discord_city_role_id": "1508052399338688613",
-        "discord_contributor_role_id": "1508767065308135525",
-        "is_active": False,
-        "metadata": {"node_code": "Node 09", "status": "onboarding"},
-    },
-    {
-        "slug": "beawar",
-        "city_name": "Beawar",
-        "discord_city_role_id": "1508052414215749683",
-        "discord_contributor_role_id": "1508767089081450587",
-        "is_active": False,
-        "metadata": {"node_code": "Node 10", "status": "onboarding"},
+        "is_active": True,
+        "metadata": {
+            "node_code": "FORK-02",
+            "lead_name": "Shoryavardhaan Gupta",
+            "lead_discord_id": "1232542226807128094",
+            "lead_email": "shoryavardhaan@gmail.com",
+            "school": "South Point High School",
+            "health_score": 45,
+            "status": "active"
+        },
     },
 ]
 
@@ -800,7 +767,7 @@ async def seed_city_forks(session: AsyncSession) -> None:
                 "metadata": json.dumps(fork.get("metadata", {})),
             },
         )
-    logger.info("Seeded %d city forks (Lucknow HQ active, 9 onboarding nodes).", len(CITY_FORKS))
+    logger.info("Seeded %d city forks from Notion DB ground truth (HQ, Noida, Kolkata).", len(CITY_FORKS))
 
 
 async def seed_team_profiles(session: AsyncSession) -> None:
@@ -941,14 +908,11 @@ timestamp: 2026-08-04T00:00:00Z
 
 
 async def run_seeds(session: AsyncSession) -> None:
-    """Run all database and knowledge base seeds idempotently."""
-    logger.info("Running database and OKF seeds…")
+    """Run system infrastructure and OKF rules seeds (no dummy/fake data seeding)."""
+    logger.info("Running database infrastructure and OKF seeds…")
     await seed_system_groups(session)
     await seed_core_permissions(session)
     await seed_discord_role_mappings(session)
-    await seed_city_forks(session)
-    await seed_team_profiles(session)
-    await seed_chart_of_accounts(session)
     seed_okf_rules()
     await session.commit()
-    logger.info("Database seeds completed successfully.")
+    logger.info("Database infrastructure seeds completed successfully.")

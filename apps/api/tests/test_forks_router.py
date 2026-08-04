@@ -21,17 +21,18 @@ def override_db(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_list_forks(db_session: AsyncSession, super_admin: User):
-    # Run the seeder to populate default forks
-    await run_seeds(db_session)
+    fork = Fork(slug="noida", city_name="Bits&Bytes Noida", metadata_json={})
+    db_session.add(fork)
+    await db_session.commit()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await request_as(ac, super_admin.id, "GET", "/api/forks/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) >= 4  # Delhi, Bangalore, Hyderabad, Kolkata
+        assert len(data) >= 1
         slugs = [f["slug"] for f in data]
-        assert "delhi" in slugs
+        assert "noida" in slugs
 
 
 @pytest.mark.asyncio
