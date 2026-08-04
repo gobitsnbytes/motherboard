@@ -10,6 +10,8 @@ from app.database import get_session
 from app.services.llm_client import SparkCloudAIClient, get_llm_client
 from app.services.okf_engine import DeterministicRuleEngine, get_okf_store
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.models import User
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +59,7 @@ async def test_contract_assistant_rules_endpoint():
 
 
 @pytest.mark.asyncio
-async def test_contract_assistant_autofix_endpoint(auth_headers):
+async def test_contract_assistant_autofix_endpoint(super_admin: User):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         payload = {
             "clause_text": "Vendor shall provide uncapped liability for all damages.",
@@ -65,7 +67,7 @@ async def test_contract_assistant_autofix_endpoint(auth_headers):
             "tier": 1,
             "policy_tag": "liability",
         }
-        response = await client.post("/api/contract-assistant/autofix", json=payload, headers=auth_headers)
+        response = await request_as(client, super_admin.id, "POST", "/api/contract-assistant/autofix", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["tier"] == 1

@@ -18,6 +18,8 @@ os.environ.setdefault("API_INTERNAL_SECRET", "mock_internal_secret")
 os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
 os.environ.setdefault("SPARKCLOUD_API_KEY", "sc-ai-test_key_123")
 os.environ.setdefault("INBOUND_EMAIL_WEBHOOK_SECRET", "inbound_sec_8f9a2b4c1d3e5f6g")
+os.environ.setdefault("SMTP_PASS", "test_smtp_pass_123")
+os.environ.setdefault("DISCORD_CLOUD_APPROVAL_WEBHOOK_URL", "https://discord.com/api/webhooks/mock_cloud_approval")
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
