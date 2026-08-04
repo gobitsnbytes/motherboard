@@ -1,6 +1,6 @@
 {
-  "name": "@bnb-plugins/sample_plugin",
-  "version": "0.1.0",
+  "name": "@bnb-plugins/signatures_vault",
+  "version": "1.0.0",
   "private": true,
   "main": "./ui/index.tsx",
   "dependencies": {
