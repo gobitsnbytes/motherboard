@@ -143,12 +143,143 @@ def _normalize_status(raw_status: Optional[str]) -> str:
     return "in_review"
 
 
+async def _sync_signature_request_to_ca_contract(db: DbSession, sig_req: SignatureRequest) -> ContractAssistantContract:
+    """Auto-ingest and analyze a SignatureRequest into ContractAssistantContract if unlinked."""
+    counterparty = sig_req.recipients[0].name if sig_req.recipients else "GOBITSNBYTES FOUNDATION"
+    c_status = "out_for_signature" if sig_req.status in ("pending", "sent") else "dotted" if sig_req.status == "completed" else "in_review"
+
+    ca_contract = ContractAssistantContract(
+        id=sig_req.id,
+        title=sig_req.title,
+        counterparty=counterparty,
+        status=c_status,
+        value="Official Contract",
+        original_file_path=sig_req.original_file_path,
+        created_by=sig_req.created_by,
+        created_at=sig_req.created_at or datetime.now(timezone.utc),
+    )
+    db.add(ca_contract)
+
+    envelope = ContractAssistantEnvelope(
+        contract_id=ca_contract.id,
+        signature_request_id=sig_req.id,
+        status=sig_req.status,
+    )
+    db.add(envelope)
+
+    for r in sig_req.recipients:
+        sig = ContractAssistantSignatory(
+            contract_id=ca_contract.id,
+            name=r.name,
+            email=r.email,
+            role=r.role,
+            envelope_status=r.status,
+        )
+        db.add(sig)
+
+    text_to_analyze = sig_req.title
+    extracted_clauses = []
+
+    if sig_req.original_file_path and os.path.exists(sig_req.original_file_path):
+        try:
+            import fitz
+            doc = fitz.open(sig_req.original_file_path)
+            full_text = ""
+            for p_idx, page in enumerate(doc, 1):
+                p_text = page.get_text("text") or ""
+                full_text += f"\n{p_text}"
+                if p_text.strip():
+                    extracted_clauses.append((f"§{p_idx}.0", f"Page {p_idx} Terms", p_text.strip()[:1500], p_idx))
+            if full_text.strip():
+                text_to_analyze = full_text
+        except Exception as e:
+            logger.warning(f"Failed PDF text extraction for {sig_req.id}: {e}")
+
+    if not extracted_clauses:
+        extracted_clauses.append(("§1.0", f"Agreement Scope: {sig_req.title}", f"Official legal agreement: {sig_req.title}. Tracked under bnb-signatures with {len(sig_req.recipients)} signatories.", 1))
+
+    clause_objs = []
+    for ref, heading, clause_text, page_num in extracted_clauses:
+        cl = ContractAssistantClause(
+            contract_id=ca_contract.id,
+            ref=ref,
+            heading=heading,
+            text=clause_text,
+            page_number=page_num,
+        )
+        db.add(cl)
+        clause_objs.append(cl)
+
+    # OKF Rule Engine Evaluation
+    okf_store = get_okf_store()
+    eval_results = okf_store.evaluate_contract_text(text_to_analyze)
+    for idx, res in enumerate(eval_results, 1):
+        target_cl = clause_objs[0] if clause_objs else None
+        f = ContractAssistantFinding(
+            contract_id=ca_contract.id,
+            clause_id=target_cl.id if target_cl else None,
+            clause_ref=target_cl.ref if target_cl else "§1.0",
+            heading=res.rule_title,
+            source="rule_engine",
+            severity=res.severity,
+            risk_type=res.rule_title,
+            plain_english=res.matched_snippet,
+            suggested_action=res.guidance_note or "Review against OKF playbook.",
+            policy_link=res.file_path,
+            tier=1,
+            status="open",
+        )
+        db.add(f)
+
+    ev = ContractAssistantEvent(
+        contract_id=ca_contract.id,
+        type="ingested",
+        payload={"title": ca_contract.title, "source": "signature_request_sync"},
+    )
+    db.add(ev)
+
+    await db.commit()
+
+    stmt = (
+        select(ContractAssistantContract)
+        .options(
+            selectinload(ContractAssistantContract.clauses),
+            selectinload(ContractAssistantContract.findings),
+            selectinload(ContractAssistantContract.signatories),
+            selectinload(ContractAssistantContract.envelopes),
+            selectinload(ContractAssistantContract.events),
+        )
+        .where(ContractAssistantContract.id == ca_contract.id)
+    )
+    res = await db.execute(stmt)
+    return res.scalar_one()
+
+
 @router.get("/contracts")
 async def list_pipeline_contracts(
     db: DbSession,
     current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
 ):
     """List all pipeline contracts with real database metrics (merging ca_contracts & signature_requests)."""
+    # Auto-sync any unlinked SignatureRequest entries
+    sig_stmt = (
+        select(SignatureRequest)
+        .options(selectinload(SignatureRequest.recipients))
+    )
+    sig_res = await db.execute(sig_stmt)
+    all_sig_reqs = sig_res.scalars().all()
+
+    existing_ca_stmt = select(ContractAssistantEnvelope)
+    env_res = await db.execute(existing_ca_stmt)
+    linked_sig_ids = {env.signature_request_id for env in env_res.scalars().all()}
+
+    for sr in all_sig_reqs:
+        if sr.id not in linked_sig_ids:
+            try:
+                await _sync_signature_request_to_ca_contract(db, sr)
+            except Exception as e:
+                logger.error(f"Failed to auto-sync signature request {sr.id}: {e}")
+
     stmt = (
         select(ContractAssistantContract)
         .options(
@@ -163,13 +294,8 @@ async def list_pipeline_contracts(
 
     output = []
     now = datetime.now(timezone.utc)
-    linked_sig_req_ids = set()
 
     for c in contracts:
-        for env in c.envelopes:
-            if env.signature_request_id:
-                linked_sig_req_ids.add(env.signature_request_id)
-
         high_open = sum(1 for f in c.findings if f.severity == "high" and f.status == "open")
         med_open = sum(1 for f in c.findings if f.severity == "medium" and f.status == "open")
         low_open = sum(1 for f in c.findings if f.severity == "low" and f.status == "open")
@@ -199,37 +325,6 @@ async def list_pipeline_contracts(
             "high_risks": high_open,
             "medium_risks": med_open,
             "low_risks": low_open,
-        })
-
-    # Query unlinked SignatureRequest entries
-    sig_stmt = (
-        select(SignatureRequest)
-        .options(selectinload(SignatureRequest.recipients))
-        .order_by(SignatureRequest.created_at.desc())
-    )
-    sig_res = await db.execute(sig_stmt)
-    unlinked_sig_reqs = [sr for sr in sig_res.scalars().all() if sr.id not in linked_sig_req_ids]
-
-    for sr in unlinked_sig_reqs:
-        created_at_utc = sr.created_at.replace(tzinfo=timezone.utc) if sr.created_at and sr.created_at.tzinfo is None else sr.created_at
-        days_in_stage = (now - created_at_utc).days if created_at_utc else 0
-        pipeline_status = _normalize_status(sr.status)
-        counterparty = sr.recipients[0].name if sr.recipients else "GOBITSNBYTES FOUNDATION"
-
-        output.append({
-            "id": str(sr.id),
-            "title": sr.title,
-            "counterparty": counterparty,
-            "status": pipeline_status,
-            "raw_status": sr.status,
-            "value": "Official Contract",
-            "signatories_count": len(sr.recipients) if sr.recipients else 1,
-            "highest_risk": "none",
-            "created_at": created_at_utc.isoformat() if created_at_utc else now.isoformat(),
-            "days_in_stage": days_in_stage,
-            "high_risks": 0,
-            "medium_risks": 0,
-            "low_risks": 0,
         })
 
     output.sort(key=lambda x: x.get("created_at") or "", reverse=True)
@@ -277,30 +372,11 @@ async def get_contract_detail(
         if not sig_req:
             raise HTTPException(status_code=404, detail="Contract not found")
 
-        pipeline_status = _normalize_status(sig_req.status)
-
-        return {
-            "id": str(sig_req.id),
-            "title": sig_req.title,
-            "counterparty": sig_req.recipients[0].name if sig_req.recipients else "GOBITSNBYTES FOUNDATION",
-            "status": pipeline_status,
-            "value": "Official Contract",
-            "created_at": sig_req.created_at.isoformat() if sig_req.created_at else None,
-            "clauses": [
-                {
-                    "id": f"cl_{sig_req.id}_1",
-                    "ref": "§1.0",
-                    "heading": sig_req.title,
-                    "text": f"Official digital signature request ({sig_req.title}). Dispatched with {len(sig_req.recipients)} tracked signatories.",
-                    "page_number": 1,
-                }
-            ],
-            "findings": [],
-            "signatories": [
-                {"id": str(s.id), "name": s.name, "email": s.email, "role": s.role, "status": s.status}
-                for s in sig_req.recipients
-            ],
-        }
+        try:
+            contract = await _sync_signature_request_to_ca_contract(db, sig_req)
+        except Exception as e:
+            logger.error(f"Error syncing contract detail for {sig_req.id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to sync contract legal overview")
 
     clauses_out = [
         {
