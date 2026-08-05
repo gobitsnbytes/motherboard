@@ -258,6 +258,23 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Overview Dashboard Card (`apps/web/components/dashboard/OverviewContent.tsx`)**: Added a dedicated Dyslexic StatCard on the main overview dashboard linking to `/dashboard/dyslexic`. Updated `lib/dashboard.ts` to fetch live Dyslexic metrics via `/api/dyslexic/stats`.
 - **Root Router Handlers (`apps/api/app/routers/dyslexic.py`)**: Added `@router.get("")` and `@router.get("/")` root endpoints on `APIRouter(prefix="/api/dyslexic")` to return dashboard stats and prevent direct GET `404` errors.
 - **Ground-Truth Seeding Cleanup (`apps/api/app/db/seed.py`)**: Updated `seed_city_forks` to purge non-ground-truth fake/legacy forks and enforced real Notion ground-truth city forks (Lucknow HQ, Noida, Kolkata) and real team profiles in `run_seeds`.
-- **Verification**: All 195 backend tests passed 100% green via `pytest`.
+### 2026-08-05
+
+**S49 — Signature Email OTP, Class 1/2/3 DSC Support & IT Act Legal Page (`bnb-signatures`)**:
+- **Unauthenticated Public Signing Access**: Updated `apps/web/app/api/[...path]/route.ts` to permit unauthenticated proxy access to `/api/signatures/sign/*` and `/api/signatures/verify/*` so external signatories can sign without NextAuth sessions.
+- **6-Digit Email OTP Security Engine**: Added 2-stage verification flow (`POST /api/signatures/sign/{token}/request-otp` and `POST /api/signatures/sign/{token}/verify-otp`) with masked email challenge (e.g. `ak*******@g****.com`), 2-minute expiration countdown timer, background SMTP email dispatching, and per-recipient toggle in contract builder (`/dashboard/signatures/builder`).
+- **Class 1, 2, 3 Digital Signature Certificate (DSC) Engine**:
+  - Added `dsc_type`, `dsc_issuer`, `dsc_serial`, `dsc_common_name`, `allowed_sig_type` columns to `SignatureRecipient` model and Alembic migration `e5f6a1b2c3d4`.
+  - Added endpoints `/api/signatures/sign/{token}/dsc-digest`, `/api/signatures/sign/{token}/dsc-hardware-seal` (for USB dongles ePass2003, HYP2003, eMudhra, NIC, VSign), and `/api/signatures/sign/{token}/dsc-pfx-seal` (for `.pfx` / `.p12` certificates via Python `cryptography.x509` and `pkcs12`).
+  - Added dedicated **"DSC (Class 1/2/3)"** tab inside `SignatureCanvas.tsx` for hardware USB tokens and software certificates.
+- **Statutory Legal Validity Page & Modal**:
+  - Rendered a statutory legal framework modal and bottom footer cards on `/sign/[token]` referencing `d:/bitsnbytes/agreements/legal-docs/trust-center/terms-of-service.txt`:
+    - Operating Entity: GOBITSNBYTES FOUNDATION (Section 8 Non-Profit Company under Companies Act 2013, Uttar Pradesh, India).
+    - Section 10A of the IT Act, 2000: Enforceability of electronic contracts and e-signatures in Indian courts.
+    - Section 65B of the Indian Evidence Act / BSA 2023: Primary electronic evidence admissibility for SHA-256 document checksums, execution timestamps, IP addresses, and email OTP logs.
+    - DPDP Act 2023 & POCSO minor safeguarding compliance.
+    - Cryptographic SHA-256 tamper-evident sealing.
+- **Flexible Recipient Security Modes**: Added `allowed_sig_type` dropdown in `/dashboard/signatures/builder` per recipient: `"any"` (Default: DSC if available, or Simple OTP), `"dsc_only"`, and `"email_only"`.
+- **Verification**: `bun run typecheck` passed cleanly (exit code 0 across `apps/web`), 4/4 signature backend tests passed 100% green via `pytest`. Pushed commit `8d2fd4a` to `origin/prod`.
 
 
