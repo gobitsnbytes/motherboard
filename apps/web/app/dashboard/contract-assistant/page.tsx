@@ -24,7 +24,7 @@ interface PipelineContract {
   id: string;
   title: string;
   counterparty: string;
-  status: "in_review" | "out_for_signature" | "dotted";
+  status: string;
   value?: string;
   signatories_count: number;
   highest_risk: "high" | "medium" | "low" | "none";
