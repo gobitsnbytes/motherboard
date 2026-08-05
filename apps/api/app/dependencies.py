@@ -191,3 +191,6 @@ async def get_optional_user(
         return None
 
 
+OptionalUserDep = Annotated[ResolvedPrincipal | None, Depends(get_optional_user)]
+
+
