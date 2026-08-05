@@ -293,7 +293,7 @@ async def resend_recipient_invitation(
     recipient_id: uuid.UUID,
     bg_tasks: BackgroundTasks,
     db: DbSession = None,
-    current_user: ResolvedPrincipal = Depends(get_current_user),
+    current_user: OptionalUserDep = None,
 ):
     """Resend email invitation for a specific recipient."""
     stmt = (
