@@ -1,0 +1,10 @@
+{
+  "name": "@bnb-plugins/minecraft-server",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@bnb/ui": "workspace:*",
+    "lucide-react": "^0.474.0",
+    "react": "^19.0.0"
+  }
+}

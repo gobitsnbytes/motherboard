@@ -8,8 +8,8 @@ const nextConfig = {
     return {
       fallback: [
         {
-          source: '/api/:path*',
-          destination: `${process.env.API_URL || 'http://api:8000'}/api/:path*`,
+          source: "/api/:path*",
+          destination: `${process.env.API_URL || "http://api:8000"}/api/:path*`,
         },
       ],
     };
