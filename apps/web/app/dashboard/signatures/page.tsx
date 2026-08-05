@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2 } from "lucide-react";
+import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2, Mail } from "lucide-react";
 
 interface SignatureRequestItem {
   id: string;
@@ -43,6 +43,27 @@ export default function SignaturesDashboardPage() {
       console.error("Failed to fetch signature requests", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  const handleResend = async (requestId: string, recipientId: string) => {
+    setResendingId(recipientId);
+    try {
+      const res = await fetch(`/api/signatures/requests/${requestId}/recipients/${recipientId}/resend`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        alert("Signature invitation email resent successfully!");
+      } else {
+        alert("Failed to resend signature invitation.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error resending signature email.");
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -299,6 +320,18 @@ export default function SignaturesDashboardPage() {
                                 {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                                 {isCopied ? "Copied Link!" : "Copy Link"}
                               </button>
+                              {r.status !== "signed" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResend(req.id, r.id)}
+                                  disabled={resendingId === r.id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold transition-all bg-[#3C0A12] text-white border-[#120F0A] hover:bg-[#97192C] disabled:opacity-50"
+                                  title="Resend signature email notification"
+                                >
+                                  <Mail className="w-3 h-3" />
+                                  {resendingId === r.id ? "Sending..." : "Resend"}
+                                </button>
+                              )}
                             </div>
                           );
                         })}

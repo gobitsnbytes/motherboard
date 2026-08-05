@@ -287,6 +287,55 @@ async def create_signature_request(
     return result.scalar_one()
 
 
+@router.post("/requests/{request_id}/recipients/{recipient_id}/resend")
+async def resend_recipient_invitation(
+    request_id: uuid.UUID,
+    recipient_id: uuid.UUID,
+    bg_tasks: BackgroundTasks,
+    db: DbSession = None,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
+    """Resend email invitation for a specific recipient."""
+    stmt = (
+        select(SignatureRecipient)
+        .options(selectinload(SignatureRecipient.request))
+        .where(SignatureRecipient.id == recipient_id, SignatureRecipient.request_id == request_id)
+    )
+    res = await db.execute(stmt)
+    recipient = res.scalar_one_or_none()
+
+    if not recipient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipient or request not found")
+
+    settings = get_settings()
+    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+        from app.routers.meetings import send_smtp_email
+        sign_url = f"{settings.nextauth_url}/sign/{recipient.access_token}"
+        subject = f"Action Required: Signature Request for {recipient.request.title}"
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; padding: 24px; color: #120F0A; background-color: #FAF8F5;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 2px solid #120F0A; border-radius: 12px; padding: 24px; box-shadow: 4px 4px 0px 0px #120F0A;">
+                <h2 style="color: #97192C; margin-top: 0;">bits&amp;bytes™ Legal Signature Portal</h2>
+                <p style="font-size: 14px; line-height: 1.6;">Hello <strong>{recipient.name}</strong>,</p>
+                <p style="font-size: 14px; line-height: 1.6;">You have been requested to review and sign the digital contract: <strong>{recipient.request.title}</strong>.</p>
+                <div style="margin: 28px 0; text-align: center;">
+                    <a href="{sign_url}" style="background-color: #97192C; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; border: 2px solid #120F0A; box-shadow: 2px 2px 0px 0px #120F0A;">
+                        Review &amp; Sign Contract
+                    </a>
+                </div>
+                <p style="font-size: 12px; color: #716F6C; margin-top: 20px;">
+                    Direct Link: <a href="{sign_url}" style="color: #97192C; text-decoration: underline;">{sign_url}</a>
+                </p>
+                <hr style="border: none; border-top: 1px solid #D0CFCE; margin: 24px 0;"/>
+                <p style="font-size: 11px; color: #716F6C; margin-bottom: 0;">Sent securely by GOBITSNBYTES FOUNDATION Legal Team (legal@gobitsnbytes.org).</p>
+            </div>
+        </div>
+        """
+        bg_tasks.add_task(send_smtp_email, settings, recipient.email, subject, html_body)
+
+    return {"status": "success", "message": f"Invitation email resent to {recipient.email}"}
+
+
 @router.get("/requests", response_model=List[SignatureRequestResponse])
 async def list_signature_requests(
     db: DbSession = None,
