@@ -65,10 +65,14 @@ async def setup_db(request):
     clear_db_cache()
     get_settings.cache_clear()
     
-    # Recreate all tables so every test starts with an isolated clean database
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+        def init_tables(sync_conn):
+            try:
+                Base.metadata.drop_all(sync_conn, checkfirst=True)
+            except Exception:
+                pass
+            Base.metadata.create_all(sync_conn)
+        await conn.run_sync(init_tables)
     yield
 
 

@@ -137,7 +137,7 @@ async def list_pipeline_contracts(
     db: DbSession,
     current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
 ):
-    """List all pipeline contracts with real database metrics."""
+    """List all pipeline contracts with real database metrics (merging ca_contracts & signature_requests)."""
     stmt = (
         select(ContractAssistantContract)
         .options(
@@ -152,7 +152,13 @@ async def list_pipeline_contracts(
 
     output = []
     now = datetime.now(timezone.utc)
+    linked_sig_req_ids = set()
+
     for c in contracts:
+        for env in c.envelopes:
+            if env.signature_request_id:
+                linked_sig_req_ids.add(env.signature_request_id)
+
         high_open = sum(1 for f in c.findings if f.severity == "high" and f.status == "open")
         med_open = sum(1 for f in c.findings if f.severity == "medium" and f.status == "open")
         low_open = sum(1 for f in c.findings if f.severity == "low" and f.status == "open")
@@ -182,6 +188,38 @@ async def list_pipeline_contracts(
             "medium_risks": med_open,
             "low_risks": low_open,
         })
+
+    # Query unlinked SignatureRequest entries
+    sig_stmt = (
+        select(SignatureRequest)
+        .options(selectinload(SignatureRequest.recipients))
+        .order_by(SignatureRequest.created_at.desc())
+    )
+    sig_res = await db.execute(sig_stmt)
+    unlinked_sig_reqs = [sr for sr in sig_res.scalars().all() if sr.id not in linked_sig_req_ids]
+
+    for sr in unlinked_sig_reqs:
+        created_at_utc = sr.created_at.replace(tzinfo=timezone.utc) if sr.created_at and sr.created_at.tzinfo is None else sr.created_at
+        days_in_stage = (now - created_at_utc).days if created_at_utc else 0
+        pipeline_status = "dotted" if sr.status == "completed" else "out_for_signature" if sr.status in ("pending", "sent") else "in_review"
+        counterparty = sr.recipients[0].name if sr.recipients else "GOBITSNBYTES FOUNDATION"
+
+        output.append({
+            "id": str(sr.id),
+            "title": sr.title,
+            "counterparty": counterparty,
+            "status": pipeline_status,
+            "value": "Official Contract",
+            "signatories_count": len(sr.recipients) if sr.recipients else 1,
+            "highest_risk": "none",
+            "created_at": created_at_utc.isoformat() if created_at_utc else now.isoformat(),
+            "days_in_stage": days_in_stage,
+            "high_risks": 0,
+            "medium_risks": 0,
+            "low_risks": 0,
+        })
+
+    output.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return output
 
 
@@ -212,7 +250,44 @@ async def get_contract_detail(
     contract = result.scalar_one_or_none()
 
     if not contract:
-        raise HTTPException(status_code=404, detail="Contract not found")
+        sig_stmt = (
+            select(SignatureRequest)
+            .options(
+                selectinload(SignatureRequest.recipients),
+                selectinload(SignatureRequest.audit_logs),
+            )
+            .where(SignatureRequest.id == contract_uuid)
+        )
+        sig_res = await db.execute(sig_stmt)
+        sig_req = sig_res.scalar_one_or_none()
+
+        if not sig_req:
+            raise HTTPException(status_code=404, detail="Contract not found")
+
+        pipeline_status = "dotted" if sig_req.status == "completed" else "out_for_signature" if sig_req.status in ("pending", "sent") else "in_review"
+
+        return {
+            "id": str(sig_req.id),
+            "title": sig_req.title,
+            "counterparty": sig_req.recipients[0].name if sig_req.recipients else "GOBITSNBYTES FOUNDATION",
+            "status": pipeline_status,
+            "value": "Official Contract",
+            "created_at": sig_req.created_at.isoformat() if sig_req.created_at else None,
+            "clauses": [
+                {
+                    "id": f"cl_{sig_req.id}_1",
+                    "ref": "§1.0",
+                    "heading": sig_req.title,
+                    "text": f"Official digital signature request ({sig_req.title}). Dispatched with {len(sig_req.recipients)} tracked signatories.",
+                    "page_number": 1,
+                }
+            ],
+            "findings": [],
+            "signatories": [
+                {"id": str(s.id), "name": s.name, "email": s.email, "role": s.role, "status": s.status}
+                for s in sig_req.recipients
+            ],
+        }
 
     clauses_out = [
         {
