@@ -1,15 +1,16 @@
 """
-Finance router — GOBITSNBYTES FOUNDATION Virtual Ledger + Banking API.
+Finance router — GOBITSNBYTES FOUNDATION Virtual Ledger API.
 
-Powered by RazorpayX (future real integration). All money flows are on paper only —
-a single real current account sits underneath. Requires IAM-based authentication
-via signed internal proxy headers and finance.* permissions.
+Internal virtual budgeting system for tracking allocations, expenses, and transfers
+across forks and departments. All balances are tracked in the database as virtual
+ledger entries — no real banking integration is active. Requires IAM-based
+authentication via signed internal proxy headers and finance.* permissions.
+
+Future: Wire to RazorpayX for real virtual account creation and payouts.
 """
 
 from __future__ import annotations
 
-import random
-import string
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
@@ -42,8 +43,14 @@ router = APIRouter(prefix="/api/finance", tags=["finance"])
 # ---------------------------------------------------------------------------
 
 def _gen_account_number() -> str:
-    """Generate a fake unique 12-digit account number."""
-    return "".join(random.choices(string.digits, k=12))
+    """Generate a deterministic virtual ledger account number.
+
+    Uses a VIRT- prefix to make it clear these are internal tracking numbers,
+    not real banking account numbers. The numeric portion is derived from a
+    UUID to ensure uniqueness without pure randomness.
+    """
+    uid = uuid.uuid4().hex[:10].upper()
+    return f"VIRT-{uid}"
 
 
 async def _require_finance(db, user, perm: str) -> None:
@@ -71,13 +78,14 @@ async def finance_info() -> dict:
         "name": "GOBITSNBYTES FOUNDATION Finance API",
         "version": "0.2.0",
         "description": (
-            "Internal finance operations module for the bits&bytes network. "
+            "Internal virtual finance ledger for the bits&bytes network. "
             "Handles virtual budgeting, expense tracking, reimbursements, and "
-            "financial reporting across all city forks. Powered by RazorpayX."
+            "financial reporting across all city forks. All balances are "
+            "internal tracking entries — no real banking integration is active."
         ),
         "status": "active",
         "organization": "GOBITSNBYTES FOUNDATION",
-        "banking_provider": "RazorpayX",
+        "banking_provider": "Virtual Ledger (RazorpayX planned)",
         "contact": "finance@gobitsnbytes.org",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
@@ -227,7 +235,7 @@ async def create_card(
     if not account or not account.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found or inactive.")
 
-    last_four = "".join(random.choices(string.digits, k=4))
+    last_four = uuid.uuid4().hex[:4].upper()
     card = VirtualCard(
         account_id=payload.account_id,
         holder_id=payload.holder_id,

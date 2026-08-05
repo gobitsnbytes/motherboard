@@ -117,34 +117,44 @@ async def analyze_contract_file(
     except Exception as err:
         raise HTTPException(status_code=400, detail=f"Document parsing error: {err}")
 
-    # Extract sample clause breakdown from text
-    sample_clauses = [
-        {
-            "ref": "§1.1",
-            "heading": "Scope of Services & Deliverables",
-            "text": "Vendor agrees to provide IT infrastructure management and software consultation services as outlined in Exhibit A.",
-        },
-        {
-            "ref": "§3.2",
-            "heading": "Payment Terms & Invoicing",
-            "text": "Invoices shall be generated monthly. All undisputed invoice amounts shall be payable by Customer within Net 90 days from receipt.",
-        },
-        {
-            "ref": "§4.2",
-            "heading": "Term & Automatic Renewal",
-            "text": "This Agreement shall automatically renew for successive 1-year terms unless either party provides written notice of non-renewal at least 90 days prior to the expiration of the initial term.",
-        },
-        {
-            "ref": "§8.1",
-            "heading": "Limitation of Liability & Indemnification",
-            "text": "Neither party shall limit its liability for damages under this Agreement. Vendor shall provide uncapped indemnity for any operational outages or consequential loss.",
-        },
-        {
-            "ref": "§12.4",
-            "heading": "Governing Law & Venue",
-            "text": "This Agreement shall be governed by and construed in accordance with the laws of the State of New York, without regard to conflict of law principles.",
-        },
-    ]
+    import fitz
+    import re
+    
+    # Extract real clauses from PDF text
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        full_text = ""
+        for page in doc:
+            full_text += page.get_text() + "\n\n"
+        doc.close()
+    except Exception as err:
+        raise HTTPException(status_code=400, detail=f"Text extraction error: {err}")
+
+    paragraphs = [p.strip() for p in re.split(r'\n\s*\n', full_text) if len(p.strip()) > 20]
+    
+    extracted_clauses = []
+    for i, p in enumerate(paragraphs):
+        lines = p.split('\n', 1)
+        heading = lines[0].strip()
+        text = lines[1].strip().replace('\n', ' ') if len(lines) > 1 else p.replace('\n', ' ')
+        if not text:
+            text = heading
+            
+        ref_match = re.match(r'^(§\s*\d+(?:\.\d+)?|Section\s*\d+|Article\s*[IVX0-9]+)', heading, re.IGNORECASE)
+        ref = ref_match.group(1) if ref_match else f"Clause {i+1}"
+        
+        extracted_clauses.append({
+            "ref": ref,
+            "heading": heading[:100],
+            "text": text
+        })
+
+    if not extracted_clauses:
+        extracted_clauses.append({
+            "ref": "Doc",
+            "heading": "Full Document",
+            "text": full_text.replace('\n', ' ')[:2000]
+        })
 
     okf_store = get_okf_store()
     rule_engine = DeterministicRuleEngine(okf_store)
@@ -155,7 +165,7 @@ async def analyze_contract_file(
     med_count = 0
     low_count = 0
 
-    for clause in sample_clauses:
+    for clause in extracted_clauses:
         # Step 1: Deterministic Rule Check (0 LLM cost)
         rule_findings = rule_engine.evaluate_clause(clause["ref"], clause["heading"], clause["text"])
 
@@ -219,7 +229,7 @@ async def analyze_contract_file(
         contract_id=contract_id,
         filename=filename,
         title=filename.replace(".pdf", "").replace("_", " ").title(),
-        total_clauses=len(sample_clauses),
+        total_clauses=len(extracted_clauses),
         high_risks=high_count,
         medium_risks=med_count,
         low_risks=low_count,
@@ -363,7 +373,16 @@ async def ask_across_contracts(
     matching_docs = okf_store.search(payload.question)
     context_str = "\n".join([f"[{doc.title}]: {doc.description}" for doc in matching_docs[:3]])
 
-    answer = f"Based on OKF policy context ({len(matching_docs)} matching documents retrieved), the governing rule for '{payload.question}' enforces standard sectional compliance."
+    answer = ""
+
+    messages = [
+        {"role": "system", "content": "You are a legal contract assistant for GOBITSNBYTES FOUNDATION. Use the provided policy context to answer the question accurately and concisely."},
+        {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {payload.question}"}
+    ]
+    try:
+        answer = llm_client._chat_completion(messages)
+    except Exception:
+        answer = f"Unable to generate an AI response. {len(matching_docs)} matching OKF policy documents were found for your query."
 
     return {
         "question": payload.question,

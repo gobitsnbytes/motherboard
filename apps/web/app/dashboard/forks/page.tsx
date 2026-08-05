@@ -38,22 +38,48 @@ interface ForkNode {
   member_count?: number;
 }
 
+interface ForkOnboardingItem {
+  fork_id: string;
+  city_name: string;
+  slug: string;
+  stage: "submitted" | "in_review" | "compliance_check" | "approved" | "archived";
+  is_active: boolean;
+  health_score: number;
+  compliance_summary: {
+    passed_checks_count: number;
+    total_checks_count: number;
+  };
+  track_leads_assigned_count: number;
+  member_count: number;
+  remedies_needed: string[];
+}
+
 export default function DashboardForksPage() {
   const [forks, setForks] = useState<ForkNode[]>([]);
+  const [onboardingForks, setOnboardingForks] = useState<ForkOnboardingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOnboarding, setLoadingOnboarding] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchForksData = async () => {
     setLoading(true);
+    setLoadingOnboarding(true);
     setError(null);
     try {
       const data = await getForks();
       setForks(Array.isArray(data) ? data : []);
+
+      const obRes = await fetch("/api/forks/onboarding");
+      if (obRes.ok) {
+        const obData = await obRes.json();
+        setOnboardingForks(Array.isArray(obData) ? obData : []);
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to load Fork chapter network topology.");
     } finally {
       setLoading(false);
+      setLoadingOnboarding(false);
     }
   };
 
@@ -198,7 +224,7 @@ export default function DashboardForksPage() {
               <EmptyState
                 icon={<GitBranch className="size-8 text-muted-foreground" />}
                 title="No active Fork nodes registered"
-                description="Use /admin-add-lead or /merge via Discord bot to onboard new local chapters."
+                description="No fork chapters registered yet. Use the Create Fork action from the Overview dashboard to onboard a new chapter."
               />
             ) : (
               <div className="space-y-3">
@@ -233,40 +259,93 @@ export default function DashboardForksPage() {
           </CardContent>
         </Card>
 
-        {/* Right Column: 7-Step Onboarding Checklist */}
+        {/* Right Column: Onboarding Pipeline */}
         <Card className="border-2 border-border shadow-shadow">
           <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border pb-4">
             <div className="flex items-center gap-2">
               <Zap className="size-5 text-[#97192C]" />
-              <CardTitle className="font-heading font-bold text-base">7-Step Onboarding Pipeline</CardTitle>
+              <CardTitle className="font-heading font-bold text-base">Fork Onboarding Pipeline</CardTitle>
             </div>
             <Badge variant="neutral" className="border-border font-mono text-[10px]">
               Provisioning Engine
             </Badge>
           </CardHeader>
-          <CardContent className="pt-4 space-y-2.5">
-            {[
-              { step: 1, name: "Accept GitHub Organization Invite", desc: "Access code repositories and templates" },
-              { step: 2, name: "Join Leads Council Discord", desc: "Access private operational channels" },
-              { step: 3, name: "Setup [city]@gobitsnbytes.org Email", desc: "Configure official chapter email handle" },
-              { step: 4, name: "Deploy Chapter Website Landing Page", desc: "Set up regional showcase page" },
-              { step: 5, name: "Connect Notion Database Workspace", desc: "Sync local events and attendees upstream" },
-              { step: 6, name: "Execute Initial `/pulse` Command", desc: "Establish weekly chapter activity metric" },
-              { step: 7, name: "Register Team & Outline First Event", desc: "Publish event pipeline to Cal.com sync" },
-            ].map((item) => (
-              <div
-                key={item.step}
-                className="flex items-center gap-3 rounded-base border border-border/60 bg-[#121212] p-2.5 text-xs text-foreground"
-              >
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#97192C] font-heading font-bold text-[11px] text-white">
-                  {item.step}
-                </div>
-                <div>
-                  <div className="font-heading font-bold text-white text-xs">{item.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{item.desc}</div>
-                </div>
+          <CardContent className="pt-4 space-y-3">
+            {loadingOnboarding ? (
+              <div className="space-y-3">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
               </div>
-            ))}
+            ) : onboardingForks.length === 0 ? (
+              <EmptyState
+                icon={<Zap className="size-8 text-muted-foreground" />}
+                title="No forks in pipeline"
+                description="Onboarding pipeline is clear."
+              />
+            ) : (
+              onboardingForks.map((fork) => (
+                <div
+                  key={fork.fork_id}
+                  className="flex flex-col gap-2 rounded-base border-2 border-border bg-[#111] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px]"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="size-4 text-[#FC920D]" />
+                      <span className="font-heading font-bold text-sm text-white">
+                        {fork.city_name}
+                      </span>
+                    </div>
+                    <Badge
+                      variant={
+                        fork.stage === "approved" ? "success" :
+                        fork.stage === "archived" ? "neutral" :
+                        "warning"
+                      }
+                      className="capitalize text-[10px]"
+                    >
+                      {fork.stage.replace("_", " ")}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Activity className="size-3" />
+                        Health: 
+                        <span className={`font-bold ${fork.health_score >= 70 ? 'text-green-400' : fork.health_score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {fork.health_score}/100
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="size-3" />
+                        Members: {fork.member_count} ({fork.track_leads_assigned_count} leads)
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground text-right flex flex-col justify-end">
+                      <div className="flex items-center justify-end gap-1">
+                        <ShieldCheck className="size-3" />
+                        <span className="font-bold text-white">{fork.compliance_summary.passed_checks_count}/{fork.compliance_summary.total_checks_count}</span> checks passed
+                      </div>
+                    </div>
+                  </div>
+
+                  {fork.remedies_needed && fork.remedies_needed.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-border/40">
+                      <div className="text-[10px] font-bold text-yellow-400 mb-1 flex items-center gap-1">
+                        <AlertTriangle className="size-3" />
+                        Remedies Needed:
+                      </div>
+                      <ul className="list-disc list-inside text-[10px] text-muted-foreground space-y-1">
+                        {fork.remedies_needed.map((remedy, idx) => (
+                          <li key={idx} className="line-clamp-2">{remedy}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
