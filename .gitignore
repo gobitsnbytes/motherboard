@@ -70,3 +70,5 @@ apps/api/data/signatures/
 .env*
 !.env.example
 
+
+.vercel
