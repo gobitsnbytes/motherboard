@@ -275,6 +275,6 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
     - DPDP Act 2023 & POCSO minor safeguarding compliance.
     - Cryptographic SHA-256 tamper-evident sealing.
 - **Flexible Recipient Security Modes**: Added `allowed_sig_type` dropdown in `/dashboard/signatures/builder` per recipient: `"any"` (Default: DSC if available, or Simple OTP), `"dsc_only"`, and `"email_only"`.
-- **Verification**: `bun run typecheck` passed cleanly (exit code 0 across `apps/web`), 4/4 signature backend tests passed 100% green via `pytest`. Pushed commit `8d2fd4a` to `origin/prod`.
+- **Verification**: `bun run typecheck` passed cleanly (exit code 0 across `apps/web`), 4/4 signature backend tests passed 100% green via `pytest`. Fixed Alembic branching migration tree multiple heads error (`a7f3c92b1d84` chained after `e5f6a1b2c3d4`). Pushed commits `8d2fd4a` and `a03583f` to `origin/prod`.
 
 
