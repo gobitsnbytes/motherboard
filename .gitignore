@@ -61,3 +61,12 @@ apps/api/*.db-shm
 # Local signature uploads & test artifacts
 data/signatures/
 apps/api/data/signatures/
+
+# Security & Secret safeguarding (SSH keys, tokens, environment files)
+*.key
+*.pem
+*.id_rsa
+*.id_ed25519
+.env*
+!.env.example
+

@@ -326,7 +326,7 @@ export function OverviewContent() {
                   </p>
                   <div className="flex gap-2 items-center">
                     <Input readOnly value="https://discord.gg/bitsnbytes" className="flex-1" />
-                    <Button variant="secondary" size="icon" onClick={() => {
+                    <Button variant="neutral" size="icon" onClick={() => {
                       navigator.clipboard.writeText("https://discord.gg/bitsnbytes");
                       alert("Copied to clipboard!");
                     }}>
