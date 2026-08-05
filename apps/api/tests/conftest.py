@@ -67,17 +67,27 @@ async def init_session_db():
     await engine.dispose()
 
 
+from sqlalchemy import text
+
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db(request):
-    # Clear DB engine cache and config settings cache
-    from app.database import clear_db_cache
+    import app.database
     from app.config import get_settings
     import app.db.models
-    clear_db_cache()
+
+    app.database.get_engine = lambda: engine
+    app.database.get_sessionmaker = lambda: TestingSessionLocal
     get_settings.cache_clear()
 
     async with engine.begin() as conn:
         await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
+
+    async with TestingSessionLocal() as session:
+        await session.execute(text("PRAGMA foreign_keys = OFF;"))
+        for table in Base.metadata.sorted_tables:
+            await session.execute(table.delete())
+        await session.execute(text("PRAGMA foreign_keys = ON;"))
+        await session.commit()
     yield
 
 
