@@ -277,4 +277,17 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Flexible Recipient Security Modes**: Added `allowed_sig_type` dropdown in `/dashboard/signatures/builder` per recipient: `"any"` (Default: DSC if available, or Simple OTP), `"dsc_only"`, and `"email_only"`.
 - **Verification**: `bun run typecheck` passed cleanly (exit code 0 across `apps/web`), 4/4 signature backend tests passed 100% green via `pytest`. Fixed Alembic branching migration tree multiple heads error (`a7f3c92b1d84` chained after `e5f6a1b2c3d4`). Pushed commits `8d2fd4a` and `a03583f` to `origin/prod`.
 
+**S50 — Database-Backed Contract Assistant & bnb-signatures Integration**:
+- **Database Persistence**: Updated `POST /api/contract-assistant/analyze` to extract real PDF text (PyMuPDF `fitz`), execute OKF deterministic rules & SparkCloud AI risk passes, and persist `ContractAssistantContract`, `ContractAssistantClause`, `ContractAssistantFinding`, and `ContractAssistantEvent` directly into database tables.
+- **Auto-Sync & Ingestion Engine (`_sync_signature_request_to_ca_contract`)**: Automatically ingests any unlinked `SignatureRequest` into `ContractAssistantContract`, running rule evaluations, generating risk findings, and rendering interactive legal overviews (`/dashboard/contract-assistant/[contractId]`).
+- **Resilient Pipeline Normalization**: Normalized status strings across backend and frontend (`pending`, `out_for_signature`, `dotted`, `voided`). Added fallback array handling so 100% of pipeline contracts display cleanly on the Kanban board.
+- **Vercel Build Fix**: Updated `PipelineContract` interface `status` type annotation in Next.js frontend, fixing Vercel deployment builds.
+
+**S51 — Agreement Quash / Void, Client-Side Export Purge & Legal Copy Polish**:
+- **Quash / Void Engine (`POST /api/contract-assistant/contracts/{id}/void`)**: Officially quashes and voids any agreement. Revokes all active recipient signing links and logs an immutable `VOIDED` audit log entry. Public signing/certificate portals state that execution was quashed by the issuing authority.
+- **Client-Side Export & Complete Data Purge (`DELETE /api/contract-assistant/contracts/{id}` & `GET /api/contract-assistant/contracts/{id}/export-void`)**: Generates an immediate client-side text download of an official **Certificate of Cancellation & Voided Copy** (with SHA-256 checksum, timestamps, registered parties, and statutory IT Act 2000 Sec 10A / BSA 65B notices), followed by a complete database deletion of all associated contract and signature records.
+- **Legal Copy Polish & UI Hardening**: Audited and polished `SigningPortalClient.tsx`, `verify/[documentId]`, and dashboard view pages to remove casual tone/placeholders and replace raw `alert()` popups with inline error banners.
+- **Verification**: `bun run --cwd apps/web build` passed cleanly with Next.js 15, and pytest suite passed 6/6 tests (100% green). Pushed to `origin/prod`.
+
+
 
