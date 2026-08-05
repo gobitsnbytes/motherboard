@@ -61,6 +61,7 @@ apps/api/*.db-shm
 # Local signature uploads & test artifacts
 data/signatures/
 apps/api/data/signatures/
+apps/api/data/*.db*
 
 # Security & Secret safeguarding (SSH keys, tokens, environment files)
 *.key

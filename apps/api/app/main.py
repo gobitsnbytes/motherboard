@@ -65,7 +65,21 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         async with session_factory() as session:
             await run_seeds(session)
     except Exception as db_err:
-        logger.warning(f"Database startup initialization skipped (DB unavailable or quota exceeded): {db_err}")
+        logger.warning("Primary DB migration/seed failed (%s). Initializing local SQLite engine fallback...", db_err)
+        try:
+            from app.database import get_sqlite_engine, clear_db_cache
+            from app.db.models import Base
+            sqlite_engine = get_sqlite_engine()
+            async with sqlite_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            os.environ["USE_LOCAL_SQLITE"] = "true"
+            clear_db_cache()
+            session_factory = get_sessionmaker()
+            async with session_factory() as session:
+                await run_seeds(session)
+            logger.info("Local SQLite database fallback initialized & seeded successfully.")
+        except Exception as sqlite_err:
+            logger.error("Failed to initialize SQLite fallback: %s", sqlite_err)
 
     # Start the event bus so that plugins can publish/subscribe during on_load
     try:
