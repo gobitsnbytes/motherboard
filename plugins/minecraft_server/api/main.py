@@ -33,7 +33,9 @@ router = APIRouter()
 MC_HOST = os.getenv("MINECRAFT_HOST", "mc.gobitsnbytes.org")
 MC_PORT = int(os.getenv("MINECRAFT_PORT", "25565"))
 MC_SSH_HOST = os.getenv("MINECRAFT_SSH_HOST", "bnb-mc-server")
-MC_SSH_KEY = os.getenv("MINECRAFT_SSH_KEY", "")
+MC_SSH_KEY = os.getenv("MINECRAFT_SSH_KEY") or (
+    "d:/mc-server/bitsnbytesMC_key.pem" if os.path.exists("d:/mc-server/bitsnbytesMC_key.pem") else ""
+)
 MC_RCON_PORT = int(os.getenv("MINECRAFT_RCON_PORT", "2575"))
 MC_RCON_PASSWORD = os.getenv("MINECRAFT_RCON_PASSWORD", "")
 

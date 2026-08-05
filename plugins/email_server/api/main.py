@@ -34,7 +34,9 @@ MAIL_DOMAIN = os.getenv("EMAIL_SERVER_MAIL_DOMAIN", "mail.gobitsnbytes.org")
 ADMIN_DOMAIN = os.getenv("EMAIL_SERVER_ADMIN_DOMAIN", "admin.gobitsnbytes.org")
 BASE_DOMAIN = os.getenv("EMAIL_SERVER_BASE_DOMAIN", "gobitsnbytes.org")
 EMAIL_SSH_HOST = os.getenv("EMAIL_SSH_HOST", "bnb-backend")
-EMAIL_SSH_KEY = os.getenv("EMAIL_SSH_KEY", "")
+EMAIL_SSH_KEY = os.getenv("EMAIL_SSH_KEY") or (
+    "d:/email-server/ssh-key-2026-06-22.key" if os.path.exists("d:/email-server/ssh-key-2026-06-22.key") else ""
+)
 
 
 # ---------------------------------------------------------------------------
