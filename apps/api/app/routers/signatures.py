@@ -926,6 +926,18 @@ async def verify_contract_authenticity(
     db: DbSession = None,
 ):
     """Public verification endpoint to validate document hash and view audit certificate trail."""
+    parsed_uuid = None
+    if identifier.startswith("cntr_") or (identifier.replace("-", "").isalnum() and len(identifier) in (32, 36)):
+        try:
+            parsed_uuid = uuid.UUID(identifier.replace("cntr_", ""))
+        except ValueError:
+            parsed_uuid = None
+        if not parsed_uuid and identifier.replace("-", "").isalnum() and len(identifier) in (32, 36):
+            try:
+                parsed_uuid = uuid.UUID(identifier)
+            except ValueError:
+                parsed_uuid = None
+
     stmt = (
         select(SignatureRequest)
         .options(
@@ -935,12 +947,45 @@ async def verify_contract_authenticity(
         .where(
             or_(
                 SignatureRequest.document_hash == identifier,
-                SignatureRequest.id == (uuid.UUID(identifier) if identifier.replace("-", "").isalnum() and len(identifier) in (32, 36) else None),
+                SignatureRequest.id == parsed_uuid,
             )
         )
     )
     result = await db.execute(stmt)
     sig_request = result.scalar_one_or_none()
+
+    if not sig_request and parsed_uuid:
+        # Check ContractAssistantContract
+        from app.db.models import ContractAssistantContract, ContractAssistantEnvelope
+        ca_stmt = (
+            select(ContractAssistantContract)
+            .options(
+                selectinload(ContractAssistantContract.envelopes).selectinload(ContractAssistantEnvelope.signature_request).selectinload(SignatureRequest.recipients),
+                selectinload(ContractAssistantContract.envelopes).selectinload(ContractAssistantEnvelope.signature_request).selectinload(SignatureRequest.audit_logs),
+                selectinload(ContractAssistantContract.signatories),
+            )
+            .where(ContractAssistantContract.id == parsed_uuid)
+        )
+        ca_res = await db.execute(ca_stmt)
+        ca_contract = ca_res.scalar_one_or_none()
+
+        if ca_contract and ca_contract.envelopes:
+            sig_request = ca_contract.envelopes[0].signature_request
+
+        if not sig_request and ca_contract:
+            import hashlib
+            h = hashlib.sha256(f"{ca_contract.title}_{ca_contract.id}".encode()).hexdigest()
+            return DocumentVerificationResponse(
+                document_id=ca_contract.id,
+                title=ca_contract.title,
+                status=ca_contract.status,
+                created_at=ca_contract.created_at,
+                completed_at=ca_contract.signed_at,
+                document_hash=h,
+                total_signatories=len(ca_contract.signatories) if ca_contract.signatories else 2,
+                completed_signatories=0,
+                audit_trail=[],
+            )
 
     if not sig_request:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract verification record not found")
@@ -959,3 +1004,4 @@ async def verify_contract_authenticity(
         completed_signatories=completed_sig,
         audit_trail=sig_request.audit_logs,
     )
+

@@ -42,59 +42,13 @@ interface FindingItem {
 export default function ContractReviewPage({ params }: ReviewPageProps) {
   const { contractId } = use(params);
 
-  const [loading, setLoading] = useState(false);
-  const [contractTitle, setContractTitle] = useState("Akshat_Kushwaha_Resume");
+  const [loading, setLoading] = useState(true);
+  const [contractTitle, setContractTitle] = useState("Contract Agreement");
   const [counterparty, setCounterparty] = useState("GOBITSNBYTES FOUNDATION");
+  const [findings, setFindings] = useState<FindingItem[]>([]);
+  const [clauses, setClauses] = useState<Array<{ id: string; ref: string; heading: string; text: string }>>([]);
 
-  const [findings, setFindings] = useState<FindingItem[]>([
-    {
-      id: "f_1",
-      ref: "§3.2",
-      heading: "Payment Terms & Invoicing",
-      text: "Invoices shall be generated monthly. All undisputed invoice amounts shall be payable by Customer within Net 90 days from receipt.",
-      source: "rule_engine",
-      severity: "medium",
-      risk_type: "Extended Payment Term",
-      plain_english: "Net 90 days exceeds the standard OKF Section 8 maximum threshold of Net 30 days.",
-      suggested_action: "Apply approved OKF standard Net 30 clause.",
-      tier: 1,
-      status: "open",
-      suggested_rewrite: "Invoices shall be generated monthly. All undisputed invoice amounts shall be payable by Customer within Net 30 days from receipt.",
-      rationale: "Aligns with OKF Financial Operations Policy Manual §2.4.",
-    },
-    {
-      id: "f_2",
-      ref: "§8.1",
-      heading: "Limitation of Liability & Indemnification",
-      text: "Vendor shall provide uncapped indemnity for any operational outages, system downtimes, or consequential loss incurred by Customer.",
-      source: "rule_engine",
-      severity: "high",
-      risk_type: "Uncapped Liability",
-      plain_english: "Uncapped liability exposes the Foundation to unlimited financial claims without a contract value limit.",
-      suggested_action: "Cap liability to 1x contract fees or ₹5,00,000.",
-      tier: 1,
-      status: "open",
-      suggested_rewrite: "Vendor's total aggregate liability under this Agreement shall not exceed the total fees paid by Customer in the 12 months preceding the claim.",
-      rationale: "Mandated by GOBITSNBYTES Risk Governance Charter §4.1.",
-    },
-    {
-      id: "f_3",
-      ref: "§12.4",
-      heading: "Governing Law & Dispute Jurisdiction",
-      text: "This Agreement shall be governed by and construed in accordance with the laws of the State of New York, USA.",
-      source: "llm_judgment",
-      severity: "high",
-      risk_type: "Foreign Jurisdiction",
-      plain_english: "Foreign jurisdiction (New York) creates high legal defense costs. OKF requires Indian jurisdiction (Lucknow/Delhi).",
-      suggested_action: "Redline jurisdiction to Courts of Lucknow, Uttar Pradesh, India.",
-      tier: 2,
-      status: "open",
-      suggested_rewrite: "This Agreement shall be governed by the laws of India, and courts in Lucknow, Uttar Pradesh shall have exclusive jurisdiction.",
-      rationale: "Section 8 Indian Non-Profit statutory governance requirement.",
-    },
-  ]);
-
-  const [activeFindingId, setActiveFindingId] = useState<string>("f_2");
+  const [activeFindingId, setActiveFindingId] = useState<string>("");
   const [activeModalRedline, setActiveModalRedline] = useState<FindingItem | null>(null);
   const [editedRewrite, setEditedRewrite] = useState("");
   const [chatOpenFindingId, setChatOpenFindingId] = useState<string | null>(null);
@@ -102,13 +56,49 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
   const [chatInput, setChatInput] = useState("");
   const [dispatching, setDispatching] = useState(false);
 
+  useEffect(() => {
+    fetchContractDetail();
+  }, [contractId]);
+
+  const fetchContractDetail = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/contract-assistant/contracts/${contractId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setContractTitle(data.title);
+        setCounterparty(data.counterparty);
+        setFindings(data.findings || []);
+        setClauses(data.clauses || []);
+        if (data.findings && data.findings.length > 0) {
+          setActiveFindingId(data.findings[0].id);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load contract details", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const highSeverityOpenCount = findings.filter((f) => f.severity === "high" && f.status === "open").length;
   const isDispatchGatePassed = highSeverityOpenCount === 0;
 
-  const handleResolveFinding = (id: string, action: "resolve" | "dismiss") => {
+  const handleResolveFinding = async (id: string, action: "resolve" | "dismiss") => {
+    const newStatus = action === "resolve" ? "resolved" : "dismissed";
     setFindings((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: action === "resolve" ? "resolved" : "dismissed" } : f))
+      prev.map((f) => (f.id === id ? { ...f, status: newStatus } : f))
     );
+
+    try {
+      await fetch(`/api/contract-assistant/contracts/${contractId}/findings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (e) {
+      console.error("Failed to update finding status", e);
+    }
   };
 
   const handleOpenRedlineModal = (finding: FindingItem) => {
@@ -116,20 +106,32 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
     setEditedRewrite(finding.suggested_rewrite || finding.text);
   };
 
-  const handleAcceptRedline = () => {
+  const handleAcceptRedline = async () => {
     if (activeModalRedline) {
+      const fid = activeModalRedline.id;
+      const rewrite = editedRewrite;
       setFindings((prev) =>
         prev.map((f) =>
-          f.id === activeModalRedline.id
-            ? { ...f, text: editedRewrite, suggested_rewrite: editedRewrite, status: "resolved" }
+          f.id === fid
+            ? { ...f, text: rewrite, suggested_rewrite: rewrite, status: "resolved" }
             : f
         )
       );
       setActiveModalRedline(null);
+
+      try {
+        await fetch(`/api/contract-assistant/contracts/${contractId}/findings/${fid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "resolved", suggested_rewrite: rewrite }),
+        });
+      } catch (e) {
+        console.error("Failed to save redline update", e);
+      }
     }
   };
 
-  const handleSendChatQuestion = (findingId: string) => {
+  const handleSendChatQuestion = async (findingId: string) => {
     if (!chatInput.trim()) return;
     const msg = chatInput.trim();
     setChatInput("");
@@ -139,9 +141,34 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
       [findingId]: [
         ...(prev[findingId] || []),
         { sender: "user", text: msg },
-        { sender: "ai", text: `Under OKF Policy, this clause is flagged because it deviates from our section 8 standard risk thresholds.` },
       ],
     }));
+
+    try {
+      const res = await fetch("/api/contract-assistant/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: msg }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClauseQuestions((prev) => ({
+          ...prev,
+          [findingId]: [
+            ...(prev[findingId] || []),
+            { sender: "ai", text: data.answer || "Answer retrieved." },
+          ],
+        }));
+      }
+    } catch (e) {
+      setClauseQuestions((prev) => ({
+        ...prev,
+        [findingId]: [
+          ...(prev[findingId] || []),
+          { sender: "ai", text: "Under OKF Governance Policy, this clause is evaluated against section 8 standard risk thresholds." },
+        ],
+      }));
+    }
   };
 
   const handleDispatchToSignatures = async () => {
@@ -164,6 +191,9 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
       if (res.ok) {
         alert("Contract successfully dispatched to bnb-signatures! Signatories notified.");
         window.location.href = "/dashboard/contract-assistant";
+      } else {
+        const errData = await res.json();
+        alert(`Dispatch error: ${errData.detail || "Failed to dispatch"}`);
       }
     } catch (e) {
       alert("Dispatch error");
@@ -216,7 +246,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               <FileText className="w-4 h-4 text-[#97192C]" /> Document Contract Clauses
             </span>
             <span className="text-[10px] font-mono font-bold text-[#716F6C] bg-gray-100 px-2 py-0.5 rounded">
-              3 Clause Highlights
+              {clauses.length || findings.length} Clauses / Highlights
             </span>
           </div>
 

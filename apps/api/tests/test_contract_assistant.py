@@ -115,3 +115,103 @@ async def test_inbound_email_webhook_security(monkeypatch):
         )
         assert invalid_res.status_code == 401
         assert "Invalid webhook signature" in invalid_res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_contract_assistant_database_crud_and_dispatch(super_admin: User, db_session: AsyncSession):
+    from app.db.models import ContractAssistantContract, ContractAssistantFinding, ContractAssistantClause
+
+    # 1. Seed a DB contract directly
+    c = ContractAssistantContract(
+        title="Master Vendor Service Level Agreement",
+        counterparty="Acme Cloud Solutions",
+        status="in_review",
+        value="₹10,00,000",
+        created_by=super_admin.id,
+    )
+    db_session.add(c)
+    await db_session.flush()
+
+    cl = ContractAssistantClause(
+        contract_id=c.id,
+        ref="§8.1",
+        heading="Limitation of Liability",
+        text="Vendor shall provide uncapped liability for all system outages.",
+        page_number=1,
+    )
+    db_session.add(cl)
+    await db_session.flush()
+
+    f = ContractAssistantFinding(
+        contract_id=c.id,
+        clause_id=cl.id,
+        clause_ref="§8.1",
+        heading="Limitation of Liability",
+        source="rule_engine",
+        severity="high",
+        risk_type="Uncapped Liability",
+        plain_english="Uncapped liability exposes company to unlimited financial risk.",
+        suggested_action="Cap liability at contract fees.",
+        tier=1,
+        status="open",
+    )
+    db_session.add(f)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 2. Test GET /api/contract-assistant/contracts
+        list_res = await client.get("/api/contract-assistant/contracts")
+        assert list_res.status_code == 200
+        contracts = list_res.json()
+        assert len(contracts) >= 1
+        found = next((item for item in contracts if item["id"] == str(c.id)), None)
+        assert found is not None
+        assert found["title"] == "Master Vendor Service Level Agreement"
+        assert found["highest_risk"] == "high"
+
+        # 3. Test GET /api/contract-assistant/contracts/{id}
+        detail_res = await client.get(f"/api/contract-assistant/contracts/{c.id}")
+        assert detail_res.status_code == 200
+        detail_data = detail_res.json()
+        assert detail_data["title"] == "Master Vendor Service Level Agreement"
+        assert len(detail_data["findings"]) == 1
+        assert detail_data["findings"][0]["severity"] == "high"
+
+        # 4. Attempt dispatch before resolving high-severity finding (Should fail due to safety gate)
+        dispatch_blocked_res = await client.post(
+            "/api/contract-assistant/dispatch",
+            json={
+                "contract_id": str(c.id),
+                "recipients": [{"name": "Akshat", "email": "akshat@gobitsnbytes.org", "role": "signer"}],
+            },
+        )
+        assert dispatch_blocked_res.status_code == 400
+        assert "high-severity legal finding" in dispatch_blocked_res.json()["detail"]
+
+        # 5. Resolve high-severity finding via PATCH endpoint
+        patch_res = await client.patch(
+            f"/api/contract-assistant/contracts/{c.id}/findings/{f.id}",
+            json={"status": "resolved", "suggested_rewrite": "Liability is capped at ₹5,00,000."},
+        )
+        assert patch_res.status_code == 200
+        assert patch_res.json()["finding_status"] == "resolved"
+
+        # 6. Dispatch contract to bnb-signatures after resolving finding
+        dispatch_success_res = await client.post(
+            "/api/contract-assistant/dispatch",
+            json={
+                "contract_id": str(c.id),
+                "recipients": [{"name": "Akshat Kushwaha", "email": "akshat@gobitsnbytes.org", "role": "signer"}],
+            },
+        )
+        assert dispatch_success_res.status_code == 200
+        dispatch_data = dispatch_success_res.json()
+        assert dispatch_data["status"] == "dispatched"
+        assert "signature_request_id" in dispatch_data
+
+        # 7. Test verification page endpoint with contract ID
+        verify_res = await client.get(f"/api/signatures/verify/{c.id}")
+        assert verify_res.status_code == 200
+        verify_data = verify_res.json()
+        assert verify_data["title"] == "Master Vendor Service Level Agreement"
+

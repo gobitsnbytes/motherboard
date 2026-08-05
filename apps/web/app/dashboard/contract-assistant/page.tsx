@@ -45,9 +45,9 @@ export default function ContractAssistantPage() {
 
   const fetchData = async () => {
     try {
-      const [rulesRes, requestsRes] = await Promise.all([
+      const [rulesRes, contractsRes] = await Promise.all([
         fetch("/api/contract-assistant/rules").catch(() => null),
-        fetch("/api/signatures/requests").catch(() => null),
+        fetch("/api/contract-assistant/contracts").catch(() => null),
       ]);
 
       if (rulesRes && rulesRes.ok) {
@@ -55,21 +55,10 @@ export default function ContractAssistantPage() {
         setRulesCount(rulesData.total_rules || 35);
       }
 
-      if (requestsRes && requestsRes.ok) {
-        const requestsData = await requestsRes.json();
-        if (Array.isArray(requestsData)) {
-          const mapped: PipelineContract[] = requestsData.map((req: any) => ({
-            id: req.id,
-            title: req.title,
-            counterparty: req.recipients?.[0]?.name || "Internal Legal",
-            status: req.status === "completed" ? "dotted" : req.status === "pending" ? "out_for_signature" : "in_review",
-            value: "Official Contract",
-            signatories_count: req.recipients?.length || 1,
-            highest_risk: "none",
-            created_at: req.created_at || new Date().toISOString(),
-            days_in_stage: Math.floor((Date.now() - new Date(req.created_at || Date.now()).getTime()) / 86400000),
-          }));
-          setContracts(mapped);
+      if (contractsRes && contractsRes.ok) {
+        const contractsData = await contractsRes.json();
+        if (Array.isArray(contractsData)) {
+          setContracts(contractsData);
         }
       }
     } catch (err) {
@@ -95,18 +84,10 @@ export default function ContractAssistantPage() {
 
       if (res.ok) {
         const data = await res.json();
-        const newContract: PipelineContract = {
-          id: data.contract_id || `cntr_${Date.now()}`,
-          title: data.title || uploadedFile.name,
-          counterparty: "Pending Review",
-          status: "in_review",
-          value: "Under Audit",
-          signatories_count: 2,
-          highest_risk: data.high_risks > 0 ? "high" : data.medium_risks > 0 ? "medium" : "low",
-          created_at: new Date().toISOString(),
-          days_in_stage: 0,
-        };
-        setContracts((prev) => [newContract, ...prev]);
+        await fetchData();
+        if (data.contract_id) {
+          window.location.href = `/dashboard/contract-assistant/${data.contract_id}`;
+        }
       }
     } catch (err) {
       console.error("Analysis error", err);
