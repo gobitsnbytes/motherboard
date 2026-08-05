@@ -132,6 +132,17 @@ async def get_okf_playbook_rules():
     }
 
 
+def _normalize_status(raw_status: Optional[str]) -> str:
+    if not raw_status:
+        return "in_review"
+    s = raw_status.lower().strip()
+    if s in ("dotted", "completed", "executed", "archived", "sealed", "signed"):
+        return "dotted"
+    if s in ("out_for_signature", "pending", "sent", "pending_signatures", "dispatched", "partially_signed"):
+        return "out_for_signature"
+    return "in_review"
+
+
 @router.get("/contracts")
 async def list_pipeline_contracts(
     db: DbSession,
@@ -178,7 +189,8 @@ async def list_pipeline_contracts(
             "id": str(c.id),
             "title": c.title,
             "counterparty": c.counterparty or "GOBITSNBYTES FOUNDATION",
-            "status": c.status,
+            "status": _normalize_status(c.status),
+            "raw_status": c.status,
             "value": c.value or "Official Contract",
             "signatories_count": len(c.signatories) if c.signatories else 2,
             "highest_risk": highest_risk,
@@ -201,7 +213,7 @@ async def list_pipeline_contracts(
     for sr in unlinked_sig_reqs:
         created_at_utc = sr.created_at.replace(tzinfo=timezone.utc) if sr.created_at and sr.created_at.tzinfo is None else sr.created_at
         days_in_stage = (now - created_at_utc).days if created_at_utc else 0
-        pipeline_status = "dotted" if sr.status == "completed" else "out_for_signature" if sr.status in ("pending", "sent") else "in_review"
+        pipeline_status = _normalize_status(sr.status)
         counterparty = sr.recipients[0].name if sr.recipients else "GOBITSNBYTES FOUNDATION"
 
         output.append({
@@ -209,6 +221,7 @@ async def list_pipeline_contracts(
             "title": sr.title,
             "counterparty": counterparty,
             "status": pipeline_status,
+            "raw_status": sr.status,
             "value": "Official Contract",
             "signatories_count": len(sr.recipients) if sr.recipients else 1,
             "highest_risk": "none",
@@ -264,7 +277,7 @@ async def get_contract_detail(
         if not sig_req:
             raise HTTPException(status_code=404, detail="Contract not found")
 
-        pipeline_status = "dotted" if sig_req.status == "completed" else "out_for_signature" if sig_req.status in ("pending", "sent") else "in_review"
+        pipeline_status = _normalize_status(sig_req.status)
 
         return {
             "id": str(sig_req.id),

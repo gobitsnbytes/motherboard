@@ -102,9 +102,34 @@ export default function ContractAssistantPage() {
       c.counterparty.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const inReviewContracts = filteredContracts.filter((c) => c.status === "in_review");
-  const outForSignatureContracts = filteredContracts.filter((c) => c.status === "out_for_signature");
-  const dottedContracts = filteredContracts.filter((c) => c.status === "dotted");
+  const inReviewContracts = filteredContracts.filter(
+    (c) => c.status === "in_review" || c.status === "draft" || c.status === "reviewing"
+  );
+  const matchedOutForSignature = filteredContracts.filter(
+    (c) =>
+      c.status === "out_for_signature" ||
+      c.status === "pending" ||
+      c.status === "pending_signatures" ||
+      c.status === "sent" ||
+      c.status === "dispatched"
+  );
+  const dottedContracts = filteredContracts.filter(
+    (c) =>
+      c.status === "dotted" ||
+      c.status === "completed" ||
+      c.status === "executed" ||
+      c.status === "sealed" ||
+      c.status === "signed"
+  );
+
+  // Safety fallback to make sure 100% of contracts returned by API appear in the board
+  const assignedIds = new Set([
+    ...inReviewContracts.map((c) => c.id),
+    ...matchedOutForSignature.map((c) => c.id),
+    ...dottedContracts.map((c) => c.id),
+  ]);
+  const unassignedContracts = filteredContracts.filter((c) => !assignedIds.has(c.id));
+  const outForSignatureContracts = [...matchedOutForSignature, ...unassignedContracts];
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
