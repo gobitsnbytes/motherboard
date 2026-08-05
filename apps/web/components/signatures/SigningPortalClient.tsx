@@ -177,10 +177,13 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
     }
   };
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handleSubmitSignature = async () => {
     if (!agreedToTerms) return;
 
     setSubmitting(true);
+    setSubmitError(null);
     const submittedFields = Object.entries(fieldValues).map(([field_id, value]) => ({
       field_id,
       value,
@@ -200,10 +203,10 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
         setCompleted(true);
       } else {
         const errJson = await res.json().catch(() => ({}));
-        alert(errJson.detail || "Signature submission failed");
+        setSubmitError(errJson.detail || "Signature submission failed. Please ensure all required fields are filled.");
       }
     } catch (e) {
-      alert("Error submitting signature");
+      setSubmitError("Network error submitting signature. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -330,7 +333,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
                 </label>
                 <input
                   type="email"
-                  placeholder="e.g. akshatkushwah@gmail.com"
+                  placeholder="e.g. signatory@organization.org"
                   value={confirmEmail}
                   onChange={(e) => setConfirmEmail(e.target.value)}
                   className="w-full px-3.5 py-2.5 border-2 border-[#120F0A] rounded-xl text-xs font-bold bg-white text-[#120F0A] shadow-[2px_2px_0px_0px_#120F0A]"
@@ -675,6 +678,13 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
             </div>
           </div>
         </div>
+
+        {submitError && (
+          <div className="bg-red-50 border-2 border-red-800 text-red-900 p-3 rounded-xl text-xs font-bold flex items-center gap-2 text-left">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
 
         <label className="flex items-start gap-3 cursor-pointer">
           <input

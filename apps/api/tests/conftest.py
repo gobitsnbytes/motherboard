@@ -12,7 +12,13 @@ os.environ.setdefault("DISCORD_GUILD_ID", "mock_guild_id")
 os.environ["TESTING"] = "True"
 db_url = os.environ.get("DATABASE_URL")
 if not db_url or "sqlite" in db_url:
-    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///test_temp_router.db"
+    db_file = "test_temp_router.db"
+    if os.path.exists(db_file):
+        try:
+            os.remove(db_file)
+        except Exception:
+            pass
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{db_file}"
 os.environ.setdefault("SESSION_SECRET", "mock_session_secret_32_bytes_long_secret_123")
 os.environ.setdefault("API_INTERNAL_SECRET", "mock_internal_secret")
 os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
@@ -49,11 +55,15 @@ TestingSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def init_session_db():
+    import app.db.models
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
     yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
+    except Exception:
+        pass
     await engine.dispose()
 
 
@@ -62,17 +72,12 @@ async def setup_db(request):
     # Clear DB engine cache and config settings cache
     from app.database import clear_db_cache
     from app.config import get_settings
+    import app.db.models
     clear_db_cache()
     get_settings.cache_clear()
-    
+
     async with engine.begin() as conn:
-        def init_tables(sync_conn):
-            try:
-                Base.metadata.drop_all(sync_conn, checkfirst=True)
-            except Exception:
-                pass
-            Base.metadata.create_all(sync_conn)
-        await conn.run_sync(init_tables)
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
     yield
 
 

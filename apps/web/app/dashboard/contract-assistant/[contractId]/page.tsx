@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Check,
   ExternalLink,
+  Download,
 } from "lucide-react";
 
 interface ReviewPageProps {
@@ -55,6 +56,64 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
   const [clauseQuestions, setClauseQuestions] = useState<Record<string, Array<{ sender: string; text: string }>>>({});
   const [chatInput, setChatInput] = useState("");
   const [dispatching, setDispatching] = useState(false);
+
+  const [voiding, setVoiding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [contractStatus, setContractStatus] = useState<string>("in_review");
+
+  const handleVoidContract = async () => {
+    if (!confirm("Are you sure you want to officially quash and void this agreement? All active signature links will be permanently revoked.")) {
+      return;
+    }
+    setVoiding(true);
+    try {
+      const res = await fetch(`/api/contract-assistant/contracts/${contractId}/void`, { method: "POST" });
+      if (res.ok) {
+        setContractStatus("voided");
+        await fetchContractDetail();
+      } else {
+        alert("Failed to void contract agreement");
+      }
+    } catch (e) {
+      alert("Error voiding contract agreement");
+    } finally {
+      setVoiding(false);
+    }
+  };
+
+  const handleDeleteContract = async () => {
+    if (!confirm("This action will download an official CANCELLED & VOID certificate copy of this agreement to your device and permanently purge all database records. Proceed?")) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      // 1. Download voided certificate copy
+      const exportRes = await fetch(`/api/contract-assistant/contracts/${contractId}/export-void`);
+      if (exportRes.ok) {
+        const blob = await exportRes.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `VOIDED_AGREEMENT_${contractId.substring(0, 8)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }
+
+      // 2. Delete database records permanently
+      const deleteRes = await fetch(`/api/contract-assistant/contracts/${contractId}`, { method: "DELETE" });
+      if (deleteRes.ok) {
+        window.location.href = "/dashboard/contract-assistant";
+      } else {
+        alert("Failed to purge contract records from database");
+      }
+    } catch (e) {
+      alert("Error executing contract purge");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     fetchContractDetail();
@@ -223,17 +282,47 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
           </div>
         </div>
 
-        {/* Executive Summary Strip */}
-        <div className="flex items-center gap-2 bg-[#FAF8F5] border-2 border-[#120F0A] p-2 rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A]">
-          <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg border border-red-300">
-            {highCount} High
-          </span>
-          <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg border border-amber-300">
-            {medCount} Medium
-          </span>
-          <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-300">
-            {lowCount} Low
-          </span>
+        {/* Executive Summary Strip & Management Actions */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#FAF8F5] border-2 border-[#120F0A] p-2 rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A]">
+            <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg border border-red-300">
+              {highCount} High
+            </span>
+            <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg border border-amber-300">
+              {medCount} Medium
+            </span>
+            <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-300">
+              {lowCount} Low
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {contractStatus === "voided" ? (
+              <span className="px-3.5 py-2 bg-red-100 text-red-900 border-2 border-red-800 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#120F0A]">
+                <XCircle className="w-4 h-4 text-red-800" /> Voided &amp; Quashed
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={voiding}
+                onClick={handleVoidContract}
+                className="px-3.5 py-2 bg-[#FEE9CF] hover:bg-[#FED39E] text-red-900 border-2 border-[#120F0A] rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A] flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Officially quash/void agreement and revoke all signature links"
+              >
+                <XCircle className="w-3.5 h-3.5 text-red-700" /> {voiding ? "Voiding..." : "Void / Quash"}
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={handleDeleteContract}
+              className="px-3.5 py-2 bg-[#97192C] hover:bg-[#791423] text-white border-2 border-[#120F0A] rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A] flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Download voided copy to your device and purge all database records"
+            >
+              <Download className="w-3.5 h-3.5 text-[#FC920D]" /> {deleting ? "Purging..." : "Delete & Download Void Copy"}
+            </button>
+          </div>
         </div>
       </div>
 

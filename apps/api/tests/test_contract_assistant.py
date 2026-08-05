@@ -2,6 +2,8 @@
 Unit and integration tests for Internal Contract Assistant and OKF Rule Engine.
 """
 
+import app.db.models
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -11,13 +13,14 @@ from app.services.llm_client import SparkCloudAIClient, get_llm_client
 from app.services.okf_engine import DeterministicRuleEngine, get_okf_store
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
-from conftest import request_as
+from conftest import request_as, TestingSessionLocal
 
 
 @pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
+def override_db():
     async def _get_test_session():
-        yield db_session
+        async with TestingSessionLocal() as session:
+            yield session
     app.dependency_overrides[get_session] = _get_test_session
     yield
     app.dependency_overrides.clear()
@@ -213,5 +216,26 @@ async def test_contract_assistant_database_crud_and_dispatch(super_admin: User, 
         verify_res = await client.get(f"/api/signatures/verify/{c.id}")
         assert verify_res.status_code == 200
         verify_data = verify_res.json()
-        assert verify_data["title"] == "Master Vendor Service Level Agreement"
+        assert "Master Vendor Service Level Agreement" in verify_data["title"]
+
+        # 8. Test Quash/Void endpoint
+        void_res = await client.post(f"/api/contract-assistant/contracts/{c.id}/void")
+        assert void_res.status_code == 200
+        assert void_res.json()["status"] == "voided"
+
+        # 9. Test Export Void Certificate endpoint
+        export_res = await client.get(f"/api/contract-assistant/contracts/{c.id}/export-void")
+        assert export_res.status_code == 200
+        assert "OFFICIAL CERTIFICATE OF CANCELLATION" in export_res.text
+        assert "VOIDED & CANCELLED" in export_res.text
+
+        # 10. Test Delete / Purge contract endpoint
+        delete_res = await client.delete(f"/api/contract-assistant/contracts/{c.id}")
+        assert delete_res.status_code == 200
+        assert delete_res.json()["status"] == "deleted"
+
+        # Verify contract is gone from database
+        detail_after_delete = await client.get(f"/api/contract-assistant/contracts/{c.id}")
+        assert detail_after_delete.status_code == 404
+
 

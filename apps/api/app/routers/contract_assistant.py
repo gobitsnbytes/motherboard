@@ -8,8 +8,11 @@ import io
 import os
 import re
 import uuid
+import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
@@ -212,20 +215,21 @@ async def _sync_signature_request_to_ca_contract(db: DbSession, sig_req: Signatu
 
     # OKF Rule Engine Evaluation
     okf_store = get_okf_store()
-    eval_results = okf_store.evaluate_contract_text(text_to_analyze)
+    rule_engine = DeterministicRuleEngine(okf_store)
+    eval_results = rule_engine.evaluate_contract_text(text_to_analyze)
     for idx, res in enumerate(eval_results, 1):
         target_cl = clause_objs[0] if clause_objs else None
         f = ContractAssistantFinding(
             contract_id=ca_contract.id,
             clause_id=target_cl.id if target_cl else None,
             clause_ref=target_cl.ref if target_cl else "§1.0",
-            heading=res.rule_title,
+            heading=res.get("title", "Policy Finding"),
             source="rule_engine",
-            severity=res.severity,
-            risk_type=res.rule_title,
-            plain_english=res.matched_snippet,
-            suggested_action=res.guidance_note or "Review against OKF playbook.",
-            policy_link=res.file_path,
+            severity=res.get("severity", "medium"),
+            risk_type=res.get("title", "Legal Finding"),
+            plain_english=res.get("description", "Potential policy mismatch detected."),
+            suggested_action=res.get("template_fix") or "Review against OKF playbook.",
+            policy_link=res.get("policy_link", "/legal/playbook"),
             tier=1,
             status="open",
         )
@@ -867,30 +871,217 @@ async def dispatch_contract_for_signature(
     }
 
 
-@router.post("/ask")
-async def ask_across_contracts(
-    payload: AskQuestionRequest,
+@router.post("/contracts/{contract_id}/void")
+async def void_contract_agreement(
+    contract_id: str,
+    db: DbSession,
     current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
 ):
-    """Global AI search across parsed contracts and OKF policy documents."""
-    llm_client = get_llm_client()
-    okf_store = get_okf_store()
-
-    matching_docs = okf_store.search(payload.question)
-    context_str = "\n".join([f"[{doc.title}]: {doc.description}" for doc in matching_docs[:3]])
-
-    messages = [
-        {"role": "system", "content": "You are a legal contract assistant for GOBITSNBYTES FOUNDATION. Use the provided policy context to answer the question accurately and concisely."},
-        {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {payload.question}"}
-    ]
+    """Officially quash/void an agreement (whether in review, out for signature, or executed)."""
     try:
-        answer = llm_client._chat_completion(messages)
-    except Exception:
-        answer = f"Under OKF Policy, this clause is evaluated against section 8 standard risk thresholds and GOBITSNBYTES Risk Governance Charter. ({len(matching_docs)} policy rules referenced)"
+        c_uuid = uuid.UUID(contract_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid contract_id format")
+
+    user_id = getattr(current_user, "id", None) if current_user else None
+
+    # Query ContractAssistantContract
+    ca_stmt = (
+        select(ContractAssistantContract)
+        .options(selectinload(ContractAssistantContract.envelopes))
+        .where(ContractAssistantContract.id == c_uuid)
+    )
+    ca_res = await db.execute(ca_stmt)
+    contract = ca_res.scalar_one_or_none()
+
+    # Query SignatureRequest
+    sig_stmt = select(SignatureRequest).where(SignatureRequest.id == c_uuid)
+    sig_res = await db.execute(sig_stmt)
+    sig_req = sig_res.scalar_one_or_none()
+
+    if not contract and not sig_req:
+        raise HTTPException(status_code=404, detail="Contract agreement not found")
+
+    now = datetime.now(timezone.utc)
+
+    if contract:
+        contract.status = "voided"
+        evt = ContractAssistantEvent(
+            contract_id=contract.id,
+            type="contract_voided",
+            actor_id=user_id,
+            payload={"voided_at": now.isoformat(), "action": "quashed_by_admin"},
+        )
+        db.add(evt)
+
+        for env in contract.envelopes:
+            if env.signature_request_id:
+                s_stmt = select(SignatureRequest).where(SignatureRequest.id == env.signature_request_id)
+                s_r = (await db.execute(s_stmt)).scalar_one_or_none()
+                if s_r:
+                    s_r.status = "voided"
+                    db.add(SignatureAuditLog(
+                        request_id=s_r.id,
+                        action="VOIDED",
+                        details=f"Contract agreement officially quashed and voided by admin at {now.isoformat()}.",
+                    ))
+
+    if sig_req:
+        sig_req.status = "voided"
+        db.add(SignatureAuditLog(
+            request_id=sig_req.id,
+            action="VOIDED",
+            details=f"Contract agreement officially quashed and voided by admin at {now.isoformat()}.",
+        ))
+
+    await db.commit()
+    return {
+        "status": "voided",
+        "message": "Contract agreement has been officially quashed and voided. All active execution links are revoked.",
+        "contract_id": contract_id,
+        "voided_at": now.isoformat(),
+    }
+
+
+@router.get("/contracts/{contract_id}/export-void")
+async def export_voided_contract_copy(
+    contract_id: str,
+    db: DbSession,
+    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
+):
+    """Generate and download an official CANCELLED & VOID certificate copy for client device archive."""
+    try:
+        c_uuid = uuid.UUID(contract_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid contract_id format")
+
+    # Fetch contract or signature request
+    title = "Contract Agreement"
+    file_hash = "SHA256_UNREGISTERED"
+    created_at_str = datetime.now(timezone.utc).isoformat()
+    signatories_str = "Signatories Registered"
+
+    ca_stmt = (
+        select(ContractAssistantContract)
+        .options(selectinload(ContractAssistantContract.signatories))
+        .where(ContractAssistantContract.id == c_uuid)
+    )
+    ca_res = await db.execute(ca_stmt)
+    contract = ca_res.scalar_one_or_none()
+
+    if contract:
+        title = contract.title
+        created_at_str = contract.created_at.isoformat() if contract.created_at else created_at_str
+        if contract.signatories:
+            signatories_str = ", ".join([s.name for s in contract.signatories])
+    else:
+        sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == c_uuid)
+        sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
+        if sig_req:
+            title = sig_req.title
+            file_hash = sig_req.document_hash or file_hash
+            created_at_str = sig_req.created_at.isoformat() if sig_req.created_at else created_at_str
+            if sig_req.recipients:
+                signatories_str = ", ".join([r.name for r in sig_req.recipients])
+
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    cert_text = f"""================================================================================
+           OFFICIAL CERTIFICATE OF CANCELLATION & VOIDED COPY
+================================================================================
+GOBITSNBYTES FOUNDATION (Section 8 Non-Profit Co., Companies Act 2013)
+bits&bytes™ Legal Operations & Contract Assistant Portal
+
+STATUS:              VOIDED & CANCELLED (REVOKED)
+DOCUMENT TITLE:      {title}
+DOCUMENT ID:         {contract_id}
+ORIGINAL CHECKSUM:   {file_hash}
+DATE OF CREATION:    {created_at_str}
+DATE OF REVOCATION:  {now_str}
+REGISTERED PARTIES:  {signatories_str}
+
+--------------------------------------------------------------------------------
+STATUTORY REVOCATION NOTICE:
+In accordance with Section 10A of the Information Technology Act, 2000 and Section
+65B of the Indian Evidence Act (Bharatiya Sakshya Adhiniyam, 2023):
+
+1. THIS CONTRACT AGREEMENT HAS BEEN OFFICIALLY QUASHED AND VOIDED BY THE ISSUING
+   AUTHORITY (GOBITSNBYTES FOUNDATION).
+2. ALL ELECTRONIC SIGNATURE LINKS, TOKENIZED PORTAL ACCESS, AND STATUTORY ENFORCEABILITY
+   FOR THIS DOCUMENT ARE PERMANENTLY REVOKED AND TERMINATED.
+3. THIS DOCUMENT CONSTITUTES THE SOLE CERTIFIED ARCHIVAL RECORD PROVING THAT THE
+   AGREEMENT WAS CANCELLED AND VOIDED PRIOR TO DESTRUCTION OF ONLINE DATABASE RECORDS.
+--------------------------------------------------------------------------------
+Audit Trail: Generated & Sealed on {now_str} by Legal Administrator.
+================================================================================
+"""
+
+    from fastapi.responses import Response
+    return Response(
+        content=cert_text,
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": f'attachment; filename="VOIDED_AGREEMENT_{contract_id[:8]}.txt"'
+        },
+    )
+
+
+@router.delete("/contracts/{contract_id}")
+async def delete_contract_permanently(
+    contract_id: str,
+    db: DbSession,
+    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
+):
+    """
+    Permanently purge a contract and all associated database records (clauses, findings, signatories, envelopes, audit logs).
+    Should be called after the client has downloaded the local voided copy.
+    """
+    try:
+        c_uuid = uuid.UUID(contract_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid contract_id format")
+
+    # Delete from ca_contracts
+    ca_stmt = select(ContractAssistantContract).options(selectinload(ContractAssistantContract.envelopes)).where(ContractAssistantContract.id == c_uuid)
+    ca_res = await db.execute(ca_stmt)
+    contract = ca_res.scalar_one_or_none()
+
+    sig_ids_to_delete = []
+
+    if contract:
+        for env in contract.envelopes:
+            if env.signature_request_id:
+                sig_ids_to_delete.append(env.signature_request_id)
+        if contract.original_file_path and os.path.exists(contract.original_file_path):
+            try:
+                os.remove(contract.original_file_path)
+            except Exception as e:
+                logger.warning(f"Could not remove contract file {contract.original_file_path}: {e}")
+        await db.delete(contract)
+
+    # Delete from signature_requests
+    sig_stmt = select(SignatureRequest).where(SignatureRequest.id == c_uuid)
+    sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
+
+    if sig_req:
+        if sig_req.original_file_path and os.path.exists(sig_req.original_file_path):
+            try:
+                os.remove(sig_req.original_file_path)
+            except Exception as e:
+                logger.warning(f"Could not remove signature file {sig_req.original_file_path}: {e}")
+        await db.delete(sig_req)
+
+    for sid in sig_ids_to_delete:
+        s_stmt = select(SignatureRequest).where(SignatureRequest.id == sid)
+        s_r = (await db.execute(s_stmt)).scalar_one_or_none()
+        if s_r:
+            await db.delete(s_r)
+
+    await db.commit()
 
     return {
-        "question": payload.question,
-        "answer": answer,
-        "citations": [doc.title for doc in matching_docs[:3]],
+        "status": "deleted",
+        "message": f"Contract {contract_id} and all associated records permanently purged from database.",
     }
+
 

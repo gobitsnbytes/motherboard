@@ -131,6 +131,9 @@ class DeterministicRuleEngine:
     def __init__(self, store: OKFKnowledgeStore):
         self.store = store
 
+    def evaluate_contract_text(self, text: str) -> List[Dict[str, Any]]:
+        return self.evaluate_clause("§1.0", "Full Document Analysis", text)
+
     def evaluate_clause(self, clause_ref: str, heading: str, text: str) -> List[Dict[str, Any]]:
         findings = []
         lower_text = text.lower()

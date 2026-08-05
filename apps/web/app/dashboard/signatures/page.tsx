@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check } from "lucide-react";
+import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2 } from "lucide-react";
 
 interface SignatureRequestItem {
   id: string;
@@ -51,6 +51,47 @@ export default function SignaturesDashboardPage() {
     navigator.clipboard.writeText(fullUrl);
     setCopiedToken(accessToken);
     setTimeout(() => setCopiedToken(null), 2500);
+  };
+
+  const handleVoid = async (id: string) => {
+    if (!confirm("Are you sure you want to quash and void this agreement? Active signature links will be revoked.")) return;
+    try {
+      const res = await fetch(`/api/contract-assistant/contracts/${id}/void`, { method: "POST" });
+      if (res.ok) {
+        fetchRequests();
+      } else {
+        alert("Failed to void agreement");
+      }
+    } catch (e) {
+      alert("Error voiding agreement");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("This will download an official CANCELLED & VOID certificate copy to your device and permanently purge all database records. Proceed?")) return;
+    try {
+      const exportRes = await fetch(`/api/contract-assistant/contracts/${id}/export-void`);
+      if (exportRes.ok) {
+        const blob = await exportRes.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `VOIDED_AGREEMENT_${id.substring(0, 8)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }
+
+      const deleteRes = await fetch(`/api/contract-assistant/contracts/${id}`, { method: "DELETE" });
+      if (deleteRes.ok) {
+        fetchRequests();
+      } else {
+        alert("Failed to purge agreement from database");
+      }
+    } catch (e) {
+      alert("Error purging agreement");
+    }
   };
 
   const filteredRequests = requests.filter((r) => {
@@ -264,6 +305,24 @@ export default function SignaturesDashboardPage() {
                           <ShieldCheck className="w-3 h-3" /> Verify
                         </Link>
                       )}
+                      {req.status !== "voided" && (
+                        <button
+                          type="button"
+                          onClick={() => handleVoid(req.id)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#FEE9CF] hover:bg-[#FED39E] text-red-900 border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                          title="Void / Quash agreement"
+                        >
+                          <XCircle className="w-3 h-3 text-red-700" /> Void
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(req.id)}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-red-800 hover:bg-red-900 text-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                        title="Download voided copy and permanently delete record"
+                      >
+                        <Trash2 className="w-3 h-3" /> Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
