@@ -1,10 +1,12 @@
 
+import React from "react";
+import IAMHierarchyVisualizer from "../../../components/dashboard/IAMHierarchyVisualizer";
 import IAMRoleMappings from "../../../components/dashboard/IAMRoleMappings";
 
 export const metadata = {
-  title: "IAM — bits&bytes Motherboard",
+  title: "IAM & Hierarchy — bits&bytes Motherboard",
 };
- 
+
 export default function IAMPage() {
   return (
     <div className="flex flex-col gap-6">
@@ -14,10 +16,11 @@ export default function IAMPage() {
         </h1>
 
         <p className="text-sm text-muted-foreground font-base mt-1">
-          Configure Discord role mappings for internal groups and sync provisioning behavior. 
+          Visual role hierarchy, permission policies, and 2-way Discord role sync.
         </p>
-       </div> 
-      
+      </div>
+
+      <IAMHierarchyVisualizer />
       <IAMRoleMappings />
     </div>
   );

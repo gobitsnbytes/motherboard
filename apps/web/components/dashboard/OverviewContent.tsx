@@ -1,7 +1,9 @@
 "use client";
-import { Users, GitBranch, Puzzle, RefreshCw, Handshake, Plus, UserPlus, Loader2, Copy } from "lucide-react";
+
+import { Users, GitBranch, Puzzle, RefreshCw, Handshake, Plus, UserPlus, Loader2, Copy, Bot, Terminal, ShieldCheck } from "lucide-react";
 import StatCard from "components/dashboard/StatCard";
 import Link from "next/link";
+import { OverviewSkeleton } from "./Skeletons";
 import {
   Badge,
   Button,
@@ -45,6 +47,7 @@ export function OverviewContent() {
   });
   const [activity, setActivity] = useState<any[]>([]);
   const [forks, setForks] = useState<any[]>([]);
+
   const loadDashboard = async () => {
     setLoading(true);
     try {
@@ -67,6 +70,10 @@ export function OverviewContent() {
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  if (loading) {
+    return <OverviewSkeleton />;
+  }
 
   const handleRunSync = async () => {
     setSyncing(true);

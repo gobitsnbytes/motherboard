@@ -18,6 +18,7 @@ import {
   Coins,
   FileCheck,
   GitBranch,
+  UserCheck,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 
@@ -39,6 +40,7 @@ interface ActivePlugin {
 
 const navItems = [
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
+  { label: "Setup Profile", href: "/dashboard/profile", icon: UserCheck },
   { label: "Contract Assistant", href: "/dashboard/contract-assistant", icon: FileCheck },
   { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },

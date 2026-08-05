@@ -25,7 +25,13 @@ from sqlalchemy.ext.asyncio import (
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL or "sqlite" in DATABASE_URL:
-    DATABASE_URL = "sqlite+aiosqlite:///test_temp_phase1.db"
+    db_file = "test_temp_phase1.db"
+    if os.path.exists(db_file):
+        try:
+            os.remove(db_file)
+        except Exception:
+            pass
+    DATABASE_URL = f"sqlite+aiosqlite:///{db_file}"
 
 # ---------------------------------------------------------------------------
 # Session-scoped engine (one connection pool for all tests)

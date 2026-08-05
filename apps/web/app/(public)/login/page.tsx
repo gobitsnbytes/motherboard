@@ -1,13 +1,21 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import React, { Suspense, useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const error = searchParams.get("error");
   const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      router.replace("/dashboard/overview");
+    }
+  }, [status, session, router]);
 
   const handleSignIn = async () => {
     setIsPending(true);

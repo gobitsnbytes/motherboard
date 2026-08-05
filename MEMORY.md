@@ -22,6 +22,7 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - [x] **Phase 8: Core Plugins** ✅ — sample plugin with API router + permissions + React view dynamic dashboard loading
 - [x] **Phase 9: Docker Production** ✅ — audited Docker and Compose setups, programmatic Alembic lifespan execution, optimized build dependencies
 - [x] **Phase 10: chrono ↔ Motherboard Meetings Unification** ✅ — seamless integration of all chrono features into the Motherboard meetings tab. See §6.
+- [x] **Phase 11: Cockpit Architecture & UI Redesign** ✅ — Auto-login, fixed logout, Team Profile Setup (Chrono v2), Cockpit Debugger ("Stats for Nerds"), AI Agent Ops panel, Skeleton loaders, and Diagrammatic IAM Hierarchy visualizer. See §7.
 
 ---
 
@@ -288,6 +289,22 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Client-Side Export & Complete Data Purge (`DELETE /api/contract-assistant/contracts/{id}` & `GET /api/contract-assistant/contracts/{id}/export-void`)**: Generates an immediate client-side text download of an official **Certificate of Cancellation & Voided Copy** (with SHA-256 checksum, timestamps, registered parties, and statutory IT Act 2000 Sec 10A / BSA 65B notices), followed by a complete database deletion of all associated contract and signature records.
 - **Legal Copy Polish & UI Hardening**: Audited and polished `SigningPortalClient.tsx`, `verify/[documentId]`, and dashboard view pages to remove casual tone/placeholders and replace raw `alert()` popups with inline error banners.
 - **Verification**: `bun run --cwd apps/web build` passed cleanly with Next.js 15, and pytest suite passed 6/6 tests (100% green). Pushed to `origin/prod`.
-
-
+**S52 — Cockpit Architecture & UI Redesign (Auto-Login, Team Setup Profile, 2-Way Sync & Diagrammatic IAM Visualizer)**:
+- **Auto-Login & Fixed Logout**:
+  - Middleware (`apps/web/middleware.ts`) & Login Form (`apps/web/app/(public)/login/page.tsx`) auto-redirect authenticated sessions directly to `/dashboard/overview`.
+  - Topbar (`apps/web/components/dashboard/Topbar.tsx`) updated to perform clean `signOut({ callbackUrl: "/login", redirect: true })` without leaving stale tokens.
+- **Hero Section Redesign (`/impeccable quiet & distill`)**:
+  - Refined `HeroSection.tsx` with ambient glass visual styling, balanced typography (`text-wrap: balance`), and direct "Enter Cockpit →" auto-detect action button.
+- **Stats for Nerds & Debugger (`CockpitDebugger.tsx`)**:
+  - Added dockable debug bar (`Ctrl+Shift+D`) displaying real-time API latency (ms), active user ID, Granted IAM Scopes, DB & WS status, and AI Token metrics.
+- **Deep Agentic (AI Agent) Ops (`AgentOpsDrawer.tsx`)**:
+  - Added live AI Agent control drawer for monitoring subagents (Contract Assistant, Notion Sync, Dyslexic Sourcing, Chrono v2 Scheduler), execution logs, and prompt execution.
+- **Team Setup Profile (Chrono v2 Ready)**:
+  - Added `GET /api/users/me` and `PATCH /api/users/me` endpoints in FastAPI backend (`apps/api/app/routers/users.py`).
+  - Added single-source profile setup interface at `/dashboard/profile` (`ProfileContent.tsx`) for setting up Display Name, Bio, Role, Timezone, Skills, and Chrono v2 availability & call preferences.
+- **Diagrammatic IAM Hierarchy & 2-Way Discord Sync**:
+  - Added `GET /api/iam/hierarchy` endpoint in backend (`apps/api/app/routers/iam.py`).
+  - Added interactive visual node tree (`IAMHierarchyVisualizer.tsx`) at `/dashboard/iam` mapping system levels (`Super Admin -> Executive -> Lead -> Member -> Bot`), linked Discord roles, and permission policies.
+- **Skeleton Loaders**: Created `Skeletons.tsx` with shimmer loading cards and layout placeholders for Overview, IAM, Profile, and tables.
+- **Verification**: `bun run typecheck` passed 100% cleanly (0 errors), `bun run build` built Next.js 15 app successfully, and `uv run pytest` passed 188/188 backend tests (100% green).
 

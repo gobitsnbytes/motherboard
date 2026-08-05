@@ -2,12 +2,15 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import FadingVideo from "./FadingVideo";
 import BlurText from "./BlurText";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import RefractiveGlassBackground from "./RefractiveGlassBackground";
 
 export default function HeroSection() {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated" && !!session;
+
   return (
     <section
       id="home"
@@ -31,52 +34,52 @@ export default function HeroSection() {
         </div>
 
         {/* Right: Badge */}
-        <div className="flex items-center gap-2 bg-burgundy/40 border border-burgundy/30 text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full pointer-events-auto select-none">
+        <div className="flex items-center gap-2 bg-burgundy/40 border border-burgundy/30 text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full pointer-events-auto select-none backdrop-blur-md">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Operational
+          Cockpit v0.2.0 Active
         </div>
       </nav>
 
-      {/* Centered Low-Key Card */}
+      {/* Centered Card */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full pt-16">
         <motion.div
-          initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
+          initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="liquid-glass rounded-[1.5rem] p-8 flex flex-col items-center text-center w-full shadow-2xl"
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="liquid-glass rounded-2xl p-8 flex flex-col items-center text-center w-full shadow-2xl border border-white/10"
           style={{
-            backgroundColor: "rgba(255, 255, 255, 0.035)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            backgroundColor: "rgba(18, 15, 10, 0.65)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
           }}
         >
           {/* Logo container */}
           <div
-            className="w-16 h-16 rounded-full flex items-center justify-center liquid-glass mb-6"
+            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 border border-white/10"
             style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
           >
             <img
               src="https://gobitsnbytes.org/logo"
               alt="bits&bytes™ logo"
-              className="w-8 h-auto"
+              className="w-7 h-auto"
             />
           </div>
 
           {/* Heading */}
-          <h1 className="text-4xl font-heading font-extrabold text-white leading-none tracking-tight mb-4">
+          <h1 className="text-3xl md:text-4xl font-heading font-extrabold text-white leading-none tracking-tight mb-3">
             <BlurText text="bits&bytes Operations" />
           </h1>
 
           {/* Subtitle */}
-          <p className="text-sm text-white/80 font-body leading-relaxed mb-6">
-            this is an internal tool to manage all operations and work of
-            bits&bytes™ (GOBITSNBYTES FOUNDATION)
+          <p className="text-xs md:text-sm text-white/70 font-body leading-relaxed mb-6">
+            The high-agency internal operational cockpit for GOBITSNBYTES FOUNDATION.
           </p>
+
           <Link
-            href="/login"
-            className="w-full mb-6 rounded-[1rem] bg-orange text-black font-heading font-bold py-3 px-4 text-center transition-all duration-200 hover:scale-[1.02]"
+            href={isAuthenticated ? "/dashboard/overview" : "/login"}
+            className="w-full mb-6 rounded-xl bg-gradient-to-r from-amber-500 to-orange text-black font-heading font-bold py-3 px-4 text-center transition-all duration-200 hover:scale-[1.02] shadow-lg shadow-amber-500/10"
           >
-            Access Platform
+            {isAuthenticated ? "Enter Cockpit →" : "Access Platform"}
           </Link>
           {/* Info Section */}
           <div className="flex flex-col gap-2.5 w-full border-t border-white/10 pt-5 text-xs text-white/70">

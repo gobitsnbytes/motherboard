@@ -14,6 +14,30 @@ from app.schemas.users import UserCreate, UserOut, UserUpdate
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
+@router.get("/me", response_model=UserOut)
+async def get_current_user_profile(
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> User:
+    return current_user
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_current_user_profile(
+    payload: UserUpdate,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> User:
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "is_super_admin":
+            continue
+        setattr(current_user, field, value)
+    current_user.profile_completed = True
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
 @router.get("/", response_model=list[UserOut])
 async def list_users(db: DbSession, current_user: CurrentUserDep) -> list[User]:
     await require_permission(db, current_user, "iam.users.read")

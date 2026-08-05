@@ -792,8 +792,8 @@ async def seed_team_profiles(session: AsyncSession) -> None:
             await session.execute(
                 text(
                     """
-                    INSERT INTO users (id, display_name, email, is_active, is_super_admin)
-                    VALUES (:id, :display_name, :email, true, :is_super_admin)
+                    INSERT INTO users (id, display_name, email, is_active, is_super_admin, title, profile_completed)
+                    VALUES (:id, :display_name, :email, true, :is_super_admin, :title, true)
                     """
                 ),
                 {
@@ -801,6 +801,7 @@ async def seed_team_profiles(session: AsyncSession) -> None:
                     "display_name": profile["display_name"],
                     "email": profile["email"],
                     "is_super_admin": profile["is_super_admin"],
+                    "title": profile.get("role_name", "Core Executive"),
                 },
             )
 
