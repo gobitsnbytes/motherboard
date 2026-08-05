@@ -894,6 +894,18 @@ async def void_contract_agreement(
     ca_res = await db.execute(ca_stmt)
     contract = ca_res.scalar_one_or_none()
 
+    if not contract:
+        env_stmt = select(ContractAssistantEnvelope).where(ContractAssistantEnvelope.signature_request_id == c_uuid)
+        env_res = await db.execute(env_stmt)
+        env = env_res.scalar_one_or_none()
+        if env:
+            ca_stmt = (
+                select(ContractAssistantContract)
+                .options(selectinload(ContractAssistantContract.envelopes))
+                .where(ContractAssistantContract.id == env.contract_id)
+            )
+            contract = (await db.execute(ca_stmt)).scalar_one_or_none()
+
     # Query SignatureRequest
     sig_stmt = select(SignatureRequest).where(SignatureRequest.id == c_uuid)
     sig_res = await db.execute(sig_stmt)

@@ -53,24 +53,35 @@ export default function SignaturesDashboardPage() {
     setTimeout(() => setCopiedToken(null), 2500);
   };
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const handleVoid = async (id: string) => {
+    setActionError(null);
     if (!confirm("Are you sure you want to quash and void this agreement? Active signature links will be revoked.")) return;
     try {
-      const res = await fetch(`/api/contract-assistant/contracts/${id}/void`, { method: "POST" });
+      let res = await fetch(`/api/contract-assistant/contracts/${id}/void`, { method: "POST" });
+      if (!res.ok) {
+        res = await fetch(`/api/signatures/requests/${id}/void`, { method: "POST" });
+      }
       if (res.ok) {
         fetchRequests();
       } else {
-        alert("Failed to void agreement");
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.detail || "Failed to void agreement. Please verify request status.");
       }
     } catch (e) {
-      alert("Error voiding agreement");
+      setActionError("Network error attempting to void agreement.");
     }
   };
 
   const handleDelete = async (id: string) => {
+    setActionError(null);
     if (!confirm("This will download an official CANCELLED & VOID certificate copy to your device and permanently purge all database records. Proceed?")) return;
     try {
-      const exportRes = await fetch(`/api/contract-assistant/contracts/${id}/export-void`);
+      let exportRes = await fetch(`/api/contract-assistant/contracts/${id}/export-void`);
+      if (!exportRes.ok) {
+        exportRes = await fetch(`/api/signatures/requests/${id}/export-void`);
+      }
       if (exportRes.ok) {
         const blob = await exportRes.blob();
         const url = window.URL.createObjectURL(blob);
@@ -83,14 +94,18 @@ export default function SignaturesDashboardPage() {
         window.URL.revokeObjectURL(url);
       }
 
-      const deleteRes = await fetch(`/api/contract-assistant/contracts/${id}`, { method: "DELETE" });
+      let deleteRes = await fetch(`/api/contract-assistant/contracts/${id}`, { method: "DELETE" });
+      if (!deleteRes.ok) {
+        deleteRes = await fetch(`/api/signatures/requests/${id}`, { method: "DELETE" });
+      }
       if (deleteRes.ok) {
         fetchRequests();
       } else {
-        alert("Failed to purge agreement from database");
+        const data = await deleteRes.json().catch(() => ({}));
+        setActionError(data.detail || "Failed to purge agreement from database.");
       }
     } catch (e) {
-      alert("Error purging agreement");
+      setActionError("Network error attempting to purge agreement.");
     }
   };
 
@@ -109,6 +124,14 @@ export default function SignaturesDashboardPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Action Error Banner */}
+      {actionError && (
+        <div className="p-3 bg-red-950 border-2 border-red-500 rounded-xl text-red-200 text-xs font-bold flex items-center justify-between shadow-[3px_3px_0px_0px_#120F0A]">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#3C0A12] text-white p-6 rounded-2xl border-2 border-[#120F0A] shadow-[6px_6px_0px_0px_#120F0A]">
         <div>

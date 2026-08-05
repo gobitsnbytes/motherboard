@@ -1005,3 +1005,135 @@ async def verify_contract_authenticity(
         audit_trail=sig_request.audit_logs,
     )
 
+
+@router.post("/requests/{request_id}/void")
+async def void_signature_request(
+    request_id: str,
+    db: DbSession,
+):
+    """Quash/void a signature request directly."""
+    try:
+        r_uuid = uuid.UUID(request_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid request_id format")
+
+    sig_stmt = select(SignatureRequest).where(SignatureRequest.id == r_uuid)
+    sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
+
+    if not sig_req:
+        raise HTTPException(status_code=404, detail="Signature request not found")
+
+    now = datetime.now(timezone.utc)
+    sig_req.status = "voided"
+    db.add(SignatureAuditLog(
+        request_id=sig_req.id,
+        action="VOIDED",
+        details=f"Contract agreement officially quashed and voided by admin at {now.isoformat()}.",
+    ))
+
+    # Also update associated ContractAssistantContract if linked
+    from app.db.models import ContractAssistantContract, ContractAssistantEnvelope
+    env_stmt = select(ContractAssistantEnvelope).where(ContractAssistantEnvelope.signature_request_id == r_uuid)
+    env = (await db.execute(env_stmt)).scalar_one_or_none()
+    if env:
+        ca_stmt = select(ContractAssistantContract).where(ContractAssistantContract.id == env.contract_id)
+        contract = (await db.execute(ca_stmt)).scalar_one_or_none()
+        if contract:
+            contract.status = "voided"
+
+    await db.commit()
+    return {"status": "voided", "message": "Signature request officially voided."}
+
+
+@router.get("/requests/{request_id}/export-void")
+async def export_voided_signature_copy(
+    request_id: str,
+    db: DbSession,
+):
+    """Export cancelled certificate for signature request."""
+    try:
+        r_uuid = uuid.UUID(request_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid request_id format")
+
+    sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == r_uuid)
+    sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
+
+    title = sig_req.title if sig_req else "Contract Agreement"
+    file_hash = (sig_req.document_hash if sig_req and sig_req.document_hash else "SHA256_UNREGISTERED")
+    created_at_str = (sig_req.created_at.isoformat() if sig_req and sig_req.created_at else datetime.now(timezone.utc).isoformat())
+    signatories_str = ", ".join([r.name for r in sig_req.recipients]) if sig_req and sig_req.recipients else "Signatories Registered"
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    cert_text = f"""================================================================================
+           OFFICIAL CERTIFICATE OF CANCELLATION & VOIDED COPY
+================================================================================
+GOBITSNBYTES FOUNDATION (Section 8 Non-Profit Co., Companies Act 2013)
+bits&bytes™ Legal Operations & Contract Assistant Portal
+
+STATUS:              VOIDED & CANCELLED (REVOKED)
+DOCUMENT TITLE:      {title}
+DOCUMENT ID:         {request_id}
+ORIGINAL CHECKSUM:   {file_hash}
+DATE OF CREATION:    {created_at_str}
+DATE OF REVOCATION:  {now_str}
+REGISTERED PARTIES:  {signatories_str}
+
+--------------------------------------------------------------------------------
+STATUTORY REVOCATION NOTICE:
+In accordance with Section 10A of the Information Technology Act, 2000 and Section
+65B of the Indian Evidence Act (Bharatiya Sakshya Adhiniyam, 2023):
+
+1. THIS CONTRACT AGREEMENT HAS BEEN OFFICIALLY QUASHED AND VOIDED BY THE ISSUING
+   AUTHORITY (GOBITSNBYTES FOUNDATION).
+2. ALL ELECTRONIC SIGNATURE LINKS, TOKENIZED PORTAL ACCESS, AND STATUTORY ENFORCEABILITY
+   FOR THIS DOCUMENT ARE PERMANENTLY REVOKED AND TERMINATED.
+3. THIS DOCUMENT CONSTITUTES THE SOLE CERTIFIED ARCHIVAL RECORD PROVING THAT THE
+   AGREEMENT WAS CANCELLED AND VOIDED PRIOR TO DESTRUCTION OF ONLINE DATABASE RECORDS.
+--------------------------------------------------------------------------------
+Audit Trail: Generated & Sealed on {now_str} by Legal Administrator.
+================================================================================
+"""
+    return Response(
+        content=cert_text,
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="VOIDED_AGREEMENT_{request_id[:8]}.txt"'},
+    )
+
+
+@router.delete("/requests/{request_id}")
+async def delete_signature_request_permanently(
+    request_id: str,
+    db: DbSession,
+):
+    """Purge signature request permanently."""
+    try:
+        r_uuid = uuid.UUID(request_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid request_id format")
+
+    sig_stmt = select(SignatureRequest).where(SignatureRequest.id == r_uuid)
+    sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
+
+    if sig_req:
+        if sig_req.original_file_path and os.path.exists(sig_req.original_file_path):
+            try:
+                os.remove(sig_req.original_file_path)
+            except Exception:
+                pass
+        await db.delete(sig_req)
+
+    # Delete linked ContractAssistantContract if exists
+    from app.db.models import ContractAssistantContract, ContractAssistantEnvelope
+    env_stmt = select(ContractAssistantEnvelope).where(ContractAssistantEnvelope.signature_request_id == r_uuid)
+    env = (await db.execute(env_stmt)).scalar_one_or_none()
+    if env:
+        ca_stmt = select(ContractAssistantContract).where(ContractAssistantContract.id == env.contract_id)
+        contract = (await db.execute(ca_stmt)).scalar_one_or_none()
+        if contract:
+            await db.delete(contract)
+
+    await db.commit()
+    return {"status": "deleted", "message": f"Signature request {request_id} permanently deleted."}
+
+
