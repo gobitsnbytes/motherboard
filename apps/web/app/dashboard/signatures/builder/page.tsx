@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Users, Layers, Send, ArrowRight, ArrowLeft, Plus, Trash2, CheckCircle2, FileText, UserCheck } from "lucide-react";
+import { Upload, Users, Layers, Send, ArrowRight, ArrowLeft, Plus, Trash2, CheckCircle2, FileText, UserCheck, Mail } from "lucide-react";
 import { DocumentEditor, RecipientConfig, PlacedField } from "../../../../components/signatures/DocumentEditor";
 
 const PRESET_COLORS = ["#97192C", "#FC920D", "#2563EB", "#059669", "#7C3AED"] as const;
@@ -21,7 +21,7 @@ export default function SignatureBuilderPage() {
 
   // Step 2 State: Signatories
   const [recipients, setRecipients] = useState<RecipientConfig[]>([
-    { id: "rec_1", name: "Primary Signer", email: "signer@example.com", color: PRESET_COLORS[0] },
+    { id: "rec_1", name: "Primary Signer", email: "signer@example.com", color: PRESET_COLORS[0], requires_otp: false },
   ]);
 
   // Step 3 State: Fields Placed
@@ -65,7 +65,7 @@ export default function SignatureBuilderPage() {
 
   const handleSignMyselfPreset = () => {
     setRecipients([
-      { id: "rec_self", name: "Authorized Signatory", email: "legal@gobitsnbytes.org", color: PRESET_COLORS[0] }
+      { id: "rec_self", name: "Authorized Signatory", email: "legal@gobitsnbytes.org", color: PRESET_COLORS[0], requires_otp: false }
     ]);
     setSelectedRecipientId("rec_self");
   };
@@ -77,6 +77,7 @@ export default function SignatureBuilderPage() {
       name: `Signatory ${idx + 1}`,
       email: `signatory${idx + 1}@example.com`,
       color: PRESET_COLORS[idx % PRESET_COLORS.length] || "#97192C",
+      requires_otp: false,
     };
     setRecipients([...recipients, newRec]);
   };
@@ -104,6 +105,7 @@ export default function SignatureBuilderPage() {
         email: r.email,
         role: "signer",
         signing_order: i + 1,
+        requires_otp: Boolean(r.requires_otp),
       })),
       fields: fields.map((f) => ({
         recipient_id: f.recipient_id,
@@ -274,6 +276,43 @@ export default function SignatureBuilderPage() {
                         }}
                         className="w-full px-3 py-2 bg-white border-2 border-[#120F0A] rounded-lg text-xs font-bold text-[#120F0A]"
                       />
+                    </div>
+                  </div>
+
+                  <div className="w-full pt-1 border-t border-[#D0CFCE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-[#120F0A]">
+                      <input
+                        type="checkbox"
+                        checked={r.requires_otp || false}
+                        onChange={(e) => {
+                          const updated = [...recipients];
+                          if (updated[idx]) {
+                            updated[idx].requires_otp = e.target.checked;
+                            setRecipients(updated);
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-2 border-[#120F0A] accent-[#97192C]"
+                      />
+                      <span>Require 6-Digit Email OTP Verification</span>
+                    </label>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-bold uppercase text-[#716F6C]">Security Mode:</span>
+                      <select
+                        value={r.allowed_sig_type || "any"}
+                        onChange={(e) => {
+                          const updated = [...recipients];
+                          if (updated[idx]) {
+                            updated[idx].allowed_sig_type = e.target.value;
+                            setRecipients(updated);
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold text-[#120F0A]"
+                      >
+                        <option value="any">DSC (if available) or Simple OTP (Default)</option>
+                        <option value="dsc_only">Enforce Class 1/2/3 DSC Only</option>
+                        <option value="email_only">Enforce Simple Email OTP Only</option>
+                      </select>
                     </div>
                   </div>
 

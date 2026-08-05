@@ -18,6 +18,8 @@ class RecipientCreate(BaseModel):
     role: str = Field(default="signer")  # signer, viewer, cc
     signing_order: int = Field(default=1, ge=1)
     access_passcode: Optional[str] = Field(default=None, max_length=50)
+    requires_otp: bool = Field(default=False)
+    allowed_sig_type: Optional[str] = Field(default="any")  # "any", "dsc_only", "email_only"
 
 
 class RecipientResponse(BaseModel):
@@ -31,9 +33,32 @@ class RecipientResponse(BaseModel):
     signing_order: int
     status: str
     access_token: str
+    requires_otp: bool = False
+    allowed_sig_type: Optional[str] = "any"
+    dsc_type: Optional[str] = None
+    dsc_issuer: Optional[str] = None
+    dsc_serial: Optional[str] = None
+    dsc_common_name: Optional[str] = None
     signed_at: Optional[datetime] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
+
+
+class OTPRequestPayload(BaseModel):
+    email: EmailStr
+
+
+class OTPVerifyRequest(BaseModel):
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
+class DSCHardwareSealRequest(BaseModel):
+    signature_hex: str
+    certificate_pem: Optional[str] = None
+    issuer: Optional[str] = None
+    serial_number: Optional[str] = None
+    common_name: Optional[str] = None
+    fields: Optional[List["SignSubmissionFieldPayload"]] = []
 
 
 # ---------------------------------------------------------------------------

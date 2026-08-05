@@ -1456,9 +1456,17 @@ class SignatureRecipient(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, sent, viewed, signed, declined
     access_token: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     access_passcode: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    requires_otp: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    otp_code: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dsc_type: Mapped[str | None] = mapped_column(String(50), nullable=True)  # hardware_token, software_pfx
+    dsc_issuer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dsc_serial: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    dsc_common_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    allowed_sig_type: Mapped[str | None] = mapped_column(String(50), nullable=True, default="any")  # "any", "dsc_only", "email_only"
 
     # Relationships
     request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="recipients")

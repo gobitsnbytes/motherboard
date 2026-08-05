@@ -8,6 +8,8 @@ export interface RecipientConfig {
   name: string;
   email: string;
   color: string;
+  requires_otp?: boolean;
+  allowed_sig_type?: string;
 }
 
 export interface PlacedField {

@@ -25,14 +25,20 @@ function getApiBase() {
 }
 
 async function proxy(request: Request, context: RouteContext) {
+  const { path } = await context.params;
+  const inboundPath = `/${path.join("/")}`;
+
+  // Public routes (signing portal & verification engine) do not require Next.js session auth
+  const isPublicRoute =
+    (path[0] === "signatures" && (path[1] === "sign" || path[1] === "verify")) ||
+    inboundPath === "/health";
+
   const session = await auth();
   const userId = session?.user?.internalUserId;
-  if (!userId) {
+  if (!userId && !isPublicRoute) {
     return Response.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
-  const { path } = await context.params;
-  const inboundPath = `/${path.join("/")}`;
   const upstreamPath = inboundPath === "/health" ? "/health" : `/api${inboundPath}`;
   const incomingUrl = new URL(request.url);
   const upstreamUrl = new URL(`${upstreamPath}${incomingUrl.search}`, getApiBase());
@@ -46,7 +52,7 @@ async function proxy(request: Request, context: RouteContext) {
   const authHeaders = createInternalAuthHeaders({
     method: request.method,
     path: upstreamPath,
-    userId,
+    userId: userId || "public-signatory",
   });
   for (const [key, value] of Object.entries(authHeaders)) {
     headers.set(key, value);

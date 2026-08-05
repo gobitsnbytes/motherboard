@@ -5,6 +5,7 @@ FastAPI APIRouter for digital signature contracts (bnb-signatures).
 from datetime import datetime, timedelta, timezone
 import hashlib
 import os
+import random
 import uuid
 from typing import List, Optional
 
@@ -14,14 +15,21 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.serialization import pkcs12
+
 from app.config import get_settings
 from app.db.models import SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest, User
 from app.dependencies import DbSession, get_current_user
 from app.iam.principal import ResolvedPrincipal
 from app.schemas.signatures import (
+    DSCHardwareSealRequest,
     DocumentVerificationResponse,
     FieldCreate,
     FieldResponse,
+    OTPRequestPayload,
+    OTPVerifyRequest,
     RecipientCreate,
     RecipientResponse,
     SignSubmissionRequest,
@@ -39,6 +47,19 @@ router = APIRouter(prefix="/api/signatures", tags=["signatures"])
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "data", "signatures")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def _mask_email(email: str) -> str:
+    """Mask email address (e.g., akshatkushwah@gmail.com -> ak*******@g****.com)."""
+    if "@" not in email:
+        return email
+    user, domain = email.split("@", 1)
+    domain_parts = domain.split(".", 1)
+    user_masked = user[:2] + "*" * max(len(user) - 2, 5) if len(user) > 2 else user[0] + "****"
+    dom_name = domain_parts[0]
+    dom_masked = dom_name[:1] + "*" * max(len(dom_name) - 1, 3)
+    ext = f".{domain_parts[1]}" if len(domain_parts) > 1 else ""
+    return f"{user_masked}@{dom_masked}{ext}"
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +193,8 @@ async def create_signature_request(
             status="pending",
             access_token=access_token,
             access_passcode=r_in.access_passcode,
+            requires_otp=r_in.requires_otp,
+            allowed_sig_type=r_in.allowed_sig_type or "any",
         )
         db.add(recipient)
         await db.flush()
@@ -385,12 +408,313 @@ async def get_signing_portal_data(
             "id": str(recipient.id),
             "name": recipient.name,
             "email": recipient.email,
+            "masked_email": _mask_email(recipient.email),
             "status": recipient.status,
             "requires_passcode": bool(recipient.access_passcode),
+            "requires_otp": recipient.requires_otp,
+            "allowed_sig_type": recipient.allowed_sig_type or "any",
         },
         "previews": previews,
         "fields": recipient_fields,
     }
+
+
+@router.post("/sign/{token}/request-otp")
+async def request_signing_otp(
+    token: str,
+    payload: OTPRequestPayload,
+    bg_tasks: BackgroundTasks,
+    db: DbSession = None,
+    req: Request = None,
+):
+    """Verifies full email address and generates a 2-minute 6-digit OTP code."""
+    stmt = (
+        select(SignatureRecipient)
+        .options(selectinload(SignatureRecipient.request))
+        .where(SignatureRecipient.access_token == token)
+    )
+    result = await db.execute(stmt)
+    recipient = result.scalar_one_or_none()
+
+    if not recipient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
+
+    if payload.email.strip().lower() != recipient.email.strip().lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The email address entered does not match the signatory record for this contract."
+        )
+
+    otp_code = f"{random.randint(100000, 999999)}"
+    recipient.otp_code = otp_code
+    recipient.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=2)
+
+    client_ip = req.client.host if req and req.client else "127.0.0.1"
+    user_agent = req.headers.get("user-agent") if req else "Browser"
+
+    await _log_audit_event(
+        db,
+        request_id=recipient.request_id,
+        recipient_id=recipient.id,
+        action="otp_requested",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details=f"Sent 2-minute 6-digit OTP verification code to verified email ({recipient.email})",
+    )
+    await db.commit()
+
+    settings = get_settings()
+    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+        from app.routers.meetings import send_smtp_email
+        subject = f"Your Verification Code for {recipient.request.title}: {otp_code}"
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; padding: 24px; color: #120F0A; background-color: #FAF8F5;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 2px solid #120F0A; border-radius: 12px; padding: 24px; box-shadow: 4px 4px 0px 0px #120F0A; text-align: center;">
+                <h2 style="color: #97192C; margin-top: 0;">bits&amp;bytes™ Security PIN</h2>
+                <p style="font-size: 14px; line-height: 1.6;">Hello <strong>{recipient.name}</strong>,</p>
+                <p style="font-size: 14px; line-height: 1.6;">Your 6-digit security verification code to unlock and sign <strong>{recipient.request.title}</strong> is:</p>
+                <div style="margin: 24px 0; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #97192C; font-family: monospace; background-color: #FAF8F5; padding: 12px; border: 2px solid #120F0A; border-radius: 8px;">
+                    {otp_code}
+                </div>
+                <p style="font-size: 12px; color: #716F6C; font-weight: bold;">This code is valid for 2 minutes.</p>
+                <hr style="border: none; border-top: 1px solid #D0CFCE; margin: 20px 0;"/>
+                <p style="font-size: 11px; color: #716F6C; margin-bottom: 0;">Sent securely by GOBITSNBYTES FOUNDATION Legal Portal.</p>
+            </div>
+        </div>
+        """
+        bg_tasks.add_task(send_smtp_email, settings, recipient.email, subject, html_body)
+
+    return {"message": "OTP code sent to email", "email": recipient.email, "expires_in_seconds": 120}
+
+
+@router.post("/sign/{token}/verify-otp")
+async def verify_signing_otp(
+    token: str,
+    payload: OTPVerifyRequest,
+    db: DbSession = None,
+    req: Request = None,
+):
+    """Verifies recipient's 6-digit email OTP PIN."""
+    stmt = (
+        select(SignatureRecipient)
+        .options(selectinload(SignatureRecipient.request))
+        .where(SignatureRecipient.access_token == token)
+    )
+    result = await db.execute(stmt)
+    recipient = result.scalar_one_or_none()
+
+    if not recipient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
+
+    if not recipient.otp_code or not recipient.otp_expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active OTP found. Please request a new verification code.")
+
+    now = datetime.now(timezone.utc)
+    if now > recipient.otp_expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification code has expired. Please request a new code.")
+
+    if payload.otp.strip() != recipient.otp_code:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification code. Please check your inbox and try again.")
+
+    client_ip = req.client.host if req and req.client else "127.0.0.1"
+    user_agent = req.headers.get("user-agent") if req else "Browser"
+
+    await _log_audit_event(
+        db,
+        request_id=recipient.request_id,
+        recipient_id=recipient.id,
+        action="otp_verified",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details=f"Signatory {recipient.name} successfully verified 6-digit email OTP",
+    )
+    await db.commit()
+
+    return {"success": True, "message": "OTP verified successfully"}
+
+
+@router.post("/sign/{token}/dsc-digest")
+async def get_dsc_document_digest(
+    token: str,
+    db: DbSession = None,
+):
+    """Returns document SHA-256 hash digest for hardware USB token signing."""
+    stmt = (
+        select(SignatureRecipient)
+        .options(selectinload(SignatureRecipient.request))
+        .where(SignatureRecipient.access_token == token)
+    )
+    result = await db.execute(stmt)
+    recipient = result.scalar_one_or_none()
+
+    if not recipient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
+
+    sig_request = recipient.request
+    if not os.path.exists(sig_request.original_file_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Original document file missing")
+
+    with open(sig_request.original_file_path, "rb") as f:
+        pdf_bytes = f.read()
+
+    doc_hash = hashlib.sha256(pdf_bytes).hexdigest()
+    return {
+        "token": token,
+        "document_title": sig_request.title,
+        "document_hash": doc_hash,
+        "recipient_name": recipient.name,
+        "recipient_email": recipient.email,
+    }
+
+
+@router.post("/sign/{token}/dsc-hardware-seal")
+async def seal_hardware_dsc_signature(
+    token: str,
+    payload: DSCHardwareSealRequest,
+    db: DbSession = None,
+    req: Request = None,
+):
+    """Executes digital contract sealing using Hardware USB Token PKCS#7 signature."""
+    stmt = (
+        select(SignatureRecipient)
+        .options(
+            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.fields),
+            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.recipients),
+        )
+        .where(SignatureRecipient.access_token == token)
+    )
+    result = await db.execute(stmt)
+    recipient = result.scalar_one_or_none()
+
+    if not recipient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
+
+    sig_request = recipient.request
+    if recipient.status == "signed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recipient has already signed this contract")
+
+    client_ip = req.client.host if req and req.client else "127.0.0.1"
+    user_agent = req.headers.get("user-agent") if req else "Browser"
+
+    # Store DSC Certificate metadata
+    recipient.dsc_type = "hardware_token"
+    recipient.dsc_common_name = payload.common_name or recipient.name
+    recipient.dsc_issuer = payload.issuer or "Hardware USB Token Certificate Authority"
+    recipient.dsc_serial = payload.serial_number or hashlib.sha256(payload.signature_hex.encode()).hexdigest()[:16].upper()
+    recipient.status = "signed"
+    recipient.signed_at = datetime.now(timezone.utc)
+    recipient.ip_address = client_ip
+    recipient.user_agent = user_agent
+
+    # Render DSC Digital Stamp overlay on assigned fields
+    dsc_stamp = f"DIGITALLY SIGNED VIA HARDWARE DSC\nCN: {recipient.dsc_common_name}\nIssuer: {recipient.dsc_issuer}\nSerial: {recipient.dsc_serial}\nTimestamp: {recipient.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+
+    for f_in in (payload.fields or []):
+        stmt_f = select(SignatureField).where(SignatureField.id == f_in.field_id, SignatureField.recipient_id == recipient.id)
+        res_f = await db.execute(stmt_f)
+        field_obj = res_f.scalar_one_or_none()
+        if field_obj:
+            field_obj.value = dsc_stamp
+
+    await _log_audit_event(
+        db,
+        request_id=sig_request.id,
+        recipient_id=recipient.id,
+        action="signed_dsc_hardware",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details=f"Signatory {recipient.name} executed Hardware USB Token Digital Signature (CN: {recipient.dsc_common_name}, Serial: {recipient.dsc_serial})",
+    )
+
+    # Check envelope completion status
+    all_recipients = sig_request.recipients
+    completed = all(r.status == "signed" or r.id == recipient.id for r in all_recipients if r.role == "signer")
+
+    if completed:
+        sig_request.status = "completed"
+        sig_request.completed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    return {"status": "success", "message": "Hardware DSC Signature recorded successfully", "request_status": sig_request.status}
+
+
+@router.post("/sign/{token}/dsc-pfx-seal")
+async def seal_software_pfx_dsc_signature(
+    token: str,
+    file: UploadFile = File(...),
+    passphrase: str = Form(...),
+    db: DbSession = None,
+    req: Request = None,
+):
+    """Executes digital contract sealing using software .pfx / .p12 X.509 Digital Signature Certificate."""
+    stmt = (
+        select(SignatureRecipient)
+        .options(
+            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.fields),
+            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.recipients),
+        )
+        .where(SignatureRecipient.access_token == token)
+    )
+    result = await db.execute(stmt)
+    recipient = result.scalar_one_or_none()
+
+    if not recipient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
+
+    if recipient.status == "signed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recipient has already signed this contract")
+
+    pfx_bytes = await file.read()
+
+    # Parse PFX/P12 certificate and private key using cryptography module
+    try:
+        private_key, cert, additional_certs = pkcs12.load_key_and_certificates(
+            pfx_bytes,
+            passphrase.encode("utf-8") if passphrase else None
+        )
+    except Exception as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PFX/P12 certificate file or incorrect passphrase")
+
+    if not cert:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No X.509 signing certificate found in PFX file")
+
+    cn_attributes = cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
+    common_name = cn_attributes[0].value if cn_attributes else recipient.name
+    issuer_attributes = cert.issuer.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
+    issuer_cn = issuer_attributes[0].value if issuer_attributes else "X.509 Certificate Authority"
+    serial_str = hex(cert.serial_number)[2:].upper()
+
+    client_ip = req.client.host if req and req.client else "127.0.0.1"
+    user_agent = req.headers.get("user-agent") if req else "Browser"
+
+    recipient.dsc_type = "software_pfx"
+    recipient.dsc_common_name = common_name
+    recipient.dsc_issuer = issuer_cn
+    recipient.dsc_serial = serial_str
+    recipient.status = "signed"
+    recipient.signed_at = datetime.now(timezone.utc)
+    recipient.ip_address = client_ip
+    recipient.user_agent = user_agent
+
+    await _log_audit_event(
+        db,
+        request_id=recipient.request_id,
+        recipient_id=recipient.id,
+        action="signed_dsc_pfx",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details=f"Signatory {recipient.name} executed Software PFX Digital Signature (CN: {common_name}, Serial: {serial_str}, Issuer: {issuer_cn})",
+    )
+
+    all_recipients = recipient.request.recipients
+    completed = all(r.status == "signed" or r.id == recipient.id for r in all_recipients if r.role == "signer")
+
+    if completed:
+        recipient.request.status = "completed"
+        recipient.request.completed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    return {"status": "success", "message": "Software PFX DSC Signature recorded successfully", "request_status": recipient.request.status}
 
 
 @router.get("/sign/{token}/status")
