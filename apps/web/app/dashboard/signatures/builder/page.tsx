@@ -238,13 +238,27 @@ export default function SignatureBuilderPage() {
                 Signatories List ({recipients.length})
               </label>
               {recipients.map((r, idx) => (
-                <div key={r.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border-2 border-[#120F0A] rounded-xl bg-[#FAF8F5] shadow-[2px_2px_0px_0px_#120F0A]">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="w-4 h-4 rounded-full border border-[#120F0A]" style={{ backgroundColor: r.color }} />
-                    <span className="text-xs font-black text-[#120F0A] font-mono">#{idx + 1}</span>
+                <div key={r.id} className="p-4 border-2 border-[#120F0A] rounded-xl bg-[#FAF8F5] shadow-[3px_3px_0px_0px_#120F0A] space-y-3 text-left">
+                  {/* Top Header Row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full border border-[#120F0A]" style={{ backgroundColor: r.color }} />
+                      <span className="text-xs font-black text-[#120F0A] font-mono">Signatory #{idx + 1}</span>
+                    </div>
+                    {recipients.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRecipient(r.id)}
+                        className="px-2.5 py-1 bg-red-100 text-red-700 border-2 border-red-700 rounded-lg hover:bg-red-200 transition-colors text-xs font-bold flex items-center gap-1"
+                        title="Remove Signatory"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    )}
                   </div>
 
-                  <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Inputs Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-[#716F6C] mb-1">Full Name</label>
                       <input
@@ -279,7 +293,8 @@ export default function SignatureBuilderPage() {
                     </div>
                   </div>
 
-                  <div className="w-full pt-1 border-t border-[#D0CFCE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                  {/* Security & Verification Options */}
+                  <div className="pt-2 border-t border-[#D0CFCE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                     <label className="flex items-center gap-2 cursor-pointer font-bold text-[#120F0A]">
                       <input
                         type="checkbox"
@@ -307,7 +322,7 @@ export default function SignatureBuilderPage() {
                             setRecipients(updated);
                           }
                         }}
-                        className="px-2.5 py-1 bg-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold text-[#120F0A]"
+                        className="px-2.5 py-1.5 bg-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold text-[#120F0A]"
                       >
                         <option value="any">DSC (if available) or Simple OTP (Default)</option>
                         <option value="dsc_only">Enforce Class 1/2/3 DSC Only</option>
@@ -315,17 +330,6 @@ export default function SignatureBuilderPage() {
                       </select>
                     </div>
                   </div>
-
-                  {recipients.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveRecipient(r.id)}
-                      className="p-2 bg-red-100 text-red-700 border-2 border-red-700 rounded-lg hover:bg-red-200 transition-colors self-end sm:self-center"
-                      title="Remove Signatory"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
