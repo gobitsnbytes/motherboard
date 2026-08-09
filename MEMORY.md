@@ -308,3 +308,22 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Skeleton Loaders**: Created `Skeletons.tsx` with shimmer loading cards and layout placeholders for Overview, IAM, Profile, and tables.
 - **Verification**: `bun run typecheck` passed 100% cleanly (0 errors), `bun run build` built Next.js 15 app successfully, and `uv run pytest` passed 188/188 backend tests (100% green).
 
+### 2026-08-09
+
+**S53 — Nextcloud Workspace Unification & Motherboard Deprecation**:
+- **Primary Operational Workspace**: Nextcloud (`workspace.gobitsnbytes.org`) officially established as the central Section 8 builder network operating hub replacing Motherboard.
+- **Suite Apps Active**:
+  - `/drive` → Nextcloud Files (5TB External Storage + PostgreSQL 14)
+  - `/meet` → Nextcloud Talk (HD Video Calls + Public Guest Access & Screen Share)
+  - `/calendar` → Nextcloud Calendar (CalDAV + Email Invites via `workspace@gobitsnbytes.org`)
+  - `/mail` → Nextcloud Webmail (IMAP/SMTP connected to India server `161.118.162.166`)
+  - `/deck` → Nextcloud Deck (Kanban Boards for Hackathons & Dev Squads)
+  - `/wiki` → Nextcloud Collectives (Team Wiki & Knowledge Base)
+  - `/forms` → Nextcloud Forms (Signups & Surveys)
+  - `/tasks` → Nextcloud Tasks
+  - `/notes` → Nextcloud Notes
+- **Automated Mail Provisioner Daemon**: Background daemon `/usr/local/bin/bnb_auto_mail_provisioner.py` running on VPS automatically provisions `@gobitsnbytes.org` mailboxes on India mail server `161.118.162.166` whenever a team member provides their Legal Full Name.
+- **Identity & Discord Auth**: Discord OAuth enabled with 1-click login on `workspace.gobitsnbytes.org`.
+- **Broken Icons & SVG Optimization**: Fixed SVG icon rendering by installing `php8.3-imagick` & `libmagickcore-6.q16-6-extra`, setting `www-data:www-data` ownership on data directory, and clearing theming caches.
+
+
