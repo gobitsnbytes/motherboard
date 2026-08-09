@@ -324,6 +324,13 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - `/notes` → Nextcloud Notes
 - **Automated Mail Provisioner Daemon**: Background daemon `/usr/local/bin/bnb_auto_mail_provisioner.py` running on VPS automatically provisions `@gobitsnbytes.org` mailboxes on India mail server `161.118.162.166` whenever a team member provides their Legal Full Name.
 - **Identity & Discord Auth**: Discord OAuth enabled with 1-click login on `workspace.gobitsnbytes.org`.
-- **Broken Icons & SVG Optimization**: Fixed SVG icon rendering by installing `php8.3-imagick` & `libmagickcore-6.q16-6-extra`, setting `www-data:www-data` ownership on data directory, and clearing theming caches.
+- **Broken Icons & SVG Optimization**: Fixed SVG icon rendering by installing `php8.3-imagick` & `libmagickcore-6.q16-6-extra`, setting `www-data:www-data` ownership on data directory, clearing theming caches, and adding `include mime.types;` & `image/svg+xml svg;` in Nginx static location blocks.
+
+**S54 — Complete White-Labeling & 5TB Google Drive Integration**:
+- **Full White-Labeling**: Custom bits&bytes™ SVG logo and favicons deployed. Set `theming.name="bits&bytes™ Workspace"`, `theming.slogan="Getting ambitious teenagers to ship meaningful tech"`, `theming.color="#97192C"` (bits&bytes Core Burgundy). Injected CSS in `guest.css` hiding all Nextcloud footer credits and branding links.
+- **Mail SSO & Auto-Login**: Enabled `mail` app SSO auto-login (`provision-default-account=1`, `auto-provision=1`, `sso-login=1`). Configured Dovecot Master User authentication on India server (`161.118.162.166`). User mailboxes open directly without email password prompts.
+- **Google Drive 5TB Storage Mount**: Created Mount #1 `Google Drive (5TB)` in Nextcloud `files_external` linked to `admin` group. Installed Rclone + Fuse3 for high-speed 5TB storage streaming.
+- **Digital Signatures Shortcut**: Added `/signatures` clean redirect shortcut in Nginx to `https://gobitsnbytes.org/dashboard/signatures` for legal IT Act Section 10A digital contract signing.
+
 
 
