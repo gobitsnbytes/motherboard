@@ -334,3 +334,11 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 
 
 
+
+### Session S55 (2026-08-09) - Performance Supercharging & Group Hierarchy Realignment
+- **PHP 8.3 FPM OPCache & JIT**: Enabled 512MB RAM OPCache (`opcache.enable=1`, `memory_consumption=512`), JIT tracing compiler (`opcache.jit=tracing`, 128MB buffer), and 2GB RAM limit. Reduced TTFB response latency to 27-40ms.
+- **Nginx Dynamic SVG Icon Route Fix**: Fixed Nginx `/svg/` dynamic rewrite route (`location ^~ /svg/ { try_files $uri /index.php$request_uri; }`) and cleared theming icon cache.
+- **Group Hierarchy Realignment**:
+  - **`admin` + `volunteer`**: Sanjay Singh & Vijay Kushwaha (Board Directors), Akshat, Yash, Devaansh, Srishti, Legal.
+  - **`volunteer`** (Staff): All Admins, City Leads, and Volunteers (Hridyansh, Samiksha, Shantanu, Adithya, Atharva Upadhyay).
+  - **`builder` & `community`**: Reserved for external guests and hackathon participants.
