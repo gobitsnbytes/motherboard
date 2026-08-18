@@ -342,3 +342,31 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - **`admin` + `volunteer`**: Sanjay Singh & Vijay Kushwaha (Board Directors), Akshat, Yash, Devaansh, Srishti, Legal.
   - **`volunteer`** (Staff): All Admins, City Leads, and Volunteers (Hridyansh, Samiksha, Shantanu, Adithya, Atharva Upadhyay).
   - **`builder` & `community`**: Reserved for external guests and hackathon participants.
+
+### Session S56 (2026-08-19) - bnb-signatures Verification, Compliance, Void & Delete Overhaul
+- **Verification Engine Overhaul**:
+  - Eliminated mock/dummy hash generation across `signatures.py` and `contract_assistant.py`; replaced with real SHA-256 cryptographic digest calculation of actual files on disk.
+  - Built `POST /api/signatures/verify/file` supporting direct file upload and in-memory SHA-256 validation against registered and pre-seal contracts.
+  - Created public verification landing portal `apps/web/app/(public)/verify/page.tsx` with search lookup and drag-and-drop PDF tamper detection.
+  - Updated `apps/web/app/(public)/verify/[documentId]/page.tsx` with dedicated status alerts (bold RED banner for voided contracts instead of green checkmark, amber for pending, green for sealed).
+- **Statutory & Regulatory Compliance Engine**:
+  - Implemented `GET /api/signatures/requests/{request_id}/compliance-check` evaluating 6 legal standards:
+    1. Section 10A Information Technology Act, 2000 (Electronic Formation)
+    2. Section 65B Evidence Act / Section 63 BSA 2023 (Forensic Tamper-Evident SHA-256 Audit Trail)
+    3. DPDP Act 2023 (Signatory Privacy & Email Verification PINs)
+    4. POCSO Act 2012 / Minor Capacity Representation Protocol
+    5. CCA Guidelines / Class 3 Digital Signature Certificate (DSC) Tiers
+    6. Section 8 Companies Act 2013 Non-Profit Authority Matrix
+  - Integrated interactive compliance report accordion into public verification UI.
+- **Void Functionality Security Hardening**:
+  - Enforced strict checks in `submit_signature`, `seal_hardware_dsc_signature`, `seal_software_pfx_dsc_signature`, `request_signing_otp`, and `verify_signing_otp` rejecting any actions on `voided` or `expired` contracts.
+  - Revoked and marked all pending signatories as `declined`, cleared active OTP codes, and cascaded void status to linked `ContractAssistantContract` models.
+  - Added dedicated cancellation view in `SigningPortalClient.tsx`.
+- **Permanent Purge & Safe Delete**:
+  - Updated `DELETE /api/signatures/requests/{request_id}` and `DELETE /api/contract-assistant/contracts/{contract_id}` to permanently remove both `original_file_path` and `signed_file_path` from storage disk.
+  - Handled cascading foreign keys and object identity checks to prevent SQLAlchemy double-deletion / session conflict errors.
+- **Testing & Quality Assurance**:
+  - Added 4 new pytest test suites in `apps/api/tests/test_signatures_router.py`.
+  - Ran full test suite: **192/192 tests passing (100% green)**.
+  - Ran web typecheck: `bun run typecheck` **0 errors**.
+
