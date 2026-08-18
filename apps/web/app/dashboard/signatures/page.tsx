@@ -353,14 +353,12 @@ export default function SignaturesDashboardPage() {
                       >
                         <Download className="w-3 h-3" /> PDF
                       </a>
-                      {req.document_hash && (
-                        <Link
-                          href={`/verify/${req.document_hash}`}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#97192C] text-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
-                        >
-                          <ShieldCheck className="w-3 h-3" /> Verify
-                        </Link>
-                      )}
+                      <Link
+                        href={`/verify/${req.document_hash || req.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#97192C] text-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                      >
+                        <ShieldCheck className="w-3 h-3" /> Verify
+                      </Link>
                       {req.status !== "voided" && (
                         <button
                           type="button"

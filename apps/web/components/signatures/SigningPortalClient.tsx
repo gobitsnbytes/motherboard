@@ -232,6 +232,29 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
     );
   }
 
+  if (data?.status === "voided" || data?.recipient?.status === "declined" || data?.recipient?.status === "voided") {
+    return (
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6">
+        <div className="bg-red-50 border-2 border-red-800 p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full text-center space-y-4">
+          <AlertCircle className="w-12 h-12 mx-auto text-red-700" />
+          <h1 className="text-xl font-black text-red-950 font-heading">Contract Agreement Revoked</h1>
+          <p className="text-xs text-red-900 font-medium leading-relaxed">
+            This contract agreement has been officially quashed and voided by the issuing authority. Signature collection and execution permissions for this document are terminated.
+          </p>
+          <div className="pt-2">
+            <a
+              href={`/api/signatures/requests/${data.id || data.recipient.request_id}/export-void`}
+              download
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A]"
+            >
+              Download Revocation Certificate
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (completed) {
     const isFullyCompleted = statusDetails?.request_status === "completed";
 
