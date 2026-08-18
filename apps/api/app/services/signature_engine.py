@@ -142,7 +142,7 @@ def create_audit_certificate_page(
         [Paragraph("<b>Document ID:</b>", body_style), Paragraph(str(request_id), body_style)],
         [Paragraph("<b>Created Date:</b>", body_style), Paragraph(created_at.strftime("%Y-%m-%d %H:%M:%S UTC"), body_style)],
         [Paragraph("<b>Completed Date:</b>", body_style), Paragraph(completed_at.strftime("%Y-%m-%d %H:%M:%S UTC"), body_style)],
-        [Paragraph("<b>Cryptographic Checksum (SHA-256):</b>", body_style), Paragraph(f"<font fontName='Helvetica-Bold'>{document_hash}</font>", body_style)],
+        [Paragraph("<b>Content Checksum (SHA-256):</b>", body_style), Paragraph(f"<font fontName='Helvetica-Bold'>{document_hash}</font>", body_style)],
     ]
     meta_table = Table(meta_data, colWidths=[180, 360])
     meta_table.setStyle(TableStyle([

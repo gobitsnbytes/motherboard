@@ -212,3 +212,227 @@ async def test_signature_request_otp_verification_flow(db_session: AsyncSession,
         assert right_verify.status_code == 200
         assert right_verify.json()["success"] is True
 
+
+@pytest.mark.asyncio
+async def test_contract_compliance_check(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        user = User(display_name="Compliance Evaluator", is_super_admin=True)
+        db_session.add(user)
+        await db_session.commit()
+
+        # Upload & create contract
+        files = {"file": ("comp_contract.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Board Resolution & Governance Agreement",
+            "file_path": file_path,
+            "recipients": [
+                {
+                    "name": "Akshat Kushwaha",
+                    "email": "akshat@gobitsnbytes.org",
+                    "role": "signer",
+                    "signing_order": 1,
+                    "requires_otp": True,
+                }
+            ],
+            "fields": [
+                {
+                    "recipient_id": str(uuid.uuid4()),
+                    "type": "signature",
+                    "page_number": 1,
+                    "pos_x": 10.0,
+                    "pos_y": 20.0,
+                    "width": 30.0,
+                    "height": 10.0,
+                    "required": True,
+                }
+            ],
+        }
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
+        req_id = create_res.json()["id"]
+
+        # Call compliance check
+        comp_res = await client.get(f"/api/signatures/requests/{req_id}/compliance-check")
+        assert comp_res.status_code == 200
+        comp_data = comp_res.json()
+        assert comp_data["compliance_score"] >= 80
+        assert comp_data["overall_status"] == "compliant"
+        assert len(comp_data["checks"]) == 6
+        check_keys = [c["key"] for c in comp_data["checks"]]
+        assert "it_act_sec10a" in check_keys
+        assert "bsa_sec65b_audit_seal" in check_keys
+        assert "dpdp_act_2023" in check_keys
+        assert "section8_governance" in check_keys
+
+
+@pytest.mark.asyncio
+async def test_file_upload_verification(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        user = User(display_name="File Verifier", is_super_admin=True)
+        db_session.add(user)
+        await db_session.commit()
+
+        # 1. Upload & create contract
+        files = {"file": ("sample_contract.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Tamper Verification Document",
+            "file_path": file_path,
+            "recipients": [
+                {
+                    "name": "Signer A",
+                    "email": "signer@example.com",
+                    "role": "signer",
+                    "signing_order": 1,
+                }
+            ],
+            "fields": [
+                {
+                    "recipient_id": str(uuid.uuid4()),
+                    "type": "signature",
+                    "page_number": 1,
+                    "pos_x": 10.0,
+                    "pos_y": 20.0,
+                    "width": 30.0,
+                    "height": 10.0,
+                    "required": True,
+                }
+            ],
+        }
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
+        req_id = create_res.json()["id"]
+
+        # 2. Test verify uploaded original file -> authentic
+        verify_file_res = await client.post(
+            "/api/signatures/verify/file",
+            files={"file": ("sample_contract.pdf", sample_pdf_bytes, "application/pdf")},
+        )
+        assert verify_file_res.status_code == 200
+        vf_data = verify_file_res.json()
+        assert vf_data["is_authentic"] is True
+        assert str(vf_data["document_id"]) == str(req_id)
+
+        # 3. Test verify altered/unregistered file -> not authentic
+        fake_bytes = b"%PDF-1.4 Fake altered content not in database"
+        fake_verify_res = await client.post(
+            "/api/signatures/verify/file",
+            files={"file": ("altered.pdf", fake_bytes, "application/pdf")},
+        )
+        assert fake_verify_res.status_code == 200
+        fake_data = fake_verify_res.json()
+        assert fake_data["is_authentic"] is False
+        assert fake_data["match_type"] == "unregistered"
+
+
+@pytest.mark.asyncio
+async def test_void_signature_request_blocks_signing(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        user = User(display_name="Void Admin", is_super_admin=True)
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create request
+        files = {"file": ("void_contract.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Contract To Be Voided",
+            "file_path": file_path,
+            "recipients": [
+                {
+                    "name": "Signer Void",
+                    "email": "signer.void@example.com",
+                    "role": "signer",
+                    "signing_order": 1,
+                    "requires_otp": True,
+                }
+            ],
+            "fields": [
+                {
+                    "recipient_id": str(uuid.uuid4()),
+                    "type": "signature",
+                    "page_number": 1,
+                    "pos_x": 10.0,
+                    "pos_y": 20.0,
+                    "width": 30.0,
+                    "height": 10.0,
+                    "required": True,
+                }
+            ],
+        }
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
+        req_data = create_res.json()
+        req_id = req_data["id"]
+        token = req_data["recipients"][0]["access_token"]
+        field_id = req_data["fields"][0]["id"]
+
+        # Void the contract
+        void_res = await client.post(f"/api/signatures/requests/{req_id}/void")
+        assert void_res.status_code == 200
+        assert void_res.json()["status"] == "voided"
+
+        # Attempt to request OTP on voided contract -> should fail (400)
+        otp_res = await client.post(f"/api/signatures/sign/{token}/request-otp", json={"email": "signer.void@example.com"})
+        assert otp_res.status_code == 400
+
+        # Attempt to sign voided contract -> should fail (400)
+        sign_res = await client.post(
+            f"/api/signatures/sign/{token}",
+            json={"fields": [{"field_id": field_id, "value": "data:image/png;base64,sample"}]},
+        )
+        assert sign_res.status_code == 400
+
+        # Verify endpoint reflects voided status
+        verify_res = await client.get(f"/api/signatures/verify/{req_id}")
+        assert verify_res.status_code == 200
+        assert verify_res.json()["status"] == "voided"
+
+        # Export voided copy
+        export_res = await client.get(f"/api/signatures/requests/{req_id}/export-void")
+        assert export_res.status_code == 200
+        assert "OFFICIAL CERTIFICATE OF CANCELLATION" in export_res.text
+
+
+@pytest.mark.asyncio
+async def test_delete_signature_request_permanently(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        user = User(display_name="Delete Admin", is_super_admin=True)
+        db_session.add(user)
+        await db_session.commit()
+
+        # Create request
+        files = {"file": ("delete_contract.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Contract To Be Purged",
+            "file_path": file_path,
+            "recipients": [
+                {
+                    "name": "Signer Purge",
+                    "email": "signer.purge@example.com",
+                    "role": "signer",
+                    "signing_order": 1,
+                }
+            ],
+            "fields": [],
+        }
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
+        req_id = create_res.json()["id"]
+
+        # Delete permanently
+        del_res = await client.delete(f"/api/signatures/requests/{req_id}")
+        assert del_res.status_code == 200
+        assert del_res.json()["status"] == "deleted"
+
+        # Verify not found after delete
+        verify_res = await client.get(f"/api/signatures/verify/{req_id}")
+        assert verify_res.status_code == 404
+
+

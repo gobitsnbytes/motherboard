@@ -803,11 +803,18 @@ async def dispatch_contract_for_signature(
 
     # Create SignatureRequest in bnb-signatures database
     import hashlib
-    doc_hash = hashlib.sha256(f"{contract.title}_{contract.id}_{datetime.now(timezone.utc).isoformat()}".encode("utf-8")).hexdigest()
+    file_path = contract.original_file_path or os.path.join(os.getcwd(), "data", "signatures", f"{contract.id}.pdf")
+    doc_hash = None
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as df:
+            doc_hash = hashlib.sha256(df.read()).hexdigest()
+    else:
+        # Fallback to deterministic title hash
+        doc_hash = hashlib.sha256(f"{contract.title}_{contract.id}".encode("utf-8")).hexdigest()
 
     sig_req = SignatureRequest(
         title=f"Legal Agreement: {contract.title}",
-        original_file_path=contract.original_file_path or "contract.pdf",
+        original_file_path=file_path,
         created_by=user_id,
         status="pending",
         document_hash=doc_hash,
@@ -877,7 +884,7 @@ async def void_contract_agreement(
     db: DbSession,
     current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
 ):
-    """Officially quash/void an agreement (whether in review, out for signature, or executed)."""
+    """Officially quash/void an agreement and revoke all signatory access."""
     try:
         c_uuid = uuid.UUID(contract_id)
     except ValueError:
@@ -888,7 +895,10 @@ async def void_contract_agreement(
     # Query ContractAssistantContract
     ca_stmt = (
         select(ContractAssistantContract)
-        .options(selectinload(ContractAssistantContract.envelopes))
+        .options(
+            selectinload(ContractAssistantContract.envelopes),
+            selectinload(ContractAssistantContract.signatories),
+        )
         .where(ContractAssistantContract.id == c_uuid)
     )
     ca_res = await db.execute(ca_stmt)
@@ -901,13 +911,16 @@ async def void_contract_agreement(
         if env:
             ca_stmt = (
                 select(ContractAssistantContract)
-                .options(selectinload(ContractAssistantContract.envelopes))
+                .options(
+                    selectinload(ContractAssistantContract.envelopes),
+                    selectinload(ContractAssistantContract.signatories),
+                )
                 .where(ContractAssistantContract.id == env.contract_id)
             )
             contract = (await db.execute(ca_stmt)).scalar_one_or_none()
 
     # Query SignatureRequest
-    sig_stmt = select(SignatureRequest).where(SignatureRequest.id == c_uuid)
+    sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == c_uuid)
     sig_res = await db.execute(sig_stmt)
     sig_req = sig_res.scalar_one_or_none()
 
@@ -918,6 +931,10 @@ async def void_contract_agreement(
 
     if contract:
         contract.status = "voided"
+        for sig in contract.signatories:
+            if sig.envelope_status in ("pending", "viewed"):
+                sig.envelope_status = "declined"
+
         evt = ContractAssistantEvent(
             contract_id=contract.id,
             type="contract_voided",
@@ -928,10 +945,15 @@ async def void_contract_agreement(
 
         for env in contract.envelopes:
             if env.signature_request_id:
-                s_stmt = select(SignatureRequest).where(SignatureRequest.id == env.signature_request_id)
+                s_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == env.signature_request_id)
                 s_r = (await db.execute(s_stmt)).scalar_one_or_none()
                 if s_r:
                     s_r.status = "voided"
+                    for r in s_r.recipients:
+                        if r.status in ("pending", "viewed"):
+                            r.status = "declined"
+                        r.otp_code = None
+                        r.otp_expires_at = None
                     db.add(SignatureAuditLog(
                         request_id=s_r.id,
                         action="VOIDED",
@@ -940,6 +962,11 @@ async def void_contract_agreement(
 
     if sig_req:
         sig_req.status = "voided"
+        for r in sig_req.recipients:
+            if r.status in ("pending", "viewed"):
+                r.status = "declined"
+            r.otp_code = None
+            r.otp_expires_at = None
         db.add(SignatureAuditLog(
             request_id=sig_req.id,
             action="VOIDED",
@@ -985,7 +1012,7 @@ async def export_voided_contract_copy(
         title = contract.title
         created_at_str = contract.created_at.isoformat() if contract.created_at else created_at_str
         if contract.signatories:
-            signatories_str = ", ".join([s.name for s in contract.signatories])
+            signatories_str = ", ".join([f"{s.name} ({s.email})" for s in contract.signatories])
     else:
         sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == c_uuid)
         sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
@@ -994,7 +1021,7 @@ async def export_voided_contract_copy(
             file_hash = sig_req.document_hash or file_hash
             created_at_str = sig_req.created_at.isoformat() if sig_req.created_at else created_at_str
             if sig_req.recipients:
-                signatories_str = ", ".join([r.name for r in sig_req.recipients])
+                signatories_str = ", ".join([f"{r.name} ({r.email})" for r in sig_req.recipients])
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -1046,7 +1073,6 @@ async def delete_contract_permanently(
 ):
     """
     Permanently purge a contract and all associated database records (clauses, findings, signatories, envelopes, audit logs).
-    Should be called after the client has downloaded the local voided copy.
     """
     try:
         c_uuid = uuid.UUID(contract_id)
@@ -1058,12 +1084,12 @@ async def delete_contract_permanently(
     ca_res = await db.execute(ca_stmt)
     contract = ca_res.scalar_one_or_none()
 
-    sig_ids_to_delete = []
+    sig_ids_to_delete = set()
 
     if contract:
         for env in contract.envelopes:
             if env.signature_request_id:
-                sig_ids_to_delete.append(env.signature_request_id)
+                sig_ids_to_delete.add(env.signature_request_id)
         if contract.original_file_path and os.path.exists(contract.original_file_path):
             try:
                 os.remove(contract.original_file_path)
@@ -1081,13 +1107,29 @@ async def delete_contract_permanently(
                 os.remove(sig_req.original_file_path)
             except Exception as e:
                 logger.warning(f"Could not remove signature file {sig_req.original_file_path}: {e}")
+        if sig_req.signed_file_path and os.path.exists(sig_req.signed_file_path):
+            try:
+                os.remove(sig_req.signed_file_path)
+            except Exception:
+                pass
         await db.delete(sig_req)
 
     for sid in sig_ids_to_delete:
-        s_stmt = select(SignatureRequest).where(SignatureRequest.id == sid)
-        s_r = (await db.execute(s_stmt)).scalar_one_or_none()
-        if s_r:
-            await db.delete(s_r)
+        if sid != c_uuid:
+            s_stmt = select(SignatureRequest).where(SignatureRequest.id == sid)
+            s_r = (await db.execute(s_stmt)).scalar_one_or_none()
+            if s_r:
+                if s_r.original_file_path and os.path.exists(s_r.original_file_path):
+                    try:
+                        os.remove(s_r.original_file_path)
+                    except Exception:
+                        pass
+                if s_r.signed_file_path and os.path.exists(s_r.signed_file_path):
+                    try:
+                        os.remove(s_r.signed_file_path)
+                    except Exception:
+                        pass
+                await db.delete(s_r)
 
     await db.commit()
 

@@ -162,3 +162,48 @@ class DocumentVerificationResponse(BaseModel):
     total_signatories: int
     completed_signatories: int
     audit_trail: List[SignatureAuditLogResponse]
+    recipients: Optional[List[RecipientResponse]] = None
+
+
+# ---------------------------------------------------------------------------
+# Compliance & Verification Schemas
+# ---------------------------------------------------------------------------
+
+class ContractComplianceCheckItem(BaseModel):
+    key: str
+    title: str
+    statutory_reference: str
+    passed: bool
+    status: str  # passed | warning | failed
+    details: str
+    remedy: Optional[str] = None
+
+
+class ContractComplianceReport(BaseModel):
+    request_id: uuid.UUID
+    title: str
+    status: str
+    compliance_score: int  # 0 - 100
+    overall_status: str  # compliant | warning | non_compliant
+    passed_checks_count: int
+    total_checks_count: int
+    checks: List[ContractComplianceCheckItem]
+    evaluated_at: datetime
+
+
+class FileVerificationResponse(BaseModel):
+    is_authentic: bool
+    computed_hash: str
+    match_type: Optional[str] = None  # final_sealed_digest | pre_seal_digest | unregistered
+    document_id: Optional[uuid.UUID] = None
+    title: Optional[str] = None
+    status: Optional[str] = None
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    document_hash: Optional[str] = None
+    total_signatories: int = 0
+    completed_signatories: int = 0
+    audit_trail: List[SignatureAuditLogResponse] = []
+    recipients: List[RecipientResponse] = []
+    details: str
+
