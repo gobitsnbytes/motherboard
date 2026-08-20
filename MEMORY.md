@@ -370,3 +370,18 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - Ran full test suite: **192/192 tests passing (100% green)**.
   - Ran web typecheck: `bun run typecheck` **0 errors**.
 
+### Session S57 (2026-08-21) - Mail Delivery Relay Fix & Mandatory Organization CC
+- **Brevo SMTP Relay & Resilient Fallback**:
+  - Resolved `SMTPAuthenticationError (535)` on `mail.gobitsnbytes.org` by integrating verified **Brevo SMTP Relay** (`smtp-relay.brevo.com:587`).
+  - Added resilient Brevo relay fallback in [`apps/api/app/routers/meetings.py`](file:///d:/motherboard/apps/api/app/routers/meetings.py) `send_smtp_email` to guarantee email and OTP delivery even during primary SMTP connection issues.
+  - Added security PIN and audit logging to [`apps/api/app/routers/signatures.py`](file:///d:/motherboard/apps/api/app/routers/signatures.py).
+- **Mandatory Organization-Wide CC Policy (`gobitsnbytes@gmail.com`)**:
+  - Enforced that **every single email dispatched by any tool or subsystem** includes `gobitsnbytes@gmail.com` in both the `Cc:` header and the SMTP envelope recipient list.
+  - Implemented across:
+    1. [`apps/api/app/routers/meetings.py`](file:///d:/motherboard/apps/api/app/routers/meetings.py) & [`apps/api/app/config.py`](file:///d:/motherboard/apps/api/app/config.py) (`smtp_cc="gobitsnbytes@gmail.com"`).
+    2. [`apps/bot/lib/mailer.js`](file:///d:/motherboard/apps/bot/lib/mailer.js) & [`Bits-bytes-bot/lib/mailer.js`](file:///d:/Bits-bytes-bot/lib/mailer.js).
+    3. [`email-server/scripts/brevo-send.py`](file:///d:/email-server/scripts/brevo-send.py).
+- **CI/CD Deployment Hardening**:
+  - Fixed `deploy/api/deploy.sh` import bug (`get_engine` from `app.database`) and added automatic verification and configuration of Brevo relay on the production VPS.
+
+
