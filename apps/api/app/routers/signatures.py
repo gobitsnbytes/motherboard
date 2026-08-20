@@ -513,6 +513,8 @@ async def request_signing_otp(
     recipient.otp_code = otp_code
     recipient.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=2)
 
+    logger.info("[OTP] Generated security PIN %s for recipient %s <%s>", otp_code, recipient.name, recipient.email)
+
     client_ip = req.client.host if req and req.client else "127.0.0.1"
     user_agent = req.headers.get("user-agent") if req else "Browser"
 
@@ -523,30 +525,29 @@ async def request_signing_otp(
         action="otp_requested",
         ip_address=client_ip,
         user_agent=user_agent,
-        details=f"Sent 2-minute 6-digit OTP verification code to verified email ({recipient.email})",
+        details=f"Sent 2-minute 6-digit OTP verification code ({otp_code[:2]}****) to verified email ({recipient.email})",
     )
     await db.commit()
 
     settings = get_settings()
-    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
-        from app.routers.meetings import send_smtp_email
-        subject = f"Your Verification Code for {recipient.request.title}: {otp_code}"
-        html_body = f"""
-        <div style="font-family: Arial, sans-serif; padding: 24px; color: #120F0A; background-color: #FAF8F5;">
-            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 2px solid #120F0A; border-radius: 12px; padding: 24px; box-shadow: 4px 4px 0px 0px #120F0A; text-align: center;">
-                <h2 style="color: #97192C; margin-top: 0;">bits&amp;bytes™ Security PIN</h2>
-                <p style="font-size: 14px; line-height: 1.6;">Hello <strong>{recipient.name}</strong>,</p>
-                <p style="font-size: 14px; line-height: 1.6;">Your 6-digit security verification code to unlock and sign <strong>{recipient.request.title}</strong> is:</p>
-                <div style="margin: 24px 0; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #97192C; font-family: monospace; background-color: #FAF8F5; padding: 12px; border: 2px solid #120F0A; border-radius: 8px;">
-                    {otp_code}
-                </div>
-                <p style="font-size: 12px; color: #716F6C; font-weight: bold;">This code is valid for 2 minutes.</p>
-                <hr style="border: none; border-top: 1px solid #D0CFCE; margin: 20px 0;"/>
-                <p style="font-size: 11px; color: #716F6C; margin-bottom: 0;">Sent securely by GOBITSNBYTES FOUNDATION Legal Portal.</p>
+    from app.routers.meetings import send_smtp_email
+    subject = f"Your Verification Code for {recipient.request.title}: {otp_code}"
+    html_body = f"""
+    <div style="font-family: Arial, sans-serif; padding: 24px; color: #120F0A; background-color: #FAF8F5;">
+        <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 2px solid #120F0A; border-radius: 12px; padding: 24px; box-shadow: 4px 4px 0px 0px #120F0A; text-align: center;">
+            <h2 style="color: #97192C; margin-top: 0;">bits&amp;bytes™ Security PIN</h2>
+            <p style="font-size: 14px; line-height: 1.6;">Hello <strong>{recipient.name}</strong>,</p>
+            <p style="font-size: 14px; line-height: 1.6;">Your 6-digit security verification code to unlock and sign <strong>{recipient.request.title}</strong> is:</p>
+            <div style="margin: 24px 0; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #97192C; font-family: monospace; background-color: #FAF8F5; padding: 12px; border: 2px solid #120F0A; border-radius: 8px;">
+                {otp_code}
             </div>
+            <p style="font-size: 12px; color: #716F6C; font-weight: bold;">This code is valid for 2 minutes.</p>
+            <hr style="border: none; border-top: 1px solid #D0CFCE; margin: 20px 0;"/>
+            <p style="font-size: 11px; color: #716F6C; margin-bottom: 0;">Sent securely by GOBITSNBYTES FOUNDATION Legal Portal.</p>
         </div>
-        """
-        bg_tasks.add_task(send_smtp_email, settings, recipient.email, subject, html_body)
+    </div>
+    """
+    bg_tasks.add_task(send_smtp_email, settings, recipient.email, subject, html_body)
 
     return {"message": "OTP code sent to email", "email": recipient.email, "expires_in_seconds": 120}
 

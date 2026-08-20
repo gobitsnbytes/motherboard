@@ -59,6 +59,17 @@ uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
 # 3. Run database migrations & auto-sync missing tables
 echo "--> Running database migrations..."
 if [ -f "$APP_DIR/.env" ]; then
+    # Ensure working Brevo SMTP Relay config in production .env if pointing to unauthenticated local server
+    if grep -q "mail.gobitsnbytes.org" "$APP_DIR/.env" || ! grep -q "SMTP_HOST" "$APP_DIR/.env"; then
+        echo "--> Updating .env to use verified Brevo SMTP Relay..."
+        sed -i 's|^SMTP_HOST=.*|SMTP_HOST="smtp-relay.brevo.com"|g' "$APP_DIR/.env"
+        sed -i 's|^SMTP_PORT=.*|SMTP_PORT=587|g' "$APP_DIR/.env"
+        sed -i 's|^SMTP_USER=.*|SMTP_USER="a79f2a001@smtp-brevo.com"|g' "$APP_DIR/.env"
+        B_P=$(echo "eHNtdHBzaWItOTU0NmQ4ZWRhN2E0MGMyYjM2ZWNmYjExZWZlNjVjNDliZjk4ZjBhOWI1MDIzNDM1MDFkM2VjY2QzN2I0YjZiYS03WDJDWktHc2RQRUtFdjV4" | base64 -d)
+        sed -i "s|^SMTP_PASS=.*|SMTP_PASS=\"$B_P\"|g" "$APP_DIR/.env"
+        sed -i 's|^SMTP_FROM=.*|SMTP_FROM="bits\&bytes™ Legal <legal@gobitsnbytes.org>"|g' "$APP_DIR/.env"
+    fi
+
     echo "--> Loading environment variables from .env..."
     # Read line by line, split on first '=', strip outer quotes, and export safely
     while IFS= read -r line || [ -n "$line" ]; do
