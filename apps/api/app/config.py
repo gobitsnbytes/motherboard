@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     smtp_user: str | None = Field(default="legal@gobitsnbytes.org", validation_alias="SMTP_USER")
     smtp_pass: str | None = Field(default=None, validation_alias="SMTP_PASS")
     smtp_from: str = Field(default="bits&bytes Legal <legal@gobitsnbytes.org>", validation_alias="SMTP_FROM")
+    smtp_cc: str = Field(default="gobitsnbytes@gmail.com", validation_alias="SMTP_CC")
     smtp_bcc: str | None = Field(default="gobitsnbytes@gmail.com", validation_alias="SMTP_BCC")
 
     # SparkCloud Verification settings

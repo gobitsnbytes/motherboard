@@ -32,13 +32,13 @@ def test_send_smtp_email_envelope_includes_to_and_bcc(mock_smtp_class, dummy_set
     sender, envelope_recipients, msg_string = mock_smtp_instance.sendmail.call_args[0]
 
     assert sender == "legal@gobitsnbytes.org"
-    # Ensure BOTH the primary recipient AND the BCC audit address are present in envelope recipients
+    # Ensure BOTH the primary recipient AND the audit address (CC/BCC) are present in envelope recipients
     assert "applicant@example.com" in envelope_recipients
     assert "gobitsnbytes@gmail.com" in envelope_recipients
 
-    # Ensure message headers contain To: matching primary recipient and NO Bcc header
+    # Ensure message headers contain To: matching primary recipient and Cc: gobitsnbytes@gmail.com
     assert "To: applicant@example.com" in msg_string
-    assert "Bcc:" not in msg_string
+    assert "Cc: gobitsnbytes@gmail.com" in msg_string
 
 
 @patch("smtplib.SMTP")
