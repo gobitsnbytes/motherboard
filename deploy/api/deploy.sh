@@ -76,10 +76,11 @@ export PATH="$API_DIR/.venv/bin:$PATH"
 echo "--> Auto-syncing missing database table schemas..."
 (cd "$API_DIR" && PYTHONPATH=. "$API_DIR/.venv/bin/python" -c "
 import asyncio
-from app.db.session import engine
+from app.database import get_engine
 from app.db.models import Base
 
 async def sync_db():
+    engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print('--> Database schema metadata synced successfully.')
