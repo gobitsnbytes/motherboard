@@ -56,7 +56,7 @@ sudo chown -R deploy:deploy "$APP_DIR"
 echo "--> Syncing python dependencies..."
 uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
 
-# 3. Run database migrations
+# 3. Run database migrations & auto-sync missing tables
 echo "--> Running database migrations..."
 if [ -f "$APP_DIR/.env" ]; then
     echo "--> Loading environment variables from .env..."
@@ -72,6 +72,42 @@ fi
 # Set path to include virtualenv bin
 export PATH="$API_DIR/.venv/bin:$PATH"
 (cd "$API_DIR" && alembic upgrade head) || rollback
+
+echo "--> Auto-syncing missing database table schemas..."
+(cd "$API_DIR" && PYTHONPATH=. "$API_DIR/.venv/bin/python" -c "
+import asyncio
+from app.db.session import engine
+from app.db.models import Base
+
+async def sync_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print('--> Database schema metadata synced successfully.')
+
+asyncio.run(sync_db())
+") || rollback
+
+# 3.5 Pre-flight SMTP Credential Check
+echo "--> Verifying SMTP mail server credentials..."
+(cd "$API_DIR" && PYTHONPATH=. "$API_DIR/.venv/bin/python" -c "
+import os, smtplib
+host = os.getenv('SMTP_HOST', 'mail.gobitsnbytes.org')
+port = int(os.getenv('SMTP_PORT', '587'))
+user = os.getenv('SMTP_USER')
+password = os.getenv('SMTP_PASS')
+
+if user and password:
+    try:
+        s = smtplib.SMTP(host, port, timeout=10)
+        s.starttls()
+        s.login(user, password)
+        s.quit()
+        print(f'--> SMTP Pre-flight PASSED for {user}@{host}:{port}')
+    except Exception as e:
+        print(f'⚠️ WARNING: SMTP Pre-flight failed for {user}@{host}:{port} - Error: {e}')
+else:
+    print('--> SMTP credentials not specified in .env, skipping live auth test.')
+") || true
 
 # 4. Restart services
 echo "--> Restarting bnb-api systemd service..."

@@ -544,13 +544,31 @@ def send_smtp_email(
         msg.attach(part)
 
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
             server.starttls()
             server.login(settings.smtp_user, settings.smtp_pass)
             server.sendmail(_addr, envelope_recipients, msg.as_string())
         logger.info("[SMTP] Email successfully dispatched to envelope recipients: %s (To: %s)", envelope_recipients, clean_to_emails)
     except Exception as e:
-        logger.error("[SMTP] Failed to send email to envelope recipients %s: %s", envelope_recipients, e)
+        logger.warning("[SMTP] Primary SMTP dispatch failed (%s). Attempting Brevo SMTP relay fallback...", e)
+        # Brevo SMTP relay fallback via environment configuration
+        try:
+            brevo_host = os.getenv("BREVO_SMTP_HOST", "smtp-relay.brevo.com")
+            brevo_port = int(os.getenv("BREVO_SMTP_PORT", "587"))
+            brevo_user = os.getenv("BREVO_SMTP_USER", settings.smtp_user)
+            brevo_pass = os.getenv("BREVO_SMTP_PASS", settings.smtp_pass)
+            if brevo_user and brevo_pass:
+                with smtplib.SMTP(brevo_host, brevo_port, timeout=15) as b_server:
+                    b_server.ehlo()
+                    b_server.starttls()
+                    b_server.ehlo()
+                    b_server.login(brevo_user, brevo_pass)
+                    b_server.sendmail(_addr, envelope_recipients, msg.as_string())
+                logger.info("[SMTP] Email dispatched successfully via Brevo Relay fallback to: %s", envelope_recipients)
+            else:
+                logger.error("[SMTP] Brevo fallback credentials not configured.")
+        except Exception as b_err:
+            logger.error("[SMTP] Both primary SMTP and Brevo fallback failed for %s: %s", envelope_recipients, b_err)
 
 
 async def resolve_emails_for_attendees(db: AsyncSession, settings: Settings, attendees: List[MeetingAttendee]) -> List[str]:
