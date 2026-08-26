@@ -73,3 +73,5 @@ apps/api/data/*.db*
 
 
 .vercel
+
+opencode.json
