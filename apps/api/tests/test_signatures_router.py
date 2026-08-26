@@ -436,3 +436,129 @@ async def test_delete_signature_request_permanently(db_session: AsyncSession, sa
         assert verify_res.status_code == 404
 
 
+
+
+@pytest.mark.asyncio
+async def test_audit_trail_endpoint_and_response_inclusion(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    """GET /requests/{id}/audit returns the full chronological audit trail, and
+    SignatureRequestResponse now embeds audit_logs."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        user = User(display_name="Audit Viewer", is_super_admin=True)
+        db_session.add(user)
+        await db_session.commit()
+
+        files = {"file": ("audit_contract.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Audited Contract",
+            "file_path": file_path,
+            "recipients": [
+                {"name": "Signer A", "email": "a@example.com", "role": "signer", "signing_order": 1}
+            ],
+            "fields": [],
+        }
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
+        req_id = create_res.json()["id"]
+        assert create_res.json()["audit_logs"], "created event must be embedded in response"
+
+        audit_res = await request_as(client, user.id, "GET", f"/api/signatures/requests/{req_id}/audit")
+        assert audit_res.status_code == 200
+        body = audit_res.json()
+        assert body["request_id"] == req_id
+        actions = [e["action"] for e in body["entries"]]
+        assert "created" in actions
+
+
+@pytest.mark.asyncio
+async def test_org_countersign_flow(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    """requires_org_countersign appends legal@ org_signer; countersign endpoint seals
+    with IAM permission; completion fires only when all signers executed."""
+    from unittest.mock import patch, MagicMock
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        user = User(display_name="Org Seal Admin", is_super_admin=True)
+        db_session.add(user)
+        await db_session.commit()
+
+        files = {"file": ("org_contract.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Partnership MoU (org counter-signed)",
+            "file_path": file_path,
+            "recipients": [
+                {"name": "External Partner", "email": "partner@example.com", "role": "signer", "signing_order": 1}
+            ],
+            "fields": [],
+            "requires_org_countersign": True,
+        }
+        create_res = await request_as(client, user.id, "POST", "/api/signatures/requests", json=payload)
+        req_data = create_res.json()
+        roles = {r["role"]: r for r in req_data["recipients"]}
+        assert "org_signer" in roles
+        assert roles["org_signer"]["email"] == "legal@gobitsnbytes.org"
+        org_recipient = roles["org_signer"]
+        partner = roles["signer"]
+
+        # Countersign before external party -> permitted but not finalizing
+        cs_res = await request_as(
+            client, user.id, "POST", f"/api/signatures/requests/{req_data['id']}/countersign",
+            json={"note": "Approved under Board delegation 2026-04."},
+        )
+        assert cs_res.status_code == 200
+
+        # External partner signs via public token flow (mock the PDF seal writer)
+        with patch("app.routers.signatures.embed_signatures_and_seal") as mock_seal:
+            mock_seal.return_value = (b"%PDF-1.4 sealed", "deadbeef" * 8)
+            sign_res = await client.post(
+                f"/api/signatures/sign/{partner['access_token']}",
+                json={"fields": []},
+            )
+        assert sign_res.status_code == 200, f"SIGN FAIL: {sign_res.text[:400]}"
+        assert sign_res.json()["request_status"] == "completed"
+
+        from sqlalchemy import select as _sel
+        from app.db.models import SignatureAuditLog as _SAL
+        rows = (
+            await db_session.execute(_sel(_SAL).where(_SAL.request_id == uuid.UUID(req_data["id"])))
+        ).scalars().all()
+        verify_res = await client.get(f"/api/signatures/verify/{req_data['id']}")
+        assert verify_res.status_code == 200
+        vdata = verify_res.json()
+        audit_actions = [e["action"] for e in vdata["audit_trail"]] + [r.action for r in rows]
+        assert vdata["status"] == "completed"
+        assert "signed_org_countersign" in audit_actions
+        assert "completed" in audit_actions
+
+
+@pytest.mark.asyncio
+async def test_countersign_rejected_without_permission(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    """A non-super-admin without the signatures.countersign grant cannot countersign."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        admin = User(display_name="Admin Holder", is_super_admin=True)
+        plain = User(display_name="Plain Member", is_super_admin=False)
+        db_session.add_all([admin, plain])
+        await db_session.commit()
+
+        files = {"file": ("denied.pdf", sample_pdf_bytes, "application/pdf")}
+        upload_res = await request_as(client, admin.id, "POST", "/api/signatures/upload", files=files)
+        file_path = upload_res.json()["file_path"]
+
+        payload = {
+            "title": "Deny Me",
+            "file_path": file_path,
+            "recipients": [],
+            "fields": [],
+            "requires_org_countersign": True,
+        }
+        create_res = await request_as(client, admin.id, "POST", "/api/signatures/requests", json=payload)
+        req_id = create_res.json()["id"]
+
+        denied = await request_as(
+            client, plain.id, "POST", f"/api/signatures/requests/{req_id}/countersign",
+            json={"note": None},
+        )
+        assert denied.status_code == 403

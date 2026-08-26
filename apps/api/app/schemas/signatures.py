@@ -104,6 +104,10 @@ class SignatureRequestCreate(BaseModel):
     fields: List[FieldCreate]
     expires_in_days: Optional[int] = Field(default=30, ge=1, le=365)
     idempotency_key: Optional[str] = Field(default=None, max_length=100)
+    requires_org_countersign: bool = Field(
+        default=False,
+        description="Append legal@gobitsnbytes.org as org counter-signatory (Authority Matrix gate).",
+    )
 
 
 class SignatureRequestResponse(BaseModel):
@@ -123,6 +127,7 @@ class SignatureRequestResponse(BaseModel):
 
     recipients: List[RecipientResponse] = []
     fields: List[FieldResponse] = []
+    audit_logs: List["SignatureAuditLogResponse"] = []
 
 
 # ---------------------------------------------------------------------------
@@ -206,4 +211,20 @@ class FileVerificationResponse(BaseModel):
     audit_trail: List[SignatureAuditLogResponse] = []
     recipients: List[RecipientResponse] = []
     details: str
+
+
+class AuditTrailResponse(BaseModel):
+    request_id: uuid.UUID
+    title: str
+    status: str
+    document_hash: Optional[str] = None
+    entries: List[SignatureAuditLogResponse] = []
+
+
+class OrgCountersignPayload(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
+# Forward reference declared before SignatureAuditLogResponse; resolve now.
+SignatureRequestResponse.model_rebuild()
 

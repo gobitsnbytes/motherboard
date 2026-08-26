@@ -184,6 +184,8 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
     # Meetings
     {"key": "meetings.read", "description": "View scheduled meetings, transcripts, and preferences."},
     {"key": "meetings.write", "description": "Schedule, reschedule, start, stop, and configure meetings."},
+    # Signatures
+    {"key": "signatures.countersign", "description": "Execute organizational counter-signatures as legal@gobitsnbytes.org (Authority Matrix delegation required)."},
 ]
 
 # ---------------------------------------------------------------------------

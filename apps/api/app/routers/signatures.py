@@ -24,13 +24,16 @@ from app.config import get_settings
 from app.db.models import SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest, User
 from app.dependencies import DbSession, OptionalUserDep, get_current_user
 from app.iam.principal import ResolvedPrincipal
+from app.iam.policy import require_permission
 from app.schemas.signatures import (
     DSCHardwareSealRequest,
+    AuditTrailResponse,
     DocumentVerificationResponse,
     FieldCreate,
     FieldResponse,
     OTPRequestPayload,
     OTPVerifyRequest,
+    OrgCountersignPayload,
     RecipientCreate,
     RecipientResponse,
     SignSubmissionRequest,
@@ -48,6 +51,11 @@ from app.services.signature_engine import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Organizational counter-signatory identity (Authority Matrix §2.3: authority to
+# bind the Foundation flows only through recorded delegation — enforced by IAM
+# permission on the countersign endpoint, never by email link possession).
+ORG_LEGAL_EMAIL = "legal@gobitsnbytes.org"
 
 router = APIRouter(prefix="/api/signatures", tags=["signatures"])
 
@@ -178,7 +186,20 @@ async def create_signature_request(
     recipient_id_map = {}
     first_recipient_id = None
 
-    for r_in in payload.recipients:
+    all_recipients_in = list(payload.recipients)
+    if payload.requires_org_countersign:
+        all_recipients_in.append(
+            RecipientCreate(
+                name="GOBITSNBYTES FOUNDATION — Legal (org seal)",
+                email=ORG_LEGAL_EMAIL,
+                role="org_signer",
+                signing_order=99,
+                requires_otp=False,
+                allowed_sig_type="email_only",
+            )
+        )
+
+    for r_in in all_recipients_in:
         access_token = hashlib.sha256(f"{sig_request.id}:{r_in.email}:{uuid.uuid4()}".encode()).hexdigest()[:32]
         
         # If client supplied a valid UUID as recipient id, we can preserve it or let DB generate
@@ -245,7 +266,8 @@ async def create_signature_request(
         action="created",
         ip_address=client_ip,
         user_agent=user_agent,
-        details=f"Created signature request '{payload.title}' with {len(payload.recipients)} signatories",
+        details=f"Created signature request '{payload.title}' with {len(payload.recipients)} signatories"
+        + (" + org counter-signature (legal@gobitsnbytes.org)" if payload.requires_org_countersign else ""),
     )
 
     await db.commit()
@@ -286,6 +308,7 @@ async def create_signature_request(
         .options(
             selectinload(SignatureRequest.recipients),
             selectinload(SignatureRequest.fields),
+            selectinload(SignatureRequest.audit_logs),
         )
         .where(SignatureRequest.id == sig_request.id)
     )
@@ -353,6 +376,7 @@ async def list_signature_requests(
         .options(
             selectinload(SignatureRequest.recipients),
             selectinload(SignatureRequest.fields),
+            selectinload(SignatureRequest.audit_logs),
         )
         .where(SignatureRequest.created_by == current_user.user_id)
         .order_by(SignatureRequest.created_at.desc())
@@ -373,6 +397,7 @@ async def get_signature_request_details(
         .options(
             selectinload(SignatureRequest.recipients),
             selectinload(SignatureRequest.fields),
+            selectinload(SignatureRequest.audit_logs),
             selectinload(SignatureRequest.audit_logs),
         )
         .where(SignatureRequest.id == request_id)
@@ -929,73 +954,7 @@ async def submit_signature(
     all_signed = all(r.status == "signed" for r in sig_request.recipients if r.role == "signer")
 
     if all_signed:
-        # Finalize contract PDF: embed signatures + append Audit Certificate + calculate SHA-256 seal
-        with open(sig_request.original_file_path, "rb") as orig_f:
-            original_pdf_bytes = orig_f.read()
-
-        fields_data = [
-            {
-                "page_number": f.page_number,
-                "pos_x": f.pos_x,
-                "pos_y": f.pos_y,
-                "width": f.width,
-                "height": f.height,
-                "type": f.type,
-                "value": f.value,
-            }
-            for f in sig_request.fields
-        ]
-
-        recipients_data = [
-            {
-                "name": r.name,
-                "email": r.email,
-                "role": r.role,
-                "signed_at": r.signed_at,
-                "ip_address": r.ip_address,
-            }
-            for r in sig_request.recipients
-        ]
-
-        audit_logs_data = [
-            {
-                "created_at": a.created_at,
-                "action": a.action,
-                "ip_address": a.ip_address,
-                "details": a.details,
-            }
-            for a in sig_request.audit_logs
-        ]
-
-        signed_pdf_bytes, sha256_hash = embed_signatures_and_seal(
-            original_pdf_bytes=original_pdf_bytes,
-            fields_data=fields_data,
-            recipients_data=recipients_data,
-            audit_logs_data=audit_logs_data,
-            request_title=sig_request.title,
-            request_id=str(sig_request.id),
-            created_at=sig_request.created_at,
-        )
-
-        signed_filename = f"signed_{sig_request.id}.pdf"
-        signed_file_path = os.path.join(UPLOAD_DIR, signed_filename)
-
-        with open(signed_file_path, "wb") as sf:
-            sf.write(signed_pdf_bytes)
-
-        sig_request.signed_file_path = signed_file_path
-        sig_request.document_hash = sha256_hash
-        sig_request.status = "completed"
-        sig_request.completed_at = datetime.now(timezone.utc)
-
-        await _log_audit_event(
-            db,
-            request_id=sig_request.id,
-            action="completed",
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details=f"All signatories completed. Cryptographic SHA-256 seal: {sha256_hash}",
-        )
+        await _finalize_request_if_complete(db, sig_request, client_ip, user_agent)
 
     await db.commit()
 
@@ -1004,6 +963,197 @@ async def submit_signature(
         "message": "Contract signed successfully",
         "request_status": sig_request.status,
     }
+
+
+async def _finalize_request_if_complete(
+    db,
+    sig_request: SignatureRequest,
+    client_ip: str,
+    user_agent: str,
+) -> None:
+    """Seal the contract PDF when every signer has executed. Shared by the public
+    signing portal and the org counter-signature endpoint."""
+    # Finalize contract PDF: embed signatures + append Audit Certificate + calculate SHA-256 seal
+    with open(sig_request.original_file_path, "rb") as orig_f:
+        original_pdf_bytes = orig_f.read()
+
+    fields_data = [
+        {
+            "page_number": f.page_number,
+            "pos_x": f.pos_x,
+            "pos_y": f.pos_y,
+            "width": f.width,
+            "height": f.height,
+            "type": f.type,
+            "value": f.value,
+        }
+        for f in sig_request.fields
+    ]
+
+    recipients_data = [
+        {
+            "name": r.name,
+            "email": r.email,
+            "role": r.role,
+            "signed_at": r.signed_at,
+            "ip_address": r.ip_address,
+        }
+        for r in sig_request.recipients
+    ]
+
+    audit_logs_data = [
+        {
+            "created_at": a.created_at,
+            "action": a.action,
+            "ip_address": a.ip_address,
+            "details": a.details,
+        }
+        for a in sig_request.audit_logs
+    ]
+
+    signed_pdf_bytes, sha256_hash = embed_signatures_and_seal(
+        original_pdf_bytes=original_pdf_bytes,
+        fields_data=fields_data,
+        recipients_data=recipients_data,
+        audit_logs_data=audit_logs_data,
+        request_title=sig_request.title,
+        request_id=str(sig_request.id),
+        created_at=sig_request.created_at,
+    )
+
+    signed_filename = f"signed_{sig_request.id}.pdf"
+    signed_file_path = os.path.join(UPLOAD_DIR, signed_filename)
+
+    with open(signed_file_path, "wb") as sf:
+        sf.write(signed_pdf_bytes)
+
+    sig_request.signed_file_path = signed_file_path
+    sig_request.document_hash = sha256_hash
+    sig_request.status = "completed"
+    sig_request.completed_at = datetime.now(timezone.utc)
+
+    await _log_audit_event(
+        db,
+        request_id=sig_request.id,
+        action="completed",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details=f"All signatories completed. Cryptographic SHA-256 seal: {sha256_hash}",
+    )
+
+
+@router.get("/requests/{request_id}/audit", response_model=AuditTrailResponse)
+async def get_signature_audit_trail(
+    request_id: uuid.UUID,
+    db: DbSession = None,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
+    """Dedicated audit-trail viewer for a signature request (signature audit tab)."""
+    stmt = (
+        select(SignatureRequest)
+        .options(selectinload(SignatureRequest.audit_logs))
+        .where(SignatureRequest.id == request_id)
+    )
+    result = await db.execute(stmt)
+    sig_req = result.scalar_one_or_none()
+    if not sig_req:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signature request not found")
+
+    entries = sorted(sig_req.audit_logs, key=lambda a: a.created_at)
+    return AuditTrailResponse(
+        request_id=sig_req.id,
+        title=sig_req.title,
+        status=sig_req.status,
+        document_hash=sig_req.document_hash,
+        entries=[SignatureAuditLogResponse.model_validate(a) for a in entries],
+    )
+
+
+@router.post("/requests/{request_id}/countersign", response_model=SignatureRequestResponse)
+async def org_countersign_request(
+    request_id: uuid.UUID,
+    payload: OrgCountersignPayload,
+    db: DbSession = None,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
+    """Record the organizational counter-signature as legal@gobitsnbytes.org.
+
+    Requires the ``signatures.countersign`` IAM permission — authority to bind the
+    Foundation comes from recorded delegation (Authority Matrix), not from
+    possession of an email link."""
+    await require_permission(db, current_user, "signatures.countersign")
+
+    stmt = (
+        select(SignatureRequest)
+        .options(
+            selectinload(SignatureRequest.recipients),
+            selectinload(SignatureRequest.fields),
+            selectinload(SignatureRequest.audit_logs),
+            selectinload(SignatureRequest.audit_logs),
+        )
+        .where(SignatureRequest.id == request_id)
+    )
+    result = await db.execute(stmt)
+    sig_request = result.scalar_one_or_none()
+    if not sig_request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signature request not found")
+
+    if sig_request.status in ("voided", "expired", "completed"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Contract is {sig_request.status}; counter-signature not permitted.",
+        )
+
+    org_recipient = next((r for r in sig_request.recipients if r.role == "org_signer"), None)
+    if org_recipient is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This contract was not configured for organizational counter-signature.",
+        )
+    if org_recipient.email != ORG_LEGAL_EMAIL:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid org signatory record.")
+    if org_recipient.status == "signed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Org counter-signature already recorded.")
+
+    now = datetime.now(timezone.utc)
+    org_recipient.status = "signed"
+    org_recipient.signed_at = now
+    org_recipient.dsc_type = "org_seal"
+
+    note_suffix = f" Note: {payload.note}" if payload.note else ""
+    await _log_audit_event(
+        db,
+        request_id=sig_request.id,
+        recipient_id=org_recipient.id,
+        action="signed_org_countersign",
+        ip_address="internal",
+        user_agent="motherboard-dashboard",
+        details=(
+            f"Organizational counter-signature executed by GOBITSNBYTES FOUNDATION Legal "
+            f"<{ORG_LEGAL_EMAIL}>; authorized by actor {current_user.user_id} under "
+            f"signatures.countersign delegation.{note_suffix}"
+        ),
+    )
+
+    all_signed = all(r.status == "signed" for r in sig_request.recipients if r.role == "signer")
+    if all_signed:
+        await _finalize_request_if_complete(db, sig_request, "internal", "motherboard-dashboard")
+
+    await db.commit()
+    await db.refresh(sig_request)
+
+    stmt_fresh = (
+        select(SignatureRequest)
+        .options(
+            selectinload(SignatureRequest.recipients),
+            selectinload(SignatureRequest.fields),
+            selectinload(SignatureRequest.audit_logs),
+            selectinload(SignatureRequest.audit_logs),
+        )
+        .where(SignatureRequest.id == request_id)
+    )
+    fresh = await db.execute(stmt_fresh)
+    return fresh.scalar_one()
 
 
 @router.get("/requests/{request_id}/download")
@@ -1239,6 +1389,7 @@ async def evaluate_contract_compliance(
             selectinload(SignatureRequest.recipients),
             selectinload(SignatureRequest.fields),
             selectinload(SignatureRequest.audit_logs),
+            selectinload(SignatureRequest.audit_logs),
         )
         .where(SignatureRequest.id == request_id)
     )
@@ -1368,7 +1519,7 @@ async def void_signature_request(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid request_id format")
 
-    sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == r_uuid)
+    sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients), selectinload(SignatureRequest.audit_logs)).where(SignatureRequest.id == r_uuid)
     sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
 
     if not sig_req:
@@ -1415,7 +1566,7 @@ async def export_voided_signature_copy(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid request_id format")
 
-    sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id == r_uuid)
+    sig_stmt = select(SignatureRequest).options(selectinload(SignatureRequest.recipients), selectinload(SignatureRequest.audit_logs)).where(SignatureRequest.id == r_uuid)
     sig_req = (await db.execute(sig_stmt)).scalar_one_or_none()
 
     title = sig_req.title if sig_req else "Contract Agreement"
