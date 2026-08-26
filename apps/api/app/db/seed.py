@@ -1,12 +1,17 @@
 """
-Database seeder for bnb-motherboard platform.
+Database seeder for bnb-motherboard platform (bootstrap fallback only).
 
-Populates real operational data for GOBITSNBYTES FOUNDATION:
-1. Real City Forks (Lucknow HQ, Delhi, Bangalore, Hyderabad, Mumbai, Kanpur, Jaipur, Kolkata, Solan, Beawar)
-2. Real Team & Host Profiles (Yash Singh, Aadrika Maurya, Akshat Kushwaha, Devaansh Pathak, Drishti Arora, Raghwender Vasisth, Maryam Fatima, Srishti Singh, Angel)
-3. Real System Groups and Discord Role Mappings
-4. Section 8 Chart of Accounts (Grant Revenue, Event Operations, Dev Squad Grants, Administrative Overhead, Reserve Account)
-5. 35 OKF Legal Rules covering IP assignment, minor safeguarding (POCSO/DPDP), non-profit tax exemption, and local fundraising limits.
+The canonical source of operational truth is Notion (fork registry + team DB via
+POST /api/sync/notion) and live Discord identity upserts on login. This seeder
+provides a safe bootstrap state for fresh environments:
+
+1. System Groups and Discord Role Mappings
+2. Ground-truth City Forks from the Notion Fork Registry (Lucknow HQ, Noida, Kolkata)
+3. Executive team profiles (placeholder Discord IDs reconcile to real identities
+   by email on first login or team sync)
+4. Section 8 Chart of Accounts structure with ZERO balances (no fictional money)
+5. 35 OKF Legal Rules covering IP assignment, minor safeguarding (POCSO/DPDP),
+   non-profit tax exemption, and local fundraising limits.
 """
 
 import json
@@ -366,35 +371,35 @@ CHART_OF_ACCOUNTS: list[dict[str, Any]] = [
         "name": "Grant Revenue",
         "description": "Section 8 institutional and government grant receipts account.",
         "account_number": "GOBN-8001-GRANT",
-        "balance_paise": 500000000,  # ₹50,00,000
+        "balance_paise": 0,  # zero-start: real balances accrue only from recorded operations
         "ifsc": "GOBN0001001",
     },
     {
         "name": "Event Operations",
         "description": "Hackathons, meetups, workshops and regional event operations account.",
         "account_number": "GOBN-8002-EVNT",
-        "balance_paise": 150000000,  # ₹15,00,000
+        "balance_paise": 0,
         "ifsc": "GOBN0001001",
     },
     {
         "name": "Dev Squad Grants",
         "description": "Micro-grants and stipend pool for student dev squads and open source contributors.",
         "account_number": "GOBN-8003-DSQD",
-        "balance_paise": 100000000,  # ₹10,00,000
+        "balance_paise": 0,
         "ifsc": "GOBN0001001",
     },
     {
         "name": "Administrative Overhead",
         "description": "Legal, accounting, compliance, software SaaS infrastructure and operational overhead.",
         "account_number": "GOBN-8004-ADMIN",
-        "balance_paise": 5000000,   # ₹5,00,000
+        "balance_paise": 0,
         "ifsc": "GOBN0001001",
     },
     {
         "name": "Reserve Account",
         "description": "Section 8 non-profit capital reserve and emergency liquidity account.",
         "account_number": "GOBN-8005-RESERV",
-        "balance_paise": 200000000,  # ₹20,00,000
+        "balance_paise": 0,
         "ifsc": "GOBN0001001",
     },
 ]
@@ -736,12 +741,18 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
 
 
 async def seed_city_forks(session: AsyncSession) -> None:
-    """Insert known city forks — idempotent on slug conflict. Removes obsolete non-ground-truth forks."""
+    """Insert known city forks — idempotent on slug conflict. Archives (never deletes)
+    forks that are no longer ground truth, preserving member and audit history."""
     valid_slugs = {f["slug"] for f in CITY_FORKS}
-    all_existing = await session.execute(text("SELECT id, slug FROM forks"))
+    all_existing = await session.execute(text("SELECT id, slug, metadata FROM forks"))
     for row in all_existing.fetchall():
         if row.slug not in valid_slugs:
-            await session.execute(text("DELETE FROM forks WHERE id = :id"), {"id": str(row.id)})
+            meta = row.metadata if isinstance(row.metadata, dict) else {}
+            meta["status"] = "archived_by_seed"
+            await session.execute(
+                text("UPDATE forks SET is_active = :is_active, metadata = :metadata WHERE id = :id"),
+                {"is_active": False, "metadata": json.dumps(meta), "id": str(row.id)},
+            )
 
     for fork in CITY_FORKS:
         await session.execute(

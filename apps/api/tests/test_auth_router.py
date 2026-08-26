@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -76,3 +76,47 @@ async def test_upsert_discord_identity_creates_and_updates_user(db_session: Asyn
     assert account.username == "discorduser"
     assert account.global_name == "Updated Name"
     assert account.access_token == "new-oauth-token"
+
+
+@pytest.mark.asyncio
+async def test_upsert_reconciles_seeded_user_by_email(db_session: AsyncSession):
+    """A bootstrap-seeded user (placeholder Discord ID) must adopt the real Discord
+    identity on first login, preserving the existing user row (groups/grants intact)."""
+    seeded = User(
+        display_name="Yash Singh",
+        email="yash@gobitsnbytes.org",
+        is_super_admin=True,
+        title="Chief Executive Officer (CEO)",
+    )
+    db_session.add(seeded)
+    await db_session.commit()
+
+    payload = {
+        "discord_id": "999888777666555444",
+        "email": "yash@gobitsnbytes.org",
+        "username": "yashclouded",
+        "global_name": "Yash Singh",
+    }
+    headers = {"X-Internal-Secret": os.environ["API_INTERNAL_SECRET"]}
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.post("/api/auth/upsert", json=payload, headers=headers)
+
+    assert response.status_code == 200
+    assert uuid.UUID(response.json()["user_id"]) == seeded.id
+
+    await db_session.refresh(seeded)
+    assert seeded.display_name == "Yash Singh"
+
+    result = await db_session.execute(
+        select(DiscordAccount).where(DiscordAccount.discord_id == "999888777666555444")
+    )
+    account = result.scalar_one()
+    assert account.user_id == seeded.id
+
+    # No duplicate user row may be created for the same email.
+    result = await db_session.execute(
+        select(User).where(func.lower(User.email) == "yash@gobitsnbytes.org")
+    )
+    assert len(result.scalars().all()) == 1

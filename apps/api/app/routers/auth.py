@@ -6,7 +6,7 @@ import hmac
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.config import get_settings
@@ -58,19 +58,31 @@ async def upsert_discord_identity(
                 detail="Discord account is linked to a missing user",
             )
     else:
-        # If this is the very first user in the database, make them super admin
-        from sqlalchemy import func
+        # Identity reconciliation: match an existing user by verified email so
+        # bootstrap-seeded profiles (placeholder Discord IDs) converge with the
+        # real Discord identity on first login, preserving groups and grants.
+        payload_email = (payload.email or "").strip().lower()
+        existing_user: User | None = None
+        if payload_email:
+            res = await db.execute(
+                select(User).where(func.lower(User.email) == payload_email)
+            )
+            existing_user = res.scalar_one_or_none()
+
         user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
         is_first_user = user_count == 0
 
-        user = User(
-            display_name=_display_name(payload),
-            email=payload.email,
-            avatar_url=_avatar_url(payload.discord_id, payload.avatar),
-            is_super_admin=is_first_user,
-        )
-        db.add(user)
-        await db.flush()
+        if existing_user is not None:
+            user = existing_user
+        else:
+            user = User(
+                display_name=_display_name(payload),
+                email=payload.email,
+                avatar_url=_avatar_url(payload.discord_id, payload.avatar),
+                is_super_admin=is_first_user,
+            )
+            db.add(user)
+            await db.flush()
         discord_account = DiscordAccount(
             user_id=user.id,
             discord_id=payload.discord_id,

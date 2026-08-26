@@ -9,13 +9,120 @@ import uuid
 import json
 from typing import Any, Dict, List
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.models import Fork
+from app.db.models import DiscordAccount, Fork, User
 
 logger = logging.getLogger(__name__)
+
+
+def _prop_text(props: Dict[str, Any], *names: str) -> str | None:
+    """Extract the first available plain-text value across tolerant property names."""
+    for name in names:
+        prop = props.get(name) or {}
+        for kind in ("title", "rich_text"):
+            items = prop.get(kind) or []
+            if items:
+                text = "".join(item.get("plain_text", "") for item in items).strip()
+                if text:
+                    return text
+        email = prop.get("email")
+        if email:
+            return email.strip()
+        select_obj = prop.get("select") or {}
+        if select_obj.get("name"):
+            return select_obj["name"].strip()
+    return None
+
+
+async def sync_team_from_notion(db: AsyncSession) -> Dict[str, Any]:
+    """
+    Synchronize team members from a Notion Team database into users/discord_accounts.
+
+    Email is the reconciliation key: existing users are updated in place so their
+    real Discord IDs replace any bootstrap placeholder identities without losing
+    group memberships or grants. Tolerant property mapping accepts common layouts.
+    """
+    settings = get_settings()
+    notion_token = settings.notion_token
+    team_db = settings.notion_team_db
+
+    if not notion_token or not team_db:
+        return {
+            "status": "skipped",
+            "reason": "NOTION_TOKEN and NOTION_TEAM_DB must be configured for team sync",
+            "synced_count": 0,
+        }
+
+    headers = {
+        "Authorization": f"Bearer {notion_token}",
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+    }
+
+    synced_users: List[str] = []
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        url = f"https://api.notion.com/v1/databases/{team_db}/query"
+        response = await client.post(url, headers=headers, json={"page_size": 100})
+        if response.status_code != 200:
+            logger.error("Notion Team DB Query Failed (%d): %s", response.status_code, response.text)
+            return {"status": "error", "error": f"Notion API error {response.status_code}"}
+
+        for page in response.json().get("results", []):
+            props = page.get("properties", {})
+            name = _prop_text(props, "Name", "Full Name", "Team Member", "Member")
+            email = _prop_text(props, "Email", "Work Email", "email")
+            discord_id = _prop_text(props, "Discord ID", "DiscordId", "Discord")
+            title = _prop_text(props, "Role", "Title", "Position", "Designation")
+
+            if not name:
+                continue
+
+            result = await db.execute(select(User).where(User.display_name == name))
+            user = result.scalar_one_or_none()
+            if user is None and email:
+                result = await db.execute(select(User).where(func.lower(User.email) == email.lower()))
+                user = result.scalar_one_or_none()
+
+            if user is None:
+                user = User(display_name=name, email=email)
+                db.add(user)
+                await db.flush()
+
+            user.display_name = name
+            if email:
+                user.email = email
+            if title:
+                user.title = title
+
+            if discord_id:
+                res = await db.execute(
+                    select(DiscordAccount).where(DiscordAccount.discord_id == discord_id)
+                )
+                discord_account = res.scalar_one_or_none()
+                if discord_account is None:
+                    # Re-link any stale bootstrap identity attached to this user.
+                    res = await db.execute(
+                        select(DiscordAccount).where(DiscordAccount.user_id == user.id)
+                    )
+                    discord_account = res.scalar_one_or_none()
+                if discord_account is None:
+                    discord_account = DiscordAccount(
+                        user_id=user.id,
+                        discord_id=discord_id,
+                        username=(email or name).split("@")[0].lower() or discord_id,
+                    )
+                    db.add(discord_account)
+                else:
+                    discord_account.discord_id = discord_id
+                    discord_account.user_id = user.id
+
+            synced_users.append(name)
+
+        await db.commit()
+        return {"status": "success", "source": "notion_api", "synced_count": len(synced_users), "users": synced_users}
 
 
 async def sync_forks_from_notion(db: AsyncSession) -> Dict[str, Any]:
