@@ -25,6 +25,7 @@ import {
   Skeleton,
 } from "@bnb/ui";
 import EmptyState from "components/dashboard/EmptyState";
+import ForkOnboardingModal from "components/dashboard/ForkOnboardingModal";
 import { getForks } from "lib/dashboard";
 
 interface ForkNode {
@@ -60,6 +61,7 @@ export default function DashboardForksPage() {
   const [loading, setLoading] = useState(true);
   const [loadingOnboarding, setLoadingOnboarding] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedForkId, setSelectedForkId] = useState<string | null>(null);
 
   const fetchForksData = async () => {
     setLoading(true);
@@ -285,9 +287,10 @@ export default function DashboardForksPage() {
               />
             ) : (
               onboardingForks.map((fork) => (
-                <div
+                <button
                   key={fork.fork_id}
-                  className="flex flex-col gap-2 rounded-base border-2 border-border bg-[#111] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px]"
+                  onClick={() => setSelectedForkId(fork.fork_id)}
+                  className="flex w-full flex-col gap-2 rounded-base border-2 border-border bg-[#111] p-3.5 text-left text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px]"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -343,12 +346,18 @@ export default function DashboardForksPage() {
                       </ul>
                     </div>
                   )}
-                </div>
+                </button>
               ))
             )}
           </CardContent>
         </Card>
       </div>
+
+      <ForkOnboardingModal
+        forkId={selectedForkId}
+        onClose={() => setSelectedForkId(null)}
+        onChanged={() => { void fetchForksData(); }}
+      />
     </div>
   );
 }
