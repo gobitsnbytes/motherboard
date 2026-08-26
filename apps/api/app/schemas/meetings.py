@@ -88,6 +88,7 @@ class MeetingOut(BaseModel):
     attendees: list[MeetingAttendeeSchema] = []
     transcript: MeetingTranscriptSchema | None = None
     reschedule_history: list[MeetingRescheduleHistorySchema] = []
+    recording_metadata: dict[str, Any] | None = None
 
 
 class MeetingUpdate(BaseModel):
@@ -177,6 +178,24 @@ class ActionItemCreate(BaseModel):
 
 class ActionItemStatusUpdate(BaseModel):
     status: str
+
+
+class RecordingRegisterRequest(BaseModel):
+    audio_url: str | None = None
+    file_size_bytes: int | None = None
+    duration_seconds: int | None = None
+    notes: str | None = None
+
+
+class MyActionItemOut(BaseModel):
+    id: int
+    task: str
+    meeting_id: str
+    meeting_title: str | None = None
+    assignee: str
+    deadline: str | None = None
+    status: str
+    created_at: int
 
 
 class TimelineSpeaker(BaseModel):

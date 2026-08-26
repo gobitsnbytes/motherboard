@@ -10,10 +10,10 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
-from typing import Any, List, Optional, Union
+from typing import Annotated, Any, List, Optional, Union
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks, Header, Request
 from sqlalchemy import select, update, delete, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,7 @@ from app.db.models import (
     UserAvailability,
     MeetingEmailPreference,
     MeetingRescheduleHistory,
+    GuestVerification,
     User,
     DiscordAccount
 )
@@ -45,6 +46,8 @@ from app.schemas.meetings import (
     ActionItemSchema,
     ActionItemCreate,
     ActionItemStatusUpdate,
+    MyActionItemOut,
+    RecordingRegisterRequest,
     SpeakingTimelineItem
 )
 from app.provisioning.client import DiscordClient
@@ -216,6 +219,27 @@ def get_reschedule_html(meeting_title: str, old_time: str, new_time: str, reason
                 bits&bytes™ Student Builder Network &bull; GOBITSNBYTES FOUNDATION
             </div>
         </div>
+    </body>
+    </html>
+    """
+
+
+def get_base_email_html(content: str, title: str) -> str:
+    """Wrap a self-contained content block in the shared dark email shell."""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #120F0A; color: #FFFFFF; margin: 0; padding: 24px; }}
+            .card-title {{ font-size: 24px; font-weight: 900; text-transform: uppercase; color: #ff7a1b; margin-bottom: 16px; }}
+            h1 {{ display: none; }}
+        </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        {content}
     </body>
     </html>
     """
@@ -916,6 +940,81 @@ async def stop_meeting(
     return MeetingOut.model_validate(m_dict)
 
 
+async def _recording_writer(
+    request: Request,
+    db: DbSession,
+    x_api_secret: Annotated[Optional[str], Header(alias="X-API-Secret")] = None,
+    x_internal_user_id: Annotated[Optional[str], Header(alias="X-Internal-User-Id")] = None,
+    x_internal_timestamp: Annotated[Optional[str], Header(alias="X-Internal-Timestamp")] = None,
+    x_internal_signature: Annotated[Optional[str], Header(alias="X-Internal-Signature")] = None,
+    settings: Settings = Depends(get_settings),
+) -> Optional[ResolvedPrincipal]:
+    """Internal services authenticate via X-API-Secret (mirrors the cloud router
+    pattern); anything else falls back to standard user auth. Returns None when
+    the internal secret matched, otherwise the resolved principal."""
+    if (
+        settings.api_internal_secret
+        and x_api_secret
+        and hmac.compare_digest(x_api_secret, settings.api_internal_secret)
+    ):
+        return None
+    return await get_current_user(request, db, x_internal_user_id, x_internal_timestamp, x_internal_signature)
+
+
+@router.post("/{meeting_id}/recording/register", response_model=MeetingOut)
+async def register_meeting_recording(
+    meeting_id: str,
+    body: RecordingRegisterRequest,
+    db: DbSession,
+    writer: Optional[ResolvedPrincipal] = Depends(_recording_writer),
+):
+    """Register uploaded recording metadata via internal service secret or an
+    authenticated user with meetings.write."""
+    if writer is not None:
+        await require_permission(db, writer, "meetings.write")
+
+    m_stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
+    res_m = await db.execute(m_stmt)
+    meeting = res_m.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    metadata = {
+        "audio_url": body.audio_url,
+        "file_size_bytes": body.file_size_bytes,
+        "duration_seconds": body.duration_seconds,
+        "notes": body.notes,
+        "registered_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    meeting.recording_metadata = {k: v for k, v in metadata.items() if v is not None}
+    meeting.recording_status = "uploaded"
+
+    await db.commit()
+    await db.refresh(meeting)
+
+    att_stmt = select(MeetingAttendee).where(MeetingAttendee.meeting_id == meeting_id)
+    res_att = await db.execute(att_stmt)
+    attendees = res_att.scalars().all()
+
+    tr_stmt = select(MeetingTranscript).where(MeetingTranscript.meeting_id == meeting_id)
+    res_tr = await db.execute(tr_stmt)
+    transcript = res_tr.scalar_one_or_none()
+
+    m_dict = {c.name: getattr(meeting, c.name) for c in meeting.__table__.columns}
+    m_dict["attendees"] = [
+        {"meeting_id": a.meeting_id, "attendee_type": a.attendee_type, "discord_id": a.discord_id}
+        for a in attendees
+    ]
+    m_dict["transcript"] = (
+        {c.name: getattr(transcript, c.name) for c in transcript.__table__.columns}
+        if transcript
+        else None
+    )
+    m_dict["reschedule_history"] = []
+
+    return MeetingOut.model_validate(m_dict)
+
+
 # ---------------------------------------------------------------------------
 # Speak timeline calculation and transcription pipeline
 # ---------------------------------------------------------------------------
@@ -1265,8 +1364,8 @@ If you cannot determine a deadline for an action item, omit the deadline field."
             )
             db.add(new_ai)
 
-    # Set recording status to completed
-    meeting.recording_status = "completed"
+    # Set recording status to transcribed
+    meeting.recording_status = "transcribed"
     await db.commit()
 
     # Build response schema
@@ -1424,11 +1523,15 @@ import random
 import hmac
 import hashlib
 
-# Transient storage for OTP codes: email -> {"code": str, "expires_at": float}
-guest_otp_store: dict[str, dict[str, Any]] = {}
+# OTP expiry: 10 minutes. Verified session tokens expire after 1 hour.
+GUEST_OTP_TTL_SECONDS = 600
+GUEST_TOKEN_TTL_SECONDS = 3600
 
-# Transient storage for verified guest tokens: token -> {"email": str, "expires_at": float}
-verified_guest_tokens: dict[str, dict[str, Any]] = {}
+
+def _hash_otp(value: str) -> str:
+    """SHA-256 hex digest — OTP codes and session tokens are never stored in plaintext."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
 
 class GuestVerificationSendRequest(BaseModel):
     email: str
@@ -1449,30 +1552,45 @@ class GuestRescheduleRequest(BaseModel):
     duration_minutes: int = 30
     reason: Optional[str] = None
 
-def check_guest_token(token: Optional[str], email: str) -> bool:
+async def check_guest_token(db: AsyncSession, token: Optional[str], email: str) -> bool:
+    """Validate a guest session token against persisted verified rows."""
     if not token:
         return False
-    entry = verified_guest_tokens.get(token)
-    if not entry:
-        return False
-    if time.time() > entry["expires_at"]:
-        verified_guest_tokens.pop(token, None)
-        return False
-    return entry["email"] == email.strip().lower()
+    stmt = select(GuestVerification).where(
+        GuestVerification.email == email.strip().lower(),
+        GuestVerification.verified == True,  # noqa: E712
+        GuestVerification.otp_hash == _hash_otp(token),
+        GuestVerification.expires_at > datetime.datetime.now(datetime.timezone.utc),
+    )
+    res = await db.execute(stmt)
+    return res.scalar_one_or_none() is not None
 
 @router.post("/public/guest/verification/send")
-async def send_guest_otp(body: GuestVerificationSendRequest, settings: Settings = Depends(get_settings)):
+async def send_guest_otp(body: GuestVerificationSendRequest, db: DbSession, settings: Settings = Depends(get_settings)):
     email = body.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=422, detail="Invalid email format")
-    
-    # Generate 6-digit OTP
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    # Lazy cleanup of expired rows plus any stale unverified entries for this email
+    await db.execute(delete(GuestVerification).where(GuestVerification.expires_at < now))
+    await db.execute(
+        delete(GuestVerification).where(
+            (GuestVerification.email == email) & (GuestVerification.verified == False)  # noqa: E712
+        )
+    )
+
+    # Generate 6-digit OTP (only ever persisted as a SHA-256 hash)
     otp = f"{random.randint(100000, 999999)}"
-    guest_otp_store[email] = {
-        "code": otp,
-        "expires_at": time.time() + 600 # 10 mins
-    }
-    
+    db.add(GuestVerification(
+        email=email,
+        otp_hash=_hash_otp(otp),
+        expires_at=now + datetime.timedelta(seconds=GUEST_OTP_TTL_SECONDS),
+        verified=False,
+    ))
+    await db.commit()
+
     # Format email body
     html_body = get_base_email_html(f"""
     <div class="card">
@@ -1496,42 +1614,54 @@ async def send_guest_otp(body: GuestVerificationSendRequest, settings: Settings 
         subject=f"bits&bytes™ Verification Code: {otp}",
         html_body=html_body
     )
-    
+
     return {"status": "sent", "email": email}
 
 
 @router.post("/public/guest/verification/verify")
-async def verify_guest_otp(body: GuestVerificationVerifyRequest, settings: Settings = Depends(get_settings)):
+async def verify_guest_otp(body: GuestVerificationVerifyRequest, db: DbSession, settings: Settings = Depends(get_settings)):
     email = body.email.strip().lower()
     code = body.code.strip()
-    
-    entry = guest_otp_store.get(email)
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    stmt = (
+        select(GuestVerification)
+        .where(
+            GuestVerification.email == email,
+            GuestVerification.verified == False,  # noqa: E712
+        )
+        .order_by(GuestVerification.created_at.desc())
+        .limit(1)
+    )
+    res = await db.execute(stmt)
+    entry = res.scalar_one_or_none()
+
     if not entry:
         raise HTTPException(status_code=400, detail="No verification code sent or it has expired. Please request a new code.")
-        
-    if time.time() > entry["expires_at"]:
-        guest_otp_store.pop(email, None)
+
+    # SQLite drivers return naive datetimes; normalize to UTC before comparing
+    expires_at = entry.expires_at if entry.expires_at.tzinfo else entry.expires_at.replace(tzinfo=datetime.timezone.utc)
+    if now > expires_at:
+        await db.delete(entry)
+        await db.commit()
         raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
-        
-    if entry["code"] != code:
+
+    if not entry.otp_hash or not hmac.compare_digest(entry.otp_hash, _hash_otp(code)):
         raise HTTPException(status_code=400, detail="Invalid verification code. Please try again.")
-        
+
     # Generate secure token
     token = hmac.new(
         settings.api_internal_secret.encode(),
         f"{email}:{time.time()}:{random.random()}".encode(),
         hashlib.sha256
     ).hexdigest()
-    
-    # Store token valid for 1 hour
-    verified_guest_tokens[token] = {
-        "email": email,
-        "expires_at": time.time() + 3600
-    }
-    
-    # Clean up OTP
-    guest_otp_store.pop(email, None)
-    
+
+    # Promote the row to a verified session token record (hash stored, never plaintext)
+    entry.otp_hash = _hash_otp(token)
+    entry.verified = True
+    entry.expires_at = now + datetime.timedelta(seconds=GUEST_TOKEN_TTL_SECONDS)
+    await db.commit()
+
     return {"status": "verified", "token": token}
 
 
@@ -1539,7 +1669,7 @@ async def verify_guest_otp(body: GuestVerificationVerifyRequest, settings: Setti
 async def get_guest_meetings(email: str, token: str, db: DbSession):
     if not email or "@" not in email:
         raise HTTPException(status_code=422, detail="Invalid email format")
-    if not check_guest_token(token, email):
+    if not await check_guest_token(db, token, email):
         raise HTTPException(status_code=401, detail="Invalid or expired verification token")
     
     stmt = select(BotMeeting).where(
@@ -1565,7 +1695,7 @@ async def get_guest_meetings(email: str, token: str, db: DbSession):
 
 @router.post("/public/guest/{meeting_id}/cancel")
 async def cancel_guest_meeting(meeting_id: str, body: GuestCancelRequest, db: DbSession):
-    if not check_guest_token(body.token, body.email):
+    if not await check_guest_token(db, body.token, body.email):
         raise HTTPException(status_code=401, detail="Invalid or expired verification token")
 
     stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
@@ -1589,7 +1719,7 @@ async def cancel_guest_meeting(meeting_id: str, body: GuestCancelRequest, db: Db
 
 @router.post("/public/guest/{meeting_id}/reschedule")
 async def reschedule_guest_meeting(meeting_id: str, body: GuestRescheduleRequest, db: DbSession):
-    if not check_guest_token(body.token, body.email):
+    if not await check_guest_token(db, body.token, body.email):
         raise HTTPException(status_code=401, detail="Invalid or expired verification token")
 
     stmt = select(BotMeeting).where(BotMeeting.id == meeting_id)
@@ -1759,6 +1889,54 @@ async def upsert_email_preferences(
 # ---------------------------------------------------------------------------
 # Action Items Endpoints
 # ---------------------------------------------------------------------------
+
+@router.get("/action-items/mine", response_model=List[MyActionItemOut])
+async def list_my_open_action_items(
+    db: DbSession,
+    current_user: ResolvedPrincipal = Depends(get_current_user),
+):
+    """List the current user's open action items across all their meetings.
+
+    Assignees are matched via the user's linked DiscordAccount discord_id
+    (ActionItem stores assignees as Discord snowflake IDs, not user UUIDs).
+    """
+    await require_permission(db, current_user, "meetings.read")
+
+    ids_stmt = select(DiscordAccount.discord_id).where(DiscordAccount.user_id == current_user.user_id)
+    res_ids = await db.execute(ids_stmt)
+    discord_ids = [d for d in res_ids.scalars().all() if d]
+    if not discord_ids:
+        return []
+
+    stmt = (
+        select(ActionItem, BotMeeting.title)
+        .join(BotMeeting, ActionItem.meeting_id == BotMeeting.id)
+        .where(
+            ActionItem.discord_id.in_(discord_ids),
+            ActionItem.status.notin_(["completed", "cancelled"]),
+        )
+        .order_by(ActionItem.created_at.desc())
+        .limit(50)
+    )
+    res = await db.execute(stmt)
+
+    items = []
+    for ai, meeting_title in res.all():
+        snippet = ai.task.strip()
+        if len(snippet) > 200:
+            snippet = snippet[:197].rstrip() + "..."
+        items.append(MyActionItemOut(
+            id=ai.id,
+            task=snippet,
+            meeting_id=ai.meeting_id,
+            meeting_title=meeting_title,
+            assignee=ai.assignee,
+            deadline=ai.deadline,
+            status=ai.status,
+            created_at=ai.created_at,
+        ))
+    return items
+
 
 @router.get("/{meeting_id}/action-items", response_model=List[ActionItemSchema])
 async def list_meeting_action_items(

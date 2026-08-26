@@ -908,6 +908,7 @@ class BotMeeting(Base):
     booked_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     scope: Mapped[str] = mapped_column(String(50), default="invite", server_default="invite", nullable=False)
     activated_at: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    recording_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class UserAvailability(Base):
@@ -1016,6 +1017,37 @@ class MeetingRescheduleHistory(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     rescheduled_by: Mapped[str] = mapped_column(String(100), nullable=False)
     rescheduled_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class GuestVerification(Base):
+    """Persistent guest email verification state.
+
+    Holds the SHA-256 OTP hash before verification and the hashed session
+    token afterwards, so guest flows survive restarts and multiple workers.
+    """
+
+    __tablename__ = "guest_verifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    # SHA-256 hex digest of the OTP (pre-verify) or session token (post-verify)
+    otp_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    booking_link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    meeting_id: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("meetings.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<GuestVerification email={self.email!r} verified={self.verified}>"
 
 
 class PushSubscription(Base):

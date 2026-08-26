@@ -20,7 +20,13 @@ import {
   Label,
 } from "@bnb/ui";
 import { useEffect, useState } from "react";
-import { getDashboardStats, getRecentActivity, getForks } from "lib/dashboard";
+import {
+  getDashboardStats,
+  getRecentActivity,
+  getForks,
+  getMyActionItems,
+  type MyActionItem,
+} from "lib/dashboard";
 
 export function OverviewContent() {
   const [loading, setLoading] = useState(true);
@@ -47,19 +53,22 @@ export function OverviewContent() {
   });
   const [activity, setActivity] = useState<any[]>([]);
   const [forks, setForks] = useState<any[]>([]);
+  const [actionItems, setActionItems] = useState<MyActionItem[]>([]);
 
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const [statsData, activityData, forksData] = await Promise.all([
+      const [statsData, activityData, forksData, itemsData] = await Promise.all([
         getDashboardStats(),
         getRecentActivity(),
         getForks(),
+        getMyActionItems().catch(() => [] as MyActionItem[]),
       ]);
 
       setStats(statsData);
       setActivity(activityData);
       setForks(forksData);
+      setActionItems(itemsData);
     } catch (error) {
       console.error(error);
     } finally {
@@ -241,6 +250,45 @@ export function OverviewContent() {
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>My Open Action Items</CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          <div className="space-y-2">
+            {actionItems.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No open action items.</div>
+            ) : (
+              actionItems.slice(0, 5).map((item) => (
+                <Link
+                  key={item.id}
+                  href="/dashboard/meetings"
+                  className="flex justify-between items-center gap-4 rounded-md p-2 transition-colors hover:bg-muted"
+                >
+                  <span className="text-sm font-medium truncate">{item.task}</span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    {item.deadline ? (
+                      <span className="text-xs text-muted-foreground">{item.deadline}</span>
+                    ) : null}
+                    <Badge variant={item.status === "pending" ? "warning" : "neutral"}>
+                      {item.status}
+                    </Badge>
+                  </span>
+                </Link>
+              ))
+            )}
+            {actionItems.length > 0 && (
+              <Link
+                href="/dashboard/meetings"
+                className="block pt-1 text-sm font-medium text-primary hover:underline"
+              >
+                View all &rarr;
+              </Link>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Fork Health</CardTitle>

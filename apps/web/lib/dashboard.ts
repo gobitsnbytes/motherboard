@@ -49,3 +49,24 @@ export async function getForks() {
 
   return response.json();
 }
+
+export interface MyActionItem {
+  id: number;
+  task: string;
+  meeting_id: string;
+  meeting_title: string | null;
+  assignee: string;
+  deadline: string | null;
+  status: string;
+  created_at: number;
+}
+
+export async function getMyActionItems(): Promise<MyActionItem[]> {
+  const response = await fetch("/api/meetings/action-items/mine");
+
+  if (!response.ok) {
+    throw new Error("Failed to load action items");
+  }
+
+  return response.json();
+}
