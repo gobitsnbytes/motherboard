@@ -47,10 +47,10 @@ function HostCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left p-4 border-2 rounded-base transition-all ${
+      className={`w-full text-left p-4 border-2 rounded-base transition-all duration-150 motion-reduce:transition-none ${
         selected
-          ? "border-[#ff7a1b] bg-[#1f1810] shadow-[4px_4px_0px_0px_#ff7a1b]"
-          : "border-black bg-[#161412] hover:bg-[#1a1816] shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px]"
+          ? "border-orange bg-orange/10 shadow-shadow"
+          : "border-border bg-dark shadow-shadow hover:shadow-[6px_6px_0px_0px_var(--border)] hover:translate-x-[-1px] hover:translate-y-[-1px]"
       }`}
     >
       <div className="flex items-start gap-3">
@@ -63,7 +63,7 @@ function HostCard({
               className="w-12 h-12 rounded-full border-2 border-black object-cover"
             />
           ) : (
-            <div className="w-12 h-12 rounded-full border-2 border-black bg-[#97192c] flex items-center justify-center font-black text-white text-sm">
+            <div className="w-12 h-12 rounded-full border-2 border-border bg-burgundy flex items-center justify-center font-black text-white text-sm">
               {initials}
             </div>
           )}
@@ -73,13 +73,13 @@ function HostCard({
           <div className="flex items-center gap-2 justify-between">
             <span className="font-black text-white text-sm truncate">{host.username}</span>
             {selected && (
-              <span className="text-[10px] font-black bg-[#ff7a1b] text-black px-2 py-0.5 rounded-full border border-black shrink-0">
+              <span className="text-[10px] font-black bg-orange text-black px-2 py-0.5 rounded-full border border-black shrink-0">
                 Selected
               </span>
             )}
           </div>
           {host.title && (
-            <p className="text-xs text-[#ff7a1b] font-bold mt-0.5 truncate">{host.title}</p>
+            <p className="text-xs text-orange font-bold mt-0.5 truncate">{host.title}</p>
           )}
           {host.description && (
             <p className="text-xs text-gray-400 mt-1 line-clamp-2">{host.description}</p>
@@ -123,7 +123,7 @@ export default function ChronoHostGrid({ onSelectHost, selectedHostLink, apiBase
         {[...Array(3)].map((_, i) => (
           <div
             key={i}
-            className="p-4 border-2 border-black bg-[#161412] rounded-base shadow-[2px_2px_0px_0px_#000] animate-pulse"
+            className="p-4 border-2 border-border bg-dark rounded-base shadow-shadow animate-pulse motion-reduce:animate-none"
           >
             <div className="flex items-start gap-3">
               <div className="w-12 h-12 rounded-full bg-neutral-800 shrink-0" />
@@ -141,7 +141,7 @@ export default function ChronoHostGrid({ onSelectHost, selectedHostLink, apiBase
 
   if (error) {
     return (
-      <div className="border-2 border-black bg-red-950 text-red-200 p-4 rounded-base font-bold text-sm">
+      <div className="border-2 border-border bg-red-950 text-red-200 p-4 rounded-base font-bold text-sm">
         {error}
       </div>
     );
@@ -149,7 +149,7 @@ export default function ChronoHostGrid({ onSelectHost, selectedHostLink, apiBase
 
   if (hosts.length === 0) {
     return (
-      <div className="border-2 border-black bg-[#161412] p-8 rounded-base text-center text-gray-500">
+      <div className="border-2 border-border bg-dark p-8 rounded-base text-center text-muted-foreground">
         <Users className="size-8 mx-auto mb-2 opacity-30" />
         <p className="font-bold">No team members have set up their booking profiles yet.</p>
         <p className="text-xs mt-1">Set up your availability in the "My Availability" tab to appear here.</p>

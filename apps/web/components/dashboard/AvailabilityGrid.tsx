@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
+import { X } from "lucide-react";
 
 // Matches the JSON format chrono's dashboard.html uses:
 // { "monday": [{ "start": "09:00", "end": "17:00" }], ... }
@@ -36,21 +37,21 @@ interface DayRowProps {
 
 function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemoveSlot, onCopyToAll }: DayRowProps) {
   return (
-    <div className={`flex flex-col gap-2 p-3 border-2 border-black rounded-base transition-colors ${enabled ? "bg-[#1a1814]" : "bg-[#111]"}`}>
+    <div className={`flex flex-col gap-2 p-3 border-2 border-border rounded-base transition-colors ${enabled ? "bg-orange/10" : "bg-black/40"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Toggle switch */}
           <button
             type="button"
             onClick={() => onToggle(day)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full border-2 border-black transition-colors ${
-              enabled ? "bg-[#ff7a1b]" : "bg-[#333]"
+            className={`relative inline-flex h-5 w-9 items-center rounded-full border-2 border-border transition-colors ${
+              enabled ? "bg-orange" : "bg-neutral-700"
             }`}
             aria-pressed={enabled}
             aria-label={`Toggle ${day}`}
           >
             <span
-              className={`inline-block h-3 w-3 transform rounded-full bg-white border border-black transition-transform ${
+              className={`inline-block h-3 w-3 transform rounded-full bg-white border border-border transition-transform ${
                 enabled ? "translate-x-4" : "translate-x-1"
               }`}
             />
@@ -65,7 +66,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             type="button"
             onClick={() => onCopyToAll(day)}
             title="Copy these hours to all enabled days"
-            className="text-[10px] text-gray-400 hover:text-[#ff7a1b] font-bold uppercase tracking-wider transition-colors"
+            className="text-[10px] text-gray-400 hover:text-orange font-bold uppercase tracking-wider transition-colors"
           >
             Copy to all
           </button>
@@ -80,23 +81,23 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
                 type="time"
                 value={slot.start}
                 onChange={(e) => onSlotChange(day, idx, "start", e.target.value)}
-                className="bg-[#222] border-2 border-black rounded p-1 text-xs text-white focus:outline-none focus:border-[#ff7a1b] w-28"
+                className="bg-neutral-800 border-2 border-border rounded p-1 text-xs text-white focus:outline-none focus:border-orange w-28"
               />
               <span className="text-gray-500 text-xs font-bold">–</span>
               <input
                 type="time"
                 value={slot.end}
                 onChange={(e) => onSlotChange(day, idx, "end", e.target.value)}
-                className="bg-[#222] border-2 border-black rounded p-1 text-xs text-white focus:outline-none focus:border-[#ff7a1b] w-28"
+                className="bg-neutral-800 border-2 border-border rounded p-1 text-xs text-white focus:outline-none focus:border-orange w-28"
               />
               {slots.length > 1 && (
                 <button
                   type="button"
                   onClick={() => onRemoveSlot(day, idx)}
-                  className="text-red-400 hover:text-red-300 text-xs font-bold px-1"
+                  className="text-red-400 hover:text-red-300 text-xs font-bold px-1 transition-colors duration-150 motion-reduce:transition-none"
                   aria-label="Remove time slot"
                 >
-                  ✕
+                  <X className="size-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -105,7 +106,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             <button
               type="button"
               onClick={() => onAddSlot(day)}
-              className="text-[10px] text-[#ff7a1b] font-bold hover:text-orange-300 transition-colors"
+              className="text-[10px] text-orange font-bold hover:text-orange-300 transition-colors"
             >
               + Add time slot
             </button>
@@ -243,28 +244,28 @@ export default function AvailabilityGrid({ value, onChange }: AvailabilityGridPr
         <button
           type="button"
           onClick={() => setPreset(["monday", "tuesday", "wednesday", "thursday", "friday"])}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-black bg-[#222] text-white hover:bg-[#333] rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 rounded transition-colors"
         >
           Weekdays
         </button>
         <button
           type="button"
           onClick={() => setPreset(["saturday", "sunday"])}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-black bg-[#222] text-white hover:bg-[#333] rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 rounded transition-colors"
         >
           Weekend
         </button>
         <button
           type="button"
           onClick={() => setPreset([...DAYS])}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-black bg-[#222] text-white hover:bg-[#333] rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 rounded transition-colors"
         >
           All Days
         </button>
         <button
           type="button"
           onClick={() => { emit({}); }}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-black bg-[#222] text-red-400 hover:bg-red-950 rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-red-400 hover:bg-red-950 rounded transition-colors"
         >
           Clear
         </button>

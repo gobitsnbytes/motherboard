@@ -9,6 +9,8 @@ import {
   MapPin,
   Users,
   FileText,
+  FileSpreadsheet,
+  Braces,
   AlertTriangle,
   Plus,
   Save,
@@ -20,10 +22,13 @@ import {
   CalendarClock,
   Bell,
   X,
+  Globe,
+  Link2,
 } from "lucide-react";
 import AvailabilityGrid from "../../../components/dashboard/AvailabilityGrid";
 import ChronoHostGrid from "../../../components/dashboard/ChronoHostGrid";
 import ChronoBookingPanel from "../../../components/dashboard/ChronoBookingPanel";
+import MeetingsAgendaCalendar from "../../../components/dashboard/MeetingsAgendaCalendar";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +66,7 @@ interface Meeting {
   end_time: number | null;
   external_emails: string | null;
   recording_status: string;
+  recording_url?: string | null;
   meet_code: string | null;
   booked_by: string | null;
   scope: string;
@@ -104,7 +110,7 @@ interface MeetingEmailPreference {
   notify_on_reminder: number;
 }
 
-type ActiveTab = "meetings" | "book" | "availability" | "notifications";
+type ActiveTab = "meetings" | "book" | "availability" | "notifications" | "calendar";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -132,10 +138,10 @@ const TIMEZONES = [
 function getStatusColor(status: string) {
   switch (status) {
     case "scheduled": return "bg-cyan-200 text-cyan-900 border-cyan-800";
-    case "active": return "bg-green-200 text-green-900 border-green-800 animate-pulse";
+    case "active": return "bg-green-200 text-green-900 border-green-800 animate-pulse motion-reduce:animate-none";
     case "completed": return "bg-gray-200 text-gray-900 border-gray-800";
     case "cancelled": return "bg-red-200 text-red-900 border-red-800";
-    default: return "bg-white text-black border-black";
+    default: return "bg-white text-black border-border";
   }
 }
 
@@ -214,14 +220,47 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all text-sm whitespace-nowrap ${
+      className={`px-4 py-2.5 font-heading font-bold border-2 border-border rounded-t-base transition-all text-sm whitespace-nowrap ${
         active
-          ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-          : "bg-[#222] text-white hover:bg-[#2a2a2a]"
+          ? "bg-orange text-black shadow-shadow translate-y-[-2px]"
+          : "bg-neutral-800 text-white hover:bg-neutral-700"
       }`}
     >
       {label}
     </button>
+  );
+}
+
+const RECORDING_LABELS: Record<string, string> = {
+  uploaded: "Uploaded",
+  transcribed: "Transcribed",
+};
+
+function RecordingChip({ meeting }: { meeting: Meeting }) {
+  const status = (meeting.recording_status ?? "").toLowerCase();
+  const label = RECORDING_LABELS[status];
+  if (!label) return null;
+  const url = meeting.recording_url ?? null;
+  return (
+    <div className="flex items-center gap-2 text-gray-300 min-w-0">
+      <span
+        className={`size-2 rounded-full shrink-0 ${status === "transcribed" ? "bg-green-400" : "bg-orange"}`}
+        aria-hidden="true"
+      />
+      <span className="truncate">Recording: {label}</span>
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 text-xs font-bold underline underline-offset-2 hover:text-orange transition-colors"
+          aria-label={`Open recording for ${meeting.title}`}
+        >
+          Listen
+        </a>
+      )}
+    </div>
   );
 }
 
@@ -550,17 +589,17 @@ export default function MeetingsPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#12100e] border-4 border-black p-5 rounded-base shadow-[6px_6px_0px_0px_#000]">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-dark border-4 border-border p-5 rounded-base shadow-shadow">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-heading font-black tracking-tight text-white flex items-center gap-3">
               MEETINGS & SCHEDULING
             </h1>
-            <span className="text-xs font-black bg-[#ff7a1b] text-black border-2 border-black px-2.5 py-0.5 rounded shadow-[2px_2px_0px_0px_#000]">
+            <span className="text-xs font-black bg-orange text-black border-2 border-border px-2.5 py-0.5 rounded shadow-shadow">
               chrono v2
             </span>
             {activeCount > 0 && (
-              <span className="text-xs font-black bg-green-400 text-black border-2 border-black px-2.5 py-0.5 rounded animate-pulse">
+              <span className="text-xs font-black bg-green-400 text-black border-2 border-border px-2.5 py-0.5 rounded animate-pulse motion-reduce:animate-none">
                 ● {activeCount} LIVE NOW
               </span>
             )}
@@ -572,7 +611,7 @@ export default function MeetingsPage() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowScheduleModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 font-bold border-2 border-black bg-[#ff7a1b] text-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 font-heading font-bold border-2 border-border bg-orange text-black shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-base text-sm"
           >
             <Plus className="size-4 shrink-0" />
             Schedule Internal Call
@@ -581,10 +620,10 @@ export default function MeetingsPage() {
       </div>
 
       {/* ⚡ Instant Meet Banner */}
-      <div className="border-4 border-black bg-[#1a1200] rounded-base p-4 shadow-[4px_4px_0px_0px_#000]">
+      <div className="border-4 border-border bg-orange/10 rounded-base p-4 shadow-shadow">
         <div className="flex items-center gap-2 mb-3">
-          <Zap className="size-4 text-[#ff7a1b] shrink-0" />
-          <span className="text-sm font-black text-white uppercase tracking-wider">⚡ Instant Voice Channel</span>
+          <Zap className="size-4 text-orange shrink-0" />
+          <span className="text-sm font-black text-white uppercase tracking-wider">Instant Voice Channel</span>
           <span className="text-xs text-gray-400">— spin up a live temporary Discord VC with AI recording right now</span>
         </div>
         {instantResult ? (
@@ -607,7 +646,7 @@ export default function MeetingsPage() {
               <button
                 type="button"
                 onClick={() => setInstantResult(null)}
-                className="text-xs font-bold px-3 py-1.5 border-2 border-black bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
+                className="text-xs font-bold px-3 py-1.5 border-2 border-border bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
               >
                 Dismiss
               </button>
@@ -621,12 +660,12 @@ export default function MeetingsPage() {
               value={instantTitle}
               onChange={(e) => setInstantTitle(e.target.value)}
               placeholder="Meeting topic (e.g. Fork Onboarding, Architecture Review…)"
-              className="flex-1 bg-[#222] border-2 border-black p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-[#ff7a1b]"
+              className="flex-1 bg-neutral-800 border-2 border-border p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-orange"
             />
             <select
               value={instantScope}
               onChange={(e) => setInstantScope(e.target.value)}
-              className="bg-[#222] border-2 border-black p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-[#ff7a1b] w-full sm:w-48 shrink-0"
+              className="bg-neutral-800 border-2 border-border p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-orange w-full sm:w-48 shrink-0"
             >
               <option value="open">Open (All contributors)</option>
               <option value="invite">Invite Only</option>
@@ -638,7 +677,7 @@ export default function MeetingsPage() {
             <button
               type="submit"
               disabled={instantLoading}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 font-bold border-2 border-black bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all rounded-base text-sm shrink-0 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 font-heading font-bold border-2 border-border bg-orange text-black shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all rounded-base text-sm shrink-0 disabled:opacity-50"
             >
               <Zap className="size-4 shrink-0" />
               {instantLoading ? "Launching…" : "Start Now"}
@@ -649,25 +688,35 @@ export default function MeetingsPage() {
 
       {/* Booking success banner */}
       {bookingSuccess && (
-        <div className="flex items-center gap-3 p-4 bg-green-950 border-4 border-black text-green-200 text-sm font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
+        <div className="flex items-center gap-3 p-4 bg-green-950 border-4 border-border text-green-200 text-sm font-bold rounded-base shadow-shadow">
           <CheckCircle className="size-5 shrink-0 text-green-400" />
           Booking confirmed! Calendar invite dispatched and notification sent to all participants.
         </div>
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex gap-2 border-b-4 border-black pb-2 overflow-x-auto">
+      <div className="flex gap-2 border-b-4 border-border pb-2 overflow-x-auto">
         <TabButton label={`My Meetings (${meetings.length})`} active={activeTab === "meetings"} onClick={() => setActiveTab("meetings")} />
         <TabButton label="Book a Sync" active={activeTab === "book"} onClick={() => setActiveTab("book")} />
         <TabButton label="My Availability" active={activeTab === "availability"} onClick={() => setActiveTab("availability")} />
         <TabButton label="Notification Preferences" active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")} />
+        <TabButton label="Calendar" active={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
       </div>
+
+      {/* ── Tab 5: Calendar ────────────────────────────────────────────────── */}
+      {activeTab === "calendar" && (
+        <MeetingsAgendaCalendar
+          meetings={meetings}
+          loading={loading}
+          onSelectMeeting={(m) => setSelectedMeeting(meetings.find((x) => x.id === m.id) ?? null)}
+        />
+      )}
 
       {/* ── Tab 1: My Meetings ─────────────────────────────────────────────── */}
       {activeTab === "meetings" && (
         <div className="space-y-4">
           {/* Controls: Search and Status Filters */}
-          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-[#161412] border-2 border-black p-3 rounded-base shadow-[2px_2px_0px_0px_#000]">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-dark border-2 border-border p-3 rounded-base shadow-shadow">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 size-4 text-gray-500" />
               <input
@@ -675,7 +724,7 @@ export default function MeetingsPage() {
                 placeholder="Search meetings by title, agenda, or meet code…"
                 value={meetingSearch}
                 onChange={(e) => setMeetingSearch(e.target.value)}
-                className="w-full bg-[#222] border-2 border-black pl-9 pr-3 py-1.5 rounded-base text-xs sm:text-sm text-white focus:outline-none focus:border-[#ff7a1b]"
+                className="w-full bg-neutral-800 border-2 border-border pl-9 pr-3 py-1.5 rounded-base text-xs sm:text-sm text-white focus:outline-none focus:border-orange"
               />
             </div>
             <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
@@ -683,10 +732,10 @@ export default function MeetingsPage() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-base border-2 border-black transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-base border-2 border-border transition-colors ${
                     statusFilter === st
-                      ? "bg-[#ff7a1b] text-black"
-                      : "bg-[#222] text-gray-400 hover:text-white"
+                      ? "bg-orange text-black"
+                      : "bg-neutral-800 text-gray-400 hover:text-white"
                   }`}
                 >
                   {st} {st === "scheduled" && scheduledCount > 0 ? `(${scheduledCount})` : st === "active" && activeCount > 0 ? `(${activeCount})` : ""}
@@ -696,22 +745,22 @@ export default function MeetingsPage() {
           </div>
 
           {loading ? (
-            <div className="border-4 border-black bg-neutral-900 p-12 text-center text-white font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
-              <RefreshCw className="size-8 animate-spin mx-auto mb-2 text-[#ff7a1b]" />
+            <div className="border-4 border-border bg-neutral-900 p-12 text-center text-white font-bold rounded-base shadow-shadow">
+              <RefreshCw className="size-8 animate-spin motion-reduce:animate-none mx-auto mb-2 text-orange" />
               Loading your meetings schedule…
             </div>
           ) : error ? (
-            <div className="border-4 border-black bg-red-950 text-red-200 p-4 font-bold rounded-base flex items-center gap-3 shadow-[4px_4px_0px_0px_#000]">
+            <div className="border-4 border-border bg-red-950 text-red-200 p-4 font-bold rounded-base flex items-center gap-3 shadow-shadow">
               <AlertTriangle className="size-6 shrink-0 text-red-400" />
               <span className="flex-1">{error}</span>
-              <button onClick={fetchMeetings} className="px-3 py-1 bg-red-900 border border-black rounded text-xs font-bold">Retry</button>
+              <button onClick={fetchMeetings} className="px-3 py-1 bg-red-900 border border-border rounded text-xs font-bold">Retry</button>
             </div>
           ) : filteredMeetings.length === 0 ? (
-            <div className="border-4 border-black bg-neutral-900 p-12 text-center rounded-base shadow-[4px_4px_0px_0px_#000]">
+            <div className="border-4 border-border bg-neutral-900 p-12 text-center rounded-base shadow-shadow">
               <CalendarClock className="size-12 mx-auto mb-3 text-gray-600" />
               <p className="text-white font-black text-lg">No meetings found</p>
               <p className="text-xs text-gray-400 mt-1">
-                {statusFilter !== "all" || meetingSearch ? "Try adjusting your search query or status filter." : "Use ⚡ Instant Voice Channel, Schedule, or Book a Sync to get started."}
+                {statusFilter !== "all" || meetingSearch ? "Try adjusting your search query or status filter." : "Use Instant Voice Channel, Schedule, or Book a Sync to get started."}
               </p>
             </div>
           ) : (
@@ -720,31 +769,32 @@ export default function MeetingsPage() {
                 <div
                   key={meeting.id}
                   onClick={() => setSelectedMeeting(meeting)}
-                  className="border-4 border-black bg-[#161412] hover:bg-[#1c1a17] p-5 rounded-base shadow-[4px_4px_0px_0px_#000] cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between"
+                  className="border-4 border-border bg-dark p-5 rounded-base shadow-shadow cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_var(--border)] flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <h2 className="text-base font-heading font-black text-white line-clamp-1">{meeting.title}</h2>
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 border-2 border-black rounded-full shrink-0 ${getStatusColor(meeting.status)}`}>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 border-2 border-border rounded-full shrink-0 ${getStatusColor(meeting.status)}`}>
                         {meeting.status}
                       </span>
                     </div>
                     {meeting.description && (
                       <p className="text-xs text-gray-400 line-clamp-2 mb-3">{meeting.description}</p>
                     )}
-                    <div className="space-y-1.5 bg-[#111] p-3 border-2 border-black rounded-base text-xs">
+                    <div className="space-y-1.5 bg-black/40 p-3 border-2 border-border rounded-base text-xs">
                       <div className="flex items-center gap-2 text-gray-300">
-                        <Clock className="size-3.5 text-[#ff7a1b] shrink-0" />
+                        <Clock className="size-3.5 text-orange shrink-0" />
                         <span>{formatTime(meeting.scheduled_time)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-300">
-                        <MapPin className="size-3.5 text-[#ff7a1b] shrink-0" />
+                        <MapPin className="size-3.5 text-orange shrink-0" />
                         <span className="truncate">{meeting.location_type === "discord_vc" ? "Discord Voice Channel" : meeting.location_details || "External Call"}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-300">
-                        <Users className="size-3.5 text-[#ff7a1b] shrink-0" />
+                        <Users className="size-3.5 text-orange shrink-0" />
                         <span>{meeting.attendees?.length || 1} participant(s)</span>
                       </div>
+                      <RecordingChip meeting={meeting} />
                     </div>
                   </div>
 
@@ -759,7 +809,7 @@ export default function MeetingsPage() {
                           target="_blank"
                           rel="noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs font-black px-2.5 py-1 bg-green-400 text-black border-2 border-black rounded hover:bg-green-300 transition-colors shadow-[1px_1px_0px_0px_#000]"
+                          className="text-xs font-black px-2.5 py-1 bg-green-400 text-black border-2 border-border rounded hover:bg-green-300 transition-colors"
                         >
                           Join VC
                         </a>
@@ -770,8 +820,9 @@ export default function MeetingsPage() {
                           target="_blank"
                           rel="noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-gray-400 hover:text-[#ff7a1b] transition-colors p-1"
+                          className="text-gray-400 hover:text-orange transition-colors p-1"
                           title="Open meeting portal page"
+                          aria-label="Open meeting portal page"
                         >
                           <ExternalLink className="size-4" />
                         </a>
@@ -814,7 +865,7 @@ export default function MeetingsPage() {
                   href="https://cal.gobitsnbytes.org"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-bold text-[#ff7a1b] border-2 border-black bg-[#222] px-3 py-1.5 rounded-base hover:bg-[#333] transition-colors shadow-[2px_2px_0px_0px_#000]"
+                  className="flex items-center gap-1.5 text-xs font-bold text-orange border-2 border-border bg-neutral-800 px-3 py-1.5 rounded-base hover:bg-neutral-700 transition-colors shadow-shadow"
                 >
                   <ExternalLink className="size-3.5" />
                   Public Portal
@@ -845,7 +896,7 @@ export default function MeetingsPage() {
                 href={`https://cal.gobitsnbytes.org/${availBookingLink}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 text-xs font-bold text-[#ff7a1b] border-2 border-black bg-[#1a1200] px-3 py-1.5 rounded-base hover:bg-[#2a1c00] transition-colors shrink-0"
+                className="flex items-center gap-1.5 text-xs font-bold text-orange border-2 border-border bg-orange/10 px-3 py-1.5 rounded-base hover:bg-orange/20 transition-colors shrink-0"
               >
                 <ExternalLink className="size-3.5" />
                 cal.gobitsnbytes.org/{availBookingLink}
@@ -854,7 +905,7 @@ export default function MeetingsPage() {
           </div>
 
           {availSuccess && (
-            <div className="bg-green-950 text-green-200 border-4 border-black p-4 rounded-base font-bold text-sm flex items-center gap-3 shadow-[4px_4px_0px_0px_#000]">
+            <div className="bg-green-950 text-green-200 border-4 border-border p-4 rounded-base font-bold text-sm flex items-center gap-3 shadow-shadow">
               <CheckCircle className="size-5 shrink-0 text-green-400" />
               <span>Availability settings saved! Your public booking page is now active and updated.</span>
             </div>
@@ -864,8 +915,8 @@ export default function MeetingsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Profile Settings & Live Card Preview */}
             <div className="lg:col-span-5 space-y-5">
-              <div className="border-4 border-black bg-[#161412] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
-                <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider border-b-2 border-neutral-800 pb-2">
+              <div className="border-4 border-border bg-dark rounded-base p-5 shadow-shadow space-y-4">
+                <p className="text-xs font-black text-orange uppercase tracking-wider border-b-2 border-neutral-800 pb-2">
                   1. Profile Details
                 </p>
 
@@ -875,7 +926,7 @@ export default function MeetingsPage() {
                     type="email"
                     value={availEmail}
                     onChange={(e) => setAvailEmail(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                     placeholder="you@gobitsnbytes.org"
                   />
                 </div>
@@ -885,7 +936,7 @@ export default function MeetingsPage() {
                   <select
                     value={availTimezone}
                     onChange={(e) => setAvailTimezone(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                   >
                     {TIMEZONES.map((tz) => (
                       <option key={tz} value={tz}>{tz}</option>
@@ -899,15 +950,15 @@ export default function MeetingsPage() {
                     type="text"
                     value={availTitle}
                     onChange={(e) => setAvailTitle(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                     placeholder="e.g. CTO, Fork Lead, Dev Lead"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-gray-300 uppercase">Custom Booking Handle</label>
-                  <div className="flex items-center border-2 border-black rounded-base overflow-hidden bg-[#222]">
-                    <span className="text-gray-500 text-xs font-mono font-bold px-2.5 py-2.5 border-r border-neutral-800 bg-[#181818] shrink-0 select-none">
+                  <div className="flex items-center border-2 border-border rounded-base overflow-hidden bg-neutral-800">
+                    <span className="text-gray-500 text-xs font-mono font-bold px-2.5 py-2.5 border-r border-neutral-800 bg-neutral-800 shrink-0 select-none">
                       cal.gobitsnbytes.org/
                     </span>
                     <input
@@ -926,7 +977,7 @@ export default function MeetingsPage() {
                     value={availDescription}
                     onChange={(e) => setAvailDescription(e.target.value)}
                     rows={3}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b] resize-none"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange resize-none"
                     placeholder="Brief intro shown to guests when booking a sync with you"
                   />
                 </div>
@@ -937,36 +988,36 @@ export default function MeetingsPage() {
                     type="text"
                     value={availCalcomId}
                     onChange={(e) => setAvailCalcomId(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                     placeholder="e.g. 12345"
                   />
                 </div>
               </div>
 
               {/* Live Preview Card */}
-              <div className="border-4 border-black bg-[#111] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-3">
+              <div className="border-4 border-border bg-black/40 rounded-base p-5 shadow-shadow space-y-3">
                 <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
-                  <span className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs font-black text-orange uppercase tracking-wider flex items-center gap-1.5">
                     <Zap className="size-3.5" /> Guest Preview
                   </span>
                   <span className="text-[10px] text-gray-500 font-mono">Public Card</span>
                 </div>
-                <div className="border-2 border-black bg-[#1c1a17] p-4 rounded-base space-y-3">
+                <div className="border-2 border-border bg-dark p-4 rounded-base space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-full border-2 border-black bg-[#ff7a1b] text-black font-black flex items-center justify-center text-base">
+                    <div className="size-10 rounded-full border-2 border-border bg-orange text-black font-black flex items-center justify-center text-base">
                       {username.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white">{username}</h4>
-                      <p className="text-xs text-[#ff7a1b] font-bold">{availTitle || "Team Member"}</p>
+                      <p className="text-xs text-orange font-bold">{availTitle || "Team Member"}</p>
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 line-clamp-2">
                     {availDescription || "Available for 1-on-1 syncs, fork discussions, and technical reviews."}
                   </p>
                   <div className="flex justify-between items-center pt-2 border-t border-neutral-800 text-[11px] text-gray-500">
-                    <span>🌐 {availTimezone}</span>
-                    <span className="font-mono text-[#ff7a1b]">cal.gobitsnbytes.org/{availBookingLink || "..."}</span>
+                    <span className="inline-flex items-center gap-1"><Globe className="size-3 shrink-0" /> {availTimezone}</span>
+                    <span className="font-mono text-orange">cal.gobitsnbytes.org/{availBookingLink || "..."}</span>
                   </div>
                 </div>
               </div>
@@ -974,10 +1025,10 @@ export default function MeetingsPage() {
 
             {/* Right Column: Weekly Availability Hours Editor */}
             <div className="lg:col-span-7 space-y-5">
-              <div className="border-4 border-black bg-[#161412] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
+              <div className="border-4 border-border bg-dark rounded-base p-5 shadow-shadow space-y-4">
                 <div className="flex justify-between items-start border-b-2 border-neutral-800 pb-3">
                   <div>
-                    <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider">
+                    <p className="text-xs font-black text-orange uppercase tracking-wider">
                       2. Weekly Availability Schedule
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
@@ -993,8 +1044,8 @@ export default function MeetingsPage() {
               </div>
 
               {/* Web push notification note */}
-              <div className="flex items-start gap-3 p-4 border-2 border-black rounded-base bg-[#141210] text-xs text-gray-400 shadow-[2px_2px_0px_0px_#000]">
-                <Bell className="size-4 shrink-0 text-[#ff7a1b] mt-0.5" />
+              <div className="flex items-start gap-3 p-4 border-2 border-border rounded-base bg-neutral-800/60 text-xs text-gray-400 shadow-shadow">
+                <Bell className="size-4 shrink-0 text-orange mt-0.5" />
                 <span>
                   <strong>Web Push & Discord Alerts:</strong> Bookings created through your link will trigger immediate Discord DMs and browser push notifications.
                 </span>
@@ -1004,7 +1055,7 @@ export default function MeetingsPage() {
               <button
                 type="submit"
                 disabled={availLoading}
-                className="flex items-center justify-center gap-2 w-full p-4 font-black text-base border-4 border-black bg-green-400 text-black shadow-[6px_6px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0px_0px_#000] transition-all rounded-base disabled:opacity-50"
+                className="flex items-center justify-center gap-2 w-full p-4 font-heading font-black text-base border-4 border-border bg-green-400 text-black shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-base disabled:opacity-50"
               >
                 <Save className="size-5 shrink-0" />
                 {availLoading ? "Saving Availability Settings…" : "Save Availability Settings"}
@@ -1023,14 +1074,14 @@ export default function MeetingsPage() {
           </div>
 
           {prefSuccess && (
-            <div className="bg-green-950 text-green-200 border-4 border-black p-4 rounded-base font-bold text-sm flex items-center gap-3 shadow-[4px_4px_0px_0px_#000]">
+            <div className="bg-green-950 text-green-200 border-4 border-border p-4 rounded-base font-bold text-sm flex items-center gap-3 shadow-shadow">
               <CheckCircle className="size-5 shrink-0 text-green-400" />
               <span>Notification preferences updated successfully!</span>
             </div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-7 border-4 border-black bg-[#161412] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
+            <div className="lg:col-span-7 border-4 border-border bg-dark rounded-base p-5 shadow-shadow space-y-4">
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-gray-300 uppercase">Notification Email Address</label>
                 <input
@@ -1038,18 +1089,18 @@ export default function MeetingsPage() {
                   value={prefEmail}
                   onChange={(e) => setPrefEmail(e.target.value)}
                   required
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                  className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                   placeholder="you@example.com"
                 />
               </div>
 
               <div className="space-y-3 pt-2 border-t border-neutral-800">
-                <label className="flex items-start gap-3 cursor-pointer select-none p-2 rounded hover:bg-[#1f1d1a] transition-colors">
+                <label className="flex items-start gap-3 cursor-pointer select-none p-2 rounded hover:bg-neutral-800 transition-colors">
                   <input
                     type="checkbox"
                     checked={prefNotifyInvite}
                     onChange={(e) => setPrefNotifyInvite(e.target.checked)}
-                    className="mt-0.5 size-5 rounded border-2 border-black bg-[#222] text-[#ff7a1b] focus:ring-0"
+                    className="mt-0.5 size-5 rounded border-2 border-border bg-neutral-800 text-orange focus:ring-0"
                   />
                   <div>
                     <span className="text-sm text-gray-200 font-bold block">Email on New Invitations</span>
@@ -1057,12 +1108,12 @@ export default function MeetingsPage() {
                   </div>
                 </label>
 
-                <label className="flex items-start gap-3 cursor-pointer select-none p-2 rounded hover:bg-[#1f1d1a] transition-colors">
+                <label className="flex items-start gap-3 cursor-pointer select-none p-2 rounded hover:bg-neutral-800 transition-colors">
                   <input
                     type="checkbox"
                     checked={prefNotifyReminder}
                     onChange={(e) => setPrefNotifyReminder(e.target.checked)}
-                    className="mt-0.5 size-5 rounded border-2 border-black bg-[#222] text-[#ff7a1b] focus:ring-0"
+                    className="mt-0.5 size-5 rounded border-2 border-border bg-neutral-800 text-orange focus:ring-0"
                   />
                   <div>
                     <span className="text-sm text-gray-200 font-bold block">30-Minute Call Reminder</span>
@@ -1074,27 +1125,27 @@ export default function MeetingsPage() {
               <button
                 type="submit"
                 disabled={prefLoading}
-                className="flex items-center justify-center gap-2 w-full p-3 font-bold border-2 border-black bg-green-400 text-black shadow-[4px_4px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000] transition-all rounded-base disabled:opacity-50 mt-4"
+                className="flex items-center justify-center gap-2 w-full p-3 font-heading font-bold border-2 border-border bg-green-400 text-black shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-base disabled:opacity-50 mt-4"
               >
                 <Save className="size-4 shrink-0" />
                 {prefLoading ? "Saving Preferences…" : "Save Notification Preferences"}
               </button>
             </div>
 
-            <div className="lg:col-span-5 border-4 border-black bg-[#111] rounded-base p-5 shadow-[4px_4px_0px_0px_#000] space-y-4">
-              <span className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider block border-b border-neutral-800 pb-2">
+            <div className="lg:col-span-5 border-4 border-border bg-black/40 rounded-base p-5 shadow-shadow space-y-4">
+              <span className="text-xs font-black text-orange uppercase tracking-wider block border-b border-neutral-800 pb-2">
                 Automated Integrations
               </span>
               <div className="space-y-3 text-xs text-gray-400">
-                <div className="p-3 bg-[#181614] border-2 border-black rounded-base space-y-1">
+                <div className="p-3 bg-neutral-800/60 border-2 border-border rounded-base space-y-1">
                   <p className="font-bold text-white flex items-center gap-2">
-                    <Bell className="size-3.5 text-[#ff7a1b]" /> Discord DM Dispatch
+                    <Bell className="size-3.5 text-orange" /> Discord DM Dispatch
                   </p>
                   <p>Bot automatically pings your Discord account when a room opens or recording is finalized.</p>
                 </div>
-                <div className="p-3 bg-[#181614] border-2 border-black rounded-base space-y-1">
+                <div className="p-3 bg-neutral-800/60 border-2 border-border rounded-base space-y-1">
                   <p className="font-bold text-white flex items-center gap-2">
-                    <CalendarIcon className="size-3.5 text-[#ff7a1b]" /> Calendar ICS Sync
+                    <CalendarIcon className="size-3.5 text-orange" /> Calendar ICS Sync
                   </p>
                   <p>All scheduled meetings attach standard .ics calendar files compatible with Google Calendar, Apple Calendar, and Outlook.</p>
                 </div>
@@ -1107,41 +1158,41 @@ export default function MeetingsPage() {
       {/* ── Schedule Modal ───────────────────────────────────────────────── */}
       {showScheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="border-4 border-black bg-[#12100e] max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 rounded-base shadow-[8px_8px_0px_0px_#000]">
+          <div className="border-4 border-border bg-dark max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 rounded-base shadow-shadow">
             <div className="flex justify-between items-center border-b-2 border-neutral-800 pb-3 mb-4">
               <h2 className="text-xl font-heading font-black text-white uppercase">Schedule Internal Call</h2>
-              <button onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowScheduleModal(false)} aria-label="Close schedule dialog" className="text-gray-400 hover:text-white">
                 <X className="size-5" />
               </button>
             </div>
             <form onSubmit={handleScheduleSubmit} className="space-y-4">
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Meeting Title</label>
+                <label className="block text-xs font-bold text-orange uppercase">Meeting Title</label>
                 <input type="text" required value={scheduleTitle} onChange={(e) => setScheduleTitle(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                  className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                   placeholder="e.g. Tech Fork Sync" />
               </div>
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Agenda</label>
+                <label className="block text-xs font-bold text-orange uppercase">Agenda</label>
                 <textarea value={scheduleDesc} onChange={(e) => setScheduleDesc(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b] h-16 resize-none"
+                  className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange h-16 resize-none"
                   placeholder="Brief description or agenda notes" />
               </div>
               <div className="grid gap-3 grid-cols-3">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Date</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Date</label>
                   <input type="date" required value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]" />
+                    className="w-full bg-neutral-800 border-2 border-border p-2 rounded-base text-white text-sm focus:outline-none focus:border-orange" />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Time</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Time</label>
                   <input type="time" required value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]" />
+                    className="w-full bg-neutral-800 border-2 border-border p-2 rounded-base text-white text-sm focus:outline-none focus:border-orange" />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Duration</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Duration</label>
                   <select value={scheduleDuration} onChange={(e) => setScheduleDuration(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]">
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange">
                     <option value="15">15 min</option>
                     <option value="30">30 min</option>
                     <option value="45">45 min</option>
@@ -1152,57 +1203,57 @@ export default function MeetingsPage() {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Location</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Location</label>
                   <select value={scheduleLocationType} onChange={(e) => setScheduleLocationType(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]">
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange">
                     <option value="discord_vc">Discord Voice Channel</option>
                     <option value="external">External URL</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Location Details</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Location Details</label>
                   <input type="text" value={scheduleLocationDetails} onChange={(e) => setScheduleLocationDetails(e.target.value)}
                     disabled={scheduleLocationType === "discord_vc"}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b] disabled:opacity-40"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange disabled:opacity-40"
                     placeholder="External link or VC name" />
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Join Scope</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Join Scope</label>
                   <select value={scheduleScope} onChange={(e) => setScheduleScope(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]">
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange">
                     <option value="invite">Invite Only</option>
                     <option value="open">Open (All contributors)</option>
                     <option value="hq">HQ Only</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Invitees (Discord ID CSV)</label>
+                  <label className="block text-xs font-bold text-orange uppercase">Invitees (Discord ID CSV)</label>
                   <input type="text" value={scheduleInvitees} onChange={(e) => setScheduleInvitees(e.target.value)}
-                    className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                    className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                     placeholder="snowflake_1, snowflake_2" />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">External Guest Emails</label>
+                <label className="block text-xs font-bold text-orange uppercase">External Guest Emails</label>
                 <input type="text" value={scheduleEmails} onChange={(e) => setScheduleEmails(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                  className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                   placeholder="guest@example.com, another@example.com" />
               </div>
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Private Notes</label>
+                <label className="block text-xs font-bold text-orange uppercase">Private Notes</label>
                 <input type="text" value={scheduleNotes} onChange={(e) => setScheduleNotes(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]"
+                  className="w-full bg-neutral-800 border-2 border-border p-2.5 rounded-base text-white text-sm focus:outline-none focus:border-orange"
                   placeholder="Included in email invites and ICS calendars" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowScheduleModal(false)}
-                  className="w-1/2 p-3 border-2 border-black bg-neutral-800 text-white hover:bg-neutral-700 font-bold rounded-base text-sm">
+                  className="w-1/2 p-3 border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 font-bold rounded-base text-sm">
                   Cancel
                 </button>
                 <button type="submit" disabled={scheduleLoading}
-                  className="w-1/2 p-3 border-2 border-black bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none font-bold rounded-base text-sm disabled:opacity-50">
+                  className="w-1/2 p-3 border-2 border-border bg-orange text-black shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none font-heading font-bold rounded-base text-sm disabled:opacity-50">
                   {scheduleLoading ? "Scheduling…" : "Schedule"}
                 </button>
               </div>
@@ -1214,38 +1265,38 @@ export default function MeetingsPage() {
       {/* ── Reschedule Modal ─────────────────────────────────────────────── */}
       {showRescheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="border-4 border-black bg-[#12100e] max-w-sm w-full p-6 rounded-base shadow-[8px_8px_0px_0px_#000]">
+          <div className="border-4 border-border bg-dark max-w-sm w-full p-6 rounded-base shadow-shadow">
             <div className="flex justify-between items-center border-b-2 border-neutral-800 pb-3 mb-4">
               <h2 className="text-lg font-heading font-black text-white uppercase">Reschedule Call</h2>
-              <button onClick={() => setShowRescheduleModal(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowRescheduleModal(null)} aria-label="Close reschedule dialog" className="text-gray-400 hover:text-white">
                 <X className="size-5" />
               </button>
             </div>
             <p className="text-xs text-gray-400 mb-4 font-bold">{showRescheduleModal.title}</p>
             <form onSubmit={handleReschedule} className="space-y-3">
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">New Date</label>
+                <label className="block text-xs font-bold text-orange uppercase">New Date</label>
                 <input type="date" required value={reschedDate} onChange={(e) => setReschedDate(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]" />
+                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded-base text-white text-sm focus:outline-none focus:border-orange" />
               </div>
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">New Time</label>
+                <label className="block text-xs font-bold text-orange uppercase">New Time</label>
                 <input type="time" required value={reschedTime} onChange={(e) => setReschedTime(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b]" />
+                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded-base text-white text-sm focus:outline-none focus:border-orange" />
               </div>
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Reason</label>
+                <label className="block text-xs font-bold text-orange uppercase">Reason</label>
                 <textarea value={reschedReason} onChange={(e) => setReschedReason(e.target.value)} rows={2}
-                  className="w-full bg-[#222] border-2 border-black p-2 rounded-base text-white text-sm focus:outline-none focus:border-[#ff7a1b] resize-none"
+                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded-base text-white text-sm focus:outline-none focus:border-orange resize-none"
                   placeholder="Brief reason for rescheduling (sent to attendees)" />
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowRescheduleModal(null)}
-                  className="w-1/2 p-2.5 border-2 border-black bg-neutral-800 text-white font-bold rounded-base text-sm">
+                  className="w-1/2 p-2.5 border-2 border-border bg-neutral-800 text-white font-bold rounded-base text-sm">
                   Cancel
                 </button>
                 <button type="submit" disabled={reschedLoading}
-                  className="w-1/2 p-2.5 border-2 border-black bg-[#ff7a1b] text-black font-bold rounded-base shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none text-sm disabled:opacity-50">
+                  className="w-1/2 p-2.5 border-2 border-border bg-orange text-black font-heading font-bold rounded-base shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none text-sm disabled:opacity-50">
                   {reschedLoading ? "Rescheduling…" : "Confirm"}
                 </button>
               </div>
@@ -1257,7 +1308,7 @@ export default function MeetingsPage() {
       {/* ── Meeting Detail Modal ─────────────────────────────────────────── */}
       {selectedMeeting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="border-4 border-black bg-[#12100e] max-w-4xl w-full max-h-[92vh] overflow-y-auto p-6 rounded-base shadow-[8px_8px_0px_0px_#000]">
+          <div className="border-4 border-border bg-dark max-w-4xl w-full max-h-[92vh] overflow-y-auto p-6 rounded-base shadow-shadow">
             {/* Header */}
             <div className="flex justify-between items-start border-b-2 border-neutral-800 pb-3 mb-4">
               <div className="flex-1 min-w-0">
@@ -1265,19 +1316,20 @@ export default function MeetingsPage() {
                   <h2 className="text-xl font-heading font-black text-white uppercase truncate">
                     {selectedMeeting.title}
                   </h2>
-                  <span className={`text-xs font-black uppercase px-2 py-0.5 border border-black rounded-full shrink-0 ${getStatusColor(selectedMeeting.status)}`}>
+                  <span className={`text-xs font-black uppercase px-2 py-0.5 border border-border rounded-full shrink-0 ${getStatusColor(selectedMeeting.status)}`}>
                     {selectedMeeting.status}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mt-1">
-                  <span>📅 {formatTime(selectedMeeting.scheduled_time)}</span>
-                  <span>📍 {selectedMeeting.location_details ?? selectedMeeting.location_type}</span>
+                  <span className="inline-flex items-center gap-1"><CalendarIcon className="size-3.5 shrink-0" /> {formatTime(selectedMeeting.scheduled_time)}</span>
+                  <span className="inline-flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {selectedMeeting.location_details ?? selectedMeeting.location_type}</span>
                   {selectedMeeting.meet_code && (
-                    <span className="text-[#ff7a1b] font-mono">🔗 {selectedMeeting.meet_code}</span>
+                    <span className="text-orange font-mono inline-flex items-center gap-1"><Link2 className="size-3.5 shrink-0" /> {selectedMeeting.meet_code}</span>
                   )}
+                  <RecordingChip meeting={selectedMeeting} />
                 </div>
               </div>
-              <button onClick={() => setSelectedMeeting(null)} className="text-gray-400 hover:text-white ml-4 shrink-0">
+              <button onClick={() => setSelectedMeeting(null)} aria-label="Close meeting details" className="text-gray-400 hover:text-white ml-4 shrink-0">
                 <X className="size-5" />
               </button>
             </div>
@@ -1289,7 +1341,7 @@ export default function MeetingsPage() {
                   href={`discord://discordapp.com/channels/${selectedMeeting.temp_channel_id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-black bg-green-400 text-black rounded shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-border bg-green-400 text-black rounded shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
                 >
                   Join VC
                 </a>
@@ -1299,7 +1351,7 @@ export default function MeetingsPage() {
                   href={`https://cal.gobitsnbytes.org/m/${selectedMeeting.meet_code}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-black bg-[#222] text-white rounded hover:bg-[#333] transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-border bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
                 >
                   <ExternalLink className="size-3.5" />
                   Open Meeting Page
@@ -1309,14 +1361,14 @@ export default function MeetingsPage() {
                 <>
                   <button
                     onClick={() => { setShowRescheduleModal(selectedMeeting); setSelectedMeeting(null); }}
-                    className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-black bg-[#222] text-white rounded hover:bg-[#333] transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-border bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
                   >
                     <RefreshCw className="size-3.5" />
                     Reschedule
                   </button>
                   <button
                     onClick={() => handleCancelMeeting(selectedMeeting.id)}
-                    className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-black bg-red-500 text-black rounded shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                    className="flex items-center gap-2 px-3 py-2 text-xs font-black border-2 border-border bg-red-500 text-black rounded shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
                   >
                     Cancel Meeting
                   </button>
@@ -1325,8 +1377,8 @@ export default function MeetingsPage() {
             </div>
 
             {/* Description */}
-            <div className="bg-neutral-900 border-2 border-black p-3.5 rounded-base text-sm text-gray-300 mb-5">
-              <span className="block text-xs font-bold text-[#ff7a1b] uppercase mb-1">Agenda</span>
+            <div className="bg-neutral-900 border-2 border-border p-3.5 rounded-base text-sm text-gray-300 mb-5">
+              <span className="block text-xs font-bold text-orange uppercase mb-1">Agenda</span>
               {selectedMeeting.description ?? "No agenda description provided."}
             </div>
 
@@ -1334,16 +1386,16 @@ export default function MeetingsPage() {
             {selectedMeeting.status === "completed" && selectedMeeting.transcript ? (
               <div className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div className="md:col-span-2 border-2 border-black bg-neutral-900/50 p-4 rounded-base">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-[#ff7a1b] uppercase mb-2">
+                  <div className="md:col-span-2 border-2 border-border bg-neutral-900/50 p-4 rounded-base">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-orange uppercase mb-2">
                       <FileText className="size-4 shrink-0" />AI Meeting Summary
                     </span>
                     <p className="text-xs text-gray-300 leading-relaxed">
                       {selectedMeeting.transcript.summary ?? "No summary available."}
                     </p>
                   </div>
-                  <div className="border-2 border-black bg-neutral-900/50 p-4 rounded-base">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-[#ff7a1b] uppercase mb-2">
+                  <div className="border-2 border-border bg-neutral-900/50 p-4 rounded-base">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-orange uppercase mb-2">
                       <CheckCircle className="size-4 shrink-0" />Key Decisions
                     </span>
                     <ul className="list-disc pl-4 text-xs text-gray-300 space-y-1.5">
@@ -1359,40 +1411,43 @@ export default function MeetingsPage() {
                 </div>
 
                 {/* Action items */}
-                <div className="border-2 border-black bg-neutral-900/50 p-4 rounded-base">
+                <div className="border-2 border-border bg-neutral-900/50 p-4 rounded-base">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-[#ff7a1b] uppercase">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-orange uppercase">
                       <Clock className="size-4 shrink-0" />Action Items Deliverables
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] text-gray-400 font-bold uppercase mr-1">Export:</span>
                       <button
                         onClick={() => exportActionItemsCSV(selectedMeeting)}
-                        className="px-2 py-1 text-[11px] font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-[#ff7a1b] hover:text-black transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold border-2 border-border bg-neutral-800 text-white rounded hover:bg-orange hover:text-black transition-colors"
                         title="Download CSV report"
                       >
-                        📄 CSV
+                        <FileSpreadsheet className="size-3 shrink-0" />
+                        CSV
                       </button>
                       <button
                         onClick={() => exportActionItemsJSON(selectedMeeting)}
-                        className="px-2 py-1 text-[11px] font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-[#ff7a1b] hover:text-black transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold border-2 border-border bg-neutral-800 text-white rounded hover:bg-orange hover:text-black transition-colors"
                         title="Download JSON format"
                       >
-                        { } JSON
+                        <Braces className="size-3 shrink-0" />
+                        JSON
                       </button>
                       <button
                         onClick={() => exportActionItemsMarkdown(selectedMeeting)}
-                        className="px-2 py-1 text-[11px] font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-[#ff7a1b] hover:text-black transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold border-2 border-border bg-neutral-800 text-white rounded hover:bg-orange hover:text-black transition-colors"
                         title="Download Markdown summary"
                       >
-                        📝 Markdown
+                        <FileText className="size-3 shrink-0" />
+                        Markdown
                       </button>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead>
-                        <tr className="border-b-2 border-black text-gray-400 font-bold">
+                        <tr className="border-b-2 border-border text-gray-400 font-bold">
                           <th className="pb-2">Assignee</th>
                           <th className="pb-2">Task</th>
                           <th className="pb-2">Deadline</th>
@@ -1422,9 +1477,9 @@ export default function MeetingsPage() {
                 </div>
 
                 {/* Searchable transcript */}
-                <div className="border-2 border-black bg-neutral-900/50 p-4 rounded-base space-y-3">
+                <div className="border-2 border-border bg-neutral-900/50 p-4 rounded-base space-y-3">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800 pb-2">
-                    <span className="text-xs font-black text-[#ff7a1b] uppercase">Dialogue Transcript</span>
+                    <span className="text-xs font-black text-orange uppercase">Dialogue Transcript</span>
                     <div className="relative w-full sm:w-64">
                       <Search className="absolute left-2.5 top-2.5 size-4 text-gray-500" />
                       <input
@@ -1432,7 +1487,7 @@ export default function MeetingsPage() {
                         placeholder="Search speakers / text…"
                         value={transcriptSearch}
                         onChange={(e) => setTranscriptSearch(e.target.value)}
-                        className="w-full bg-[#111] border border-black pl-9 pr-2.5 py-1.5 rounded text-xs text-white focus:outline-none focus:border-[#ff7a1b]"
+                        className="w-full bg-black/40 border border-border pl-9 pr-2.5 py-1.5 rounded text-xs text-white focus:outline-none focus:border-orange"
                       />
                     </div>
                   </div>
@@ -1449,7 +1504,7 @@ export default function MeetingsPage() {
                             const [, time, speaker, speech] = match;
                             return (
                               <div key={idx} className="text-xs flex gap-2">
-                                <span className="text-[#ff7a1b] font-bold select-none shrink-0">[{time}]</span>
+                                <span className="text-orange font-bold select-none shrink-0">[{time}]</span>
                                 <span className="text-white font-bold shrink-0">{speaker}:</span>
                                 <span className="text-gray-300">{speech}</span>
                               </div>
@@ -1462,7 +1517,7 @@ export default function MeetingsPage() {
                 </div>
               </div>
             ) : selectedMeeting.status === "completed" ? (
-              <div className="border-2 border-black bg-neutral-900/50 p-6 text-center text-gray-400 font-bold rounded-base">
+              <div className="border-2 border-border bg-neutral-900/50 p-6 text-center text-gray-400 font-bold rounded-base">
                 Transcript post-processing in progress…
               </div>
             ) : null}

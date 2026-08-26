@@ -189,33 +189,33 @@ export default function ChronoBookingPanel({
         </button>
         <div className="flex items-center gap-2 pl-2 border-l-2 border-neutral-800">
           {avatarUrl ? (
-            <img src={avatarUrl} alt={host.username} className="w-7 h-7 rounded-full border border-black object-cover" />
+            <img src={avatarUrl} alt={host.username} className="w-7 h-7 rounded-full border border-border object-cover" />
           ) : (
-            <div className="w-7 h-7 rounded-full border border-black bg-[#97192c] flex items-center justify-center text-xs font-black text-white">
+            <div className="w-7 h-7 rounded-full border border-border bg-burgundy flex items-center justify-center text-xs font-black text-white">
               {host.username[0]?.toUpperCase()}
             </div>
           )}
           <div>
             <p className="text-sm font-black text-white">{host.username}</p>
-            {host.title && <p className="text-[10px] text-[#ff7a1b] font-bold">{host.title}</p>}
+            {host.title && <p className="text-[10px] text-orange font-bold">{host.title}</p>}
           </div>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Left: Calendar */}
-        <div className="border-2 border-black bg-[#161412] rounded-base p-4 shadow-[2px_2px_0px_0px_#000]">
+        <div className="border-2 border-border bg-dark rounded-base p-4 shadow-shadow">
           {/* Duration */}
           <div className="flex items-center gap-2 mb-4">
-            <Clock className="size-3.5 text-[#ff7a1b] shrink-0" />
+            <Clock className="size-3.5 text-orange shrink-0" />
             <div className="flex gap-1">
               {DURATIONS.map((d) => (
                 <button
                   key={d}
                   type="button"
                   onClick={() => setDuration(d)}
-                  className={`px-2 py-0.5 text-xs font-bold border border-black rounded transition-colors ${
-                    duration === d ? "bg-[#ff7a1b] text-black" : "bg-[#222] text-gray-300 hover:bg-[#333]"
+                  className={`px-2 py-0.5 text-xs font-bold border border-border rounded transition-colors ${
+                    duration === d ? "bg-orange text-black" : "bg-neutral-800 text-gray-300 hover:bg-neutral-700"
                   }`}
                 >
                   {d}m
@@ -226,13 +226,13 @@ export default function ChronoBookingPanel({
 
           {/* Month nav */}
           <div className="flex items-center justify-between mb-3">
-            <button type="button" onClick={prevMonth} className="p-1 hover:text-[#ff7a1b] transition-colors">
+            <button type="button" onClick={prevMonth} aria-label={`Previous month (${MONTHS[(calMonth + 11) % 12]} ${calMonth === 0 ? calYear - 1 : calYear})`} className="p-1 border-2 border-transparent rounded-base text-gray-400 hover:text-orange hover:border-border transition-colors duration-150 motion-reduce:transition-none">
               <ChevronLeft className="size-4" />
             </button>
             <span className="text-xs font-black text-white uppercase tracking-wider">
               {MONTHS[calMonth]} {calYear}
             </span>
-            <button type="button" onClick={nextMonth} className="p-1 hover:text-[#ff7a1b] transition-colors">
+            <button type="button" onClick={nextMonth} aria-label={`Next month (${MONTHS[(calMonth + 1) % 12]} ${calMonth === 11 ? calYear + 1 : calYear})`} className="p-1 border-2 border-transparent rounded-base text-gray-400 hover:text-orange hover:border-border transition-colors duration-150 motion-reduce:transition-none">
               <ChevronRight className="size-4" />
             </button>
           </div>
@@ -260,11 +260,11 @@ export default function ChronoBookingPanel({
                   disabled={isPast}
                   className={`text-xs py-1.5 rounded font-bold transition-all ${
                     isSelected
-                      ? "bg-[#ff7a1b] text-black border border-black"
+                      ? "bg-orange text-black border border-border"
                       : isPast
                       ? "text-gray-700 cursor-not-allowed"
                       : isToday
-                      ? "border border-[#ff7a1b] text-white hover:bg-[#ff7a1b] hover:text-black"
+                      ? "border border-orange text-white hover:bg-orange hover:text-black"
                       : "text-gray-300 hover:bg-neutral-800"
                   }`}
                 >
@@ -276,7 +276,7 @@ export default function ChronoBookingPanel({
         </div>
 
         {/* Right: Slots or Booking Form */}
-        <div className="border-2 border-black bg-[#161412] rounded-base p-4 shadow-[2px_2px_0px_0px_#000] min-h-[280px]">
+        <div className="border-2 border-border bg-dark rounded-base p-4 shadow-shadow min-h-[280px]">
           {step === "calendar" && (
             <>
               {!selectedDate && (
@@ -293,7 +293,7 @@ export default function ChronoBookingPanel({
               )}
               {selectedDate && !slotsLoading && !slotsError && (
                 <div className="space-y-2">
-                  <p className="text-xs font-black text-[#ff7a1b] uppercase tracking-wider">
+                  <p className="text-xs font-black text-orange uppercase tracking-wider">
                     {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                   </p>
                   {slots.length === 0 ? (
@@ -305,7 +305,7 @@ export default function ChronoBookingPanel({
                           key={slot}
                           type="button"
                           onClick={() => handleSlotClick(slot)}
-                          className="py-2 text-xs font-bold border-2 border-black bg-[#222] text-white hover:bg-[#ff7a1b] hover:text-black rounded transition-all"
+                          className="py-2 text-xs font-bold border-2 border-border bg-neutral-800 text-white hover:bg-orange hover:text-black rounded transition-all"
                         >
                           {formatSlot(slot)}
                         </button>
@@ -319,7 +319,7 @@ export default function ChronoBookingPanel({
 
           {step === "form" && selectedSlot && (
             <form onSubmit={handleSubmitBooking} className="space-y-3">
-              <div className="flex items-center gap-2 p-2 bg-[#ff7a1b]/10 border border-[#ff7a1b]/40 rounded text-xs text-[#ff7a1b] font-bold">
+              <div className="flex items-center gap-2 p-2 bg-orange/10 border border-orange/40 rounded text-xs text-orange font-bold">
                 <CheckCircle className="size-3.5 shrink-0" />
                 {new Date(selectedSlot).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} · {duration} min
                 <button
@@ -332,33 +332,33 @@ export default function ChronoBookingPanel({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Meeting Title</label>
+                <label className="block text-xs font-bold text-orange uppercase">Meeting Title</label>
                 <input
                   type="text"
                   value={bookingTitle}
                   onChange={(e) => setBookingTitle(e.target.value)}
                   placeholder={`Sync with ${host.username}`}
-                  className="w-full bg-[#222] border-2 border-black p-2 rounded text-xs text-white focus:outline-none focus:border-[#ff7a1b]"
+                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded text-xs text-white focus:outline-none focus:border-orange"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Notes / Agenda</label>
+                <label className="block text-xs font-bold text-orange uppercase">Notes / Agenda</label>
                 <textarea
                   value={bookingNotes}
                   onChange={(e) => setBookingNotes(e.target.value)}
                   placeholder="What do you want to discuss?"
                   rows={2}
-                  className="w-full bg-[#222] border-2 border-black p-2 rounded text-xs text-white focus:outline-none focus:border-[#ff7a1b] resize-none"
+                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded text-xs text-white focus:outline-none focus:border-orange resize-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Scope</label>
+                <label className="block text-xs font-bold text-orange uppercase">Scope</label>
                 <select
                   value={bookingScope}
                   onChange={(e) => setBookingScope(e.target.value)}
-                  className="w-full bg-[#222] border-2 border-black p-2 rounded text-xs text-white focus:outline-none focus:border-[#ff7a1b]"
+                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded text-xs text-white focus:outline-none focus:border-orange"
                 >
                   <option value="invite">Invite Only</option>
                   <option value="open">Open (All contributors)</option>
@@ -374,14 +374,14 @@ export default function ChronoBookingPanel({
                 <button
                   type="button"
                   onClick={() => setStep("calendar")}
-                  className="flex-1 py-2 text-xs font-bold border-2 border-black bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
+                  className="flex-1 py-2 text-xs font-bold border-2 border-border bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2 text-xs font-bold border-2 border-black bg-[#ff7a1b] text-black rounded shadow-[2px_2px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all disabled:opacity-50"
+                  className="flex-1 py-2 text-xs font-bold border-2 border-border bg-orange text-black rounded shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all disabled:opacity-50"
                 >
                   {submitting ? "Booking…" : "Confirm Booking"}
                 </button>
