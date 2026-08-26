@@ -4,6 +4,7 @@ FastAPI APIRouter for digital signature contracts (bnb-signatures).
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import logging
 import os
 import random
 import uuid
@@ -45,6 +46,8 @@ from app.services.signature_engine import (
     prepare_document_pdf,
     render_pdf_page_previews,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/signatures", tags=["signatures"])
 
@@ -513,7 +516,12 @@ async def request_signing_otp(
     recipient.otp_code = otp_code
     recipient.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=2)
 
-    logger.info("[OTP] Generated security PIN %s for recipient %s <%s>", otp_code, recipient.name, recipient.email)
+    logger.info(
+        "[OTP] Generated security PIN (masked %s****) for recipient %s <%s>",
+        otp_code[:2],
+        recipient.name,
+        recipient.email,
+    )
 
     client_ip = req.client.host if req and req.client else "127.0.0.1"
     user_agent = req.headers.get("user-agent") if req else "Browser"
