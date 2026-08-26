@@ -96,108 +96,110 @@ export default function DashboardForksPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-[#97192C] p-6 text-white shadow-shadow">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-[#141418] p-5 text-white shadow-dark">
         <div>
           <div className="flex items-center gap-2">
-            <GitBranch className="size-6 text-[#FC920D]" />
-            <h1 className="font-heading font-extrabold text-2xl tracking-wide">
-              Fork Chapter Network Topology
+            <GitBranch className="size-6 text-orange" />
+            <h1 className="font-heading font-black text-2xl sm:text-3xl tracking-tight uppercase">
+              Fork Chapter Network
             </h1>
           </div>
-          <p className="mt-1 text-xs text-white/80 font-base">
+          <p className="mt-1 text-xs sm:text-sm text-zinc-300 font-base">
             Local chapter lifecycle, weekly `/pulse` tracking, 0-100 health scoring, and automated archiving.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
+          <button
+            type="button"
             onClick={fetchForksData}
-            variant="neutral"
-            className="border-2 border-border bg-[#111] text-white hover:bg-[#222]"
+            className="flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs uppercase rounded-base border-2 border-border bg-[#181820] text-zinc-200 hover:text-white shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
           >
-            <RefreshCw className={`size-4 mr-1.5 ${loading ? "animate-spin text-[#FC920D]" : ""}`} />
+            <RefreshCw className={`size-3.5 mr-1 ${loading ? "animate-spin text-orange" : "text-orange"}`} />
             Refresh Network
-          </Button>
+          </button>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-base border-2 border-[#97192C] bg-[#97192C]/10 p-4 text-xs font-bold text-red-200 shadow-shadow">
-          <AlertTriangle className="size-5 shrink-0 text-[#97192C]" />
+        <div className="flex items-center gap-3 rounded-base border-2 border-red-500 bg-red-950/80 p-4 text-xs font-mono font-bold text-red-200 shadow-light">
+          <AlertTriangle className="size-5 shrink-0 text-red-400" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Quick Stats Grid */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Total Fork Nodes
             </CardTitle>
-            <GitBranch className="size-4 text-[#FC920D]" />
+            <GitBranch className="size-4 text-orange" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-foreground">
+              <div className="font-heading font-black text-2xl text-white">
                 {forks.length}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Recognized operating chapters</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-1">Recognized operating chapters</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Active Chapter Pulse
             </CardTitle>
-            <Activity className="size-4 text-green-500" />
+            <Activity className="size-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-foreground">
+              <div className="font-heading font-black text-2xl text-white">
                 {activeForks.length}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Submitted `/pulse` &lt; 60 days</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-1">Submitted `/pulse` &lt; 60 days</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Stale Archival Alerts
             </CardTitle>
-            <AlertTriangle className="size-4 text-yellow-500" />
+            <AlertTriangle className="size-4 text-amber-400" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-foreground">
+              <div className="font-heading font-black text-2xl text-white">
                 {warningForks.length + staleForks.length}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">60-89d warning / 90d+ archive</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-1">60-89d warning / 90d+ archive</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Governance Model
             </CardTitle>
-            <ShieldCheck className="size-4 text-[#97192C]" />
+            <ShieldCheck className="size-4 text-orange" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="warning">Teen-Led Required</Badge>
+              <span className="border-2 border-border bg-main text-white px-2 py-0.5 text-[10px] font-mono font-bold rounded-base shadow-light">
+                Teen-Led Required
+              </span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-2">Upstream Board legal approval</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-2">Upstream Board legal approval</p>
           </CardContent>
         </Card>
       </div>
@@ -205,15 +207,15 @@ export default function DashboardForksPage() {
       {/* Responsive 2-Column Main Section */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Column: Active Chapters */}
-        <Card className="border-2 border-border shadow-shadow">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border pb-4">
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
             <div className="flex items-center gap-2">
-              <MapPin className="size-5 text-[#FC920D]" />
-              <CardTitle className="font-heading font-bold text-base">Active City Chapters</CardTitle>
+              <MapPin className="size-4 text-orange" />
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Active City Chapters</CardTitle>
             </div>
-            <Badge variant="neutral" className="border-border font-mono text-[10px]">
+            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
               Notion Registry Sync
-            </Badge>
+            </span>
           </CardHeader>
           <CardContent className="pt-4">
             {loading ? (
@@ -224,7 +226,7 @@ export default function DashboardForksPage() {
               </div>
             ) : forks.length === 0 ? (
               <EmptyState
-                icon={<GitBranch className="size-8 text-muted-foreground" />}
+                icon={<GitBranch className="size-8 text-zinc-600" />}
                 title="No active Fork nodes registered"
                 description="No fork chapters registered yet. Use the Create Fork action from the Overview dashboard to onboard a new chapter."
               />
@@ -233,26 +235,26 @@ export default function DashboardForksPage() {
                 {forks.map((fork) => (
                   <div
                     key={fork.id}
-                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#111] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px]"
+                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#181820] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <MapPin className="size-4 text-[#FC920D]" />
-                        <span className="font-heading font-bold text-sm text-white">
+                        <MapPin className="size-4 text-orange" />
+                        <span className="font-heading font-black text-sm text-white uppercase">
                           {fork.city_name}
                         </span>
                       </div>
-                      <div className="text-[11px] text-muted-foreground mt-1">
+                      <div className="text-[11px] font-mono text-zinc-400 mt-1">
                         Lead: {fork.lead_name || "Unassigned"} &bull; {fork.member_count ?? 1} builders
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-heading font-bold text-sm text-green-400">
+                      <div className="font-mono font-bold text-xs text-emerald-400">
                         Score: {fork.health_score ?? 100}/100
                       </div>
-                      <Badge variant="success" className="mt-1">
+                      <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base border border-emerald-800 bg-emerald-950 text-emerald-400">
                         {fork.status || "Active"}
-                      </Badge>
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -262,15 +264,15 @@ export default function DashboardForksPage() {
         </Card>
 
         {/* Right Column: Onboarding Pipeline */}
-        <Card className="border-2 border-border shadow-shadow">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border pb-4">
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
             <div className="flex items-center gap-2">
-              <Zap className="size-5 text-[#97192C]" />
-              <CardTitle className="font-heading font-bold text-base">Fork Onboarding Pipeline</CardTitle>
+              <Zap className="size-4 text-orange" />
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Fork Onboarding Pipeline</CardTitle>
             </div>
-            <Badge variant="neutral" className="border-border font-mono text-[10px]">
+            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
               Provisioning Engine
-            </Badge>
+            </span>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             {loadingOnboarding ? (
@@ -281,65 +283,65 @@ export default function DashboardForksPage() {
               </div>
             ) : onboardingForks.length === 0 ? (
               <EmptyState
-                icon={<Zap className="size-8 text-muted-foreground" />}
+                icon={<Zap className="size-8 text-zinc-600" />}
                 title="No forks in pipeline"
                 description="Onboarding pipeline is clear."
               />
             ) : (
               onboardingForks.map((fork) => (
                 <button
+                  type="button"
                   key={fork.fork_id}
                   onClick={() => setSelectedForkId(fork.fork_id)}
-                  className="flex w-full flex-col gap-2 rounded-base border-2 border-border bg-[#111] p-3.5 text-left text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px]"
+                  className="flex w-full flex-col gap-2 rounded-base border-2 border-border bg-[#181820] p-3.5 text-left text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <MapPin className="size-4 text-[#FC920D]" />
-                      <span className="font-heading font-bold text-sm text-white">
+                      <MapPin className="size-4 text-orange" />
+                      <span className="font-heading font-black text-sm text-white uppercase">
                         {fork.city_name}
                       </span>
                     </div>
-                    <Badge
-                      variant={
-                        fork.stage === "approved" ? "success" :
-                        fork.stage === "archived" ? "neutral" :
-                        "warning"
-                      }
-                      className="capitalize text-[10px]"
+                    <span
+                      className={`px-2 py-0.5 font-mono text-[10px] font-bold rounded-base border ${
+                        fork.stage === "approved" ? "bg-emerald-950 text-emerald-400 border-emerald-800" :
+                        fork.stage === "archived" ? "bg-zinc-800 text-zinc-400 border-zinc-700" :
+                        "bg-amber-950 text-amber-400 border-amber-800"
+                      }`}
                     >
                       {fork.stage.replace("_", " ")}
-                    </Badge>
+                    </span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 mt-1">
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-[11px] font-mono text-zinc-400">
                       <div className="flex items-center gap-1 mb-1">
-                        <Activity className="size-3" />
+                        <Activity className="size-3 text-orange" />
                         Health: 
-                        <span className={`font-bold ${fork.health_score >= 70 ? 'text-green-400' : fork.health_score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        <span className={`font-bold ${fork.health_score >= 70 ? 'text-emerald-400' : fork.health_score >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                           {fork.health_score}/100
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Users className="size-3" />
+                        <Users className="size-3 text-zinc-500" />
                         Members: {fork.member_count} ({fork.track_leads_assigned_count} leads)
                       </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground text-right flex flex-col justify-end">
+                    <div className="text-[11px] font-mono text-zinc-400 text-right flex flex-col justify-end">
                       <div className="flex items-center justify-end gap-1">
-                        <ShieldCheck className="size-3" />
+                        <ShieldCheck className="size-3 text-emerald-400" />
                         <span className="font-bold text-white">{fork.compliance_summary.passed_checks_count}/{fork.compliance_summary.total_checks_count}</span> checks passed
                       </div>
                     </div>
                   </div>
 
                   {fork.remedies_needed && fork.remedies_needed.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-border/40">
-                      <div className="text-[10px] font-bold text-yellow-400 mb-1 flex items-center gap-1">
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <div className="text-[10px] font-mono font-bold text-amber-400 mb-1 flex items-center gap-1">
                         <AlertTriangle className="size-3" />
                         Remedies Needed:
                       </div>
-                      <ul className="list-disc list-inside text-[10px] text-muted-foreground space-y-1">
+                      <ul className="list-disc list-inside text-[10px] font-mono text-zinc-400 space-y-1">
                         {fork.remedies_needed.map((remedy, idx) => (
                           <li key={idx} className="line-clamp-2">{remedy}</li>
                         ))}

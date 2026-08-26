@@ -125,34 +125,34 @@ export default function DashboardContent() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
-          <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-widest text-muted-foreground">
+        <section className="rounded-base border-2 border-border bg-[#141418] p-5 shadow-dark">
+          <h2 className="mb-3 font-heading font-black text-xs uppercase tracking-wider text-white">
             Your follow-ups
           </h2>
 
           {followUps.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-xs font-mono text-zinc-400">
               {loading ? "Loading…" : "Nothing to chase right now."}
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-2.5">
               {followUps.map((item) => (
                 <li
                   key={item.id}
-                  className={`flex items-center justify-between gap-3 rounded-base border-2 px-3 py-2 ${
+                  className={`flex items-center justify-between gap-3 rounded-base border-2 px-3.5 py-2.5 shadow-light ${
                     item.is_overdue
-                      ? "border-orange/50 bg-orange/10"
-                      : "border-border bg-[#111]"
+                      ? "border-orange bg-orange/10"
+                      : "border-border bg-[#181820]"
                   }`}
                 >
                   <div className="min-w-0">
                     <Link
                       href={`/dashboard/dyslexic/companies/${item.company_id}`}
-                      className="block truncate text-sm font-medium hover:text-orange"
+                      className="block truncate text-xs font-bold text-white hover:text-orange"
                     >
-                      {item.contact_name} · {item.company_name}
+                      {item.contact_name} &bull; {item.company_name}
                     </Link>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] font-mono text-zinc-400">
                       {item.is_overdue ? "Overdue — due " : "Due "}
                       {formatRelative(item.due_at)}
                     </p>
@@ -160,7 +160,7 @@ export default function DashboardContent() {
                   <button
                     type="button"
                     onClick={() => handleResolve(item.id)}
-                    className="shrink-0 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-main hover:text-main-foreground"
+                    className="shrink-0 rounded-base border-2 border-black bg-orange text-black px-2.5 py-1 text-xs font-mono font-bold hover:translate-x-[1px] hover:translate-y-[1px] shadow-light"
                   >
                     Done
                   </button>
@@ -170,38 +170,38 @@ export default function DashboardContent() {
           )}
         </section>
 
-        <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
+        <section className="rounded-base border-2 border-border bg-[#141418] p-5 shadow-dark">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-heading text-sm font-bold uppercase tracking-widest text-muted-foreground">
+            <h2 className="font-heading font-black text-xs uppercase tracking-wider text-white">
               Top contributors
             </h2>
             <Link
               href="/dashboard/dyslexic/leaderboard"
-              className="text-xs text-muted-foreground hover:text-orange"
+              className="text-xs font-mono font-bold text-orange hover:underline"
             >
-              View all
+              View all &rarr;
             </Link>
           </div>
 
           {leaders.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-xs font-mono text-zinc-400">
               {loading ? "Loading…" : "No contributions yet."}
             </p>
           ) : (
-            <ol className="flex flex-col gap-2">
+            <ol className="flex flex-col gap-2.5">
               {leaders.map((row, index) => (
                 <li
                   key={row.user_id}
-                  className="flex items-center gap-3 rounded-base border-2 border-border bg-[#111] px-3 py-2"
+                  className="flex items-center gap-3 rounded-base border-2 border-border bg-[#181820] px-3.5 py-2.5 shadow-light"
                 >
-                  <span className="w-5 text-center font-heading text-sm font-bold text-muted-foreground">
+                  <span className="w-5 text-center font-mono text-xs font-bold text-zinc-400">
                     {index + 1}
                   </span>
                   <Trophy
-                    className={`size-4 shrink-0 ${index === 0 ? "text-orange" : "text-white/20"}`}
+                    className={`size-4 shrink-0 ${index === 0 ? "text-orange" : "text-zinc-600"}`}
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm">{row.display_name}</span>
-                  <span className="font-heading text-sm font-bold">{row.score}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-white">{row.display_name}</span>
+                  <span className="font-mono text-xs font-bold text-orange">{row.score}</span>
                 </li>
               ))}
             </ol>
@@ -209,13 +209,13 @@ export default function DashboardContent() {
         </section>
       </div>
 
-      <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
-        <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-widest text-muted-foreground">
+      <section className="rounded-base border-2 border-border bg-[#141418] p-5 shadow-dark">
+        <h2 className="mb-3 font-heading font-black text-xs uppercase tracking-wider text-white">
           Recent activity
         </h2>
 
         {activity.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-xs font-mono text-zinc-400">
             {loading ? "Loading…" : "Nothing has happened yet."}
           </p>
         ) : (
@@ -223,15 +223,15 @@ export default function DashboardContent() {
             {activity.map((event) => (
               <li
                 key={event.id}
-                className="flex items-baseline justify-between gap-4 border-b border-border/50 py-2 last:border-0"
+                className="flex items-baseline justify-between gap-4 border-b border-border py-2.5 last:border-0 font-mono text-xs"
               >
                 <Link
                   href={`/dashboard/dyslexic/companies/${event.company_id}`}
-                  className="min-w-0 flex-1 truncate text-sm hover:text-orange"
+                  className="min-w-0 flex-1 truncate text-zinc-200 hover:text-orange"
                 >
                   {event.summary}
                 </Link>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="shrink-0 text-[11px] text-zinc-400">
                   {formatRelative(event.created_at)}
                 </span>
               </li>

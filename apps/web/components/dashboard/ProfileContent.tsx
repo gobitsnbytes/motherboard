@@ -114,48 +114,48 @@ export function ProfileContent() {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="rounded-xl border-2 border-border bg-[#111] p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="rounded-base border-2 border-border bg-[#141418] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-dark">
         <div className="flex items-center gap-5">
-          <div className="relative size-16 shrink-0 rounded-full border-2 border-amber-400 overflow-hidden bg-main/20 flex items-center justify-center">
+          <div className="relative size-16 shrink-0 rounded-base border-2 border-orange overflow-hidden bg-black flex items-center justify-center shadow-light">
             {session?.user?.image ? (
               <img src={session.user.image} alt={form.display_name} className="size-full object-cover" />
             ) : (
-              <User className="size-8 text-amber-400" />
+              <User className="size-8 text-orange" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-heading font-bold text-foreground">{form.display_name || "Team Member"}</h2>
-              <Badge variant="success" className="flex items-center gap-1 text-[10px]">
+              <h2 className="text-xl font-heading font-black text-white uppercase tracking-tight">{form.display_name || "Team Member"}</h2>
+              <span className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-base border border-emerald-800 bg-emerald-950 text-emerald-400">
                 <ShieldCheck className="size-3" /> Chrono v2 Verified
-              </Badge>
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{form.title}</p>
-            <p className="text-xs text-white/60 mt-1 max-w-lg">{form.bio}</p>
+            <p className="text-xs font-mono text-orange mt-0.5">{form.title}</p>
+            <p className="text-xs text-zinc-300 mt-1 max-w-lg font-base">{form.bio}</p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 text-right text-xs text-muted-foreground">
+        <div className="flex flex-col gap-2 text-right text-xs font-mono text-zinc-400">
           <div className="flex items-center gap-1.5 justify-end">
-            <MapPin className="size-3.5 text-amber-400" />
+            <MapPin className="size-3.5 text-orange" />
             <span>{form.timezone}</span>
           </div>
           <div className="flex items-center gap-1.5 justify-end">
             <Clock className="size-3.5 text-emerald-400" />
-            <span>Chrono v2: {form.chrono_work_start} - {form.chrono_work_end}</span>
+            <span className="text-zinc-300">Chrono: {form.chrono_work_start} - {form.chrono_work_end}</span>
           </div>
         </div>
       </div>
 
       {successMsg && (
-        <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 p-4 text-xs font-bold text-emerald-400 flex items-center gap-2">
+        <div className="rounded-base border-2 border-emerald-600 bg-emerald-950/80 p-4 text-xs font-mono font-bold text-emerald-300 flex items-center gap-2 shadow-light">
           <CheckCircle2 className="size-4" />
           {successMsg}
         </div>
       )}
 
       {errorMsg && (
-        <div className="rounded-xl border-2 border-destructive/50 bg-destructive/10 p-4 text-xs font-bold text-destructive">
+        <div className="rounded-base border-2 border-red-500 bg-red-950/80 p-4 text-xs font-mono font-bold text-red-200 shadow-light">
           {errorMsg}
         </div>
       )}
@@ -163,104 +163,112 @@ export function ProfileContent() {
       {/* Form */}
       <form onSubmit={handleSave} className="grid gap-6 md:grid-cols-2">
         {/* Basic Profile */}
-        <Card className="rounded-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="size-4 text-amber-400" /> Basic Team Profile
+        <Card className="rounded-base border-2 border-border bg-[#141418] shadow-dark">
+          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+            <CardTitle className="flex items-center gap-2 font-heading font-black text-sm uppercase tracking-wider text-white">
+              <User className="size-4 text-orange" /> Basic Team Profile
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-4">
             <div className="space-y-1.5">
-              <Label htmlFor="display_name">Display Name *</Label>
+              <Label htmlFor="display_name" className="text-xs font-mono font-bold uppercase text-zinc-300">Display Name *</Label>
               <Input
                 id="display_name"
                 value={form.display_name}
                 onChange={(e) => setForm((prev) => ({ ...prev, display_name: e.target.value }))}
                 required
+                className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="title">Role / Operational Title</Label>
+              <Label htmlFor="title" className="text-xs font-mono font-bold uppercase text-zinc-300">Role / Operational Title</Label>
               <Input
                 id="title"
                 value={form.title}
                 onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                 placeholder="e.g. Lead Engineer, Operations Manager, Founder"
+                className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="bio">Bio / Strategic Focus</Label>
+              <Label htmlFor="bio" className="text-xs font-mono font-bold uppercase text-zinc-300">Bio / Strategic Focus</Label>
               <Input
                 id="bio"
                 value={form.bio}
                 onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value }))}
                 placeholder="What are you building or driving at bits&bytes?"
+                className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="timezone">Timezone & Location</Label>
+              <Label htmlFor="timezone" className="text-xs font-mono font-bold uppercase text-zinc-300">Timezone & Location</Label>
               <Input
                 id="timezone"
                 value={form.timezone}
                 onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))}
+                className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="skillsStr">Skills & Stack (comma-separated)</Label>
+              <Label htmlFor="skillsStr" className="text-xs font-mono font-bold uppercase text-zinc-300">Skills & Stack (comma-separated)</Label>
               <Input
                 id="skillsStr"
                 value={form.skillsStr}
                 onChange={(e) => setForm((prev) => ({ ...prev, skillsStr: e.target.value }))}
                 placeholder="Next.js, Python, FastAPI, Docker, Design"
+                className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Chrono v2 System Preferences */}
-        <Card className="rounded-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="size-4 text-purple-400" /> Chrono v2 System Settings
+        <Card className="rounded-base border-2 border-border bg-[#141418] shadow-dark">
+          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+            <CardTitle className="flex items-center gap-2 font-heading font-black text-sm uppercase tracking-wider text-white">
+              <Sparkles className="size-4 text-orange" /> Chrono v2 System Settings
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="space-y-4 pt-4">
+            <p className="text-xs text-zinc-300 font-mono">
               Configure your single-source availability schedule. Chrono v2 uses these preferences for meeting matching and Discord role sync.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="work_start">Work Start (Local)</Label>
+                <Label htmlFor="work_start" className="text-xs font-mono font-bold uppercase text-zinc-300">Work Start (Local)</Label>
                 <Input
                   id="work_start"
                   type="time"
                   value={form.chrono_work_start}
                   onChange={(e) => setForm((prev) => ({ ...prev, chrono_work_start: e.target.value }))}
+                  className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="work_end">Work End (Local)</Label>
+                <Label htmlFor="work_end" className="text-xs font-mono font-bold uppercase text-zinc-300">Work End (Local)</Label>
                 <Input
                   id="work_end"
                   type="time"
                   value={form.chrono_work_end}
                   onChange={(e) => setForm((prev) => ({ ...prev, chrono_work_end: e.target.value }))}
+                  className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="call_pref">Preferred Communication Channel</Label>
+              <Label htmlFor="call_pref" className="text-xs font-mono font-bold uppercase text-zinc-300">Preferred Communication Channel</Label>
               <Input
                 id="call_pref"
                 value={form.chrono_call_preference}
                 onChange={(e) => setForm((prev) => ({ ...prev, chrono_call_preference: e.target.value }))}
                 placeholder="Discord Voice, Cal.com, Google Meet"
+                className="bg-black border-2 border-border text-white text-xs font-mono shadow-light"
               />
             </div>
 
@@ -270,14 +278,18 @@ export function ProfileContent() {
                 id="auto_sync"
                 checked={form.chrono_auto_sync}
                 onChange={(e) => setForm((prev) => ({ ...prev, chrono_auto_sync: e.target.checked }))}
-                className="size-4 rounded border-border"
+                className="size-4 rounded-base border-2 border-border bg-black accent-orange cursor-pointer"
               />
-              <Label htmlFor="auto_sync" className="text-xs cursor-pointer">
+              <Label htmlFor="auto_sync" className="text-xs font-mono text-zinc-300 cursor-pointer">
                 Enable auto-sync with Discord Roles & Notion Members Table
               </Label>
             </div>
 
-            <Button type="submit" disabled={saving} className="w-full mt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full mt-4 flex items-center justify-center gap-2 px-5 py-2.5 font-heading font-black text-xs uppercase tracking-wider bg-orange text-black border-2 border-black rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50"
+            >
               {saving ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" /> Saving Profile...
@@ -287,7 +299,7 @@ export function ProfileContent() {
                   <Save className="mr-2 size-4" /> Save Team Profile (Apply Everywhere)
                 </>
               )}
-            </Button>
+            </button>
           </CardContent>
         </Card>
       </form>

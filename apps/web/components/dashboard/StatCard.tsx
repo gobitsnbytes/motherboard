@@ -24,17 +24,17 @@ export default function StatCard({
   const isLoading = value === "...";
 
   return (
-    <Card className="border-2 border-border shadow-shadow bg-[#111] text-foreground">
+    <Card className="border-2 border-border shadow-dark bg-[#141418] text-foreground hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="font-heading font-bold text-xs uppercase tracking-wider text-muted-foreground">
+          <CardTitle className="font-mono font-bold text-xs uppercase tracking-wider text-zinc-400">
             {title}
           </CardTitle>
-          {icon && <div className="text-[#FC920D]">{icon}</div>}
+          {icon && <div className="text-orange">{icon}</div>}
         </div>
 
         {description && (
-          <CardDescription className="text-[11px] text-muted-foreground mt-0.5">
+          <CardDescription className="text-[11px] text-zinc-400 font-mono mt-0.5">
             {description}
           </CardDescription>
         )}
@@ -44,7 +44,7 @@ export default function StatCard({
         {isLoading ? (
           <Skeleton className="h-9 w-20" />
         ) : (
-          <p className="text-3xl font-heading font-black text-white">
+          <p className="text-3xl font-heading font-black text-white tracking-tight">
             {value}
           </p>
         )}

@@ -37,7 +37,7 @@ interface DayRowProps {
 
 function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemoveSlot, onCopyToAll }: DayRowProps) {
   return (
-    <div className={`flex flex-col gap-2 p-3 border-2 border-border rounded-base transition-colors ${enabled ? "bg-orange/10" : "bg-black/40"}`}>
+    <div className={`flex flex-col gap-2 p-3.5 border-2 border-border rounded-base transition-colors ${enabled ? "bg-[#181820] shadow-light" : "bg-[#121216]"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Toggle switch */}
@@ -45,18 +45,18 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             type="button"
             onClick={() => onToggle(day)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full border-2 border-border transition-colors ${
-              enabled ? "bg-orange" : "bg-neutral-700"
+              enabled ? "bg-orange" : "bg-neutral-800"
             }`}
             aria-pressed={enabled}
             aria-label={`Toggle ${day}`}
           >
             <span
-              className={`inline-block h-3 w-3 transform rounded-full bg-white border border-border transition-transform ${
+              className={`inline-block h-3 w-3 transform rounded-full bg-white border border-black transition-transform ${
                 enabled ? "translate-x-4" : "translate-x-1"
               }`}
             />
           </button>
-          <span className={`text-xs font-black uppercase tracking-widest w-8 ${enabled ? "text-white" : "text-gray-600"}`}>
+          <span className={`text-xs font-mono font-black uppercase tracking-widest w-8 ${enabled ? "text-white" : "text-zinc-500"}`}>
             {DAY_LABELS[day]}
           </span>
         </div>
@@ -66,7 +66,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             type="button"
             onClick={() => onCopyToAll(day)}
             title="Copy these hours to all enabled days"
-            className="text-[10px] text-gray-400 hover:text-orange font-bold uppercase tracking-wider transition-colors"
+            className="text-[10px] text-zinc-400 hover:text-orange font-mono font-bold uppercase tracking-wider transition-colors"
           >
             Copy to all
           </button>
@@ -81,20 +81,20 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
                 type="time"
                 value={slot.start}
                 onChange={(e) => onSlotChange(day, idx, "start", e.target.value)}
-                className="bg-neutral-800 border-2 border-border rounded p-1 text-xs text-white focus:outline-none focus:border-orange w-28"
+                className="bg-black border-2 border-border rounded-base p-1 text-xs text-white font-mono focus:outline-none focus:border-orange w-28"
               />
-              <span className="text-gray-500 text-xs font-bold">–</span>
+              <span className="text-zinc-400 text-xs font-bold">–</span>
               <input
                 type="time"
                 value={slot.end}
                 onChange={(e) => onSlotChange(day, idx, "end", e.target.value)}
-                className="bg-neutral-800 border-2 border-border rounded p-1 text-xs text-white focus:outline-none focus:border-orange w-28"
+                className="bg-black border-2 border-border rounded-base p-1 text-xs text-white font-mono focus:outline-none focus:border-orange w-28"
               />
               {slots.length > 1 && (
                 <button
                   type="button"
                   onClick={() => onRemoveSlot(day, idx)}
-                  className="text-red-400 hover:text-red-300 text-xs font-bold px-1 transition-colors duration-150 motion-reduce:transition-none"
+                  className="text-red-400 hover:text-red-300 text-xs font-bold px-1 transition-colors"
                   aria-label="Remove time slot"
                 >
                   <X className="size-3.5" aria-hidden="true" />
@@ -106,7 +106,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             <button
               type="button"
               onClick={() => onAddSlot(day)}
-              className="text-[10px] text-orange font-bold hover:text-orange-300 transition-colors"
+              className="text-[10px] text-orange font-mono font-bold hover:underline transition-colors"
             >
               + Add time slot
             </button>
@@ -116,7 +116,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
 
       {!enabled && (
         <div className="pl-12">
-          <span className="text-xs text-gray-600 italic">Unavailable</span>
+          <span className="text-xs text-zinc-500 font-mono italic">Unavailable</span>
         </div>
       )}
     </div>

@@ -34,6 +34,7 @@ export function OverviewContent() {
   const [createForkOpen, setCreateForkOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [creatingFork, setCreatingFork] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const [forkForm, setForkForm] = useState({
     slug: "",
     city_name: "",
@@ -136,8 +137,10 @@ export function OverviewContent() {
       setCreatingFork(false);
     }
   };
+
   return (
     <div className="space-y-6">
+      {/* Top Stat Cards Grid */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Members"
@@ -149,52 +152,59 @@ export function OverviewContent() {
         <StatCard
           title="Forks"
           value={loading ? "..." : stats.forks}
-          description="Active locations"
+          description="Active city chapters"
           icon={<GitBranch className="size-5" />}
         />
 
         <StatCard
           title="Plugins"
           value={loading ? "..." : stats.plugins}
-          description="Installed"
+          description="Loaded extensions"
           icon={<Puzzle className="size-5" />}
         />
 
-        <Link href="/dashboard/dyslexic" className="block transition-transform hover:-translate-y-0.5">
+        <Link href="/dashboard/dyslexic" className="block">
           <StatCard
             title="Dyslexic"
             value={loading ? "..." : stats.dyslexicCompanies}
             description="Sponsorship pipeline"
-            icon={<Handshake className="size-5 text-primary" />}
+            icon={<Handshake className="size-5" />}
           />
         </Link>
       </div>
-      <Card>
-        <CardContent className="py-6">
-          <h2 className="text-xl font-heading font-bold">Welcome back 👋</h2>
 
-          <p className="text-sm text-muted-foreground mt-2">
-            Manage members, forks, plugins, and organization operations from a
-            single place.
+      {/* Welcome Banner */}
+      <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <CardContent className="py-5">
+          <h2 className="text-xl font-heading font-black text-white uppercase tracking-tight">
+            Welcome to Motherboard Cockpit 👋
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-300 font-base mt-1">
+            Central operations layer: manage member IAM policies, city fork onboarding, digital signatures, and meetings.
           </p>
         </CardContent>
       </Card>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+
+      {/* Activity & System Status */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              Recent Activity
+            </CardTitle>
           </CardHeader>
 
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="pt-4">
+            <div className="space-y-2.5">
               {loading ? (
-                <div>Loading activity...</div>
+                <div className="text-xs text-zinc-400 font-mono">Loading telemetry...</div>
+              ) : activity.length === 0 ? (
+                <div className="text-xs text-zinc-400 font-mono">No recent activity logged.</div>
               ) : (
                 activity.map((item, index) => (
-                  <div key={index} className="flex justify-between">
-                    <span>{item.action}</span>
-
-                    <span className="text-xs text-muted-foreground">
+                  <div key={index} className="flex justify-between items-center p-2.5 rounded-base border border-border bg-[#181820] text-xs">
+                    <span className="font-mono text-zinc-200">{item.action}</span>
+                    <span className="text-[11px] font-mono text-zinc-400">
                       {new Date(item.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -203,190 +213,219 @@ export function OverviewContent() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
+
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              System Telemetry
+            </CardTitle>
           </CardHeader>
 
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>API</span>
-
-                <Badge
-                  variant={stats.apiStatus === "ok" ? "success" : "danger"}
-                >
+          <CardContent className="pt-4">
+            <div className="space-y-3 font-mono text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-zinc-300">FastAPI Engine</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.apiStatus === "ok" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
                   {stats.apiStatus === "ok" ? "Online" : "Offline"}
-                </Badge>
+                </span>
               </div>
 
-              <div className="flex justify-between">
-                <span>Database</span>
-                <Badge
-                  variant={stats.databaseStatus === "healthy" ? "success" : stats.databaseStatus === "loading" ? "neutral" : "danger"}
-                >
-                  {stats.databaseStatus === "healthy" ? "Healthy" : stats.databaseStatus === "loading" ? "Loading..." : "Degraded"}
-                </Badge>
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-zinc-300">Neon Database</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.databaseStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
+                  {stats.databaseStatus === "healthy" ? "Healthy" : "Loading..."}
+                </span>
               </div>
 
-              <div className="flex justify-between">
-                <span>Discord</span>
-                <Badge
-                  variant={stats.discordStatus === "connected" ? "success" : stats.discordStatus === "unconfigured" ? "neutral" : stats.discordStatus === "loading" ? "neutral" : "danger"}
-                >
-                  {stats.discordStatus === "connected" ? "Connected" : stats.discordStatus === "unconfigured" ? "Unconfigured" : stats.discordStatus === "loading" ? "Loading..." : "Disconnected"}
-                </Badge>
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-zinc-300">Discord Gateway</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.discordStatus === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
+                  {stats.discordStatus === "connected" ? "Connected" : "Unconfigured"}
+                </span>
               </div>
 
-              <div className="flex justify-between">
-                <span>Sync</span>
-                <Badge
-                  variant={stats.syncStatus === "healthy" ? "success" : stats.syncStatus === "syncing" ? "warning" : stats.syncStatus === "no_runs" ? "neutral" : stats.syncStatus === "loading" ? "neutral" : "danger"}
-                >
-                  {stats.syncStatus === "healthy" ? "Healthy" : stats.syncStatus === "syncing" ? "Syncing" : stats.syncStatus === "no_runs" ? "No Runs" : stats.syncStatus === "loading" ? "Loading..." : "Unhealthy"}
-                </Badge>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-300">Background Sync</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.syncStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
+                  {stats.syncStatus === "healthy" ? "Healthy" : "Standby"}
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>My Open Action Items</CardTitle>
-        </CardHeader>
 
-        <CardContent>
-          <div className="space-y-2">
-            {actionItems.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No open action items.</div>
-            ) : (
-              actionItems.slice(0, 5).map((item) => (
+      {/* Action Items & Fork Health */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              My Open Action Items
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="pt-4">
+            <div className="space-y-2">
+              {actionItems.length === 0 ? (
+                <div className="text-xs text-zinc-400 font-mono">No pending action items.</div>
+              ) : (
+                actionItems.slice(0, 5).map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/dashboard/meetings"
+                    className="flex justify-between items-center gap-4 rounded-base border border-border bg-[#181820] p-2.5 transition-colors hover:bg-white/5"
+                  >
+                    <span className="text-xs font-mono text-zinc-200 truncate">{item.task}</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      {item.deadline ? (
+                        <span className="text-[10px] font-mono text-zinc-400">{item.deadline}</span>
+                      ) : null}
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 border border-border bg-black text-amber-400 rounded-base">
+                        {item.status}
+                      </span>
+                    </span>
+                  </Link>
+                ))
+              )}
+              {actionItems.length > 0 && (
                 <Link
-                  key={item.id}
                   href="/dashboard/meetings"
-                  className="flex justify-between items-center gap-4 rounded-md p-2 transition-colors hover:bg-muted"
+                  className="block pt-2 text-xs font-mono font-bold text-orange hover:underline"
                 >
-                  <span className="text-sm font-medium truncate">{item.task}</span>
-                  <span className="flex items-center gap-2 shrink-0">
-                    {item.deadline ? (
-                      <span className="text-xs text-muted-foreground">{item.deadline}</span>
-                    ) : null}
-                    <Badge variant={item.status === "pending" ? "warning" : "neutral"}>
-                      {item.status}
-                    </Badge>
-                  </span>
+                  View all in Meetings &rarr;
                 </Link>
-              ))
-            )}
-            {actionItems.length > 0 && (
-              <Link
-                href="/dashboard/meetings"
-                className="block pt-1 text-sm font-medium text-primary hover:underline"
-              >
-                View all &rarr;
-              </Link>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Fork Health</CardTitle>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              Fork Chapter Health
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="pt-4">
+            <div className="space-y-2.5 font-mono text-xs">
+              {loading ? (
+                <div className="text-xs text-zinc-400">Loading chapters...</div>
+              ) : forks.length === 0 ? (
+                <div className="text-xs text-zinc-400">No active forks registered.</div>
+              ) : (
+                forks.map((fork) => {
+                  const score = fork.health_score ?? 100;
+                  const isHealthy = score >= 70;
+                  const isWarning = score >= 50 && score < 70;
+
+                  return (
+                    <div key={fork.id} className="flex justify-between items-center p-2.5 rounded-base border border-border bg-[#181820]">
+                      <span className="font-bold text-zinc-200">{fork.city_name || fork.name}</span>
+                      <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${isHealthy ? "bg-emerald-950 text-emerald-400 border-emerald-800" : isWarning ? "bg-amber-950 text-amber-400 border-amber-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+                        {score}/100
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions Card */}
+      <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
+          <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+            Quick Actions
+          </CardTitle>
         </CardHeader>
 
-        <CardContent>
-          <div className="space-y-3">
-            {loading ? (
-              <div>Loading forks...</div>
-            ) : (
-              forks.map((fork) => {
-                const score = fork.health_score ?? 100;
-                const isHealthy = score >= 70;
-                const isWarning = score >= 50 && score < 70;
-                const variant = isHealthy ? "success" : isWarning ? "warning" : "danger";
-                const label = isHealthy ? `Healthy (${score}/100)` : isWarning ? `Audit Required (${score}/100)` : `Critical (${score}/100)`;
-
-                return (
-                  <div key={fork.id} className="flex justify-between items-center">
-                    <span className="font-bold text-xs">{fork.city_name || fork.name}</span>
-                    <Badge variant={variant}>{label}</Badge>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-3">
+        <CardContent className="pt-4">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Dialog open={createForkOpen} onOpenChange={setCreateForkOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="size-4 mr-2" />
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-main text-white rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+                >
+                  <Plus className="size-4" />
                   Create Fork
-                </Button>
+                </button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="border-2 border-border bg-[#141418] text-white">
                 <DialogHeader>
-                  <DialogTitle>Create New Fork</DialogTitle>
+                  <DialogTitle className="font-heading font-black text-lg uppercase tracking-tight text-white">
+                    Create New City Chapter Fork
+                  </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreateFork} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="slug">Slug *</Label>
-                    <Input id="slug" required value={forkForm.slug} onChange={(e) => setForkForm(prev => ({...prev, slug: e.target.value}))} placeholder="e.g. blr" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="slug" className="font-mono text-xs text-zinc-300">Slug *</Label>
+                    <Input id="slug" required value={forkForm.slug} onChange={(e) => setForkForm(prev => ({...prev, slug: e.target.value}))} placeholder="e.g. blr" className="border-2 border-border bg-black text-white font-mono" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="city_name">City Name *</Label>
-                    <Input id="city_name" required value={forkForm.city_name} onChange={(e) => setForkForm(prev => ({...prev, city_name: e.target.value}))} placeholder="e.g. Bangalore" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city_name" className="font-mono text-xs text-zinc-300">City Name *</Label>
+                    <Input id="city_name" required value={forkForm.city_name} onChange={(e) => setForkForm(prev => ({...prev, city_name: e.target.value}))} placeholder="e.g. Bangalore" className="border-2 border-border bg-black text-white font-mono" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="discord_city_role_id">Discord City Role ID (optional)</Label>
-                    <Input id="discord_city_role_id" value={forkForm.discord_city_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_city_role_id: e.target.value}))} placeholder="e.g. 1234567890" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discord_city_role_id" className="font-mono text-xs text-zinc-300">Discord City Role ID (optional)</Label>
+                    <Input id="discord_city_role_id" value={forkForm.discord_city_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_city_role_id: e.target.value}))} placeholder="e.g. 1234567890" className="border-2 border-border bg-black text-white font-mono" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="discord_contributor_role_id">Discord Contributor Role ID (optional)</Label>
-                    <Input id="discord_contributor_role_id" value={forkForm.discord_contributor_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_contributor_role_id: e.target.value}))} placeholder="e.g. 0987654321" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discord_contributor_role_id" className="font-mono text-xs text-zinc-300">Discord Contributor Role ID (optional)</Label>
+                    <Input id="discord_contributor_role_id" value={forkForm.discord_contributor_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_contributor_role_id: e.target.value}))} placeholder="e.g. 0987654321" className="border-2 border-border bg-black text-white font-mono" />
                   </div>
-                  <Button type="submit" className="w-full" disabled={creatingFork}>
-                    {creatingFork ? <Loader2 className="mr-2 size-4 animate-spin" /> : "Create"}
-                  </Button>
+                  <button type="submit" className="w-full py-3 bg-orange text-black font-heading font-black text-xs uppercase tracking-wider rounded-base border-2 border-black shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50" disabled={creatingFork}>
+                    {creatingFork ? <Loader2 className="mx-auto size-4 animate-spin" /> : "Create Chapter"}
+                  </button>
                 </form>
               </DialogContent>
             </Dialog>
 
-            <Button onClick={handleRunSync} disabled={syncing}>
-              {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RefreshCw className="size-4 mr-2" />}
-              {syncing ? "Syncing..." : "Run Sync"}
-            </Button>
+            <button
+              type="button"
+              onClick={handleRunSync}
+              disabled={syncing}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-[#181820] text-white rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50"
+            >
+              {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4 text-orange" />}
+              {syncing ? "Syncing..." : "Trigger Discord Sync"}
+            </button>
 
             <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  <UserPlus className="size-4 mr-2" />
-                  Invite Member
-                </Button>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-[#181820] text-white rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+                >
+                  <UserPlus className="size-4 text-emerald-400" />
+                  Invite Contributor
+                </button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="border-2 border-border bg-[#141418] text-white">
                 <DialogHeader>
-                  <DialogTitle>Invite Member</DialogTitle>
+                  <DialogTitle className="font-heading font-black text-lg uppercase tracking-tight text-white">
+                    Invite Member
+                  </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Share this invite link with new members to let them join the bits&bytes Discord server.
+                <div className="space-y-4 pt-2">
+                  <p className="text-xs text-zinc-300 font-base">
+                    Share this verified invite link with new contributors to join the bits&bytes community Discord server.
                   </p>
                   <div className="flex gap-2 items-center">
-                    <Input readOnly value="https://discord.gg/bitsnbytes" className="flex-1" />
-                    <Button variant="neutral" size="icon" onClick={() => {
-                      navigator.clipboard.writeText("https://discord.gg/bitsnbytes");
-                      alert("Copied to clipboard!");
-                    }}>
-                      <Copy className="size-4" />
-                    </Button>
+                    <Input readOnly value="https://discord.gg/bitsnbytes" className="flex-1 border-2 border-border bg-black text-white font-mono text-xs" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://discord.gg/bitsnbytes");
+                        setCopyFeedback(true);
+                        setTimeout(() => setCopyFeedback(false), 2000);
+                      }}
+                      className="px-3 py-2 border-2 border-border bg-orange text-black font-mono font-bold text-xs rounded-base shadow-light hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                    >
+                      {copyFeedback ? "Copied!" : <Copy className="size-4" />}
+                    </button>
                   </div>
                 </div>
               </DialogContent>
@@ -397,3 +436,4 @@ export function OverviewContent() {
     </div>
   );
 }
+

@@ -33,28 +33,28 @@
     --ring: 351 71% 34%;
 
     /* Neobrutalist variables */
-    --bg: #fff;
-    --bw: #fff;
-    --blank: #000;
-    --text: #000;
-    --mtext: #000;
+    --bg: #faf8f5;
+    --bw: #ffffff;
+    --blank: #000000;
+    --text: #120f0a;
+    --mtext: #120f0a;
     --main: #97192c; /* Burgundy */
     --main-foreground: #ffffff;
     --secondary-background: #ffffff;
     --border-radius: 4px;
     --box-shadow-x: 4px;
     --box-shadow-y: 4px;
-    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px var(--border);
+    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px rgba(0, 0, 0, 1);
   }
 
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 3.9%;
+    --card: 0 0% 6%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 3.9%;
+    --popover: 0 0% 6%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 351 71% 34%;
@@ -64,76 +64,64 @@
     --secondary-foreground: 0 0% 0%;
 
     --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted-foreground: 0 0% 75%;
 
     --accent: 34 80% 52%;
     --accent-foreground: 0 0% 0%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 0 0% 24%;
+    --input: 0 0% 24%;
+    --ring: 351 71% 34%;
+
+    /* Dark Neobrutalist variables */
+    --bg: #0a0a0c;
+    --bw: #121216;
+    --blank: #ffffff;
+    --text: #ffffff;
+    --mtext: #ffffff;
+    --main: #97192c;
+    --main-foreground: #ffffff;
+    --secondary-background: #141418;
+    --border-radius: 4px;
+    --box-shadow-x: 4px;
+    --box-shadow-y: 4px;
+    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px rgba(0, 0, 0, 1);
   }
 }
 
-/* Liquid-Glass Utilities */
-.liquid-glass {
-  background: rgba(255, 255, 255, 0.01);
-  background-blend-mode: luminosity;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: none;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-.liquid-glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.4px;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.45) 0%,
-    rgba(255, 255, 255, 0.15) 20%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.15) 80%,
-    rgba(255, 255, 255, 0.45) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+/* Blueprint Dot-Grid & Structural Utilities */
+.blueprint-dot-grid {
+  background-size: 24px 24px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
 }
 
-.liquid-glass-strong {
-  background: rgba(255, 255, 255, 0.01);
-  background-blend-mode: luminosity;
-  backdrop-filter: blur(50px);
-  -webkit-backdrop-filter: blur(50px);
-  border: none;
-  box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-  position: relative;
-  overflow: hidden;
+.blueprint-dot-grid-dense {
+  background-size: 16px 16px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
 }
-.liquid-glass-strong::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.4px;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(255, 255, 255, 0.2) 20%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.2) 80%,
-    rgba(255, 255, 255, 0.5) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+
+.neobrutal-card {
+  border: 2px solid hsl(var(--border));
+  background-color: var(--bw);
+  box-shadow: var(--shadow);
+  border-radius: var(--border-radius);
+}
+
+.neobrutal-btn {
+  border: 2px solid hsl(var(--border));
+  box-shadow: var(--shadow);
+  transition: all 150ms ease-out;
+  border-radius: var(--border-radius);
+}
+.neobrutal-btn:hover {
+  transform: translate(var(--box-shadow-x), var(--box-shadow-y));
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 1);
+}
+.neobrutal-btn:active {
+  transform: translate(var(--box-shadow-x), var(--box-shadow-y));
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 1);
 }
 

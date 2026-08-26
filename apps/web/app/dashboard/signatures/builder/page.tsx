@@ -150,26 +150,26 @@ export default function SignatureBuilderPage() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Wizard Header Bar */}
-      <div className="bg-secondary-background border-2 border-border p-4 rounded-base shadow-shadow flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-[#141418] border-2 border-border p-4 rounded-base shadow-dark flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-black text-foreground font-heading">Create Signature Request</h1>
-          <p className="text-xs text-muted-foreground font-medium">Step {step} of 4 · Configure contract settings</p>
+          <h1 className="text-lg font-heading font-black text-white uppercase tracking-tight">Create Signature Request</h1>
+          <p className="text-xs text-zinc-400 font-mono">Step {step} of 4 &bull; Configure contract workflow</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 1 ? "bg-burgundy text-white border-border" : "bg-gray-100 text-gray-400 border-transparent"}`}>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono font-bold">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 1 ? "bg-orange text-black border-black shadow-light" : "bg-[#181820] text-zinc-400 border-border"}`}>
             <Upload className="w-3.5 h-3.5" /> 1. Document
           </div>
-          <ArrowRight className="w-3 h-3 text-muted-foreground" />
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 2 ? "bg-burgundy text-white border-border" : "bg-gray-100 text-gray-400 border-transparent"}`}>
+          <ArrowRight className="w-3 h-3 text-zinc-500" />
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 2 ? "bg-orange text-black border-black shadow-light" : "bg-[#181820] text-zinc-400 border-border"}`}>
             <Users className="w-3.5 h-3.5" /> 2. Signatories
           </div>
-          <ArrowRight className="w-3 h-3 text-muted-foreground" />
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 3 ? "bg-burgundy text-white border-border" : "bg-gray-100 text-gray-400 border-transparent"}`}>
+          <ArrowRight className="w-3 h-3 text-zinc-500" />
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 3 ? "bg-orange text-black border-black shadow-light" : "bg-[#181820] text-zinc-400 border-border"}`}>
             <Layers className="w-3.5 h-3.5" /> 3. Fields
           </div>
-          <ArrowRight className="w-3 h-3 text-muted-foreground" />
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 4 ? "bg-burgundy text-white border-border" : "bg-gray-100 text-gray-400 border-transparent"}`}>
+          <ArrowRight className="w-3 h-3 text-zinc-500" />
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base border-2 transition-all ${step >= 4 ? "bg-orange text-black border-black shadow-light" : "bg-[#181820] text-zinc-400 border-border"}`}>
             <Send className="w-3.5 h-3.5" /> 4. Review
           </div>
         </div>
@@ -177,17 +177,17 @@ export default function SignatureBuilderPage() {
 
       {/* Step 1: Document Upload */}
       {step === 1 && (
-        <div className="bg-secondary-background border-2 border-border rounded-base p-8 sm:p-12 shadow-shadow text-center space-y-6">
+        <div className="bg-[#141418] border-2 border-border rounded-base p-8 sm:p-12 shadow-dark text-center space-y-6">
           <div className="max-w-md mx-auto space-y-4">
-            <div className="w-16 h-16 rounded-base bg-orange/20 border-2 border-border mx-auto flex items-center justify-center text-burgundy shadow-shadow">
+            <div className="w-16 h-16 rounded-base bg-orange/20 border-2 border-border mx-auto flex items-center justify-center text-orange shadow-light">
               <Upload className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-black text-foreground font-heading">Upload Document for Signature</h2>
-            <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+            <h2 className="text-xl font-heading font-black text-white uppercase tracking-tight">Upload Document for Signature</h2>
+            <p className="text-xs text-zinc-300 font-base leading-relaxed">
               Select a PDF or Word (.docx) document to convert into an interactive, legally-binding digital contract.
             </p>
 
-            <label className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange text-foreground font-bold text-xs font-heading border-2 border-border rounded-base shadow-shadow cursor-pointer hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all">
+            <label className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange text-black font-heading font-black text-xs uppercase tracking-wider border-2 border-black rounded-base shadow-light cursor-pointer hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all">
               {uploading ? "Processing & Converting PDF..." : "Choose File (.pdf, .docx)"}
               <input type="file" accept=".pdf,.docx,.doc" onChange={handleFileUpload} className="hidden" />
             </label>
@@ -197,24 +197,24 @@ export default function SignatureBuilderPage() {
 
       {/* Step 2: Configure Signatories */}
       {step === 2 && (
-        <div className="bg-secondary-background border-2 border-border rounded-base p-6 sm:p-8 shadow-shadow space-y-6">
+        <div className="bg-[#141418] border-2 border-border rounded-base p-6 sm:p-8 shadow-dark space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b-2 border-border pb-4">
             <div>
-              <h2 className="text-lg font-black text-foreground font-heading">Add Signatories</h2>
-              <p className="text-xs text-muted-foreground font-medium">Specify recipient names and email addresses who need to sign.</p>
+              <h2 className="text-lg font-heading font-black text-white uppercase tracking-tight">Add Signatories</h2>
+              <p className="text-xs text-zinc-400 font-mono">Specify recipient names and email addresses who need to sign.</p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleSignMyselfPreset}
-                className="flex items-center gap-1.5 px-3 py-2 bg-orange/20 border-2 border-border rounded-base text-xs font-bold font-heading text-foreground shadow-shadow"
+                className="flex items-center gap-1.5 px-3 py-2 bg-main text-white border-2 border-border rounded-base text-xs font-mono font-bold shadow-light"
               >
-                <UserCheck className="w-4 h-4 text-burgundy" /> Sign Myself
+                <UserCheck className="w-4 h-4" /> Sign Myself
               </button>
               <button
                 type="button"
                 onClick={handleAddRecipient}
-                className="flex items-center gap-1.5 px-3 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground shadow-shadow"
+                className="flex items-center gap-1.5 px-3 py-2 bg-[#181820] text-zinc-200 border-2 border-border rounded-base text-xs font-mono font-bold shadow-light"
               >
                 <Plus className="w-4 h-4" /> Add Signatory
               </button>
@@ -223,7 +223,7 @@ export default function SignatureBuilderPage() {
 
           <div className="space-y-5">
             <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-foreground mb-1.5 font-heading">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 mb-1.5">
                 Contract Title
               </label>
               <input
@@ -231,27 +231,27 @@ export default function SignatureBuilderPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Non-Disclosure Agreement 2026"
-                className="w-full px-4 py-2.5 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground shadow-shadow focus:outline-none"
+                className="w-full px-4 py-2.5 bg-black border-2 border-border rounded-base text-xs font-mono text-white shadow-light focus:outline-none focus:border-orange"
               />
             </div>
 
             <div className="space-y-3">
-              <label className="block text-xs font-black uppercase tracking-wider text-foreground font-heading">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider text-zinc-300">
                 Signatories List ({recipients.length})
               </label>
               {recipients.map((r, idx) => (
-                <div key={r.id} className="p-4 border-2 border-border rounded-base bg-muted shadow-shadow space-y-3 text-left">
+                <div key={r.id} className="p-4 border-2 border-border rounded-base bg-[#181820] shadow-light space-y-3 text-left">
                   {/* Top Header Row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: r.color }} />
-                      <span className="text-xs font-black text-foreground font-mono">Signatory #{idx + 1}</span>
+                      <span className="w-4 h-4 rounded-base border border-border" style={{ backgroundColor: r.color }} />
+                      <span className="text-xs font-mono font-bold text-white">Signatory #{idx + 1}</span>
                     </div>
                     {recipients.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveRecipient(r.id)}
-                        className="px-2.5 py-1 bg-red-100 text-red-700 border-2 border-red-700 rounded-base hover:bg-red-200 transition-colors text-xs font-bold font-heading flex items-center gap-1"
+                        className="px-2.5 py-1 bg-red-950 text-red-300 border border-red-800 rounded-base hover:bg-red-900 transition-colors text-xs font-mono font-bold flex items-center gap-1"
                         title="Remove Signatory"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Remove
@@ -262,7 +262,7 @@ export default function SignatureBuilderPage() {
                   {/* Inputs Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">Full Name</label>
+                      <label className="block text-[10px] font-mono font-bold uppercase text-zinc-400 mb-1">Full Name</label>
                       <input
                         type="text"
                         placeholder="Signatory Name"
@@ -274,11 +274,11 @@ export default function SignatureBuilderPage() {
                             setRecipients(updated);
                           }
                         }}
-                        className="w-full px-3 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground"
+                        className="w-full px-3 py-2 bg-black border-2 border-border rounded-base text-xs font-mono text-white focus:outline-none focus:border-orange"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">Email Address</label>
+                      <label className="block text-[10px] font-mono font-bold uppercase text-zinc-400 mb-1">Email Address</label>
                       <input
                         type="email"
                         placeholder="Signatory Email"
@@ -290,14 +290,14 @@ export default function SignatureBuilderPage() {
                             setRecipients(updated);
                           }
                         }}
-                        className="w-full px-3 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground"
+                        className="w-full px-3 py-2 bg-black border-2 border-border rounded-base text-xs font-mono text-white focus:outline-none focus:border-orange"
                       />
                     </div>
                   </div>
 
                   {/* Security & Verification Options */}
-                  <div className="pt-2 border-t border-[#D0CFCE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer font-bold font-heading text-foreground">
+                  <div className="pt-2 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-mono font-bold text-zinc-300">
                       <input
                         type="checkbox"
                         checked={r.requires_otp || false}
@@ -308,13 +308,13 @@ export default function SignatureBuilderPage() {
                             setRecipients(updated);
                           }
                         }}
-                        className="w-4 h-4 rounded border-2 border-border accent-burgundy"
+                        className="w-4 h-4 rounded border-2 border-border accent-orange"
                       />
                       <span>Require 6-Digit Email OTP Verification</span>
                     </label>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Security Mode:</span>
+                      <span className="text-[10px] font-mono font-bold uppercase text-zinc-400">Security Mode:</span>
                       <select
                         value={r.allowed_sig_type || "any"}
                         onChange={(e) => {
@@ -324,7 +324,7 @@ export default function SignatureBuilderPage() {
                             setRecipients(updated);
                           }
                         }}
-                        className="px-2.5 py-1.5 bg-secondary-background border-2 border-border rounded-base text-[11px] font-bold font-heading text-foreground"
+                        className="px-2.5 py-1.5 bg-black border-2 border-border rounded-base text-[11px] font-mono font-bold text-white focus:outline-none focus:border-orange"
                       >
                         <option value="any">DSC (if available) or Simple OTP (Default)</option>
                         <option value="dsc_only">Enforce Class 1/2/3 DSC Only</option>
@@ -341,14 +341,14 @@ export default function SignatureBuilderPage() {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground shadow-shadow"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#181820] border-2 border-border rounded-base text-xs font-mono font-bold text-zinc-200 shadow-light"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Upload
             </button>
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="flex items-center gap-1.5 px-6 py-2.5 bg-orange text-foreground border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+              className="flex items-center gap-1.5 px-6 py-2.5 bg-orange text-black border-2 border-black rounded-base text-xs font-heading font-black uppercase tracking-wider shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
             >
               Next: Place Fields <ArrowRight className="w-4 h-4" />
             </button>
@@ -368,18 +368,18 @@ export default function SignatureBuilderPage() {
             onSelectRecipient={setSelectedRecipientId}
           />
 
-          <div className="flex justify-between p-4 bg-secondary-background border-2 border-border rounded-base shadow-shadow">
+          <div className="flex justify-between p-4 bg-[#141418] border-2 border-border rounded-base shadow-dark">
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground shadow-shadow"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#181820] border-2 border-border rounded-base text-xs font-mono font-bold text-zinc-200 shadow-light"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Signatories
             </button>
             <button
               type="button"
               onClick={() => setStep(4)}
-              className="flex items-center gap-1.5 px-6 py-2.5 bg-orange text-foreground border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+              className="flex items-center gap-1.5 px-6 py-2.5 bg-orange text-black border-2 border-black rounded-base text-xs font-heading font-black uppercase tracking-wider shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
             >
               Next: Review &amp; Dispatch <ArrowRight className="w-4 h-4" />
             </button>
@@ -389,49 +389,49 @@ export default function SignatureBuilderPage() {
 
       {/* Step 4: Final Review & Dispatch */}
       {step === 4 && (
-        <div className="bg-secondary-background border-2 border-border rounded-base p-6 sm:p-8 shadow-shadow space-y-6">
+        <div className="bg-[#141418] border-2 border-border rounded-base p-6 sm:p-8 shadow-dark space-y-6">
           <div className="space-y-1 border-b-2 border-border pb-4">
-            <h2 className="text-lg font-black text-foreground font-heading">Review &amp; Dispatch Contract</h2>
-            <p className="text-xs text-muted-foreground">Verify signature contract details before sending out tokenized signature links.</p>
+            <h2 className="text-lg font-heading font-black text-white uppercase tracking-tight">Review &amp; Dispatch Contract</h2>
+            <p className="text-xs text-zinc-400 font-mono">Verify signature contract details before sending out tokenized signature links.</p>
           </div>
 
-          <div className="bg-muted border-2 border-border rounded-base p-5 space-y-4 text-xs font-medium shadow-shadow">
+          <div className="bg-[#181820] border-2 border-border rounded-base p-5 space-y-4 text-xs font-mono shadow-light">
             <div>
-              <span className="font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Contract Title:</span>
-              <div className="text-base font-black text-foreground font-heading mt-0.5">{title}</div>
+              <span className="font-bold text-zinc-400 uppercase tracking-wider text-[10px]">Contract Title:</span>
+              <div className="text-base font-black text-white font-heading mt-0.5">{title}</div>
             </div>
             <div>
-              <span className="font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Signatories ({recipients.length}):</span>
+              <span className="font-bold text-zinc-400 uppercase tracking-wider text-[10px]">Signatories ({recipients.length}):</span>
               <div className="space-y-2 mt-1.5">
                 {recipients.map((r) => (
-                  <div key={r.id} className="flex items-center gap-2 text-xs font-bold text-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                  <div key={r.id} className="flex items-center gap-2 text-xs font-bold text-white">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>{r.name}</span>
-                    <span className="text-muted-foreground font-mono text-[11px]">&lt;{r.email}&gt;</span>
+                    <span className="text-zinc-400 font-mono text-[11px]">&lt;{r.email}&gt;</span>
                   </div>
                 ))}
               </div>
             </div>
             <div>
-              <span className="font-bold text-muted-foreground uppercase tracking-wider text-[10px]">Placed Fields Summary:</span>
-              <div className="font-bold text-foreground mt-0.5">{fields.length} interactive fields placed across {previews.length} document pages</div>
+              <span className="font-bold text-zinc-400 uppercase tracking-wider text-[10px]">Placed Fields Summary:</span>
+              <div className="font-bold text-zinc-200 mt-0.5">{fields.length} interactive fields placed across {previews.length} document pages</div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t-2 border-border">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t-2 border-border">
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading text-foreground shadow-shadow"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#181820] border-2 border-border rounded-base text-xs font-mono font-bold text-zinc-200 shadow-light"
             >
               <ArrowLeft className="w-4 h-4" /> Edit Placed Fields
             </button>
-            <label className="flex cursor-pointer items-center gap-2 rounded-base border-2 border-border bg-muted px-4 py-2.5 text-xs font-bold font-heading text-foreground shadow-shadow">
+            <label className="flex cursor-pointer items-center gap-2 rounded-base border-2 border-border bg-[#181820] px-4 py-2.5 text-xs font-mono font-bold text-white shadow-light">
               <input
                 type="checkbox"
                 checked={orgCountersign}
                 onChange={(e) => setOrgCountersign(e.target.checked)}
-                className="size-4 accent-burgundy"
+                className="size-4 accent-orange"
               />
               Org counter-sign (legal@gobitsnbytes.org)
             </label>
@@ -439,9 +439,9 @@ export default function SignatureBuilderPage() {
               type="button"
               disabled={sending}
               onClick={handleDispatch}
-              className="flex items-center gap-2 px-6 py-3 bg-burgundy text-white border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-3 bg-orange text-black border-2 border-black rounded-base text-xs font-heading font-black uppercase tracking-wider shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50"
             >
-              <Send className="w-4 h-4 text-orange" /> {sending ? "Dispatching Email Links..." : "Finalize & Send Links"}
+              <Send className="w-4 h-4" /> {sending ? "Dispatching Email Links..." : "Finalize & Send Links"}
             </button>
           </div>
         </div>

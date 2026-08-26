@@ -96,110 +96,112 @@ export default function DashboardFinancePage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-[#97192C] p-6 text-white shadow-shadow">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-[#141418] p-5 text-white shadow-dark">
         <div>
           <div className="flex items-center gap-2">
-            <Coins className="size-6 text-[#FC920D]" />
-            <h1 className="font-heading font-extrabold text-2xl tracking-wide">
+            <Coins className="size-6 text-orange" />
+            <h1 className="font-heading font-black text-2xl sm:text-3xl tracking-tight uppercase">
               Financial Operations &amp; Ledger
             </h1>
           </div>
-          <p className="mt-1 text-xs text-white/80 font-base">
+          <p className="mt-1 text-xs sm:text-sm text-zinc-300 font-base">
             RazorpayX banking integration &amp; virtual ledger accounts for GOBITSNBYTES FOUNDATION.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
+          <button
+            type="button"
             onClick={fetchFinanceData}
-            variant="neutral"
-            className="border-2 border-border bg-[#111] text-white hover:bg-[#222]"
+            className="flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs uppercase rounded-base border-2 border-border bg-[#181820] text-zinc-200 hover:text-white shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
           >
-            <RefreshCw className={`size-4 mr-1.5 ${loading ? "animate-spin text-[#FC920D]" : ""}`} />
+            <RefreshCw className={`size-3.5 mr-1 ${loading ? "animate-spin text-orange" : "text-orange"}`} />
             Refresh
-          </Button>
+          </button>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-base border-2 border-[#97192C] bg-[#97192C]/10 p-4 text-xs font-bold text-red-200 shadow-shadow">
-          <AlertCircle className="size-5 shrink-0 text-[#97192C]" />
+        <div className="flex items-center gap-3 rounded-base border-2 border-red-500 bg-red-950/80 p-4 text-xs font-mono font-bold text-red-200 shadow-light">
+          <AlertCircle className="size-5 shrink-0 text-red-400" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Quick Stats Grid */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Total Virtual Balance
             </CardTitle>
-            <Coins className="size-4 text-[#FC920D]" />
+            <Coins className="size-4 text-orange" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-28" />
             ) : (
-              <div className="font-heading font-black text-2xl text-foreground">
+              <div className="font-heading font-black text-2xl text-white">
                 ₹{totalBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Across all active accounts</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-1">Across all active accounts</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Virtual Accounts
             </CardTitle>
-            <CreditCard className="size-4 text-[#97192C]" />
+            <CreditCard className="size-4 text-orange" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-foreground">
+              <div className="font-heading font-black text-2xl text-white">
                 {accounts.length}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-[11px] font-mono text-zinc-400 mt-1">
               {accounts.filter((a) => a.is_active).length} active ledger nodes
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Pending Requests
             </CardTitle>
-            <Clock className="size-4 text-[#FC920D]" />
+            <Clock className="size-4 text-amber-400" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-foreground">
+              <div className="font-heading font-black text-2xl text-white">
                 {pendingRequests.length}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-1">Awaiting dual authorization</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-1">Awaiting dual authorization</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border shadow-shadow">
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-heading font-bold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
               Compliance Status
             </CardTitle>
-            <ShieldCheck className="size-4 text-green-500" />
+            <ShieldCheck className="size-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="success">Section 8 Verified</Badge>
+              <span className="border-2 border-emerald-800 bg-emerald-950 text-emerald-400 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base shadow-light">
+                Section 8 Verified
+              </span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-2">Zero informal UPI routing</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-2">Zero informal UPI routing</p>
           </CardContent>
         </Card>
       </div>
@@ -207,15 +209,15 @@ export default function DashboardFinancePage() {
       {/* Responsive 2-Column Main Section */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Column: Virtual Accounts */}
-        <Card className="border-2 border-border shadow-shadow">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border pb-4">
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
             <div className="flex items-center gap-2">
-              <Building2 className="size-5 text-[#FC920D]" />
-              <CardTitle className="font-heading font-bold text-base">Virtual Accounts</CardTitle>
+              <Building2 className="size-4 text-orange" />
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Virtual Accounts</CardTitle>
             </div>
-            <Badge variant="neutral" className="border-border font-mono text-[10px]">
+            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
               RazorpayX Sync
-            </Badge>
+            </span>
           </CardHeader>
           <CardContent className="pt-4">
             {loading ? (
@@ -226,7 +228,7 @@ export default function DashboardFinancePage() {
               </div>
             ) : accounts.length === 0 ? (
               <EmptyState
-                icon={<CreditCard className="size-8 text-muted-foreground" />}
+                icon={<CreditCard className="size-8 text-zinc-600" />}
                 title="No virtual accounts initialized"
                 description="Connect RazorpayX credentials or seed virtual ledger accounts via backend CLI."
               />
@@ -235,21 +237,21 @@ export default function DashboardFinancePage() {
                 {accounts.map((acc) => (
                   <div
                     key={acc.id}
-                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#111] p-3 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px]"
+                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#181820] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
                   >
                     <div>
-                      <div className="font-heading font-bold text-sm text-white">{acc.name}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                      <div className="font-heading font-black text-sm text-white uppercase">{acc.name}</div>
+                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
                         Acc: {acc.account_number}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-heading font-bold text-sm text-[#FC920D]">
+                      <div className="font-mono font-bold text-sm text-orange">
                         ₹{acc.balance_rupees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </div>
-                      <Badge variant={acc.is_active ? "success" : "neutral"} className="mt-1">
+                      <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base border ${acc.is_active ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
                         {acc.is_active ? "Active" : "Disabled"}
-                      </Badge>
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -259,15 +261,15 @@ export default function DashboardFinancePage() {
         </Card>
 
         {/* Right Column: Recent Money Requests & Payouts */}
-        <Card className="border-2 border-border shadow-shadow">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border pb-4">
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
             <div className="flex items-center gap-2">
-              <FileText className="size-5 text-[#97192C]" />
-              <CardTitle className="font-heading font-bold text-base">Disbursement Requests</CardTitle>
+              <FileText className="size-4 text-orange" />
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Disbursement Requests</CardTitle>
             </div>
-            <Badge variant="neutral" className="border-border font-mono text-[10px]">
+            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
               Dual Approval Required
-            </Badge>
+            </span>
           </CardHeader>
           <CardContent className="pt-4">
             {loading ? (
@@ -278,7 +280,7 @@ export default function DashboardFinancePage() {
               </div>
             ) : requests.length === 0 ? (
               <EmptyState
-                icon={<Coins className="size-8 text-muted-foreground" />}
+                icon={<Coins className="size-8 text-zinc-600" />}
                 title="No active disbursement requests"
                 description="All submitted reimbursement and payout requests will appear here."
               />
@@ -287,24 +289,27 @@ export default function DashboardFinancePage() {
                 {requests.map((req) => (
                   <div
                     key={req.id}
-                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#111] p-3 text-white transition-all"
+                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#181820] p-3.5 text-white transition-all shadow-light"
                   >
                     <div>
-                      <div className="font-heading font-bold text-sm text-white">{req.description}</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                      <div className="font-heading font-black text-sm text-white">{req.description}</div>
+                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
                         Submitted {new Date(req.created_at).toLocaleDateString()}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-heading font-bold text-sm text-white">
+                      <div className="font-mono font-bold text-sm text-white">
                         ₹{req.amount_rupees.toLocaleString("en-IN")}
                       </div>
-                      <Badge
-                        variant={req.status === "approved" ? "success" : req.status === "pending" ? "warning" : "danger"}
-                        className="mt-1"
+                      <span
+                        className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base border ${
+                          req.status === "approved" ? "bg-emerald-950 text-emerald-400 border-emerald-800" :
+                          req.status === "pending" ? "bg-amber-950 text-amber-400 border-amber-800" :
+                          "bg-red-950 text-red-400 border-red-800"
+                        }`}
                       >
                         {req.status}
-                      </Badge>
+                      </span>
                     </div>
                   </div>
                 ))}

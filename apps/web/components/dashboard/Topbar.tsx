@@ -23,24 +23,24 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b-2 border-border bg-[#111] px-4 md:px-6">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b-2 border-border bg-[#121216] px-4 md:px-6">
+      <div className="flex items-center gap-2.5">
         <Link
           href="/dashboard/dyslexic"
-          className="inline-flex items-center gap-2 rounded-base border-2 border-border bg-main/10 px-3 py-1 text-xs font-bold text-foreground transition-all hover:bg-main hover:text-main-foreground"
+          className="inline-flex items-center gap-2 rounded-base border-2 border-border bg-[#181820] px-3 py-1 text-xs font-mono font-bold text-white transition-all hover:bg-main shadow-light"
         >
           <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Dyslexic</span>
+          <span>DYSLEXIC</span>
         </Link>
 
         {/* AI Agent Ops Quick Trigger */}
         <button
           type="button"
           onClick={onToggleAgentOps}
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-base border border-purple-500/40 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300 transition-all hover:bg-purple-500/20"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-base border-2 border-border bg-[#181820] px-2.5 py-1 text-xs font-mono font-bold text-purple-300 transition-all hover:bg-purple-950/60 shadow-light"
         >
           <Bot className="size-3.5 text-purple-400" />
-          <span>AI Agents</span>
+          <span>AI AGENTS</span>
           <span className="flex size-1.5 rounded-full bg-purple-400" />
         </button>
 
@@ -48,10 +48,10 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
         <button
           type="button"
           onClick={onToggleDebug}
-          className="hidden md:inline-flex items-center gap-1.5 rounded-base border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300 transition-all hover:bg-amber-500/20"
+          className="hidden md:inline-flex items-center gap-1.5 rounded-base border-2 border-border bg-[#181820] px-2.5 py-1 text-xs font-mono font-bold text-amber-300 transition-all hover:bg-amber-950/60 shadow-light"
         >
           <Terminal className="size-3.5 text-amber-400" />
-          <span>Stats / Debug</span>
+          <span>STATS / DEBUG</span>
         </button>
       </div>
 
@@ -62,7 +62,7 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
           className="flex items-center gap-2.5 rounded-base p-1 hover:bg-white/5 transition-all group"
           title="Team Profile & Chrono v2 Setup"
         >
-          <div className="relative flex size-8 shrink-0 overflow-hidden rounded-full border-2 border-border group-hover:border-amber-400 transition-all">
+          <div className="relative flex size-8 shrink-0 overflow-hidden rounded-base border-2 border-border group-hover:border-orange transition-all bg-black">
             {user?.image ? (
               <img
                 src={user.image}
@@ -70,12 +70,12 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
                 className="aspect-square size-full object-cover"
               />
             ) : (
-              <div className="flex size-full items-center justify-center rounded-full bg-secondary-background text-xs font-bold text-foreground">
+              <div className="flex size-full items-center justify-center bg-black text-xs font-bold text-white">
                 {initials}
               </div>
             )}
           </div>
-          <span className="hidden text-sm font-medium text-foreground sm:block group-hover:text-amber-400 transition-colors">
+          <span className="hidden text-xs font-mono font-bold text-white sm:block group-hover:text-orange transition-colors">
             {displayName}
           </span>
         </Link>
@@ -86,7 +86,7 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
           onClick={() => {
             signOut({ callbackUrl: "/login", redirect: true });
           }}
-          className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-border bg-main px-3 py-1.5 text-xs font-medium text-main-foreground transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none shadow-shadow"
+          className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-border bg-main px-3.5 py-1.5 text-xs font-heading font-black uppercase tracking-wider text-white shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
         >
           <LogOut className="size-3.5" />
           <span className="hidden sm:inline">Sign out</span>
@@ -95,3 +95,4 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
     </header>
   );
 }
+

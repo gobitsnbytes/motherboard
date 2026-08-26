@@ -60,34 +60,40 @@ export function IAMContent() {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Groups</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-mono font-bold text-xs uppercase tracking-wider text-zinc-400">
+              IAM Groups
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-heading font-black text-white">
               {loading ? "..." : groups.length}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Permissions</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-mono font-bold text-xs uppercase tracking-wider text-zinc-400">
+              Core Permissions
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-heading font-black text-white">
               {loading ? "..." : permissions.length}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Discord Mappings</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-light">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-mono font-bold text-xs uppercase tracking-wider text-zinc-400">
+              Discord Mappings
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-heading font-black text-white">
               {loading ? "..." : mappings.length}
             </p>
           </CardContent>
@@ -96,50 +102,53 @@ export function IAMContent() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
         <Input
           placeholder="Search groups..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-[#111] text-white placeholder:text-white/50"
+          className="pl-10 bg-black border-2 border-border text-white placeholder:text-zinc-500 font-mono text-xs shadow-light focus:outline-none focus:border-orange"
         />
       </div>
 
       {/* Table Placeholder */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Groups</CardTitle>
+      <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base overflow-hidden">
+        <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+          <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+            Configured IAM Groups
+          </CardTitle>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-4 py-3 text-left">Name</th>
-
-                  <th className="px-4 py-3 text-left">Slug</th>
-
-                  <th className="px-4 py-3 text-left">Description</th>
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="border-b-2 border-border bg-[#121216] text-zinc-400 uppercase text-[11px] font-bold">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Slug</th>
+                  <th className="px-4 py-3">Description</th>
                 </tr>
               </thead>
 
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={3} className="p-4 text-center">
-                      Loading...
+                    <td colSpan={3} className="p-6 text-center text-zinc-400">
+                      Loading IAM directory...
+                    </td>
+                  </tr>
+                ) : groups.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-6 text-center text-zinc-400">
+                      No IAM groups found.
                     </td>
                   </tr>
                 ) : (
                   groups.map((group) => (
-                    <tr key={group.id} className="border-b border-border">
-                      <td className="px-4 py-3">{group.name}</td>
-
-                      <td className="px-4 py-3">{group.slug}</td>
-
-                      <td className="px-4 py-3">{group.description || "-"}</td>
+                    <tr key={group.id} className="hover:bg-[#181820] transition-colors">
+                      <td className="px-4 py-3 font-bold text-white">{group.name}</td>
+                      <td className="px-4 py-3 text-orange font-bold">{group.slug}</td>
+                      <td className="px-4 py-3 text-zinc-300">{group.description || "-"}</td>
                     </tr>
                   ))
                 )}

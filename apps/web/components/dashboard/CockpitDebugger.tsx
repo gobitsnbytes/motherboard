@@ -109,71 +109,71 @@ export default function CockpitDebugger({ isOpen, onClose }: CockpitDebuggerProp
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* System Latency & Health */}
-        <div className="rounded-base border border-border/80 bg-[#141418] p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-muted-foreground uppercase text-[10px] font-heading tracking-wider">
-            <span className="flex items-center gap-1.5 text-foreground font-bold">
+        <div className="rounded-base border-2 border-border bg-[#141418] p-3.5 space-y-2 shadow-light">
+          <div className="flex items-center justify-between text-zinc-400 uppercase text-[10px] font-mono font-bold tracking-wider">
+            <span className="flex items-center gap-1.5 text-white font-bold">
               <Activity className="size-3.5 text-emerald-400" />
               Runtime Telemetry
             </span>
-            <Badge variant={latency && latency < 150 ? "success" : "warning"}>
+            <span className={`px-2 py-0.5 rounded-base text-[10px] font-mono font-bold border ${latency && latency < 150 ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
               {latency !== null ? `${latency} ms` : "N/A"}
-            </Badge>
+            </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-2 text-[11px]">
-            <div className="flex flex-col bg-black/40 p-2 rounded-sm border border-white/5">
-              <span className="text-muted-foreground text-[10px]">API Latency</span>
+          <div className="grid grid-cols-2 gap-2 pt-2 text-[11px] font-mono">
+            <div className="flex flex-col bg-black p-2 rounded-base border border-border">
+              <span className="text-zinc-500 text-[10px]">API Latency</span>
               <span className="font-bold text-emerald-400">{latency ? `${latency}ms` : "Offline"}</span>
             </div>
-            <div className="flex flex-col bg-black/40 p-2 rounded-sm border border-white/5">
-              <span className="text-muted-foreground text-[10px]">API Status</span>
-              <span className="font-bold text-foreground">{apiStatus}</span>
+            <div className="flex flex-col bg-black p-2 rounded-base border border-border">
+              <span className="text-zinc-500 text-[10px]">API Status</span>
+              <span className="font-bold text-white">{apiStatus}</span>
             </div>
-            <div className="flex flex-col bg-black/40 p-2 rounded-sm border border-white/5">
-              <span className="text-muted-foreground text-[10px]">Database Engine</span>
-              <span className="font-bold text-blue-400">{dbStatus}</span>
+            <div className="flex flex-col bg-black p-2 rounded-base border border-border">
+              <span className="text-zinc-500 text-[10px]">Database Engine</span>
+              <span className="font-bold text-orange">{dbStatus}</span>
             </div>
-            <div className="flex flex-col bg-black/40 p-2 rounded-sm border border-white/5">
-              <span className="text-muted-foreground text-[10px]">App Version</span>
+            <div className="flex flex-col bg-black p-2 rounded-base border border-border">
+              <span className="text-zinc-500 text-[10px]">App Version</span>
               <span className="font-bold text-amber-400">v0.2.0-cockpit</span>
             </div>
           </div>
         </div>
 
         {/* User Identity & IAM Scopes */}
-        <div className="rounded-base border border-border/80 bg-[#141418] p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-muted-foreground uppercase text-[10px] font-heading tracking-wider">
-            <span className="flex items-center gap-1.5 text-foreground font-bold">
-              <Shield className="size-3.5 text-amber-400" />
+        <div className="rounded-base border-2 border-border bg-[#141418] p-3.5 space-y-2 shadow-light">
+          <div className="flex items-center justify-between text-zinc-400 uppercase text-[10px] font-mono font-bold tracking-wider">
+            <span className="flex items-center gap-1.5 text-white font-bold">
+              <Shield className="size-3.5 text-orange" />
               Active IAM Identity
             </span>
-            <Badge variant={userProfile?.is_super_admin ? "danger" : "neutral"}>
+            <span className={`px-2 py-0.5 rounded-base text-[10px] font-mono font-bold border ${userProfile?.is_super_admin ? "bg-orange text-black border-black shadow-light" : "bg-[#181820] text-zinc-300 border-border"}`}>
               {userProfile?.is_super_admin ? "Super Admin" : "Member"}
-            </Badge>
+            </span>
           </div>
 
-          <div className="space-y-1.5 pt-1 text-[11px]">
-            <div className="flex justify-between border-b border-white/5 pb-1">
-              <span className="text-muted-foreground">Internal User ID:</span>
-              <span className="font-mono text-white/90 select-all truncate max-w-[200px]">
+          <div className="space-y-1.5 pt-1 text-[11px] font-mono">
+            <div className="flex justify-between border-b border-border/50 pb-1">
+              <span className="text-zinc-400">Internal User ID:</span>
+              <span className="text-zinc-200 select-all truncate max-w-[200px]">
                 {session?.user?.internalUserId || userProfile?.id || "Unset"}
               </span>
             </div>
-            <div className="flex justify-between border-b border-white/5 pb-1">
-              <span className="text-muted-foreground">Discord Snowflake:</span>
-              <span className="font-mono text-white/90">
+            <div className="flex justify-between border-b border-border/50 pb-1">
+              <span className="text-zinc-400">Discord Snowflake:</span>
+              <span className="text-zinc-200">
                 {session?.user?.discordId || "N/A"}
               </span>
             </div>
-            <div className="flex justify-between border-b border-white/5 pb-1">
-              <span className="text-muted-foreground">Display Name:</span>
-              <span className="text-white/90 font-bold">
+            <div className="flex justify-between border-b border-border/50 pb-1">
+              <span className="text-zinc-400">Display Name:</span>
+              <span className="text-white font-bold">
                 {userProfile?.display_name || session?.user?.name || "Anonymous"}
               </span>
             </div>
             <div className="flex justify-between pb-1">
-              <span className="text-muted-foreground">Profile Completed:</span>
-              <span className={userProfile?.profile_completed ? "text-emerald-400" : "text-amber-400"}>
+              <span className="text-zinc-400">Profile Completed:</span>
+              <span className={userProfile?.profile_completed ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
                 {userProfile?.profile_completed ? "Yes (100%)" : "Setup Required"}
               </span>
             </div>
@@ -182,28 +182,28 @@ export default function CockpitDebugger({ isOpen, onClose }: CockpitDebuggerProp
 
         {/* IAM Hierarchy Metrics */}
         {hierarchy && (
-          <div className="rounded-base border border-border/80 bg-[#141418] p-3.5 space-y-2">
-            <div className="flex items-center justify-between text-muted-foreground uppercase text-[10px] font-heading tracking-wider">
-              <span className="flex items-center gap-1.5 text-foreground font-bold">
-                <Database className="size-3.5 text-blue-400" />
+          <div className="rounded-base border-2 border-border bg-[#141418] p-3.5 space-y-2 shadow-light">
+            <div className="flex items-center justify-between text-zinc-400 uppercase text-[10px] font-mono font-bold tracking-wider">
+              <span className="flex items-center gap-1.5 text-white font-bold">
+                <Database className="size-3.5 text-orange" />
                 IAM Policy Graph
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-              <div className="bg-black/40 p-2 rounded-sm border border-white/5">
-                <span className="text-muted-foreground text-[10px]">Total Groups</span>
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 font-mono">
+              <div className="bg-black p-2 rounded-base border border-border">
+                <span className="text-zinc-500 text-[10px]">Total Groups</span>
                 <p className="font-bold text-lg text-white">{hierarchy.total_groups}</p>
               </div>
-              <div className="bg-black/40 p-2 rounded-sm border border-white/5">
-                <span className="text-muted-foreground text-[10px]">Granted Policies</span>
+              <div className="bg-black p-2 rounded-base border border-border">
+                <span className="text-zinc-500 text-[10px]">Granted Policies</span>
                 <p className="font-bold text-lg text-white">{hierarchy.total_grants}</p>
               </div>
-              <div className="bg-black/40 p-2 rounded-sm border border-white/5">
-                <span className="text-muted-foreground text-[10px]">Role Mappings</span>
+              <div className="bg-black p-2 rounded-base border border-border">
+                <span className="text-zinc-500 text-[10px]">Role Mappings</span>
                 <p className="font-bold text-lg text-white">{hierarchy.total_mappings}</p>
               </div>
-              <div className="bg-black/40 p-2 rounded-sm border border-white/5">
-                <span className="text-muted-foreground text-[10px]">Active Memberships</span>
+              <div className="bg-black p-2 rounded-base border border-border">
+                <span className="text-zinc-500 text-[10px]">Active Memberships</span>
                 <p className="font-bold text-lg text-white">{hierarchy.total_memberships}</p>
               </div>
             </div>
@@ -211,34 +211,36 @@ export default function CockpitDebugger({ isOpen, onClose }: CockpitDebuggerProp
         )}
 
         {/* AI Agent Telemetry */}
-        <div className="rounded-base border border-border/80 bg-[#141418] p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-muted-foreground uppercase text-[10px] font-heading tracking-wider">
-            <span className="flex items-center gap-1.5 text-foreground font-bold">
-              <Cpu className="size-3.5 text-purple-400" />
+        <div className="rounded-base border-2 border-border bg-[#141418] p-3.5 space-y-2 shadow-light">
+          <div className="flex items-center justify-between text-zinc-400 uppercase text-[10px] font-mono font-bold tracking-wider">
+            <span className="flex items-center gap-1.5 text-white font-bold">
+              <Cpu className="size-3.5 text-orange" />
               AI Agent Engine
             </span>
-            <Badge variant="success">Gemini 3.5 Flash</Badge>
+            <span className="px-2 py-0.5 rounded-base text-[10px] font-mono font-bold border border-emerald-800 bg-emerald-950 text-emerald-400">
+              Gemini 3.5 Flash
+            </span>
           </div>
-          <div className="space-y-1 pt-1 text-[11px]">
-            <div className="flex justify-between border-b border-white/5 pb-1">
-              <span className="text-muted-foreground">Active Agents:</span>
-              <span className="font-bold text-purple-300">Contract Assistant, Dyslexic Sourcing</span>
+          <div className="space-y-1.5 pt-1 text-[11px] font-mono">
+            <div className="flex justify-between border-b border-border/50 pb-1">
+              <span className="text-zinc-400">Active Agents:</span>
+              <span className="font-bold text-orange">Contract &amp; Dyslexic</span>
             </div>
-            <div className="flex justify-between border-b border-white/5 pb-1">
-              <span className="text-muted-foreground">Token Efficiency:</span>
+            <div className="flex justify-between border-b border-border/50 pb-1">
+              <span className="text-zinc-400">Token Efficiency:</span>
               <span className="text-emerald-400 font-mono">60% cached</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Model Context:</span>
-              <span className="font-mono text-white/90">1.0M tokens</span>
+              <span className="text-zinc-400">Model Context:</span>
+              <span className="text-zinc-200">1.0M tokens</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Footer shortcut tip */}
-      <div className="p-3 border-t-2 border-border bg-[#121216] text-[10px] text-muted-foreground text-center">
-        Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono">Ctrl+Shift+D</kbd> to toggle Cockpit Debugger
+      <div className="p-3 border-t-2 border-border bg-[#121216] text-[10px] font-mono text-zinc-400 text-center">
+        Press <kbd className="px-1.5 py-0.5 rounded-base border border-border bg-black text-white font-mono">Ctrl+Shift+D</kbd> to toggle Cockpit Debugger
       </div>
     </div>
   );

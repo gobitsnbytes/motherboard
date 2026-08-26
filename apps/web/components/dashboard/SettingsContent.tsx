@@ -160,69 +160,69 @@ export function SettingsContent() {
       {/* Top Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Organization */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Organization Settings</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              Organization Settings
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Organization
-              </span>
-              <span>bits&bytes™</span>
+          <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Organization</span>
+              <span className="font-bold text-white">bits&bytes™</span>
             </div>
 
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Region
-              </span>
-              <span>India</span>
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Legal Entity</span>
+              <span className="font-bold text-white">GOBITSNBYTES FOUNDATION</span>
             </div>
 
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Status
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Region</span>
+              <span className="font-bold text-white">India (Section 8)</span>
+            </div>
+
+            <div className="flex justify-between items-center py-1">
+              <span className="text-zinc-400">Status</span>
+              <span className="px-2 py-0.5 rounded-base text-[10px] font-bold border border-emerald-800 bg-emerald-950 text-emerald-400">
+                Active &amp; Compliant
               </span>
-              <Badge>Active</Badge>
             </div>
           </CardContent>
         </Card>
 
         {/* Discord */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Discord Integration</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              Discord Integration
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Guild Status
-              </span>
-              <Badge variant={statusData.discord === "connected" ? "success" : statusData.discord === "unconfigured" ? "neutral" : "danger"}>
+          <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Guild Status</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
                 {statusData.discord === "connected" ? "Connected" : statusData.discord === "unconfigured" ? "Unconfigured" : "Disconnected"}
-              </Badge>
+              </span>
             </div>
 
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Bot Status
-              </span>
-              <Badge variant={statusData.discord === "connected" ? "success" : "danger"}>
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Bot Status</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
                 {statusData.discord === "connected" ? "Online" : "Offline"}
-              </Badge>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Last Sync
               </span>
-              <span>{loading ? "..." : formatRelativeTime(statusData.last_sync_at)}</span>
             </div>
 
-            <Button 
-              className="w-full" 
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Last Sync</span>
+              <span className="text-zinc-200">{loading ? "..." : formatRelativeTime(statusData.last_sync_at)}</span>
+            </div>
+
+            <button 
+              type="button"
+              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2 font-heading font-black text-xs uppercase tracking-wider bg-orange text-black border-2 border-black rounded-base shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50" 
               onClick={handleManualSync} 
               disabled={syncing || statusData.discord !== "connected"}
             >
@@ -234,7 +234,7 @@ export function SettingsContent() {
               ) : (
                 "Run Manual Sync"
               )}
-            </Button>
+            </button>
           </CardContent>
         </Card>
       </div>
@@ -242,132 +242,146 @@ export function SettingsContent() {
       {/* Middle Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Security */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Security & Access</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              Security &amp; Access
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="flex justify-between">
-              <span>IAM Groups</span>
-              <span>{loading ? "--" : statusData.groups_count}</span>
+          <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">IAM Groups</span>
+              <span className="font-bold text-white">{loading ? "--" : statusData.groups_count}</span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Permissions</span>
-              <span>{loading ? "--" : statusData.permissions_count}</span>
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Permissions</span>
+              <span className="font-bold text-white">{loading ? "--" : statusData.permissions_count}</span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Role Mappings</span>
-              <span>{loading ? "--" : statusData.role_mappings_count}</span>
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Role Mappings</span>
+              <span className="font-bold text-white">{loading ? "--" : statusData.role_mappings_count}</span>
             </div>
 
             <div className="flex gap-3 pt-2">
-              <Button asChild>
-                <a href="/dashboard/iam">
-                  Open IAM
-                </a>
-              </Button>
+              <a 
+                href="/dashboard/iam"
+                className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-[#181820] text-zinc-200 border-2 border-border rounded-base shadow-light hover:bg-[#202028]"
+              >
+                Open IAM
+              </a>
 
-              <Button asChild>
-                <a href="/dashboard/audit">
-                  Audit Log
-                </a>
-              </Button>
+              <a 
+                href="/dashboard/audit"
+                className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-[#181820] text-zinc-200 border-2 border-border rounded-base shadow-light hover:bg-[#202028]"
+              >
+                Audit Log
+              </a>
             </div>
           </CardContent>
         </Card>
 
         {/* System */}
-        <Card>
-          <CardHeader>
-            <CardTitle>System Information</CardTitle>
+        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
+          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+              System Telemetry
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="flex justify-between">
-              <span>Version</span>
-              <span>{loading ? "..." : statusData.version}</span>
+          <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Version</span>
+              <span className="font-bold text-orange">v{loading ? "..." : statusData.version}</span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Environment</span>
-              <Badge variant={statusData.environment.toLowerCase() === "production" ? "success" : "warning"}>
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">Environment</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.environment.toLowerCase() === "production" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
                 {loading ? "..." : statusData.environment.charAt(0).toUpperCase() + statusData.environment.slice(1)}
-              </Badge>
+              </span>
             </div>
 
-            <div className="flex justify-between">
-              <span>API</span>
-              <Badge variant={statusData.database === "healthy" ? "success" : "danger"}>
+            <div className="flex justify-between items-center py-1 border-b border-border/50">
+              <span className="text-zinc-400">API Status</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
                 {loading ? "..." : "Online"}
-              </Badge>
+              </span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Database</span>
-              <Badge variant={statusData.database === "healthy" ? "success" : "danger"}>
-                {loading ? "..." : statusData.database === "healthy" ? "Healthy" : "Degraded"}
-              </Badge>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-zinc-400">Database</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+                {loading ? "..." : statusData.database === "healthy" ? "Healthy (Postgres)" : "Degraded"}
+              </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Danger Zone */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Danger Zone</CardTitle>
+      <Card className="border-2 border-red-500 bg-[#141418] shadow-dark rounded-base">
+        <CardHeader className="border-b-2 border-red-500 bg-red-950/40 py-3.5">
+          <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-red-400">
+            Danger Zone
+          </CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            These actions require elevated permissions. Please handle with care.
+        <CardContent className="space-y-4 pt-4">
+          <p className="text-xs font-mono text-zinc-300">
+            These actions require elevated Super Admin permissions and directly mutate caching or permission indexes.
           </p>
 
           <div className="flex flex-wrap gap-3">
-            <Button 
+            <button 
+              type="button"
               onClick={handleResetCache} 
               disabled={actionLoading !== null || statusData.redis === "unconfigured"}
+              className="px-4 py-2 font-mono font-bold text-xs uppercase bg-red-950 text-red-200 border-2 border-red-600 rounded-base shadow-light hover:bg-red-900 disabled:opacity-50"
             >
               {actionLoading === "cache" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                   Resetting...
                 </>
               ) : (
-                "Reset Cache"
+                "Reset Redis Cache"
               )}
-            </Button>
+            </button>
 
-            <Button 
+            <button 
+              type="button"
               onClick={handleRebuildPermissions} 
               disabled={actionLoading !== null}
+              className="px-4 py-2 font-mono font-bold text-xs uppercase bg-red-950 text-red-200 border-2 border-red-600 rounded-base shadow-light hover:bg-red-900 disabled:opacity-50"
             >
               {actionLoading === "permissions" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                   Rebuilding...
                 </>
               ) : (
                 "Rebuild Permissions"
               )}
-            </Button>
+            </button>
 
-            <Button 
+            <button 
+              type="button"
               onClick={handleClearSyncState} 
               disabled={actionLoading !== null}
+              className="px-4 py-2 font-mono font-bold text-xs uppercase bg-red-950 text-red-200 border-2 border-red-600 rounded-base shadow-light hover:bg-red-900 disabled:opacity-50"
             >
               {actionLoading === "sync-state" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                   Clearing...
                 </>
               ) : (
-                "Clear Sync State"
+                "Clear Sync Run History"
               )}
-            </Button>
+            </button>
           </div>
         </CardContent>
       </Card>

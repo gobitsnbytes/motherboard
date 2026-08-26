@@ -220,10 +220,10 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 font-heading font-bold border-2 border-border rounded-t-base transition-all text-sm whitespace-nowrap ${
+      className={`px-4 py-2 font-heading font-black border-2 transition-all text-xs uppercase tracking-wider rounded-base whitespace-nowrap ${
         active
-          ? "bg-orange text-black shadow-shadow translate-y-[-2px]"
-          : "bg-neutral-800 text-white hover:bg-neutral-700"
+          ? "bg-orange text-black border-black shadow-light translate-y-[-1px]"
+          : "bg-[#141418] border-border text-zinc-300 hover:bg-[#181820] hover:text-white"
       }`}
     >
       {label}
@@ -242,9 +242,9 @@ function RecordingChip({ meeting }: { meeting: Meeting }) {
   if (!label) return null;
   const url = meeting.recording_url ?? null;
   return (
-    <div className="flex items-center gap-2 text-gray-300 min-w-0">
+    <div className="flex items-center gap-2 text-zinc-300 font-mono text-[11px] min-w-0">
       <span
-        className={`size-2 rounded-full shrink-0 ${status === "transcribed" ? "bg-green-400" : "bg-orange"}`}
+        className={`size-2 rounded-full shrink-0 ${status === "transcribed" ? "bg-emerald-400" : "bg-orange"}`}
         aria-hidden="true"
       />
       <span className="truncate">Recording: {label}</span>
@@ -254,7 +254,7 @@ function RecordingChip({ meeting }: { meeting: Meeting }) {
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="shrink-0 text-xs font-bold underline underline-offset-2 hover:text-orange transition-colors"
+          className="shrink-0 text-[11px] font-bold underline underline-offset-2 hover:text-orange text-orange transition-colors"
           aria-label={`Open recording for ${meeting.title}`}
         >
           Listen
@@ -589,49 +589,49 @@ export default function MeetingsPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-dark border-4 border-border p-5 rounded-base shadow-shadow">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#141418] border-2 border-border p-5 rounded-base shadow-dark">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-heading font-black tracking-tight text-white flex items-center gap-3">
-              MEETINGS & SCHEDULING
+            <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-white flex items-center gap-3 uppercase">
+              Meetings &amp; Scheduling
             </h1>
-            <span className="text-xs font-black bg-orange text-black border-2 border-border px-2.5 py-0.5 rounded shadow-shadow">
-              chrono v2
+            <span className="text-xs font-mono font-bold bg-orange text-black border-2 border-black px-2.5 py-0.5 rounded-base shadow-light">
+              CHRONO V2
             </span>
             {activeCount > 0 && (
-              <span className="text-xs font-black bg-green-400 text-black border-2 border-border px-2.5 py-0.5 rounded animate-pulse motion-reduce:animate-none">
+              <span className="text-xs font-mono font-bold bg-emerald-400 text-black border-2 border-black px-2.5 py-0.5 rounded-base animate-pulse">
                 ● {activeCount} LIVE NOW
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">
-            Manage availability, schedule calls, book syncs, and access AI-generated transcripts.
+          <p className="text-xs sm:text-sm text-zinc-300 font-base mt-1">
+            Manage weekly availability, schedule internal syncs, and review AI-transcribed meeting briefs.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowScheduleModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 font-heading font-bold border-2 border-border bg-orange text-black shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-base text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 font-heading font-black border-2 border-black bg-orange text-black shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded-base text-xs uppercase tracking-wider"
           >
             <Plus className="size-4 shrink-0" />
-            Schedule Internal Call
+            Schedule Call
           </button>
         </div>
       </div>
 
       {/* ⚡ Instant Meet Banner */}
-      <div className="border-4 border-border bg-orange/10 rounded-base p-4 shadow-shadow">
+      <div className="border-2 border-border bg-[#181820] rounded-base p-4 shadow-light">
         <div className="flex items-center gap-2 mb-3">
           <Zap className="size-4 text-orange shrink-0" />
-          <span className="text-sm font-black text-white uppercase tracking-wider">Instant Voice Channel</span>
-          <span className="text-xs text-gray-400">— spin up a live temporary Discord VC with AI recording right now</span>
+          <span className="text-xs sm:text-sm font-heading font-black text-white uppercase tracking-wider">Instant Voice Channel</span>
+          <span className="text-xs text-zinc-400 font-mono">— spin up temporary Discord VC with AI recording</span>
         </div>
         {instantResult ? (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-green-950 border-2 border-green-800 rounded-base">
-            <CheckCircle className="size-5 text-green-400 shrink-0" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-emerald-950/80 border-2 border-emerald-800 rounded-base">
+            <CheckCircle className="size-5 text-emerald-400 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-green-200">Meeting Room Live!</p>
-              <p className="text-xs text-green-400 font-mono mt-0.5">
+              <p className="text-sm font-heading font-black text-emerald-200 uppercase tracking-tight">Meeting Room Live!</p>
+              <p className="text-xs text-emerald-400 font-mono mt-0.5">
                 cal.gobitsnbytes.org/m/{instantResult.meet_code}
               </p>
             </div>
@@ -639,14 +639,14 @@ export default function MeetingsPage() {
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(`https://cal.gobitsnbytes.org/m/${instantResult.meet_code}`)}
-                className="text-xs font-bold px-3 py-1.5 border-2 border-green-700 bg-green-900 text-green-200 rounded hover:bg-green-800 transition-colors"
+                className="text-xs font-mono font-bold px-3 py-1.5 border-2 border-black bg-emerald-400 text-black rounded-base hover:translate-x-[1px] hover:translate-y-[1px] transition-all shadow-light"
               >
                 Copy Room Link
               </button>
               <button
                 type="button"
                 onClick={() => setInstantResult(null)}
-                className="text-xs font-bold px-3 py-1.5 border-2 border-border bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
+                className="text-xs font-mono font-bold px-3 py-1.5 border-2 border-border bg-[#141418] text-white rounded-base hover:bg-[#1f1f26] transition-colors"
               >
                 Dismiss
               </button>
@@ -660,12 +660,12 @@ export default function MeetingsPage() {
               value={instantTitle}
               onChange={(e) => setInstantTitle(e.target.value)}
               placeholder="Meeting topic (e.g. Fork Onboarding, Architecture Review…)"
-              className="flex-1 bg-neutral-800 border-2 border-border p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-orange"
+              className="flex-1 bg-black border-2 border-border p-2.5 rounded-base text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-orange"
             />
             <select
               value={instantScope}
               onChange={(e) => setInstantScope(e.target.value)}
-              className="bg-neutral-800 border-2 border-border p-2.5 rounded-base text-sm text-white focus:outline-none focus:border-orange w-full sm:w-48 shrink-0"
+              className="bg-black border-2 border-border p-2.5 rounded-base text-xs text-white font-mono focus:outline-none focus:border-orange w-full sm:w-48 shrink-0"
             >
               <option value="open">Open (All contributors)</option>
               <option value="invite">Invite Only</option>
@@ -677,7 +677,7 @@ export default function MeetingsPage() {
             <button
               type="submit"
               disabled={instantLoading}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 font-heading font-bold border-2 border-border bg-orange text-black shadow-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all rounded-base text-sm shrink-0 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 font-heading font-black border-2 border-black bg-orange text-black shadow-light hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all rounded-base text-xs uppercase tracking-wider shrink-0 disabled:opacity-50"
             >
               <Zap className="size-4 shrink-0" />
               {instantLoading ? "Launching…" : "Start Now"}
@@ -688,14 +688,14 @@ export default function MeetingsPage() {
 
       {/* Booking success banner */}
       {bookingSuccess && (
-        <div className="flex items-center gap-3 p-4 bg-green-950 border-4 border-border text-green-200 text-sm font-bold rounded-base shadow-shadow">
-          <CheckCircle className="size-5 shrink-0 text-green-400" />
+        <div className="flex items-center gap-3 p-4 bg-emerald-950/80 border-2 border-emerald-800 text-emerald-200 text-xs font-mono font-bold rounded-base shadow-light">
+          <CheckCircle className="size-5 shrink-0 text-emerald-400" />
           Booking confirmed! Calendar invite dispatched and notification sent to all participants.
         </div>
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex gap-2 border-b-4 border-border pb-2 overflow-x-auto">
+      <div className="flex gap-2 border-b-2 border-border pb-2 overflow-x-auto">
         <TabButton label={`My Meetings (${meetings.length})`} active={activeTab === "meetings"} onClick={() => setActiveTab("meetings")} />
         <TabButton label="Book a Sync" active={activeTab === "book"} onClick={() => setActiveTab("book")} />
         <TabButton label="My Availability" active={activeTab === "availability"} onClick={() => setActiveTab("availability")} />
@@ -716,15 +716,15 @@ export default function MeetingsPage() {
       {activeTab === "meetings" && (
         <div className="space-y-4">
           {/* Controls: Search and Status Filters */}
-          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-dark border-2 border-border p-3 rounded-base shadow-shadow">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-[#141418] border-2 border-border p-3 rounded-base shadow-light">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 size-4 text-gray-500" />
+              <Search className="absolute left-3 top-2.5 size-4 text-zinc-500" />
               <input
                 type="text"
                 placeholder="Search meetings by title, agenda, or meet code…"
                 value={meetingSearch}
                 onChange={(e) => setMeetingSearch(e.target.value)}
-                className="w-full bg-neutral-800 border-2 border-border pl-9 pr-3 py-1.5 rounded-base text-xs sm:text-sm text-white focus:outline-none focus:border-orange"
+                className="w-full bg-black border-2 border-border pl-9 pr-3 py-1.5 rounded-base text-xs text-white font-mono focus:outline-none focus:border-orange"
               />
             </div>
             <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
@@ -732,10 +732,10 @@ export default function MeetingsPage() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-base border-2 border-border transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-mono font-bold uppercase rounded-base border-2 border-border transition-colors ${
                     statusFilter === st
-                      ? "bg-orange text-black"
-                      : "bg-neutral-800 text-gray-400 hover:text-white"
+                      ? "bg-orange text-black border-black shadow-light"
+                      : "bg-black text-zinc-400 hover:text-white"
                   }`}
                 >
                   {st} {st === "scheduled" && scheduledCount > 0 ? `(${scheduledCount})` : st === "active" && activeCount > 0 ? `(${activeCount})` : ""}
