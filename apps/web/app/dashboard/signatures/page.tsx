@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2, Mail } from "lucide-react";
+import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2, Mail, ScrollText, Stamp } from "lucide-react";
+import SignatureAuditModal from "components/signatures/SignatureAuditModal";
 
 interface SignatureRequestItem {
   id: string;
@@ -15,6 +16,7 @@ interface SignatureRequestItem {
     id: string;
     name: string;
     email: string;
+    role?: string;
     status: string;
     access_token: string;
     signed_at?: string;
@@ -27,6 +29,36 @@ export default function SignaturesDashboardPage() {
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [auditRequestId, setAuditRequestId] = useState<string | null>(null);
+  const [sealingId, setSealingId] = useState<string | null>(null);
+
+  const orgSignerPending = (req: SignatureRequestItem) =>
+    req.status === "pending" &&
+    req.recipients.some((r) => r.role === "org_signer" && r.status !== "signed");
+
+  const handleCountersign = async (id: string) => {
+    setActionError(null);
+    if (!confirm("Execute the organizational counter-signature as legal@gobitsnbytes.org? This binds GOBITSNBYTES FOUNDATION under your delegated authority and is recorded in the audit log.")) return;
+    setSealingId(id);
+    try {
+      const res = await fetch(`/api/signatures/requests/${id}/countersign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const detail = typeof data.detail === "string" ? data.detail : "Counter-signature failed.";
+        setActionError(detail);
+      } else {
+        fetchRequests();
+      }
+    } catch {
+      setActionError("Network error during counter-signature.");
+    } finally {
+      setSealingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -298,6 +330,7 @@ export default function SignaturesDashboardPage() {
                       <div className="space-y-1.5">
                         {req.recipients.map((r) => {
                           const isCopied = copiedToken === r.access_token;
+                          const isOrg = r.role === "org_signer";
                           return (
                             <div key={r.id} className="flex items-center gap-2 text-xs">
                               <span
@@ -307,6 +340,12 @@ export default function SignaturesDashboardPage() {
                                 title={r.status}
                               />
                               <span className="font-bold text-[#120F0A] truncate max-w-[120px]">{r.name}</span>
+                              {isOrg && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-[#120F0A] bg-[#FC920D] text-[9px] font-black uppercase text-[#120F0A]">
+                                  <Stamp className="w-2.5 h-2.5" /> Org Seal {r.status === "signed" ? "✓" : "Pending"}
+                                </span>
+                              )}
+                              {!isOrg && (
                               <button
                                 type="button"
                                 onClick={() => handleCopyLink(r.access_token)}
@@ -317,10 +356,11 @@ export default function SignaturesDashboardPage() {
                                 }`}
                                 title="Copy direct signing link"
                               >
-                                {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                                 {isCopied ? "Copied Link!" : "Copy Link"}
                               </button>
-                              {r.status !== "signed" && (
+                              )}
+                              {r.status !== "signed" && !isOrg && (
                                 <button
                                   type="button"
                                   onClick={() => handleResend(req.id, r.id)}
@@ -345,6 +385,26 @@ export default function SignaturesDashboardPage() {
                       })}
                     </td>
                     <td className="p-4 text-right space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setAuditRequestId(req.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold text-[#120F0A] hover:bg-gray-100 shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                        title="View signature audit trail"
+                      >
+                        <ScrollText className="w-3 h-3" /> Audit
+                      </button>
+                      {orgSignerPending(req) && (
+                        <button
+                          type="button"
+                          onClick={() => handleCountersign(req.id)}
+                          disabled={sealingId === req.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#FC920D] text-[#120F0A] border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A] hover:bg-[#FED39E] disabled:opacity-50"
+                          title="Execute legal@gobitsnbytes.org counter-signature (delegated authority)"
+                        >
+                          <Stamp className="w-3 h-3" />
+                          {sealingId === req.id ? "Sealing…" : "Org Seal"}
+                        </button>
+                      )}
                       <a
                         href={`/api/signatures/requests/${req.id}/download`}
                         target="_blank"
@@ -385,6 +445,10 @@ export default function SignaturesDashboardPage() {
           </div>
         )}
       </div>
+      <SignatureAuditModal
+        requestId={auditRequestId}
+        onClose={() => setAuditRequestId(null)}
+      />
     </div>
   );
 }

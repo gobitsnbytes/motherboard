@@ -26,6 +26,7 @@ export default function SignatureBuilderPage() {
 
   // Step 3 State: Fields Placed
   const [fields, setFields] = useState<PlacedField[]>([]);
+  const [orgCountersign, setOrgCountersign] = useState(false);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>("rec_1");
 
   // Step 4 State: Dispatch
@@ -118,6 +119,7 @@ export default function SignatureBuilderPage() {
         required: f.required,
       })),
       expires_in_days: 30,
+      requires_org_countersign: orgCountersign,
     };
 
     try {
@@ -424,6 +426,15 @@ export default function SignatureBuilderPage() {
             >
               <ArrowLeft className="w-4 h-4" /> Edit Placed Fields
             </button>
+            <label className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-[#120F0A] bg-[#FAF8F5] px-4 py-2.5 text-xs font-bold text-[#120F0A] shadow-[2px_2px_0px_0px_#120F0A]">
+              <input
+                type="checkbox"
+                checked={orgCountersign}
+                onChange={(e) => setOrgCountersign(e.target.checked)}
+                className="size-4 accent-[#97192C]"
+              />
+              Org counter-sign (legal@gobitsnbytes.org)
+            </label>
             <button
               type="button"
               disabled={sending}
