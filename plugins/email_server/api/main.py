@@ -15,6 +15,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+import dns.resolver
+from cryptography import x509
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
@@ -149,26 +151,168 @@ async def _run_ssh_command(ssh_host: str, cmd: str, timeout: float = 8.0) -> Tup
         return -1, "", str(e)
 
 
-async def _check_ssl_cert_days(hostname: str, port: int = 443) -> Optional[int]:
-    """Check SSL certificate expiration date for a domain."""
+async def _check_ssl_cert_days(hostname: str, port: int = 443) -> Tuple[Optional[int], bool]:
+    """Fetch the live TLS certificate and return (days_remaining, reachable). Never fabricates values."""
     try:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(hostname, port, ssl=ctx),
-            timeout=4.0
+        pem = await asyncio.wait_for(
+            asyncio.to_thread(ssl.get_server_certificate, (hostname, port)),
+            timeout=8.0,
         )
-        cert = writer.get_extra_info("ssl_object").getpeercert(binary_form=True)
-        writer.close()
-        await writer.wait_closed()
+        der = ssl.PEM_cert_to_DER_cert(pem)
+        cert = x509.load_der_x509_certificate(der)
+        try:
+            expiry = cert.not_valid_after_utc
+        except AttributeError:
+            expiry = cert.not_valid_after.replace(tzinfo=timezone.utc)
+        days_remaining = (expiry - datetime.now(timezone.utc)).days
+        return days_remaining, True
+    except Exception as e:
+        logger.warning(f"SSL certificate check failed for {hostname}:{port}: {e}")
+        return None, False
 
-        if cert:
-            # Parse cert payload if unparsed or fallback to socket validation
-            return 85  # ~85 days remaining for LetsEncrypt wildcard cert
-        return 90
-    except Exception:
-        return None
+
+# ---------------------------------------------------------------------------
+# Live DNS Validation (dnspython)
+# ---------------------------------------------------------------------------
+
+def _normalize_dns_value(value: str) -> str:
+    return " ".join(value.split()).strip().lower()
+
+
+def _truncate_for_display(value: str, max_len: int = 72) -> str:
+    return value if len(value) <= max_len else f"{value[:max_len]}..."
+
+
+async def _query_records(resolver: dns.resolver.Resolver, name: str, rdtype: str) -> List[str]:
+    """Query DNS and normalize answers into comparable strings."""
+    answers = await asyncio.to_thread(resolver.resolve, name, rdtype)
+    results: List[str] = []
+    for rdata in answers:
+        if rdtype == "TXT":
+            chunks = getattr(rdata, "strings", None)
+            if chunks:
+                results.append(b"".join(chunks).decode("utf-8", errors="replace"))
+            else:
+                results.append(str(rdata).strip('"'))
+        elif rdtype == "MX":
+            results.append(f"{rdata.preference} {rdata.exchange}")
+        elif rdtype in ("A", "AAAA"):
+            results.append(rdata.address)
+        else:
+            results.append(str(rdata))
+    return results
+
+
+async def _query_ips(resolver: dns.resolver.Resolver, name: str) -> List[str]:
+    ips: List[str] = []
+    for rdtype in ("A", "AAAA"):
+        try:
+            ips.extend(await _query_records(resolver, name, rdtype))
+        except Exception:
+            continue
+    if not ips:
+        raise RuntimeError(f"No A/AAAA records resolve for {name}")
+    return ips
+
+
+def _failed_record(record_type: str, domain: str, expected: str, error: Exception) -> DnsRecordItem:
+    return DnsRecordItem(
+        record_type=record_type,
+        domain=domain,
+        expected=expected,
+        actual="<unresolvable>",
+        valid=False,
+        details=f"DNS lookup failed: {error}",
+    )
+
+
+async def _collect_dns_records(resolver: dns.resolver.Resolver) -> List[DnsRecordItem]:
+    """Validate live MX/SPF/DKIM/DMARC/A records against the expected mail policy."""
+    records: List[DnsRecordItem] = []
+
+    mx_expected = f"10 {MAIL_DOMAIN}."
+    try:
+        live_mx = await _query_records(resolver, BASE_DOMAIN, "MX")
+        match = any(_normalize_dns_value(m) == _normalize_dns_value(mx_expected) for m in live_mx)
+        records.append(DnsRecordItem(
+            record_type="MX",
+            domain=BASE_DOMAIN,
+            expected=mx_expected,
+            actual="; ".join(live_mx) or "<none>",
+            valid=match,
+            details=f"Primary mail exchanger points to {MAIL_DOMAIN}." if match
+            else "Live MX records do not match the required primary exchanger.",
+        ))
+    except Exception as e:
+        records.append(_failed_record("MX", BASE_DOMAIN, mx_expected, e))
+
+    spf_expected = f"v=spf1 mx a:{MAIL_DOMAIN} ~all"
+    try:
+        txts = await _query_records(resolver, BASE_DOMAIN, "TXT")
+        spfs = [t for t in txts if t.strip().lower().startswith("v=spf1")]
+        match = any(_normalize_dns_value(t) == _normalize_dns_value(spf_expected) for t in spfs)
+        records.append(DnsRecordItem(
+            record_type="SPF",
+            domain=BASE_DOMAIN,
+            expected=spf_expected,
+            actual="; ".join(spfs) or "<none>",
+            valid=match,
+            details="SPF record restricts authorized senders to GOBITSNBYTES FOUNDATION mail nodes." if match
+            else "Live SPF policy differs from the authorized sender policy.",
+        ))
+    except Exception as e:
+        records.append(_failed_record("SPF", BASE_DOMAIN, spf_expected, e))
+
+    dkim_name = f"default._domainkey.{BASE_DOMAIN}"
+    dkim_expected = "v=DKIM1; k=rsa; p=<2048-bit RSA public key>"
+    try:
+        txts = await _query_records(resolver, dkim_name, "TXT")
+        dkim = next((t for t in txts if "p=" in t), None)
+        match = bool(dkim) and dkim.strip().lower().startswith("v=dkim1") and "k=rsa" in dkim.lower() and "p=" in dkim
+        records.append(DnsRecordItem(
+            record_type="DKIM",
+            domain=dkim_name,
+            expected=dkim_expected,
+            actual=_truncate_for_display(dkim) if dkim else "<none>",
+            valid=bool(match),
+            details="2048-bit RSA cryptographic signing active for outbound emails." if match
+            else "DKIM key missing or malformed at the default selector.",
+        ))
+    except Exception as e:
+        records.append(_failed_record("DKIM", dkim_name, dkim_expected, e))
+
+    dmarc_name = f"_dmarc.{BASE_DOMAIN}"
+    dmarc_expected = "v=DMARC1; p=reject; rua=mailto:dmarc@gobitsnbytes.org"
+    try:
+        txts = await _query_records(resolver, dmarc_name, "TXT")
+        match = any(_normalize_dns_value(t) == _normalize_dns_value(dmarc_expected) for t in txts)
+        records.append(DnsRecordItem(
+            record_type="DMARC",
+            domain=dmarc_name,
+            expected=dmarc_expected,
+            actual=_truncate_for_display("; ".join(txts)) or "<none>",
+            valid=match,
+            details="DMARC policy set to 'reject' for spoofing prevention." if match
+            else "Live DMARC policy does not enforce the required reject rule.",
+        ))
+    except Exception as e:
+        records.append(_failed_record("DMARC", dmarc_name, dmarc_expected, e))
+
+    for record_type, domain in (("A", MAIL_DOMAIN), ("A", ADMIN_DOMAIN)):
+        try:
+            ips = await _query_ips(resolver, domain)
+            records.append(DnsRecordItem(
+                record_type=record_type,
+                domain=domain,
+                expected="IPv4/IPv6 VPS Address",
+                actual=", ".join(ips),
+                valid=True,
+                details=f"{domain} resolves to {len(ips)} address(es).",
+            ))
+        except Exception as e:
+            records.append(_failed_record(record_type, domain, "IPv4/IPv6 VPS Address", e))
+
+    return records
 
 
 # ---------------------------------------------------------------------------
@@ -219,66 +363,18 @@ async def get_email_server_status():
 @router.get("/dns", response_model=DnsSecurityResponse)
 async def verify_dns_security():
     """Verify live DNS records (MX, SPF, DKIM, DMARC) and SSL certificate status for mail domains."""
-    records: List[DnsRecordItem] = [
-        DnsRecordItem(
-            record_type="MX",
-            domain=BASE_DOMAIN,
-            expected=f"10 {MAIL_DOMAIN}.",
-            actual=f"10 {MAIL_DOMAIN}.",
-            valid=True,
-            details=f"Primary mail exchanger points to {MAIL_DOMAIN}."
-        ),
-        DnsRecordItem(
-            record_type="SPF",
-            domain=BASE_DOMAIN,
-            expected=f"v=spf1 mx a:{MAIL_DOMAIN} ~all",
-            actual=f"v=spf1 mx a:{MAIL_DOMAIN} ~all",
-            valid=True,
-            details="SPF record restricts authorized senders to GOBITSNBYTES FOUNDATION mail nodes."
-        ),
-        DnsRecordItem(
-            record_type="DKIM",
-            domain=f"default._domainkey.{BASE_DOMAIN}",
-            expected="v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...",
-            actual="v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...",
-            valid=True,
-            details="2048-bit RSA cryptographic signing active for outbound emails."
-        ),
-        DnsRecordItem(
-            record_type="DMARC",
-            domain=f"_dmarc.{BASE_DOMAIN}",
-            expected="v=DMARC1; p=reject; rua=mailto:dmarc@gobitsnbytes.org",
-            actual="v=DMARC1; p=reject; rua=mailto:dmarc@gobitsnbytes.org",
-            valid=True,
-            details="DMARC policy set to 'reject' for spoofing prevention."
-        ),
-        DnsRecordItem(
-            record_type="A",
-            domain=MAIL_DOMAIN,
-            expected="IPv4/IPv6 VPS Address",
-            actual="Configured on bnb-backend",
-            valid=True,
-            details=f"Direct A record mapped for {MAIL_DOMAIN}."
-        ),
-        DnsRecordItem(
-            record_type="A",
-            domain=ADMIN_DOMAIN,
-            expected="IPv4/IPv6 VPS Address",
-            actual="Configured on bnb-backend",
-            valid=True,
-            details=f"Direct A record mapped for {ADMIN_DOMAIN}."
-        ),
-    ]
+    resolver = dns.resolver.Resolver()
+    records = await _collect_dns_records(resolver)
 
-    ssl_days = await _check_ssl_cert_days(MAIL_DOMAIN)
+    ssl_days, _reachable = await _check_ssl_cert_days(MAIL_DOMAIN)
 
     return DnsSecurityResponse(
         base_domain=BASE_DOMAIN,
         mail_domain=MAIL_DOMAIN,
         admin_domain=ADMIN_DOMAIN,
         records=records,
-        ssl_cert_days_remaining=ssl_days or 85,
-        all_valid=True,
+        ssl_cert_days_remaining=ssl_days,
+        all_valid=all(r.valid for r in records),
     )
 
 

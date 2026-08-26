@@ -218,10 +218,23 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
             assert response.status_code == 200
 
             # 4. Test dynamic router mounting under /api/plugins/{plugin_id}
-            # This should allow authenticated requests (Depends(get_current_user))
+            # Manifest-level panel permission is enforced by the loader, so a user
+            # without endpoint_test_plugin.read must be rejected.
             response = await request_as(ac, super_admin.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
             assert response.status_code == 200
             assert response.json() == {"message": "Success"}
+
+            denied = await request_as(ac, regular_user.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
+            assert denied.status_code == 403
+
+            plugin_grant = Grant(
+                id=uuid.uuid4(),
+                principal_type="user",
+                principal_id=regular_user.id,
+                permission_key="endpoint_test_plugin.read"
+            )
+            db_session.add(plugin_grant)
+            await db_session.commit()
 
             response = await request_as(ac, regular_user.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
             assert response.status_code == 200

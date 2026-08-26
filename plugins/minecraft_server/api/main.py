@@ -71,7 +71,9 @@ class PlayersListResponse(BaseModel):
 
 
 class ServerMetricsResponse(BaseModel):
-    tps: float
+    available: bool
+    error: Optional[str] = None
+    tps: Optional[float] = None
     cpu_usage_pct: Optional[float] = None
     ram_used_mb: Optional[float] = None
     ram_max_mb: Optional[float] = None
@@ -244,49 +246,86 @@ async def get_online_players():
     )
 
 
-@router.get("/metrics", response_model=ServerMetricsResponse)
-async def get_server_metrics():
-    """Retrieve system performance metrics (TPS, CPU, RAM, Disk, Uptime) from bnb-mc-server."""
-    # Run bash stats script on bnb-mc-server
-    cmd = (
+_TPS_PATTERN = re.compile(r"TPS[^:\r\n]*:\s*([0-9]+(?:\.[0-9]+)?)")
+
+
+def _parse_tps(output: str) -> Optional[float]:
+    match = _TPS_PATTERN.search(output)
+    if not match:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+async def _collect_server_metrics() -> ServerMetricsResponse:
+    """Collect real system metrics from bnb-mc-server. Returns an explicit unavailable
+    state instead of fabricated numbers when SSH/RCON cannot be reached."""
+    stats_cmd = (
         "echo CPU: $(top -bn1 | grep 'Cpu(s)' | awk '{print $2 + $4}'); "
         "echo RAM: $(free -m | awk '/Mem:/ {print $3\"/\"$2}'); "
-        "echo DISK: $(df -h / | awk 'NR==2 {print $3\"/\"$2}'); "
+        "echo DISK: $(df -B1G --output=used,size / | awk 'NR==2 {print $1\"/\"$2}'); "
         "echo UPTIME: $(uptime -p)"
     )
-    code, stdout, _ = await _run_ssh_command(MC_SSH_HOST, cmd)
+    code, stdout, stderr = await _run_ssh_command(MC_SSH_HOST, stats_cmd)
 
-    cpu_val = None
-    ram_used = None
-    ram_max = None
-    disk_used = None
-    uptime_val = "Up"
+    if code != 0 or not stdout.strip():
+        reason = stderr.strip() or stdout.strip() or f"exit code {code}"
+        return ServerMetricsResponse(
+            available=False,
+            error=f"Metrics collection failed on {MC_SSH_HOST}: {reason}",
+        )
 
-    if code == 0 and stdout:
-        for line in stdout.splitlines():
-            if line.startswith("CPU:"):
-                try:
-                    cpu_val = float(line.split(":", 1)[1].strip())
-                except ValueError:
-                    pass
-            elif line.startswith("RAM:"):
-                try:
-                    parts = line.split(":", 1)[1].strip().split("/")
-                    ram_used = float(parts[0])
-                    ram_max = float(parts[1])
-                except (ValueError, IndexError):
-                    pass
-            elif line.startswith("UPTIME:"):
-                uptime_val = line.split(":", 1)[1].strip()
+    tps_code, tps_out, _ = await _run_ssh_command(
+        MC_SSH_HOST,
+        "mcrcon -H 127.0.0.1 -p \"$RCON_PASSWORD\" tps || docker exec minecraft-server rcon-cli tps",
+    )
+
+    cpu_val: Optional[float] = None
+    ram_used: Optional[float] = None
+    ram_max: Optional[float] = None
+    disk_used: Optional[float] = None
+    uptime_val: Optional[str] = None
+
+    for line in stdout.splitlines():
+        if line.startswith("CPU:"):
+            try:
+                cpu_val = float(line.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+        elif line.startswith("RAM:"):
+            try:
+                parts = line.split(":", 1)[1].strip().split("/")
+                ram_used = float(parts[0])
+                ram_max = float(parts[1])
+            except (ValueError, IndexError):
+                pass
+        elif line.startswith("DISK:"):
+            try:
+                parts = line.split(":", 1)[1].strip().split("/")
+                disk_used = float(parts[0])
+            except (ValueError, IndexError):
+                pass
+        elif line.startswith("UPTIME:"):
+            uptime_val = line.split(":", 1)[1].strip() or None
 
     return ServerMetricsResponse(
-        tps=20.0,  # Target 20 TPS for healthy paper/spigot tick loop
-        cpu_usage_pct=cpu_val if cpu_val is not None else 12.4,
-        ram_used_mb=ram_used if ram_used is not None else 3420.0,
-        ram_max_mb=ram_max if ram_max is not None else 8192.0,
-        disk_used_gb=disk_used if disk_used is not None else 18.5,
+        available=True,
+        tps=_parse_tps(tps_out) if tps_code == 0 else None,
+        cpu_usage_pct=cpu_val,
+        ram_used_mb=ram_used,
+        ram_max_mb=ram_max,
+        disk_used_gb=disk_used,
         uptime=uptime_val,
     )
+
+
+@router.get("/metrics", response_model=ServerMetricsResponse)
+async def get_server_metrics():
+    """Retrieve system performance metrics (TPS, CPU, RAM, Disk, Uptime) from bnb-mc-server.
+    Unreachable infrastructure yields available=false with an explicit error — never fake values."""
+    return await _collect_server_metrics()
 
 
 @router.post("/command", response_model=CommandResponse)

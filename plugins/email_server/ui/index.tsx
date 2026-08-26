@@ -213,7 +213,9 @@ export default function EmailServerUI() {
                 </Badge>
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground mt-2">100% Policy Alignment</p>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {dns ? (dns.all_valid ? "100% Policy Alignment" : "Policy Drift Detected") : "Awaiting live DNS check"}
+            </p>
           </CardContent>
         </Card>
 
@@ -226,10 +228,14 @@ export default function EmailServerUI() {
           </CardHeader>
           <CardContent>
             <div className="font-heading font-bold text-sm text-foreground">
-              {dns?.ssl_cert_days_remaining ?? 85} Days Remaining
+              {dns && dns.ssl_cert_days_remaining != null
+                ? `${dns.ssl_cert_days_remaining} Days Remaining`
+                : "Cert Status Unavailable"}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Auto-renew via Let's Encrypt
+              {dns?.ssl_cert_days_remaining != null
+                ? "Auto-renew via Let's Encrypt"
+                : "Live certificate could not be retrieved"}
             </p>
           </CardContent>
         </Card>
@@ -365,10 +371,20 @@ export default function EmailServerUI() {
                   <p className="text-[11px] text-muted-foreground mt-1">{r.details}</p>
                 </div>
                 <div className="shrink-0 flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-green-400 bg-green-500/10 px-2 py-1 rounded border border-green-500/20">
+                  <span
+                    className={`font-mono text-[10px] px-2 py-1 rounded border ${
+                      r.valid
+                        ? "text-green-400 bg-green-500/10 border-green-500/20"
+                        : "text-red-400 bg-red-500/10 border-red-500/20"
+                    }`}
+                  >
                     {r.actual}
                   </span>
-                  <CheckCircle2 className="size-4 text-green-500" />
+                  {r.valid ? (
+                    <CheckCircle2 className="size-4 text-green-500" />
+                  ) : (
+                    <AlertTriangle className="size-4 text-red-500" />
+                  )}
                 </div>
               </div>
             ))}

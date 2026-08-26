@@ -32,7 +32,7 @@ import {
 } from "@bnb/ui";
 
 interface ServerStatus {
-  online: bool;
+  online: boolean;
   host: string;
   port: number;
   ssh_host: string;
@@ -52,7 +52,9 @@ interface Player {
 }
 
 interface Metrics {
-  tps: number;
+  available: boolean;
+  error?: string;
+  tps?: number;
   cpu_usage_pct?: number;
   ram_used_mb?: number;
   ram_max_mb?: number;
@@ -225,9 +227,19 @@ export default function MinecraftServerUI() {
           <CardContent>
             {loading && !metrics ? (
               <Skeleton className="h-8 w-16" />
+            ) : !metrics?.available ? (
+              <div className="space-y-1.5">
+                <Badge variant="danger" className="text-xs">
+                  <AlertCircle className="size-3 mr-1" />
+                  OFFLINE / UNAVAILABLE
+                </Badge>
+                <p className="text-[11px] font-mono text-muted-foreground break-words">
+                  {metrics?.error || "Metrics source unreachable (SSH/RCON)"}
+                </p>
+              </div>
             ) : (
               <div className="font-heading font-black text-2xl text-green-400">
-                {metrics?.tps ?? 20.0} <span className="text-xs text-muted-foreground font-normal">/ 20.0</span>
+                {metrics.tps ?? "--"} <span className="text-xs text-muted-foreground font-normal">/ 20.0</span>
               </div>
             )}
             <p className="text-[11px] text-muted-foreground mt-1">Target: 20 Ticks Per Second</p>
