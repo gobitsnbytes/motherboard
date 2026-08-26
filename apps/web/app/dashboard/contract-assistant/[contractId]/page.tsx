@@ -18,6 +18,7 @@ import {
   Check,
   ExternalLink,
   Download,
+  X,
 } from "lucide-react";
 
 interface ReviewPageProps {
@@ -268,37 +269,37 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-24">
       {/* Header Banner */}
-      <div className="bg-white border-2 border-[#120F0A] p-5 rounded-2xl shadow-[4px_4px_0px_0px_#120F0A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-secondary-background border-2 border-border p-5 rounded-base shadow-shadow flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link
             href="/dashboard/contract-assistant"
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#716F6C] hover:text-[#97192C] mb-1"
+            className="inline-flex items-center gap-1 text-xs font-bold font-heading text-muted-foreground hover:text-burgundy mb-1"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Pipeline
           </Link>
-          <h1 className="text-xl font-black text-[#120F0A] font-sans">{contractTitle}</h1>
-          <div className="text-xs text-[#716F6C] font-medium mt-0.5">
-            Counterparty: <b>{counterparty}</b> • ID: <span className="font-mono text-[#97192C]">{contractId}</span>
+          <h1 className="text-xl font-black text-foreground font-heading">{contractTitle}</h1>
+          <div className="text-xs text-muted-foreground font-medium mt-0.5">
+            Counterparty: <b>{counterparty}</b> • ID: <span className="font-mono text-burgundy">{contractId}</span>
           </div>
         </div>
 
         {/* Executive Summary Strip & Management Actions */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#FAF8F5] border-2 border-[#120F0A] p-2 rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A]">
-            <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg border border-red-300">
+          <div className="flex items-center gap-2 bg-muted border-2 border-border p-2 rounded-base text-xs font-bold font-heading shadow-shadow">
+            <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-base border border-red-300">
               {highCount} High
             </span>
-            <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg border border-amber-300">
+            <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-base border border-amber-300">
               {medCount} Medium
             </span>
-            <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-300">
+            <span className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded-base border border-gray-300">
               {lowCount} Low
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             {contractStatus === "voided" ? (
-              <span className="px-3.5 py-2 bg-red-100 text-red-900 border-2 border-red-800 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#120F0A]">
+              <span className="px-3.5 py-2 bg-red-100 text-red-900 border-2 border-red-800 rounded-base text-xs font-bold font-heading flex items-center gap-1.5 shadow-shadow">
                 <XCircle className="w-4 h-4 text-red-800" /> Voided &amp; Quashed
               </span>
             ) : (
@@ -306,7 +307,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                 type="button"
                 disabled={voiding}
                 onClick={handleVoidContract}
-                className="px-3.5 py-2 bg-[#FEE9CF] hover:bg-[#FED39E] text-red-900 border-2 border-[#120F0A] rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A] flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3.5 py-2 bg-orange/20 hover:bg-orange/30 text-red-900 border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow flex items-center gap-1.5 transition-all cursor-pointer"
                 title="Officially quash/void agreement and revoke all signature links"
               >
                 <XCircle className="w-3.5 h-3.5 text-red-700" /> {voiding ? "Voiding..." : "Void / Quash"}
@@ -317,10 +318,10 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               type="button"
               disabled={deleting}
               onClick={handleDeleteContract}
-              className="px-3.5 py-2 bg-[#97192C] hover:bg-[#791423] text-white border-2 border-[#120F0A] rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A] flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3.5 py-2 bg-burgundy hover:bg-[#791423] text-white border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow flex items-center gap-1.5 transition-all cursor-pointer"
               title="Download voided copy to your device and purge all database records"
             >
-              <Download className="w-3.5 h-3.5 text-[#FC920D]" /> {deleting ? "Purging..." : "Delete & Download Void Copy"}
+              <Download className="w-3.5 h-3.5 text-orange" /> {deleting ? "Purging..." : "Delete & Download Void Copy"}
             </button>
           </div>
         </div>
@@ -329,12 +330,12 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
       {/* Two-Pane Review Split View */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Pane: Document View */}
-        <div className="lg:col-span-6 bg-white border-2 border-[#120F0A] rounded-2xl p-5 shadow-[4px_4px_0px_0px_#120F0A] space-y-4">
+        <div className="lg:col-span-6 bg-secondary-background border-2 border-border rounded-base p-5 shadow-shadow space-y-4">
           <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-            <span className="text-xs font-black uppercase text-[#120F0A] flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-[#97192C]" /> Document Contract Clauses
+            <span className="text-xs font-black uppercase text-foreground flex items-center gap-1.5 font-heading">
+              <FileText className="w-4 h-4 text-burgundy" /> Document Contract Clauses
             </span>
-            <span className="text-[10px] font-mono font-bold text-[#716F6C] bg-gray-100 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-mono font-bold text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-base">
               {clauses.length || findings.length} Clauses / Highlights
             </span>
           </div>
@@ -344,16 +345,16 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               <div
                 key={item.id}
                 onClick={() => setActiveFindingId(item.id)}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                className={`p-4 rounded-base border-2 cursor-pointer transition-all ${
                   activeFindingId === item.id
-                    ? "border-[#120F0A] bg-[#FEE9CF]/40 shadow-[3px_3px_0px_0px_#120F0A]"
+                    ? "border-border bg-orange/10 shadow-shadow"
                     : "border-gray-200 bg-gray-50 hover:border-gray-400"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-2 font-sans">
-                  <span className="font-bold text-[#97192C]">{item.ref} {item.heading}</span>
+                <div className="flex items-center justify-between gap-2 mb-2 font-heading">
+                  <span className="font-bold text-burgundy">{item.ref} {item.heading}</span>
                   <span
-                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-base ${
                       item.severity === "high"
                         ? "bg-red-600 text-white"
                         : item.severity === "medium"
@@ -364,7 +365,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                     {item.severity}
                   </span>
                 </div>
-                <div className="text-[#120F0A] bg-white p-2.5 rounded-lg border border-gray-200">
+                <div className="text-foreground bg-secondary-background p-2.5 rounded-base border border-gray-200">
                   "{item.text}"
                 </div>
               </div>
@@ -374,10 +375,10 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
 
         {/* Right Pane: Findings List */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="bg-white border-2 border-[#120F0A] rounded-2xl p-5 shadow-[4px_4px_0px_0px_#120F0A] space-y-4">
+          <div className="bg-secondary-background border-2 border-border rounded-base p-5 shadow-shadow space-y-4">
             <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-              <span className="text-xs font-black uppercase text-[#120F0A]">Clause Risk Triage</span>
-              <span className="text-[10px] text-[#716F6C] font-bold">
+              <span className="text-xs font-black uppercase text-foreground font-heading">Clause Risk Triage</span>
+              <span className="text-[10px] text-muted-foreground font-bold font-heading">
                 {findings.filter((f) => f.status === "open").length} Open Actions
               </span>
             </div>
@@ -390,24 +391,24 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                 return (
                   <div
                     key={finding.id}
-                    className={`border-2 rounded-xl p-4 space-y-3 transition-all ${
-                      isActive ? "border-[#120F0A] bg-[#FAF8F5] shadow-[3px_3px_0px_0px_#120F0A]" : "border-gray-200 bg-white"
+                    className={`border-2 rounded-base p-4 space-y-3 transition-all ${
+                      isActive ? "border-border bg-muted shadow-shadow" : "border-gray-200 bg-secondary-background"
                     } ${isResolved ? "opacity-60" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs font-black text-[#97192C]">{finding.ref}</span>
+                      <span className="font-mono text-xs font-black text-burgundy">{finding.ref}</span>
                       <div className="flex items-center gap-1.5">
                         {finding.source === "rule_engine" ? (
-                          <span className="bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-bold px-2 py-0.5 rounded">
-                            ⚡ OKF Rule
+                          <span className="bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-bold font-heading px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Zap className="w-3 h-3" /> OKF Rule
                           </span>
                         ) : (
-                          <span className="bg-purple-100 text-purple-900 border border-purple-300 text-[10px] font-bold px-2 py-0.5 rounded">
-                            ✨ AI Pass
+                          <span className="bg-purple-100 text-purple-900 border border-purple-300 text-[10px] font-bold font-heading px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> AI Pass
                           </span>
                         )}
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                          className={`text-[10px] font-bold font-heading px-2 py-0.5 rounded-full uppercase ${
                             finding.severity === "high"
                               ? "bg-red-100 text-red-800"
                               : finding.severity === "medium"
@@ -420,8 +421,8 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                       </div>
                     </div>
 
-                    <div className="text-xs font-bold text-[#120F0A]">{finding.heading}</div>
-                    <p className="text-xs text-[#413F3B] font-medium leading-relaxed">{finding.plain_english}</p>
+                    <div className="text-xs font-bold font-heading text-foreground">{finding.heading}</div>
+                    <p className="text-xs text-foreground font-medium leading-relaxed">{finding.plain_english}</p>
 
                     {/* Action Row */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#D0CFCE]">
@@ -430,7 +431,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                           type="button"
                           disabled={isResolved}
                           onClick={() => handleResolveFinding(finding.id, "resolve")}
-                          className="px-3 py-1.5 bg-[#97192C] text-white text-[11px] font-bold rounded-lg shadow-[1.5px_1.5px_0px_0px_#120F0A] hover:translate-y-[-1px] disabled:opacity-40"
+                          className="px-3 py-1.5 bg-burgundy text-white text-[11px] font-bold font-heading rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-40 transition-all"
                         >
                           Apply Standard Clause (Tier 1)
                         </button>
@@ -439,7 +440,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                           type="button"
                           disabled={isResolved}
                           onClick={() => handleOpenRedlineModal(finding)}
-                          className="px-3 py-1.5 bg-[#FC920D] text-[#120F0A] text-[11px] font-black rounded-lg border border-[#120F0A] shadow-[1.5px_1.5px_0px_0px_#120F0A] hover:translate-y-[-1px] disabled:opacity-40"
+                          className="px-3 py-1.5 bg-orange text-foreground text-[11px] font-black font-heading rounded-base border border-border shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-40 transition-all"
                         >
                           View Suggested Redline (Tier 2)
                         </button>
@@ -449,7 +450,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                         type="button"
                         disabled={isResolved}
                         onClick={() => handleResolveFinding(finding.id, "dismiss")}
-                        className="px-2.5 py-1.5 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg border border-gray-300 hover:bg-gray-200 disabled:opacity-40"
+                        className="px-2.5 py-1.5 bg-gray-100 text-gray-700 text-[11px] font-bold font-heading rounded-base border border-gray-300 hover:bg-gray-200 disabled:opacity-40 transition-all"
                       >
                         Dismiss
                       </button>
@@ -457,7 +458,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                       <button
                         type="button"
                         onClick={() => setChatOpenFindingId(chatOpenFindingId === finding.id ? null : finding.id)}
-                        className="px-2.5 py-1.5 bg-white text-[#97192C] text-[11px] font-bold rounded-lg border border-[#120F0A] hover:bg-gray-50 flex items-center gap-1 ml-auto"
+                        className="px-2.5 py-1.5 bg-secondary-background text-burgundy text-[11px] font-bold font-heading rounded-base border border-border hover:bg-gray-50 flex items-center gap-1 ml-auto transition-all"
                       >
                         <MessageSquare className="w-3.5 h-3.5" /> Ask
                       </button>
@@ -465,14 +466,14 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
 
                     {/* Inline Clause Chat */}
                     {chatOpenFindingId === finding.id && (
-                      <div className="mt-3 p-3 bg-gray-50 border border-gray-300 rounded-xl space-y-2 font-sans">
-                        <div className="text-[10px] font-bold text-[#716F6C] uppercase">Clause Inquiry Assistant</div>
+                      <div className="mt-3 p-3 bg-gray-50 border border-gray-300 rounded-base space-y-2">
+                        <div className="text-[10px] font-bold font-heading text-muted-foreground uppercase">Clause Inquiry Assistant</div>
                         <div className="space-y-1.5 max-h-32 overflow-y-auto">
                           {(clauseQuestions[finding.id] || []).map((q, qidx) => (
                             <div
                               key={qidx}
-                              className={`p-2 rounded-lg text-xs font-medium ${
-                                q.sender === "user" ? "bg-[#FEE9CF] text-[#120F0A] ml-4 text-right" : "bg-white border border-gray-200 text-[#120F0A] mr-4"
+                              className={`p-2 rounded-base text-xs font-medium ${
+                                q.sender === "user" ? "bg-orange/20 text-foreground ml-4 text-right" : "bg-secondary-background border border-gray-200 text-foreground mr-4"
                               }`}
                             >
                               {q.text}
@@ -486,12 +487,12 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleSendChatQuestion(finding.id)}
-                            className="flex-1 px-3 py-1.5 bg-white border border-[#120F0A] rounded-lg text-xs font-bold"
+                            className="flex-1 px-3 py-1.5 bg-secondary-background border-2 border-border rounded-base text-xs font-bold font-heading"
                           />
                           <button
                             type="button"
                             onClick={() => handleSendChatQuestion(finding.id)}
-                            className="px-3 py-1.5 bg-[#97192C] text-white text-xs font-bold rounded-lg"
+                            className="px-3 py-1.5 bg-burgundy text-white text-xs font-bold font-heading rounded-base"
                           >
                             Send
                           </button>
@@ -509,40 +510,41 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
       {/* Redline Diff Modal */}
       {activeModalRedline && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#120F0A] p-6 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-2xl w-full space-y-4">
+          <div className="bg-secondary-background border-2 border-border p-6 rounded-base shadow-shadow max-w-2xl w-full space-y-4">
             <div className="flex items-center justify-between border-b pb-3 border-gray-200">
-              <h3 className="text-base font-black text-[#120F0A]">
+              <h3 className="text-base font-black font-heading text-foreground">
                 Tier-2 AI Suggested Redline Diff ({activeModalRedline.ref})
               </h3>
               <button
                 type="button"
                 onClick={() => setActiveModalRedline(null)}
-                className="text-gray-500 hover:text-black font-bold text-sm"
+                className="text-gray-500 hover:text-black font-bold text-sm p-1 rounded-base border border-gray-300 hover:border-border transition-colors"
+                aria-label="Close redline modal"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold uppercase text-red-700 block mb-1">Original Clause</label>
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-mono text-red-950 leading-relaxed">
+                <label className="text-[10px] font-bold font-heading uppercase text-red-700 block mb-1">Original Clause</label>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-base text-xs font-mono text-red-950 leading-relaxed">
                   {activeModalRedline.text}
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase text-emerald-700 block mb-1">Suggested Redline Revision</label>
+                <label className="text-[10px] font-bold font-heading uppercase text-emerald-700 block mb-1">Suggested Redline Revision</label>
                 <textarea
                   rows={5}
                   value={editedRewrite}
                   onChange={(e) => setEditedRewrite(e.target.value)}
-                  className="w-full p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs font-mono text-emerald-950 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full p-3 bg-emerald-50 border border-emerald-300 rounded-base text-xs font-mono text-emerald-950 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 />
               </div>
             </div>
 
-            <div className="p-3 bg-gray-50 border rounded-xl text-xs text-[#716F6C] font-medium">
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-base text-xs text-muted-foreground font-medium">
               <b>AI Reasoning &amp; Policy Citation:</b> {activeModalRedline.rationale}
             </div>
 
@@ -550,14 +552,14 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               <button
                 type="button"
                 onClick={() => setActiveModalRedline(null)}
-                className="px-4 py-2 border-2 border-[#120F0A] rounded-xl text-xs font-bold text-[#120F0A] bg-white hover:bg-gray-100"
+                className="px-4 py-2 border-2 border-border rounded-base text-xs font-bold font-heading text-foreground bg-secondary-background hover:bg-gray-100"
               >
                 Reject Redline
               </button>
               <button
                 type="button"
                 onClick={handleAcceptRedline}
-                className="px-5 py-2 bg-[#97192C] text-white text-xs font-bold border-2 border-[#120F0A] rounded-xl shadow-[2px_2px_0px_0px_#120F0A]"
+                className="px-5 py-2 bg-burgundy text-white text-xs font-bold font-heading border-2 border-border rounded-base shadow-shadow"
               >
                 Accept &amp; Apply Redline
               </button>
@@ -567,20 +569,20 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
       )}
 
       {/* Sticky Bottom Dispatch Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-[#120F0A] p-4 shadow-[0px_-4px_10px_rgba(0,0,0,0.1)] z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-secondary-background border-t-2 border-border p-4 shadow-shadow z-40">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <div className="text-xs font-black text-[#120F0A] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#97192C]" /> Dispatch Gate Validation Status
+            <div className="text-xs font-black font-heading text-foreground flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-burgundy" /> Dispatch Gate Validation Status
             </div>
-            <div className="text-[11px] text-[#716F6C] font-medium">
+            <div className="text-[11px] text-muted-foreground font-medium">
               {isDispatchGatePassed ? (
-                <span className="text-emerald-700 font-bold">
-                  ✓ All high-severity findings resolved or dismissed. Ready to dispatch.
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> All high-severity findings resolved or dismissed. Ready to dispatch.
                 </span>
               ) : (
-                <span className="text-red-700 font-bold">
-                  ⚠️ {highSeverityOpenCount} High-Severity Finding(s) must be resolved or explicitly dismissed before outbound send.
+                <span className="text-red-700 font-bold flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> {highSeverityOpenCount} High-Severity Finding(s) must be resolved or explicitly dismissed before outbound send.
                 </span>
               )}
             </div>
@@ -590,9 +592,9 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
             type="button"
             disabled={!isDispatchGatePassed || dispatching}
             onClick={handleDispatchToSignatures}
-            className="w-full sm:w-auto px-6 py-3 bg-[#97192C] text-white text-xs font-black border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-1px] disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-3 bg-burgundy text-white text-xs font-black font-heading border-2 border-border rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-40 transition-all flex items-center justify-center gap-2"
           >
-            {dispatching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-[#FC920D]" />}
+            {dispatching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-orange" />}
             Dispatch for Signature (bnb-signatures)
           </button>
         </div>

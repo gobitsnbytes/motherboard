@@ -46,7 +46,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#3C0A12"; // Brand Deep Plum
+    ctx.strokeStyle = "#97192C"; // Brand Burgundy ink
   }, [activeTab]);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -131,7 +131,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
     ctx.fillText(`DIGITALLY SIGNED VIA ${classLabel}`, 24, 26);
 
     ctx.font = "bold 14px Georgia, serif";
-    ctx.fillStyle = "#3C0A12";
+    ctx.fillStyle = "#97192C";
     ctx.fillText(`Signatory: ${dscSignerName || "Authorized Signatory"}`, 24, 52);
 
     ctx.font = "11px Inter, sans-serif";
@@ -162,7 +162,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
       tempCanvas.height = 140;
       const ctx = tempCanvas.getContext("2d");
       if (ctx) {
-        ctx.fillStyle = "#3C0A12";
+        ctx.fillStyle = "#97192C";
         ctx.font = font.fontStyle;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -183,16 +183,16 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
   const currentFont = SCRIPT_FONTS[selectedFontIndex] || SCRIPT_FONTS[0];
 
   return (
-    <div className="bg-[#FAF8F5] border-2 border-[#120F0A] rounded-xl p-4 shadow-[4px_4px_0px_0px_#120F0A] max-w-lg w-full">
-      <div className="flex items-center justify-between border-b-2 border-[#120F0A] pb-3 mb-4">
+    <div className="bg-secondary-background border-2 border-border rounded-base p-4 shadow-shadow max-w-lg w-full">
+      <div className="flex items-center justify-between border-b-2 border-border pb-3 mb-4">
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => setActiveTab("draw")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base text-xs font-bold font-heading transition-all ${
               activeTab === "draw"
-                ? "bg-[#97192C] text-white shadow-[2px_2px_0px_0px_#120F0A]"
-                : "bg-white text-[#120F0A] border border-[#120F0A]"
+                ? "bg-burgundy text-white shadow-shadow"
+                : "bg-secondary-background text-foreground border border-border"
             }`}
           >
             <PenTool className="w-3.5 h-3.5" /> Draw
@@ -200,10 +200,10 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
           <button
             type="button"
             onClick={() => setActiveTab("type")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base text-xs font-bold font-heading transition-all ${
               activeTab === "type"
-                ? "bg-[#97192C] text-white shadow-[2px_2px_0px_0px_#120F0A]"
-                : "bg-white text-[#120F0A] border border-[#120F0A]"
+                ? "bg-burgundy text-white shadow-shadow"
+                : "bg-secondary-background text-foreground border border-border"
             }`}
           >
             <Type className="w-3.5 h-3.5" /> Type
@@ -211,10 +211,10 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
           <button
             type="button"
             onClick={() => setActiveTab("upload")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base text-xs font-bold font-heading transition-all ${
               activeTab === "upload"
-                ? "bg-[#97192C] text-white shadow-[2px_2px_0px_0px_#120F0A]"
-                : "bg-white text-[#120F0A] border border-[#120F0A]"
+                ? "bg-burgundy text-white shadow-shadow"
+                : "bg-secondary-background text-foreground border border-border"
             }`}
           >
             <Upload className="w-3.5 h-3.5" /> Upload
@@ -222,10 +222,10 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
           <button
             type="button"
             onClick={() => setActiveTab("dsc")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-base text-xs font-bold font-heading transition-all ${
               activeTab === "dsc"
-                ? "bg-[#97192C] text-white shadow-[2px_2px_0px_0px_#120F0A]"
-                : "bg-white text-[#120F0A] border border-[#120F0A]"
+                ? "bg-burgundy text-white shadow-shadow"
+                : "bg-secondary-background text-foreground border border-border"
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" /> DSC (Class 1/2/3)
@@ -235,7 +235,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
           <button
             type="button"
             onClick={clearCanvas}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#97192C] hover:bg-[#F4D9D1] rounded"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold font-heading text-burgundy hover:bg-burgundy/10 rounded-base"
           >
             <Eraser className="w-3.5 h-3.5" /> Clear
           </button>
@@ -243,7 +243,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
       </div>
 
       {activeTab === "draw" && (
-        <div className="border-2 border-dashed border-[#A09F9D] rounded-lg bg-white overflow-hidden touch-none mb-4">
+        <div className="border-2 border-dashed border-[#A09F9D] rounded-base bg-secondary-background overflow-hidden touch-none mb-4">
           <canvas
             ref={canvasRef}
             width={450}
@@ -267,7 +267,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             placeholder="Type your full name..."
             value={typedName}
             onChange={(e) => setTypedName(e.target.value)}
-            className="w-full px-3 py-2 border-2 border-[#120F0A] rounded-lg text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#97192C]"
+            className="w-full px-3 py-2 border-2 border-border rounded-base text-sm font-heading bg-secondary-background font-medium focus:outline-none focus:ring-2 focus:ring-burgundy"
           />
           <div className="flex gap-2 overflow-x-auto pb-1">
             {SCRIPT_FONTS.map((font, idx) => (
@@ -275,20 +275,20 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
                 key={font.id}
                 type="button"
                 onClick={() => setSelectedFontIndex(idx)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded border shrink-0 transition-all ${
+                className={`px-2.5 py-1 text-[11px] font-bold font-heading rounded-base border shrink-0 transition-all ${
                   selectedFontIndex === idx
-                    ? "bg-[#97192C] text-white border-[#120F0A]"
-                    : "bg-white text-[#120F0A] border-[#D0CFCE] hover:bg-gray-100"
+                    ? "bg-burgundy text-white border-border"
+                    : "bg-secondary-background text-foreground border-[#D0CFCE] hover:bg-gray-100"
                 }`}
               >
                 {font.name}
               </button>
             ))}
           </div>
-          <div className="border-2 border-[#120F0A] rounded-lg p-4 bg-white min-h-[100px] flex items-center justify-center">
+          <div className="border-2 border-border rounded-base p-4 bg-secondary-background min-h-[100px] flex items-center justify-center">
             <span
               style={{ fontFamily: currentFont.fontFamily }}
-              className="text-2xl text-[#3C0A12] italic"
+              className="text-2xl text-burgundy italic"
             >
               {typedName || "Signature Preview"}
             </span>
@@ -298,10 +298,10 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
 
       {activeTab === "upload" && (
         <div className="space-y-4 mb-4">
-          <label className="border-2 border-dashed border-[#120F0A] rounded-lg p-6 bg-white flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
-            <ImageIcon className="w-8 h-8 text-[#716F6C] mb-2" />
-            <span className="text-xs font-bold text-[#120F0A]">Upload image of wet signature</span>
-            <span className="text-[10px] text-[#716F6C] mt-1">PNG, JPG or WEBP (Max 5MB)</span>
+          <label className="border-2 border-dashed border-border rounded-base p-6 bg-secondary-background flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+            <ImageIcon className="w-8 h-8 text-muted-foreground mb-2" />
+            <span className="text-xs font-bold font-heading text-foreground">Upload image of wet signature</span>
+            <span className="text-[10px] text-muted-foreground mt-1">PNG, JPG or WEBP (Max 5MB)</span>
             <input
               type="file"
               accept="image/*"
@@ -310,7 +310,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             />
           </label>
           {uploadedImage && (
-            <div className="border-2 border-[#120F0A] rounded-lg p-3 bg-white flex items-center justify-center max-h-32 overflow-hidden">
+            <div className="border-2 border-border rounded-base p-3 bg-secondary-background flex items-center justify-center max-h-32 overflow-hidden">
               <img src={uploadedImage} alt="Uploaded Signature" className="max-h-24 object-contain" />
             </div>
           )}
@@ -319,12 +319,12 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
 
       {activeTab === "dsc" && (
         <div className="space-y-3 mb-4 text-left">
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-lg border border-[#120F0A]">
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-base border border-border">
             <button
               type="button"
               onClick={() => setDscMode("token")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 ${
-                dscMode === "token" ? "bg-[#97192C] text-white" : "text-[#120F0A]"
+              className={`flex-1 py-1.5 text-xs font-bold font-heading rounded-base flex items-center justify-center gap-1 ${
+                dscMode === "token" ? "bg-burgundy text-white" : "text-foreground"
               }`}
             >
               <Cpu className="w-3.5 h-3.5" /> Hardware USB Token
@@ -332,8 +332,8 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             <button
               type="button"
               onClick={() => setDscMode("pfx")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded flex items-center justify-center gap-1 ${
-                dscMode === "pfx" ? "bg-[#97192C] text-white" : "text-[#120F0A]"
+              className={`flex-1 py-1.5 text-xs font-bold font-heading rounded-base flex items-center justify-center gap-1 ${
+                dscMode === "pfx" ? "bg-burgundy text-white" : "text-foreground"
               }`}
             >
               <KeyRound className="w-3.5 h-3.5" /> Software PFX Cert
@@ -344,8 +344,8 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             <button
               type="button"
               onClick={() => setDscClass("class3")}
-              className={`py-1.5 text-[11px] font-black rounded border-2 text-center ${
-                dscClass === "class3" ? "bg-[#97192C] text-white border-[#120F0A]" : "bg-white text-[#120F0A] border-[#D0CFCE]"
+              className={`py-1.5 text-[11px] font-black font-heading rounded-base border-2 text-center ${
+                dscClass === "class3" ? "bg-burgundy text-white border-border" : "bg-secondary-background text-foreground border-[#D0CFCE]"
               }`}
             >
               Class 3 (High Sec)
@@ -353,8 +353,8 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             <button
               type="button"
               onClick={() => setDscClass("class2")}
-              className={`py-1.5 text-[11px] font-black rounded border-2 text-center ${
-                dscClass === "class2" ? "bg-[#FC920D] text-[#120F0A] border-[#120F0A]" : "bg-white text-[#120F0A] border-[#D0CFCE]"
+              className={`py-1.5 text-[11px] font-black font-heading rounded-base border-2 text-center ${
+                dscClass === "class2" ? "bg-orange text-foreground border-border" : "bg-secondary-background text-foreground border-[#D0CFCE]"
               }`}
             >
               Class 2 (Standard)
@@ -362,8 +362,8 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             <button
               type="button"
               onClick={() => setDscClass("class1")}
-              className={`py-1.5 text-[11px] font-black rounded border-2 text-center ${
-                dscClass === "class1" ? "bg-[#2563EB] text-white border-[#120F0A]" : "bg-white text-[#120F0A] border-[#D0CFCE]"
+              className={`py-1.5 text-[11px] font-black font-heading rounded-base border-2 text-center ${
+                dscClass === "class1" ? "bg-[#2563EB] text-white border-border" : "bg-secondary-background text-foreground border-[#D0CFCE]"
               }`}
             >
               Class 1 (Basic)
@@ -371,23 +371,23 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
           </div>
 
           {dscMode === "token" ? (
-            <div className="bg-white border-2 border-[#120F0A] p-3 rounded-lg space-y-2.5">
-              <div className="text-xs font-bold text-[#120F0A] flex items-center justify-between">
+            <div className="bg-secondary-background border-2 border-border p-3 rounded-base space-y-2.5">
+              <div className="text-xs font-bold font-heading text-foreground flex items-center justify-between">
                 <span>Signer Common Name (CN):</span>
-                <span className="text-[10px] text-green-800 bg-green-100 px-1.5 py-0.5 rounded font-mono">USB Token Connected</span>
+                <span className="text-[10px] text-green-800 bg-green-100 px-1.5 py-0.5 rounded-base font-mono">USB Token Connected</span>
               </div>
               <input
                 type="text"
                 value={dscSignerName}
                 onChange={(e) => setDscSignerName(e.target.value)}
                 placeholder="Signer Full Name"
-                className="w-full px-2.5 py-1.5 border border-[#120F0A] rounded text-xs font-bold"
+                className="w-full px-2.5 py-1.5 border-2 border-border rounded-base text-xs font-heading font-bold"
               />
-              <div className="text-xs font-bold text-[#120F0A]">Certifying Authority (CA):</div>
+              <div className="text-xs font-bold font-heading text-foreground">Certifying Authority (CA):</div>
               <select
                 value={dscIssuer}
                 onChange={(e) => setDscIssuer(e.target.value)}
-                className="w-full px-2 py-1.5 border border-[#120F0A] rounded text-xs font-bold bg-white"
+                className="w-full px-2 py-1.5 border-2 border-border rounded-base text-xs font-heading font-bold bg-secondary-background"
               >
                 <option value="eMudhra Class 3 Individual CA">eMudhra Class 3 Individual CA</option>
                 <option value="NIC Class 3 Govt Signer CA">NIC Class 3 Govt Signer CA</option>
@@ -395,31 +395,31 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
                 <option value="VSign Class 3 Digital Certificate">VSign Class 3 Digital Certificate</option>
                 <option value="Code Solutions CA Class 2/3">Code Solutions CA Class 2/3</option>
               </select>
-              <div className="text-xs font-bold text-[#120F0A]">USB Token PIN:</div>
+              <div className="text-xs font-bold font-heading text-foreground">USB Token PIN:</div>
               <input
                 type="password"
                 value={dscPin}
                 onChange={(e) => setDscPin(e.target.value)}
                 placeholder="Enter Token Hardware PIN"
-                className="w-full px-2.5 py-1.5 border border-[#120F0A] rounded text-xs font-mono font-bold"
+                className="w-full px-2.5 py-1.5 border-2 border-border rounded-base text-xs font-mono font-bold"
               />
             </div>
           ) : (
-            <div className="bg-white border-2 border-[#120F0A] p-3 rounded-lg space-y-2.5">
-              <label className="block text-xs font-bold text-[#120F0A]">Select .pfx / .p12 Certificate File:</label>
+            <div className="bg-secondary-background border-2 border-border p-3 rounded-base space-y-2.5">
+              <label className="block text-xs font-bold font-heading text-foreground">Select .pfx / .p12 Certificate File:</label>
               <input
                 type="file"
                 accept=".pfx,.p12"
                 onChange={(e) => setPfxFile(e.target.files?.[0] || null)}
                 className="w-full text-xs"
               />
-              <label className="block text-xs font-bold text-[#120F0A] pt-1">Certificate Password:</label>
+              <label className="block text-xs font-bold font-heading text-foreground pt-1">Certificate Password:</label>
               <input
                 type="password"
                 value={pfxPassword}
                 onChange={(e) => setPfxPassword(e.target.value)}
                 placeholder="Enter PFX passphrase"
-                className="w-full px-2.5 py-1.5 border border-[#120F0A] rounded text-xs font-mono font-bold"
+                className="w-full px-2.5 py-1.5 border-2 border-border rounded-base text-xs font-mono font-bold"
               />
             </div>
           )}
@@ -431,7 +431,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-xs font-bold border-2 border-[#120F0A] rounded-lg bg-white text-[#120F0A] hover:bg-gray-100"
+            className="px-4 py-2 text-xs font-bold font-heading border-2 border-border rounded-base bg-secondary-background text-foreground hover:bg-gray-100"
           >
             Cancel
           </button>
@@ -444,7 +444,7 @@ export function SignatureCanvas({ onSave, onCancel, allowedSigType = "any" }: Si
             (activeTab === "upload" && !uploadedImage) ||
             (activeTab === "dsc" && dscMode === "pfx" && !pfxFile)
           }
-          className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#FC920D] text-[#120F0A] border-2 border-[#120F0A] rounded-lg shadow-[2px_2px_0px_0px_#120F0A] hover:translate-y-[-1px] disabled:opacity-40"
+          className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold font-heading bg-orange text-foreground border-2 border-border rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-40 transition-all"
         >
           <Check className="w-4 h-4" /> Adopt & Sign
         </button>

@@ -72,9 +72,9 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-6 space-y-3">
-        <ShieldCheck className="w-10 h-10 text-[#97192C] animate-pulse" />
-        <div className="text-xs font-bold text-[#716F6C]">
+      <div className="min-h-screen bg-secondary-background flex flex-col items-center justify-center p-6 space-y-3">
+        <ShieldCheck className="w-10 h-10 text-burgundy animate-pulse" />
+        <div className="text-xs font-bold font-heading text-muted-foreground">
           Verifying cryptographic signature checksum and audit integrity...
         </div>
       </div>
@@ -83,15 +83,15 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-6">
-        <div className="bg-white border-2 border-[#120F0A] p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] max-w-md w-full text-center space-y-4">
-          <AlertTriangle className="w-12 h-12 mx-auto text-[#97192C]" />
-          <h1 className="text-lg font-black text-[#120F0A]">Verification Record Not Found</h1>
-          <p className="text-xs text-[#716F6C] font-medium leading-relaxed">{error}</p>
+      <div className="min-h-screen bg-secondary-background flex items-center justify-center p-6">
+        <div className="bg-secondary-background border-2 border-border p-8 rounded-base shadow-shadow max-w-md w-full text-center space-y-4">
+          <AlertTriangle className="w-12 h-12 mx-auto text-burgundy" />
+          <h1 className="text-lg font-black font-heading text-foreground">Verification Record Not Found</h1>
+          <p className="text-xs text-muted-foreground font-medium leading-relaxed">{error}</p>
           <div className="pt-2">
             <Link
               href="/verify"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#97192C] text-white font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A]"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-burgundy text-white font-bold font-heading text-xs border-2 border-border rounded-base shadow-shadow"
             >
               <ArrowLeft className="w-4 h-4" /> Try another Checksum or File
             </Link>
@@ -106,12 +106,12 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
   const isPending = !isVoided && !isCompleted;
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#120F0A] p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-secondary-background text-foreground p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
       {/* Top Banner */}
-      <div className="bg-[#3C0A12] text-white border-2 border-[#120F0A] p-6 sm:p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-burgundy text-white border-2 border-border p-6 sm:p-8 rounded-base shadow-shadow flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-7 h-7 text-[#FC920D]" />
+            <ShieldCheck className="w-7 h-7 text-orange" />
             <h1 className="text-xl font-black font-heading">Cryptographic Audit Certificate</h1>
           </div>
           <p className="text-xs text-[#FED39E] mt-1 font-medium">
@@ -121,13 +121,13 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
         <div className="flex items-center gap-2">
           <Link
             href="/verify"
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white text-[#120F0A] font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-1px] transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary-background text-foreground font-bold font-heading text-xs border-2 border-border rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Lookup
           </Link>
           <Link
             href="/dashboard/signatures"
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#FC920D] text-[#120F0A] font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-1px] transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-orange text-foreground font-bold font-heading text-xs border-2 border-border rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
           >
             Dashboard
           </Link>
@@ -136,12 +136,12 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
       {/* Main Status Hero Card */}
       <div
-        className={`border-2 border-[#120F0A] p-6 sm:p-8 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] space-y-6 ${
+        className={`border-2 p-6 sm:p-8 rounded-base shadow-shadow space-y-6 ${
           isVoided
-            ? "bg-red-50 border-red-800"
+            ? "border-red-800 bg-red-50"
             : isCompleted
-            ? "bg-white"
-            : "bg-[#FFFBF5]"
+            ? "border-border bg-secondary-background"
+            : "border-border bg-secondary-background"
         }`}
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -151,32 +151,32 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
             ) : isCompleted ? (
               <CheckCircle2 className="w-10 h-10 text-green-700 shrink-0 mt-0.5" />
             ) : (
-              <Clock className="w-10 h-10 text-[#FC920D] shrink-0 mt-0.5" />
+              <Clock className="w-10 h-10 text-orange shrink-0 mt-0.5" />
             )}
 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span
-                  className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-md border-2 border-[#120F0A] ${
+                  className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-base border-2 border-border ${
                     isVoided
                       ? "bg-red-600 text-white"
                       : isCompleted
                       ? "bg-green-600 text-white"
-                      : "bg-[#FC920D] text-[#120F0A]"
+                      : "bg-orange text-foreground"
                   }`}
                 >
                   {isVoided ? "OFFICIALLY QUASHED & VOIDED" : isCompleted ? "CRYPTOGRAPHICALLY SEALED & VALID" : "OUT FOR SIGNATURE"}
                 </span>
 
                 {complianceReport && (
-                  <span className="text-[11px] font-bold bg-[#FAF8F5] text-[#120F0A] px-2.5 py-1 rounded-md border border-[#120F0A]">
-                    ⚖️ Statutory Score: {complianceReport.compliance_score}%
+                  <span className="text-[11px] font-bold font-heading bg-muted text-foreground px-2.5 py-1 rounded-base border border-border flex items-center gap-1">
+                    <Scale className="w-3 h-3" /> Statutory Score: {complianceReport.compliance_score}%
                   </span>
                 )}
               </div>
 
-              <h2 className="text-xl font-black text-[#120F0A] mt-2 font-heading">{data.title}</h2>
-              <div className="text-xs text-[#716F6C] font-mono mt-0.5">
+              <h2 className="text-xl font-black text-foreground mt-2 font-heading">{data.title}</h2>
+              <div className="text-xs text-muted-foreground font-mono mt-0.5">
                 Document ID: <b>{data.document_id}</b>
               </div>
             </div>
@@ -187,7 +187,7 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
               <a
                 href={`/api/signatures/requests/${data.document_id}/export-void`}
                 download
-                className="px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A] flex items-center gap-1.5 transition-all"
+                className="px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white font-bold font-heading text-xs border-2 border-border rounded-base shadow-shadow flex items-center gap-1.5 transition-all"
               >
                 <Download className="w-4 h-4" /> Download Revocation Certificate
               </a>
@@ -196,7 +196,7 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
                 href={`/api/signatures/requests/${data.document_id}/download`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2.5 bg-green-700 hover:bg-green-800 text-white font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A] flex items-center gap-1.5 transition-all"
+                className="px-4 py-2.5 bg-green-700 hover:bg-green-800 text-white font-bold font-heading text-xs border-2 border-border rounded-base shadow-shadow flex items-center gap-1.5 transition-all"
               >
                 <Download className="w-4 h-4" /> Download Executed PDF
               </a>
@@ -206,7 +206,7 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
         {/* Void notice if voided */}
         {isVoided && (
-          <div className="bg-red-100/70 border-2 border-red-800 p-4 rounded-xl text-xs text-red-950 font-medium space-y-1.5">
+          <div className="bg-red-100/70 border-2 border-red-800 p-4 rounded-base text-xs text-red-950 font-medium space-y-1.5">
             <div className="font-bold flex items-center gap-1.5 text-red-900">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               STATUTORY REVOCATION &amp; CANCELLATION NOTICE
@@ -218,38 +218,38 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
         )}
 
         {/* Checksum and Signatory Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t-2 border-[#120F0A] text-xs font-medium">
-          <div className="bg-[#FAF8F5] border-2 border-[#120F0A] p-3.5 rounded-xl shadow-[2px_2px_0px_0px_#120F0A]">
-            <span className="text-[#716F6C] font-bold block text-[10px] uppercase">Signatory Progress</span>
-            <div className="text-base font-black text-[#120F0A] mt-0.5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t-2 border-border text-xs font-medium">
+          <div className="bg-muted border-2 border-border p-3.5 rounded-base shadow-shadow">
+            <span className="text-muted-foreground font-bold block text-[10px] uppercase">Signatory Progress</span>
+            <div className="text-base font-black font-heading text-foreground mt-0.5">
               {data.completed_signatories} of {data.total_signatories} Completed
             </div>
           </div>
 
-          <div className="bg-[#FAF8F5] border-2 border-[#120F0A] p-3.5 rounded-xl shadow-[2px_2px_0px_0px_#120F0A]">
-            <span className="text-[#716F6C] font-bold block text-[10px] uppercase">Creation Timestamp</span>
-            <div className="text-xs font-mono font-bold text-[#120F0A] mt-1">
+          <div className="bg-muted border-2 border-border p-3.5 rounded-base shadow-shadow">
+            <span className="text-muted-foreground font-bold block text-[10px] uppercase">Creation Timestamp</span>
+            <div className="text-xs font-mono font-bold text-foreground mt-1">
               {data.created_at ? new Date(data.created_at).toUTCString() : "—"}
             </div>
           </div>
 
-          <div className="bg-[#FAF8F5] border-2 border-[#120F0A] p-3.5 rounded-xl shadow-[2px_2px_0px_0px_#120F0A]">
-            <span className="text-[#716F6C] font-bold block text-[10px] uppercase">Completion Timestamp</span>
-            <div className="text-xs font-mono font-bold text-[#120F0A] mt-1">
+          <div className="bg-muted border-2 border-border p-3.5 rounded-base shadow-shadow">
+            <span className="text-muted-foreground font-bold block text-[10px] uppercase">Completion Timestamp</span>
+            <div className="text-xs font-mono font-bold text-foreground mt-1">
               {data.completed_at ? new Date(data.completed_at).toUTCString() : "Pending Execution"}
             </div>
           </div>
 
-          <div className="md:col-span-3 bg-[#FAF8F5] border-2 border-[#120F0A] p-4 rounded-xl shadow-[2px_2px_0px_0px_#120F0A]">
+          <div className="md:col-span-3 bg-muted border-2 border-border p-4 rounded-base shadow-shadow">
             <div className="flex items-center justify-between">
-              <span className="text-[#716F6C] font-bold text-[10px] uppercase">
+              <span className="text-muted-foreground font-bold text-[10px] uppercase">
                 Cryptographic SHA-256 Checksum Digest
               </span>
-              <span className="text-[10px] text-green-800 font-bold bg-green-100 px-2 py-0.5 rounded border border-green-700">
-                🔒 Tamper-Evident
+              <span className="text-[10px] text-green-800 font-bold font-heading bg-green-100 px-2 py-0.5 rounded-full border border-green-700 flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Tamper-Evident
               </span>
             </div>
-            <div className="text-xs font-mono font-bold text-[#3C0A12] bg-white border border-[#120F0A] p-2.5 rounded-lg mt-2 break-all select-all">
+            <div className="text-xs font-mono font-bold text-burgundy bg-secondary-background border border-border p-2.5 rounded-base mt-2 break-all select-all">
               {data.document_hash || "Computing SHA-256 Hash..."}
             </div>
           </div>
@@ -258,10 +258,10 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
       {/* Signatories Roster (if present) */}
       {data.recipients && data.recipients.length > 0 && (
-        <div className="bg-white border-2 border-[#120F0A] p-6 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] space-y-4">
-          <div className="flex items-center gap-2 text-[#97192C]">
+        <div className="bg-secondary-background border-2 border-border p-6 rounded-base shadow-shadow space-y-4">
+          <div className="flex items-center gap-2 text-burgundy">
             <Users className="w-5 h-5" />
-            <h2 className="text-sm font-black uppercase tracking-wider text-[#120F0A]">
+            <h2 className="text-sm font-black font-heading uppercase tracking-wider text-foreground">
               Designated Signatories Roster
             </h2>
           </div>
@@ -270,12 +270,12 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
             {data.recipients.map((r: any, idx: number) => (
               <div
                 key={idx}
-                className="bg-[#FAF8F5] border-2 border-[#120F0A] p-3.5 rounded-xl text-xs space-y-1 shadow-[2px_2px_0px_0px_#120F0A]"
+                className="bg-muted border-2 border-border p-3.5 rounded-base text-xs space-y-1 shadow-shadow"
               >
                 <div className="flex items-center justify-between font-bold">
-                  <span className="text-[#120F0A]">{r.name}</span>
+                  <span className="font-heading text-foreground">{r.name}</span>
                   <span
-                    className={`uppercase text-[10px] px-2 py-0.5 rounded border ${
+                    className={`uppercase text-[10px] px-2 py-0.5 rounded-full border ${
                       r.status === "signed"
                         ? "bg-green-100 text-green-900 border-green-800 font-bold"
                         : r.status === "declined" || isVoided
@@ -286,7 +286,7 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
                     {isVoided && r.status !== "signed" ? "REVOKED" : r.status}
                   </span>
                 </div>
-                <div className="text-[11px] text-[#716F6C] font-mono">{r.email}</div>
+                <div className="text-[11px] text-muted-foreground font-mono">{r.email}</div>
                 {r.signed_at && (
                   <div className="text-[10px] text-green-800 font-medium">
                     Signed: {new Date(r.signed_at).toUTCString()}
@@ -300,35 +300,35 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
       {/* Statutory Legal Compliance Report (Interactive Accordion) */}
       {complianceReport && (
-        <div className="bg-white border-2 border-[#120F0A] p-6 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] space-y-4">
+        <div className="bg-secondary-background border-2 border-border p-6 rounded-base shadow-shadow space-y-4">
           <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowCompliance(!showCompliance)}>
-            <div className="flex items-center gap-2 text-[#97192C]">
+            <div className="flex items-center gap-2 text-burgundy">
               <Scale className="w-5 h-5" />
               <div>
-                <h2 className="text-sm font-black uppercase tracking-wider text-[#120F0A]">
+                <h2 className="text-sm font-black font-heading uppercase tracking-wider text-foreground">
                   Statutory Legal &amp; Regulatory Compliance Checks
                 </h2>
-                <p className="text-[11px] text-[#716F6C] font-medium">
+                <p className="text-[11px] text-muted-foreground font-medium">
                   Audited under Indian &amp; International Electronic Execution Standards
                 </p>
               </div>
             </div>
-            <button className="px-3 py-1.5 bg-[#FAF8F5] border-2 border-[#120F0A] rounded-xl text-xs font-bold shadow-[2px_2px_0px_0px_#120F0A]">
+            <button className="px-3 py-1.5 bg-muted border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow">
               {showCompliance ? "Hide Details" : "Inspect 6 Standards"}
             </button>
           </div>
 
           {showCompliance && (
-            <div className="pt-3 border-t-2 border-[#120F0A] space-y-3">
+            <div className="pt-3 border-t-2 border-border space-y-3">
               {complianceReport.checks.map((c: any, i: number) => (
                 <div
                   key={i}
-                  className="bg-[#FAF8F5] border-2 border-[#120F0A] p-3.5 rounded-xl space-y-1 shadow-[2px_2px_0px_0px_#120F0A] text-xs"
+                  className="bg-muted border-2 border-border p-3.5 rounded-base space-y-1 shadow-shadow text-xs"
                 >
                   <div className="flex items-center justify-between font-bold">
-                    <span className="text-[#120F0A] font-black">{c.title}</span>
+                    <span className="font-heading text-foreground font-black">{c.title}</span>
                     <span
-                      className={`text-[10px] uppercase font-black px-2 py-0.5 rounded border ${
+                      className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full border ${
                         c.passed
                           ? "bg-green-100 text-green-900 border-green-800"
                           : "bg-amber-100 text-amber-900 border-amber-800"
@@ -337,8 +337,8 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
                       {c.status}
                     </span>
                   </div>
-                  <div className="text-[10px] text-[#97192C] font-bold">{c.statutory_reference}</div>
-                  <div className="text-[#413F3B] text-[11px] leading-relaxed mt-1">{c.details}</div>
+                  <div className="text-[10px] text-burgundy font-bold">{c.statutory_reference}</div>
+                  <div className="text-foreground text-[11px] leading-relaxed mt-1">{c.details}</div>
                 </div>
               ))}
             </div>
@@ -348,10 +348,10 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
 
       {/* Chronological Audit Log */}
       {data.audit_trail && data.audit_trail.length > 0 && (
-        <div className="bg-white border-2 border-[#120F0A] p-6 rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] space-y-4">
-          <div className="flex items-center gap-2 text-[#97192C]">
+        <div className="bg-secondary-background border-2 border-border p-6 rounded-base shadow-shadow space-y-4">
+          <div className="flex items-center gap-2 text-burgundy">
             <Clock className="w-5 h-5" />
-            <h2 className="text-sm font-black uppercase tracking-wider text-[#120F0A]">
+            <h2 className="text-sm font-black font-heading uppercase tracking-wider text-foreground">
               Section 65B Chronological Audit Log
             </h2>
           </div>
@@ -359,19 +359,19 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
           <div className="space-y-3 relative before:absolute before:inset-0 before:left-3.5 before:w-0.5 before:bg-[#D0CFCE]">
             {data.audit_trail.map((log: any, i: number) => (
               <div key={i} className="flex items-start gap-4 relative z-10 pl-1">
-                <div className="w-6 h-6 rounded-full bg-[#FC920D] border-2 border-[#120F0A] flex items-center justify-center text-[10px] font-black text-[#120F0A]">
+                <div className="w-6 h-6 rounded-full bg-orange border-2 border-border flex items-center justify-center text-[10px] font-black font-heading text-foreground">
                   {i + 1}
                 </div>
-                <div className="flex-1 bg-[#FAF8F5] border-2 border-[#120F0A] p-3 rounded-xl shadow-[2px_2px_0px_0px_#120F0A] text-xs">
-                  <div className="flex items-center justify-between font-bold text-[#120F0A]">
-                    <span className="uppercase text-[#97192C] font-black">{log.action}</span>
-                    <span className="text-[10px] text-[#716F6C] font-mono">
+                <div className="flex-1 bg-muted border-2 border-border p-3 rounded-base shadow-shadow text-xs">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="uppercase text-burgundy font-black">{log.action}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
                       {new Date(log.created_at).toLocaleString()}
                     </span>
                   </div>
-                  <div className="mt-1 text-[#413F3B] font-medium leading-relaxed">{log.details}</div>
+                  <div className="mt-1 text-foreground font-medium leading-relaxed">{log.details}</div>
                   {log.ip_address && (
-                    <div className="mt-1 text-[10px] text-[#716F6C] font-mono">IP: {log.ip_address}</div>
+                    <div className="mt-1 text-[10px] text-muted-foreground font-mono">IP: {log.ip_address}</div>
                   )}
                 </div>
               </div>
