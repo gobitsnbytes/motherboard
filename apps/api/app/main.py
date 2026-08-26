@@ -61,9 +61,27 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         await asyncio.to_thread(_run_migrations)
         logger.info("Migrations complete.")
 
-        # Seed reference data
+        # Seed system configuration (no operational data)
         async with session_factory() as session:
             await run_seeds(session)
+
+        # Pull live operational data from Notion (forks + team). Best-effort:
+        # skipped when NOTION_TOKEN/NOTION_TEAM_DB are not configured.
+        try:
+            from app.provisioning.notion_sync import sync_forks_from_notion, sync_team_from_notion
+
+            async with session_factory() as session:
+                fork_sync = await sync_forks_from_notion(session)
+                team_sync = await sync_team_from_notion(session)
+            logger.info(
+                "Startup Notion sync: forks=%s (%s), team=%s (%s)",
+                fork_sync.get("status"),
+                fork_sync.get("synced_count", 0),
+                team_sync.get("status"),
+                team_sync.get("synced_count", 0),
+            )
+        except Exception as notion_err:
+            logger.warning("Startup Notion sync failed (non-fatal): %s", notion_err)
     except Exception as db_err:
         logger.warning("Primary DB migration/seed failed (%s). Initializing local SQLite engine fallback...", db_err)
         try:

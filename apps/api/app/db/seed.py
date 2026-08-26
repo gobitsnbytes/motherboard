@@ -1,16 +1,14 @@
 """
-Database seeder for bnb-motherboard platform (bootstrap fallback only).
+System configuration seeder for bnb-motherboard (bootstrap only).
 
-The canonical source of operational truth is Notion (fork registry + team DB via
-POST /api/sync/notion) and live Discord identity upserts on login. This seeder
-provides a safe bootstrap state for fresh environments:
+Seeds contain NO operational data. Forks and team members are pulled live from
+Notion (fork registry + team DB) at startup and via POST /api/sync/notion; user
+identities arrive through Discord OAuth upserts. This module provides:
 
 1. System Groups and Discord Role Mappings
-2. Ground-truth City Forks from the Notion Fork Registry (Lucknow HQ, Noida, Kolkata)
-3. Executive team profiles (placeholder Discord IDs reconcile to real identities
-   by email on first login or team sync)
-4. Section 8 Chart of Accounts structure with ZERO balances (no fictional money)
-5. 35 OKF Legal Rules covering IP assignment, minor safeguarding (POCSO/DPDP),
+2. Core permission registry
+3. Section 8 Chart of Accounts structure with ZERO balances
+4. 35 OKF Legal Rules covering IP assignment, minor safeguarding (POCSO/DPDP),
    non-profit tax exemption, and local fundraising limits.
 """
 
@@ -212,160 +210,6 @@ DISCORD_ROLE_MAPPINGS: list[tuple[str, str, str, bool, int]] = [
 ]
 
 # ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
-# 4. Real City Forks (Notion DB Ground Truth: HQ + Noida + Kolkata)
-# ---------------------------------------------------------------------------
-
-CITY_FORKS: list[dict[str, Any]] = [
-    {
-        "slug": "lucknow",
-        "city_name": "Lucknow (Pan-India HQ)",
-        "discord_city_role_id": "1490411988902477824",
-        "discord_contributor_role_id": None,
-        "is_active": True,
-        "metadata": {
-            "node_code": "HQ-01",
-            "is_hq": True,
-            "scale": "Pan-India",
-            "address": "Lucknow, Uttar Pradesh, India",
-            "status": "active"
-        },
-    },
-    {
-        "slug": "noida",
-        "city_name": "Bits&Bytes Noida",
-        "discord_city_role_id": "1490411548752085094",
-        "discord_contributor_role_id": None,
-        "is_active": True,
-        "metadata": {
-            "node_code": "FORK-01",
-            "lead_name": "Aryan Chauhan",
-            "lead_discord_id": "1116608716473638912",
-            "lead_email": "aryan22chauhan07@gmail.com",
-            "school": "GNIT IPU",
-            "health_score": 50,
-            "status": "active"
-        },
-    },
-    {
-        "slug": "kolkata",
-        "city_name": "Bits&Bytes Kolkata",
-        "discord_city_role_id": "1490413148543385822",
-        "discord_contributor_role_id": "1508767029593899160",
-        "is_active": True,
-        "metadata": {
-            "node_code": "FORK-02",
-            "lead_name": "Shoryavardhaan Gupta",
-            "lead_discord_id": "1232542226807128094",
-            "lead_email": "shoryavardhaan@gmail.com",
-            "school": "South Point High School",
-            "health_score": 45,
-            "status": "active"
-        },
-    },
-]
-
-# ---------------------------------------------------------------------------
-# 5. Real Team & Host Profiles (9 Executive Members)
-# ---------------------------------------------------------------------------
-
-TEAM_PROFILES: list[dict[str, Any]] = [
-    {
-        "display_name": "Yash Singh",
-        "email": "yash@gobitsnbytes.org",
-        "is_super_admin": True,
-        "discord_id": "1000000000000000001",
-        "discord_username": "yashclouded",
-        "global_name": "Yash Singh",
-        "role_title": "Chief Executive Officer (CEO)",
-        "group_slugs": ["sg_super_admin", "sg_executive", "sg_hq"],
-    },
-    {
-        "display_name": "Aadrika Maurya",
-        "email": "aadrika@gobitsnbytes.org",
-        "is_super_admin": True,
-        "discord_id": "1000000000000000002",
-        "discord_username": "aadrika",
-        "global_name": "Aadrika Maurya",
-        "role_title": "Chief Creative Officer (CCO) & Chief Operating Officer (COO)",
-        "group_slugs": ["sg_super_admin", "sg_executive", "sg_hq"],
-    },
-    {
-        "display_name": "Akshat Kushwaha",
-        "email": "akshat@gobitsnbytes.org",
-        "is_super_admin": True,
-        "discord_id": "1000000000000000003",
-        "discord_username": "a3ro.dev",
-        "global_name": "Akshat Kushwaha",
-        "role_title": "Chief Technology Officer (CTO)",
-        "group_slugs": ["sg_super_admin", "sg_executive", "sg_hq"],
-    },
-    {
-        "display_name": "Devaansh Pathak",
-        "email": "devaansh@gobitsnbytes.org",
-        "is_super_admin": False,
-        "discord_id": "1000000000000000004",
-        "discord_username": "devaansh",
-        "global_name": "Devaansh Pathak",
-        "role_title": "Chief Financial Officer (CFO)",
-        "group_slugs": ["sg_executive", "sg_hq"],
-    },
-    {
-        "display_name": "Drishti Arora",
-        "email": "drishti@gobitsnbytes.org",
-        "is_super_admin": False,
-        "discord_id": "1000000000000000005",
-        "discord_username": "drishti",
-        "global_name": "Drishti Arora",
-        "role_title": "Chief Growth Officer (CGO)",
-        "group_slugs": ["sg_executive", "sg_hq"],
-    },
-    {
-        "display_name": "Raghwender Vasisth",
-        "email": "raghwender@gobitsnbytes.org",
-        "is_super_admin": False,
-        "discord_id": "1000000000000000006",
-        "discord_username": "raghwender",
-        "global_name": "Raghwender Vasisth",
-        "role_title": "Head of Operations",
-        "group_slugs": ["sg_department_lead", "sg_hq"],
-    },
-    {
-        "display_name": "Maryam Fatima",
-        "email": "maryam@gobitsnbytes.org",
-        "is_super_admin": False,
-        "discord_id": "1000000000000000007",
-        "discord_username": "maryam",
-        "global_name": "Maryam Fatima",
-        "role_title": "Head of Brand & Media",
-        "group_slugs": ["sg_department_lead", "sg_hq"],
-    },
-    {
-        "display_name": "Srishti Singh",
-        "email": "srishti@gobitsnbytes.org",
-        "is_super_admin": False,
-        "discord_id": "1000000000000000008",
-        "discord_username": "srishti",
-        "global_name": "Srishti Singh",
-        "role_title": "Head of Partnerships & Institutional Relations",
-        "group_slugs": ["sg_department_lead", "sg_hq"],
-    },
-    {
-        "display_name": "Angel",
-        "email": "angel@gobitsnbytes.org",
-        "is_super_admin": False,
-        "discord_id": "1000000000000000009",
-        "discord_username": "rightangeled",
-        "global_name": "Angel",
-        "role_title": "Head of Research & Strategy",
-        "group_slugs": ["sg_department_lead", "sg_hq"],
-    },
-]
-
-# ---------------------------------------------------------------------------
-# 6. Section 8 Chart of Accounts
-# ---------------------------------------------------------------------------
-
 CHART_OF_ACCOUNTS: list[dict[str, Any]] = [
     {
         "name": "Grant Revenue",
@@ -740,120 +584,6 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
     logger.info("Seeded %d Discord role mappings.", len(DISCORD_ROLE_MAPPINGS))
 
 
-async def seed_city_forks(session: AsyncSession) -> None:
-    """Insert known city forks — idempotent on slug conflict. Archives (never deletes)
-    forks that are no longer ground truth, preserving member and audit history."""
-    valid_slugs = {f["slug"] for f in CITY_FORKS}
-    all_existing = await session.execute(text("SELECT id, slug, metadata FROM forks"))
-    for row in all_existing.fetchall():
-        if row.slug not in valid_slugs:
-            meta = row.metadata if isinstance(row.metadata, dict) else {}
-            meta["status"] = "archived_by_seed"
-            await session.execute(
-                text("UPDATE forks SET is_active = :is_active, metadata = :metadata WHERE id = :id"),
-                {"is_active": False, "metadata": json.dumps(meta), "id": str(row.id)},
-            )
-
-    for fork in CITY_FORKS:
-        await session.execute(
-            text(
-                """
-                INSERT INTO forks
-                    (id, slug, city_name, discord_city_role_id, discord_contributor_role_id,
-                     is_active, metadata)
-                VALUES (
-                    :id,
-                    :slug, :city_name,
-                    :discord_city_role_id,
-                    :discord_contributor_role_id,
-                    :is_active,
-                    :metadata
-                )
-                ON CONFLICT (slug) DO UPDATE SET
-                    is_active = EXCLUDED.is_active,
-                    metadata = EXCLUDED.metadata
-                """
-            ),
-            {
-                "id": str(uuid.uuid4()),
-                "slug": fork["slug"],
-                "city_name": fork["city_name"],
-                "discord_city_role_id": fork.get("discord_city_role_id"),
-                "discord_contributor_role_id": fork.get("discord_contributor_role_id"),
-                "is_active": fork.get("is_active", False),
-                "metadata": json.dumps(fork.get("metadata", {})),
-            },
-        )
-    logger.info("Seeded %d city forks from Notion DB ground truth (HQ, Noida, Kolkata).", len(CITY_FORKS))
-
-
-async def seed_team_profiles(session: AsyncSession) -> None:
-    """Insert real executive team profiles into users, discord_accounts, and memberships."""
-    for profile in TEAM_PROFILES:
-        # 1. User record
-        res = await session.execute(
-            text("SELECT id FROM users WHERE email = :email"),
-            {"email": profile["email"]},
-        )
-        row = res.fetchone()
-        if row:
-            user_id = row[0]
-        else:
-            user_id = str(uuid.uuid4())
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO users (id, display_name, email, is_active, is_super_admin, title, profile_completed)
-                    VALUES (:id, :display_name, :email, true, :is_super_admin, :title, true)
-                    """
-                ),
-                {
-                    "id": user_id,
-                    "display_name": profile["display_name"],
-                    "email": profile["email"],
-                    "is_super_admin": profile["is_super_admin"],
-                    "title": profile.get("role_name", "Core Executive"),
-                },
-            )
-
-        # 2. Discord Account
-        await session.execute(
-            text(
-                """
-                INSERT INTO discord_accounts (id, user_id, discord_id, username, global_name)
-                VALUES (:id, :user_id, :discord_id, :username, :global_name)
-                ON CONFLICT (discord_id) DO NOTHING
-                """
-            ),
-            {
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "discord_id": profile["discord_id"],
-                "username": profile["discord_username"],
-                "global_name": profile["global_name"],
-            },
-        )
-
-        # 3. Memberships
-        for slug in profile.get("group_slugs", []):
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO memberships (id, user_id, group_id, source)
-                    SELECT :id, :user_id, g.id, 'manual'
-                    FROM groups g WHERE g.slug = :slug
-                    ON CONFLICT (user_id, group_id) DO NOTHING
-                    """
-                ),
-                {
-                    "id": str(uuid.uuid4()),
-                    "user_id": user_id,
-                    "slug": slug,
-                },
-            )
-    logger.info("Seeded %d executive team profiles.", len(TEAM_PROFILES))
-
-
 async def seed_chart_of_accounts(session: AsyncSession) -> None:
     """Insert Section 8 Chart of Accounts into virtual_accounts."""
     # Find an owner user ID (CEO or super admin)
@@ -926,14 +656,14 @@ timestamp: 2026-08-04T00:00:00Z
 
 
 async def run_seeds(session: AsyncSession) -> None:
-    """Run real ground-truth infrastructure and OKF rules seeds (HQ + Noida + Kolkata city forks)."""
-    logger.info("Running ground-truth infrastructure and OKF seeds…")
+    """Seed system configuration only (groups, permissions, role mappings,
+    chart-of-accounts structure, OKF rules). Operational data (forks, team)
+    is pulled live from Notion via app.provisioning.notion_sync — never seeded."""
+    logger.info("Running system configuration seeds…")
     await seed_system_groups(session)
     await seed_core_permissions(session)
     await seed_discord_role_mappings(session)
-    await seed_city_forks(session)
-    await seed_team_profiles(session)
     await seed_chart_of_accounts(session)
     seed_okf_rules()
     await session.commit()
-    logger.info("Ground-truth infrastructure seeds completed successfully.")
+    logger.info("System configuration seeds completed successfully.")

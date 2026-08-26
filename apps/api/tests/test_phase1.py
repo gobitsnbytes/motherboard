@@ -369,13 +369,13 @@ class TestSeeder:
         assert "1506019068132462804" in ids  # Contributor
         assert "1480620981587279993" in ids  # Admin
 
-    async def test_city_forks_seeded(self, db: AsyncSession) -> None:
+    async def test_city_forks_not_seeded(self, db: AsyncSession) -> None:
+        """Operational data is never seeded — forks arrive via live Notion sync."""
         from app.db.models import Fork
         from app.db.seeder import run_seeds
         await run_seeds(db)
         result = await db.execute(select(Fork))
-        slugs = {f.slug for f in result.scalars().all()}
-        assert "lucknow" in slugs or "noida" in slugs or "kolkata" in slugs
+        assert result.scalars().all() == []
 
     async def test_seeder_idempotent(self, db: AsyncSession) -> None:
         """Running seeder again should not create duplicate permissions."""

@@ -1,25 +1,77 @@
 """Forks router — city fork management, member listing, onboarding pipeline, and compliance checks."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.db.models import Fork, ForkMember
+from app.db.models import Fork, ForkMember, User
 from app.dependencies import CurrentUserDep, DbSession
+from app.iam.audit import write_audit_entry
 from app.iam.policy import require_permission
 from app.schemas.forks import (
     ComplianceCheckItem,
     ForkComplianceCheckOut,
     ForkCreate,
+    ForkMemberCreate,
     ForkMemberOut,
+    ForkOnboardingDetailOut,
     ForkOnboardingItem,
     ForkOut,
+    ForkStageActionPayload,
     ForkUpdate,
+    OnboardingChecklistStepOut,
+    OnboardingStepUpdate,
 )
 
 router = APIRouter(prefix="/api/forks", tags=["forks"])
+
+# 7-step onboarding journey defined in the Network Governance Charter / IOM (§4.1).
+ONBOARDING_STEPS: list[dict[str, str]] = [
+    {"key": "github_invite", "label": "Accept GitHub organization invite"},
+    {"key": "leads_discord", "label": "Join the Leads Discord server"},
+    {"key": "email_setup", "label": "Set up [city]@gobitsnbytes.org email"},
+    {"key": "website_deploy", "label": "Deploy the local landing page"},
+    {"key": "notion_share", "label": "Share local Notion workspace with Upstream"},
+    {"key": "first_pulse", "label": "Submit first /pulse activity entry"},
+    {"key": "team_event_plan", "label": "Define core team & plan first event"},
+]
+
+# Stage progression: which steps must be complete to leave each stage.
+STAGE_EXIT_REQUIREMENTS: dict[str, list[str]] = {
+    "submitted": ["github_invite", "leads_discord"],
+    "in_review": ["email_setup", "website_deploy", "notion_share"],
+    # Approved additionally requires full compliance (checked at runtime).
+    "compliance_check": [
+        "github_invite",
+        "leads_discord",
+        "email_setup",
+        "website_deploy",
+        "notion_share",
+        "first_pulse",
+        "team_event_plan",
+    ],
+}
+STAGE_ORDER = ["submitted", "in_review", "compliance_check", "approved"]
+
+
+def _get_checklist(fork: Fork) -> list[OnboardingChecklistStepOut]:
+    saved = (fork.metadata_json or {}).get("onboarding_checklist", {})
+    steps: list[OnboardingChecklistStepOut] = []
+    for step in ONBOARDING_STEPS:
+        state = saved.get(step["key"], {}) if isinstance(saved, dict) else {}
+        steps.append(
+            OnboardingChecklistStepOut(
+                key=step["key"],
+                label=step["label"],
+                completed=bool(state.get("completed")),
+                completed_at=state.get("completed_at"),
+                completed_by=state.get("completed_by"),
+            )
+        )
+    return steps
 
 
 def evaluate_fork_compliance(fork: Fork, members: list[ForkMember]) -> ForkComplianceCheckOut:
@@ -225,21 +277,7 @@ async def list_forks_onboarding(
         members = list(members_result.scalars().all())
 
         compliance = evaluate_fork_compliance(fork, members)
-
-        meta = fork.metadata_json or {}
-        explicit_stage = meta.get("onboarding_stage")
-        if explicit_stage:
-            stage = explicit_stage
-        elif not fork.is_active:
-            stage = "archived"
-        elif compliance.overall_status == "compliant":
-            stage = "approved"
-        elif compliance.checks[1].passed:  # agreement signed
-            stage = "compliance_check"
-        elif compliance.checks[0].passed:  # s8 aligned
-            stage = "in_review"
-        else:
-            stage = "submitted"
+        stage = _current_stage(fork, compliance)
 
         assigned_track_count = sum(1 for lead in compliance.assigned_track_leads.values() if lead)
         remedies = [check.remedy for check in compliance.checks if check.remedy]
@@ -337,3 +375,340 @@ async def list_fork_members(
         select(ForkMember).where(ForkMember.fork_id == fork_id, ForkMember.is_active.is_(True))
     )
     return list(result.scalars().all())
+
+
+# ---------------------------------------------------------------------------
+# Onboarding pipeline (write surface)
+# ---------------------------------------------------------------------------
+
+
+async def _load_fork_or_404(db, fork_id: uuid.UUID) -> Fork:
+    # Always SELECT fresh: bulk updates elsewhere can leave identity-map
+    # instances expired, and db.get() would return them without repopulating.
+    result = await db.execute(select(Fork).where(Fork.id == fork_id))
+    fork = result.scalar_one_or_none()
+    if not fork:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fork not found.")
+    return fork
+
+
+def _current_stage(fork: Fork, compliance: ForkComplianceCheckOut) -> str:
+    """Resolve the effective onboarding stage.
+
+    Stage resolution order:
+    1. Explicit ``onboarding_stage`` recorded via the action endpoint (or seed).
+    2. Archived when inactive.
+    3. Progress-derived fallback for legacy rows with no explicit stage:
+       agreement signed -> compliance_check; S8 aligned -> in_review; else submitted.
+       Approval is NEVER inferred — completing the checklist alone does not
+       approve a fork; a human must record it.
+    """
+    meta = fork.metadata_json or {}
+    explicit_stage = meta.get("onboarding_stage")
+    if explicit_stage:
+        return explicit_stage
+    if not fork.is_active:
+        return "archived"
+    if compliance.checks[1].passed:  # agreement signed
+        return "compliance_check"
+    if compliance.checks[0].passed:  # s8 aligned
+        return "in_review"
+    return "submitted"
+
+
+@router.get("/{fork_id}/onboarding", response_model=ForkOnboardingDetailOut)
+async def get_fork_onboarding_detail(
+    fork_id: Annotated[uuid.UUID, ...],
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> ForkOnboardingDetailOut:
+    await require_permission(db, current_user, "forks.read")
+    fork = await _load_fork_or_404(db, fork_id)
+
+    members_result = await db.execute(
+        select(ForkMember).where(ForkMember.fork_id == fork.id, ForkMember.is_active.is_(True))
+    )
+    members = list(members_result.scalars().all())
+    compliance = evaluate_fork_compliance(fork, members)
+    stage = _current_stage(fork, compliance)
+    checklist = _get_checklist(fork)
+
+    next_stage: str | None = None
+    blockers: list[str] = []
+    if stage in STAGE_ORDER and stage != "approved":
+        idx = STAGE_ORDER.index(stage)
+        next_stage = STAGE_ORDER[idx + 1]
+        done = {s.key for s in checklist if s.completed}
+        for key in STAGE_EXIT_REQUIREMENTS.get(stage, []):
+            if key not in done:
+                label = next(s["label"] for s in ONBOARDING_STEPS if s["key"] == key)
+                blockers.append(label)
+        if next_stage == "approved" and compliance.overall_status != "compliant":
+            blockers.append("All statutory compliance checks must pass")
+
+    remedies = [check.remedy for check in compliance.checks if check.remedy]
+
+    return ForkOnboardingDetailOut(
+        fork_id=fork.id,
+        city_name=fork.city_name,
+        slug=fork.slug,
+        stage=stage,
+        checklist=checklist,
+        next_stage=next_stage,
+        next_stage_blockers=blockers,
+        health_score=compliance.health_score,
+        overall_status=compliance.overall_status,
+        remedies=remedies,
+    )
+
+
+@router.patch("/{fork_id}/onboarding/checklist/{step_key}", response_model=ForkOnboardingDetailOut)
+async def update_onboarding_step(
+    fork_id: Annotated[uuid.UUID, ...],
+    step_key: str,
+    payload: OnboardingStepUpdate,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> ForkOnboardingDetailOut:
+    await require_permission(db, current_user, "forks.write")
+    fork = await _load_fork_or_404(db, fork_id)
+
+    valid_keys = {step["key"] for step in ONBOARDING_STEPS}
+    if step_key not in valid_keys:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown onboarding step '{step_key}'.",
+        )
+
+    meta = dict(fork.metadata_json or {})
+    checklist_state = dict(meta.get("onboarding_checklist", {}))
+    step_state = dict(checklist_state.get(step_key, {}))
+    step_state["completed"] = payload.completed
+    step_state["completed_at"] = (
+        datetime.now(timezone.utc).isoformat() if payload.completed else None
+    )
+    step_state["completed_by"] = str(current_user.user_id) if payload.completed else None
+    checklist_state[step_key] = step_state
+    meta["onboarding_checklist"] = checklist_state
+    fork.metadata_json = meta
+
+    write_audit_entry(
+        db,
+        actor_id=current_user.user_id,
+        action="fork.onboarding.step_updated",
+        target_type="fork",
+        target_id=str(fork.id),
+        metadata={"step": step_key, "completed": payload.completed},
+    )
+    await db.commit()
+    await db.refresh(fork)
+    return await get_fork_onboarding_detail(fork_id, db, current_user)
+
+
+@router.post("/{fork_id}/onboarding/action", response_model=ForkOnboardingDetailOut)
+async def fork_onboarding_action(
+    fork_id: Annotated[uuid.UUID, ...],
+    payload: ForkStageActionPayload,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> ForkOnboardingDetailOut:
+    """Advance, reject, archive, or reactivate a fork through the onboarding pipeline."""
+    await require_permission(db, current_user, "forks.write")
+    fork = await _load_fork_or_404(db, fork_id)
+
+    members_result = await db.execute(
+        select(ForkMember).where(ForkMember.fork_id == fork.id, ForkMember.is_active.is_(True))
+    )
+    members = list(members_result.scalars().all())
+    compliance = evaluate_fork_compliance(fork, members)
+    stage = _current_stage(fork, compliance)
+    action = payload.action
+
+    meta = dict(fork.metadata_json or {})
+
+    if action == "advance":
+        if stage not in STAGE_ORDER or stage == "approved":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Fork at stage '{stage}' cannot be advanced.",
+            )
+        next_stage = STAGE_ORDER[STAGE_ORDER.index(stage) + 1]
+
+        detail = await get_fork_onboarding_detail(fork_id, db, current_user)
+        if detail.next_stage_blockers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": f"Cannot advance to '{next_stage}': requirements unmet.",
+                    "blockers": detail.next_stage_blockers,
+                },
+            )
+
+        meta["onboarding_stage"] = next_stage
+        if next_stage == "approved":
+            fork.is_active = True
+        write_audit_entry(
+            db,
+            actor_id=current_user.user_id,
+            action="fork.onboarding.advanced",
+            target_type="fork",
+            target_id=str(fork.id),
+            metadata={"from": stage, "to": next_stage},
+        )
+
+    elif action == "reject":
+        if stage == "approved":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Approved forks cannot be rejected. Archive instead.",
+            )
+        if not payload.reason:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A rejection reason is required.",
+            )
+        meta["onboarding_stage"] = "archived"
+        meta["archive_reason"] = payload.reason
+        fork.is_active = False
+        write_audit_entry(
+            db,
+            actor_id=current_user.user_id,
+            action="fork.onboarding.rejected",
+            target_type="fork",
+            target_id=str(fork.id),
+            metadata={"from": stage, "reason": payload.reason},
+        )
+
+    elif action == "archive":
+        if not payload.reason:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An archival reason is required.",
+            )
+        meta["onboarding_stage"] = "archived"
+        meta["archive_reason"] = payload.reason
+        fork.is_active = False
+        write_audit_entry(
+            db,
+            actor_id=current_user.user_id,
+            action="fork.onboarding.archived",
+            target_type="fork",
+            target_id=str(fork.id),
+            metadata={"from": stage, "reason": payload.reason},
+        )
+
+    elif action == "reactivate":
+        if fork.is_active and stage != "archived":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Fork is already active.",
+            )
+        meta["onboarding_stage"] = "submitted"
+        meta.pop("archive_reason", None)
+        fork.is_active = True
+        write_audit_entry(
+            db,
+            actor_id=current_user.user_id,
+            action="fork.onboarding.reactivated",
+            target_type="fork",
+            target_id=str(fork.id),
+            metadata={},
+        )
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="action must be one of: advance, reject, archive, reactivate",
+        )
+
+    fork.metadata_json = meta
+    await db.commit()
+    await db.refresh(fork)
+    return await get_fork_onboarding_detail(fork_id, db, current_user)
+
+
+# ---------------------------------------------------------------------------
+# Fork member writes
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{fork_id}/members", response_model=ForkMemberOut, status_code=status.HTTP_201_CREATED)
+async def add_fork_member(
+    fork_id: Annotated[uuid.UUID, ...],
+    payload: ForkMemberCreate,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> ForkMember:
+    await require_permission(db, current_user, "forks.members.write")
+    fork = await _load_fork_or_404(db, fork_id)
+
+    user = await db.get(User, payload.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    existing_result = await db.execute(
+        select(ForkMember).where(
+            ForkMember.fork_id == fork.id, ForkMember.user_id == payload.user_id
+        )
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing and existing.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User is already an active member of this fork.",
+        )
+    if existing:
+        existing.is_active = True
+        existing.local_role = payload.local_role
+        existing.track = payload.track
+        existing.left_at = None
+        member = existing
+    else:
+        member = ForkMember(
+            user_id=payload.user_id,
+            fork_id=fork.id,
+            track=payload.track,
+            local_role=payload.local_role,
+        )
+        db.add(member)
+
+    write_audit_entry(
+        db,
+        actor_id=current_user.user_id,
+        action="fork.member.added",
+        target_type="fork",
+        target_id=str(fork.id),
+        metadata={"member_user_id": str(payload.user_id), "local_role": payload.local_role},
+    )
+    await db.commit()
+    await db.refresh(member)
+    return member
+
+
+@router.delete("/{fork_id}/members/{member_id}", response_model=ForkMemberOut)
+async def remove_fork_member(
+    fork_id: Annotated[uuid.UUID, ...],
+    member_id: Annotated[uuid.UUID, ...],
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> ForkMember:
+    await require_permission(db, current_user, "forks.members.write")
+    await _load_fork_or_404(db, fork_id)
+
+    member = await db.get(ForkMember, member_id)
+    if not member or member.fork_id != fork_id or not member.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fork member not found.")
+
+    member.is_active = False
+    member.left_at = datetime.now(timezone.utc)
+    write_audit_entry(
+        db,
+        actor_id=current_user.user_id,
+        action="fork.member.removed",
+        target_type="fork",
+        target_id=str(fork_id),
+        metadata={"member_user_id": str(member.user_id)},
+    )
+    await db.commit()
+    await db.refresh(member)
+    return member

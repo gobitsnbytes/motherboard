@@ -84,3 +84,39 @@ class ForkOnboardingItem(BaseModel):
     member_count: int
     remedies_needed: list[str]
 
+
+class OnboardingChecklistStepOut(BaseModel):
+    key: str
+    label: str
+    completed: bool
+    completed_at: datetime | None = None
+    completed_by: str | None = None
+
+
+class OnboardingStepUpdate(BaseModel):
+    completed: bool
+
+
+class ForkOnboardingDetailOut(BaseModel):
+    fork_id: uuid.UUID
+    city_name: str
+    slug: str
+    stage: str
+    checklist: list[OnboardingChecklistStepOut]
+    next_stage: str | None
+    next_stage_blockers: list[str]
+    health_score: int
+    overall_status: str
+    remedies: list[str]
+
+
+class ForkStageActionPayload(BaseModel):
+    action: str  # "advance" | "reject" | "archive" | "reactivate"
+    reason: str | None = None
+
+
+class ForkMemberCreate(BaseModel):
+    user_id: uuid.UUID
+    track: str | None = None  # tech | creative | ops | outreach
+    local_role: str = "contributor"  # fork_lead | track_lead | contributor | community
+
