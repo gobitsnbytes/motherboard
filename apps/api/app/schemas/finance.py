@@ -175,6 +175,13 @@ class MoneyRequestOut(BaseModel):
     reviewed_by: uuid.UUID | None
     reviewed_at: datetime | None
     review_note: str | None
+    # Dual authorization (OKF Rule 35): populated when the request amount is at
+    # or above the configured threshold. approvals_count is the number of
+    # DISTINCT approvers recorded so far; funds move only when it reaches
+    # required_approvals.
+    dual_approval_required: bool = False
+    approvals_count: int = 0
+    required_approvals: int = 2
     created_at: datetime
     updated_at: datetime
 
@@ -252,10 +259,30 @@ class ExpenseReimbursementCreate(BaseModel):
 
 
 class Section8ComplianceOut(BaseModel):
-    """Schema for Foundation legal governance disclosures under Section 8 of Companies Act, 2013."""
+    """Schema for Foundation legal governance disclosures under Section 8 of Companies Act, 2013.
+
+    Activated by the GET /api/finance/compliance endpoint: hard-prohibition
+    attestations cite their governing rules (docs/legal_governance_rules.md
+    §3), the dual-authorization band mirrors live Settings, and the FY label /
+    open-commitment count reflect current ledger state.
+    """
     foundation_name: str
     licence_number: str
     incorporation_date: str
     corporate_status: str
     rules: list[dict[str, str]]
+    # Hard prohibitions — system attestations (True = control in place)
+    cash_collection_prohibited: bool = True
+    personal_upi_routing_prohibited: bool = True
+    local_bank_accounts_prohibited: bool = True
+    sponsorship_flows_upstream_first: bool = True
+    # Dual authorization band (OKF Rule 35)
+    dual_auth_threshold_paise: int
+    dual_auth_enabled: bool
+    # Financial year (1 April – 31 March)
+    fy_start_month: int = 4
+    current_fy: str
+    # Ledger state
+    open_requests_above_threshold: int
+    overall_status: Literal["compliant", "warning"]
 

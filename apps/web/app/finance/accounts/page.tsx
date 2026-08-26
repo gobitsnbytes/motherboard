@@ -13,6 +13,12 @@ interface Account {
 
 interface CreateForm { name: string; description: string; owner_id: string; }
 
+const inputClass =
+  "box-border w-full rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-white outline-none focus:border-orange";
+
+const labelClass =
+  "mb-1.5 block font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground";
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [users, setUsers] = useState<{ id: string; display_name: string }[]>([]);
@@ -62,62 +68,61 @@ export default function AccountsPage() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%", background: "#0d0d0d", border: "2px solid #2a2a2a", borderRadius: "3px",
-    padding: "9px 12px", color: "#fff", fontFamily: "Inter, sans-serif", fontSize: "13px",
-    outline: "none", boxSizing: "border-box",
-  };
-
   return (
-    <div style={{ fontFamily: "Inter, sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px" }}>
+    <div className="font-heading">
+      <div className="mb-7 flex items-start justify-between">
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: 0 }}>Virtual Accounts</h1>
-          <p style={{ fontSize: "12px", color: "#555", marginTop: "4px" }}>Paper bank accounts — no real money attached</p>
+          <h1 className="m-0 font-heading text-[22px] font-extrabold text-white">Virtual Accounts</h1>
+          <p className="mt-1 font-base text-xs text-muted-foreground">Paper bank accounts — no real money attached</p>
         </div>
         <button onClick={() => setShowCreate(true)}
-          style={{ padding: "9px 16px", background: "#fc920d", border: "2px solid #fc920d", borderRadius: "3px", color: "#000", fontWeight: 700, fontSize: "12px", cursor: "pointer", boxShadow: "3px 3px 0 0 rgba(252,146,13,0.4)" }}>
+          className="cursor-pointer rounded-base border-2 border-orange bg-orange px-4 py-2 font-heading text-xs font-bold text-black shadow-shadow transition-transform hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-none">
           + New Account
         </button>
       </div>
 
-      {error && <div style={{ background: "rgba(151,25,44,0.12)", border: "2px solid #97192c", borderRadius: "4px", padding: "12px 16px", marginBottom: "20px", fontSize: "13px", color: "#e57373" }}>{error}</div>}
+      {error && (
+        <div className="mb-5 rounded-base border-2 border-burgundy bg-burgundy/10 px-4 py-3 font-base text-[13px] text-red-300 shadow-shadow">
+          {error}
+        </div>
+      )}
 
       {showCreate && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            style={{ background: "#111", border: "2px solid #fc920d", borderRadius: "4px", padding: "28px", width: "420px", boxShadow: "6px 6px 0 0 rgba(252,146,13,0.3)" }}>
-            <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#fff", margin: "0 0 20px" }}>Create Virtual Account</h2>
-            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            className="w-[420px] rounded-base border-2 border-orange bg-main p-7"
+            style={{ boxShadow: "6px 6px 0 0 rgba(252,146,13,0.3)" }}>
+            <h2 className="m-0 mb-5 font-heading text-base font-extrabold text-white">Create Virtual Account</h2>
+            <form onSubmit={handleCreate} className="flex flex-col gap-3.5">
               <div>
-                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Account Name *</label>
-                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Delhi Fork Budget" style={inputStyle} />
+                <label className={labelClass}>Account Name *</label>
+                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Delhi Fork Budget" className={inputClass} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Description</label>
-                <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Optional description" style={inputStyle} />
+                <label className={labelClass}>Description</label>
+                <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Optional description" className={inputClass} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "5px" }}>Owner *</label>
+                <label className={labelClass}>Owner *</label>
                 {users.length > 0 ? (
-                  <select required value={form.owner_id} onChange={(e) => setForm((f) => ({ ...f, owner_id: e.target.value }))} style={{ ...inputStyle, padding: "9px 8px" }}>
+                  <select required value={form.owner_id} onChange={(e) => setForm((f) => ({ ...f, owner_id: e.target.value }))} className={`${inputClass} px-2`}>
                     <option value="">Select owner…</option>
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>{u.display_name}</option>
                     ))}
                   </select>
                 ) : (
-                  <input required value={form.owner_id} onChange={(e) => setForm((f) => ({ ...f, owner_id: e.target.value }))} placeholder="UUID of the account owner" style={inputStyle} />
+                  <input required value={form.owner_id} onChange={(e) => setForm((f) => ({ ...f, owner_id: e.target.value }))} placeholder="UUID of the account owner" className={inputClass} />
                 )}
               </div>
-              {formError && <div style={{ fontSize: "12px", color: "#ef4444" }}>{formError}</div>}
-              <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+              {formError && <div className="font-base text-xs text-red-500">{formError}</div>}
+              <div className="mt-1 flex gap-2.5">
                 <button type="submit" disabled={submitting}
-                  style={{ flex: 1, padding: "9px", background: "#fc920d", border: "2px solid #fc920d", borderRadius: "3px", color: "#000", fontWeight: 700, fontSize: "12px", cursor: "pointer", opacity: submitting ? 0.6 : 1 }}>
+                  className={`flex-1 rounded-base border-2 border-orange bg-orange py-2 font-heading text-xs font-bold text-black ${submitting ? "cursor-wait opacity-60" : "cursor-pointer"}`}>
                   {submitting ? "Creating…" : "Create"}
                 </button>
                 <button type="button" onClick={() => setShowCreate(false)}
-                  style={{ flex: 1, padding: "9px", background: "transparent", border: "2px solid #2a2a2a", borderRadius: "3px", color: "#888", fontWeight: 600, fontSize: "12px", cursor: "pointer" }}>
+                  className="flex-1 cursor-pointer rounded-base border-2 border-border bg-transparent py-2 font-heading text-xs font-semibold text-muted-foreground">
                   Cancel
                 </button>
               </div>
@@ -127,29 +132,25 @@ export default function AccountsPage() {
       )}
 
       {loading ? (
-        <div style={{ color: "#333", fontSize: "13px" }}>Loading accounts…</div>
+        <div className="font-base text-[13px] text-muted-foreground/50">Loading accounts…</div>
       ) : accounts.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px", border: "2px dashed #1e1e1e", borderRadius: "4px", color: "#333" }}>
-          <div style={{ fontSize: "14px", marginBottom: "8px" }}>No virtual accounts yet</div>
-          <div style={{ fontSize: "12px" }}>Create one to start tracking virtual funds</div>
+        <div className="rounded-base border-2 border-dashed border-border p-[60px_20px] text-center font-base text-muted-foreground/50">
+          <div className="mb-2 text-sm">No virtual accounts yet</div>
+          <div className="text-xs">Create one to start tracking virtual funds</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
           {accounts.map((a, i) => (
             <motion.div key={a.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Link href={`/finance/accounts/${a.id}`} style={{ textDecoration: "none" }}>
-                <div
-                  style={{ background: "#111", border: "2px solid #1e1e1e", borderRadius: "4px", padding: "20px", cursor: "pointer", boxShadow: "4px 4px 0 0 #0a0a0a", transition: "box-shadow 150ms, border-color 150ms", position: "relative" }}
-                  onMouseEnter={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.boxShadow = "4px 4px 0 0 #fc920d"; el.style.borderColor = "#fc920d"; }}
-                  onMouseLeave={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.boxShadow = "4px 4px 0 0 #0a0a0a"; el.style.borderColor = "#1e1e1e"; }}
-                >
-                  <div style={{ position: "absolute", top: "14px", right: "14px", width: "7px", height: "7px", borderRadius: "50%", background: a.is_active ? "#22c55e" : "#555" }} />
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#eee", marginBottom: "4px" }}>{a.name}</div>
-                  {a.description && <div style={{ fontSize: "11px", color: "#555", marginBottom: "12px" }}>{a.description}</div>}
-                  <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#444", marginBottom: "14px" }}>
+              <Link href={`/finance/accounts/${a.id}`} className="group block no-underline">
+                <div className="relative cursor-pointer rounded-base border-2 border-border bg-main p-5 shadow-shadow transition-all duration-150 group-hover:border-orange group-hover:shadow-[4px_4px_0_0_#fc920d]">
+                  <div className={`absolute right-3.5 top-3.5 size-[7px] rounded-full ${a.is_active ? "bg-green-500" : "bg-muted-foreground/50"}`} />
+                  <div className="mb-1 font-heading text-sm font-bold text-white/90">{a.name}</div>
+                  {a.description && <div className="mb-3 font-base text-[11px] text-muted-foreground">{a.description}</div>}
+                  <div className="mb-3.5 font-mono text-[11px] text-muted-foreground/60">
                     {a.account_number.replace(/(\d{4})/g, "$1 ").trim()} · {a.ifsc}
                   </div>
-                  <div style={{ fontSize: "20px", fontWeight: 800, color: a.balance_rupees >= 0 ? "#22c55e" : "#ef4444" }}>
+                  <div className={`font-heading text-xl font-extrabold ${a.balance_rupees >= 0 ? "text-green-500" : "text-red-500"}`}>
                     ₹{a.balance_rupees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </div>
                 </div>

@@ -60,22 +60,12 @@ export default function FinanceSidebar() {
 
   return (
     <aside
-      style={{
-        width: collapsed ? "64px" : "220px",
-        transition: "width 220ms cubic-bezier(0.4,0,0.2,1)",
-        background: "#111111",
-        borderRight: "2px solid #1e1e1e",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-        position: "relative",
-        zIndex: 10,
-      }}
+      className={`relative z-10 flex shrink-0 flex-col border-r-2 border-border bg-main transition-[width] duration-200 ${collapsed ? "w-16" : "w-[220px]"}`}
     >
       {/* Logo area */}
-      <div style={{ padding: "20px 16px 16px", borderBottom: "2px solid #1e1e1e" }}>
-        <Link href="/finance/dashboard" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-          <img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" style={{ width: "28px", height: "auto", flexShrink: 0 }} />
+      <div className="border-b-2 border-border px-4 pb-4 pt-5">
+        <Link href="/finance/dashboard" className="flex items-center gap-2.5 no-underline">
+          <img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" className="h-auto w-7 shrink-0" />
           <AnimatePresence>
             {!collapsed && (
               <motion.span
@@ -83,7 +73,7 @@ export default function FinanceSidebar() {
                 animate={{ opacity: 1, width: "auto" }}
                 exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.15 }}
-                style={{ fontFamily: "Inter, sans-serif", fontWeight: 800, fontSize: "13px", color: "#ffffff", letterSpacing: "0.05em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden" }}
+                className="overflow-hidden whitespace-nowrap font-heading text-[13px] font-extrabold uppercase tracking-[0.05em] text-white"
               >
                 Finance
               </motion.span>
@@ -93,34 +83,20 @@ export default function FinanceSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: "4px" }}>
+      <nav className="flex flex-1 flex-col gap-1 p-2.5">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}
               href={item.href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "9px 10px",
-                borderRadius: "4px",
-                border: active ? "2px solid #fc920d" : "2px solid transparent",
-                background: active ? "rgba(252,146,13,0.1)" : "transparent",
-                color: active ? "#fc920d" : "#9a9a9a",
-                textDecoration: "none",
-                fontFamily: "Inter, sans-serif",
-                fontWeight: active ? 700 : 500,
-                fontSize: "13px",
-                letterSpacing: "0.02em",
-                boxShadow: active ? "3px 3px 0 0 rgba(252,146,13,0.3)" : "none",
-                transition: "all 150ms ease",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              }}
+              className={`flex items-center gap-2.5 whitespace-nowrap overflow-hidden rounded-base border-2 px-2.5 py-2 font-heading text-[13px] no-underline transition-all duration-150 ${
+                active
+                  ? "border-orange bg-orange/10 font-bold text-orange shadow-shadow"
+                  : "border-transparent font-medium text-muted-foreground hover:border-border hover:text-foreground"
+              }`}
             >
-              <span style={{ flexShrink: 0 }}>{item.icon}</span>
+              <span className="shrink-0">{item.icon}</span>
               <AnimatePresence>
                 {!collapsed && (
                   <motion.span
@@ -128,7 +104,7 @@ export default function FinanceSidebar() {
                     animate={{ opacity: 1, width: "auto" }}
                     exit={{ opacity: 0, width: 0 }}
                     transition={{ duration: 0.12 }}
-                    style={{ overflow: "hidden" }}
+                    className="overflow-hidden"
                   >
                     {item.label}
                   </motion.span>
@@ -142,19 +118,7 @@ export default function FinanceSidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed((c) => !c)}
-        style={{
-          margin: "12px 10px",
-          padding: "8px",
-          background: "transparent",
-          border: "2px solid #2a2a2a",
-          borderRadius: "4px",
-          color: "#555",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "border-color 150ms, color 150ms",
-        }}
+        className="mx-2.5 mb-3 flex items-center justify-center rounded-base border-2 border-border bg-transparent p-2 text-muted-foreground transition-colors duration-150 hover:border-orange hover:text-orange"
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -166,11 +130,11 @@ export default function FinanceSidebar() {
 
       {/* Bottom label */}
       {!collapsed && (
-        <div style={{ padding: "10px 16px 14px", borderTop: "2px solid #1e1e1e" }}>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "#333", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+        <div className="border-t-2 border-border px-4 pb-3.5 pt-2.5">
+          <div className="font-heading text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
             GOBITSNBYTES FOUNDATION
           </div>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "#2a2a2a", marginTop: "2px" }}>
+          <div className="mt-0.5 font-heading text-[9px] text-muted-foreground/60">
             Powered by RazorpayX
           </div>
         </div>

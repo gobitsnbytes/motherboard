@@ -8,85 +8,33 @@ export const metadata = {
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden",
-        background: "#0a0a0a",
-        color: "#ffffff",
-      }}
-    >
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-base">
       {/* Sidebar */}
       <FinanceSidebar />
 
       {/* Main content area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header
-          style={{
-            height: "56px",
-            borderBottom: "2px solid #1e1e1e",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 24px",
-            flexShrink: 0,
-            background: "#0d0d0d",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span
-              style={{
-                fontFamily: "Inter, sans-serif",
-                fontSize: "11px",
-                fontWeight: 700,
-                color: "#fc920d",
-                textTransform: "uppercase",
-                letterSpacing: "0.15em",
-                border: "1.5px solid rgba(252,146,13,0.35)",
-                padding: "3px 8px",
-                borderRadius: "3px",
-                background: "rgba(252,146,13,0.08)",
-              }}
-            >
+        <header className="flex h-14 shrink-0 items-center justify-between border-b-2 border-border bg-main px-6">
+          <div className="flex items-center gap-3">
+            <span className="rounded-base border-2 border-orange/35 bg-orange/10 px-2 py-0.5 font-heading text-[11px] font-bold uppercase tracking-[0.15em] text-orange">
               Finance Portal
             </span>
-            <span
-              style={{
-                fontFamily: "Inter, sans-serif",
-                fontSize: "10px",
-                color: "#333",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-              }}
-            >
+            <span className="font-heading text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
               Virtual Ledger · Paper Accounts Only
             </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: "#22c55e",
-                display: "inline-block",
-                boxShadow: "0 0 6px rgba(34,197,94,0.5)",
-              }}
-            />
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "#555", letterSpacing: "0.05em" }}>
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+            <span className="font-heading text-[11px] tracking-[0.05em] text-muted-foreground">
               GOBITSNBYTES FOUNDATION
             </span>
           </div>
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflow: "auto", padding: "28px" }}>
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-7">{children}</main>
       </div>
     </div>
   );
