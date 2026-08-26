@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2, Mail, ScrollText, Stamp } from "lucide-react";
+import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2, Mail, ScrollText, Stamp, Inbox, LayoutList } from "lucide-react";
 import SignatureAuditModal from "components/signatures/SignatureAuditModal";
+import LegalAgentPanel from "components/signatures/LegalAgentPanel";
 
 interface SignatureRequestItem {
   id: string;
@@ -27,6 +28,7 @@ export default function SignaturesDashboardPage() {
   const [requests, setRequests] = useState<SignatureRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "completed">("all");
+  const [view, setView] = useState<"contracts" | "agent">("contracts");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [auditRequestId, setAuditRequestId] = useState<string | null>(null);
@@ -179,56 +181,82 @@ export default function SignaturesDashboardPage() {
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Action Error Banner */}
       {actionError && (
-        <div className="p-3 bg-red-950 border-2 border-red-500 rounded-xl text-red-200 text-xs font-bold flex items-center justify-between shadow-[3px_3px_0px_0px_#120F0A]">
+        <div className="p-3 bg-red-950 border-2 border-red-500 rounded-base text-red-200 text-xs font-bold flex items-center justify-between shadow-shadow">
           <span>{actionError}</span>
           <button onClick={() => setActionError(null)} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
         </div>
       )}
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#3C0A12] text-white p-6 rounded-2xl border-2 border-[#120F0A] shadow-[6px_6px_0px_0px_#120F0A]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-burgundy text-white p-6 rounded-base border-2 border-border shadow-shadow">
         <div>
           <h1 className="text-2xl font-black tracking-tight font-sans">Digital Signatures &amp; Contracts</h1>
-          <p className="text-xs text-[#FED39E] mt-1 font-medium">
+          <p className="text-xs text-orange mt-1 font-medium">
             Cryptographic, legally-binding contract workflow management (`bnb-signatures`).
           </p>
         </div>
         <Link
           href="/dashboard/signatures/builder"
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#FC920D] text-[#120F0A] font-bold text-xs border-2 border-[#120F0A] rounded-xl shadow-[3px_3px_0px_0px_#120F0A] hover:translate-y-[-2px] transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 bg-orange text-dark font-bold text-xs border-2 border-border rounded-base shadow-shadow hover:translate-y-[-2px] transition-all"
         >
           <Plus className="w-4 h-4" /> New Signature Request
         </Link>
       </div>
 
+      {/* View Toggle: Contracts | Legal Agent Inbox */}
+      <div className="flex w-fit items-center gap-2 rounded-base border-2 border-border bg-white p-1 shadow-shadow">
+        <button
+          type="button"
+          onClick={() => setView("contracts")}
+          className={`flex items-center gap-1.5 rounded-base px-4 py-1.5 text-xs font-bold transition-all ${
+            view === "contracts" ? "bg-burgundy text-main-foreground" : "text-dark hover:bg-gray-100"
+          }`}
+        >
+          <LayoutList className="w-3.5 h-3.5" /> Contracts
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("agent")}
+          className={`flex items-center gap-1.5 rounded-base px-4 py-1.5 text-xs font-bold transition-all ${
+            view === "agent" ? "bg-burgundy text-main-foreground" : "text-dark hover:bg-gray-100"
+          }`}
+        >
+          <Inbox className="w-3.5 h-3.5" /> Legal Agent Inbox
+        </button>
+      </div>
+
+      {view === "agent" && <LegalAgentPanel />}
+
+      {view === "contracts" && (
+      <>
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border-2 border-[#120F0A] p-4 rounded-xl shadow-[4px_4px_0px_0px_#120F0A] flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-[#FEE9CF] border border-[#120F0A] flex items-center justify-center text-[#97192C]">
+        <div className="bg-white border-2 border-border p-4 rounded-base shadow-shadow flex items-center gap-4">
+          <div className="w-10 h-10 rounded-base bg-burgundy/10 border border-border flex items-center justify-center text-burgundy">
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-black text-[#120F0A]">{totalCount}</div>
+            <div className="text-2xl font-black text-dark">{totalCount}</div>
             <div className="text-xs font-bold text-[#716F6C] uppercase tracking-wider">Total Contracts</div>
           </div>
         </div>
 
-        <div className="bg-white border-2 border-[#120F0A] p-4 rounded-xl shadow-[4px_4px_0px_0px_#120F0A] flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-[#FED39E] border border-[#120F0A] flex items-center justify-center text-[#FC920D]">
+        <div className="bg-white border-2 border-border p-4 rounded-base shadow-shadow flex items-center gap-4">
+          <div className="w-10 h-10 rounded-base bg-orange/10 border border-border flex items-center justify-center text-orange">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-black text-[#120F0A]">{pendingCount}</div>
+            <div className="text-2xl font-black text-dark">{pendingCount}</div>
             <div className="text-xs font-bold text-[#716F6C] uppercase tracking-wider">Pending Outbound</div>
           </div>
         </div>
 
-        <div className="bg-white border-2 border-[#120F0A] p-4 rounded-xl shadow-[4px_4px_0px_0px_#120F0A] flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-[#EFECE6] border border-[#120F0A] flex items-center justify-center text-green-700">
+        <div className="bg-white border-2 border-border p-4 rounded-base shadow-shadow flex items-center gap-4">
+          <div className="w-10 h-10 rounded-base bg-[#EFECE6] border border-border flex items-center justify-center text-green-700">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-black text-[#120F0A]">{completedCount}</div>
+            <div className="text-2xl font-black text-dark">{completedCount}</div>
             <div className="text-xs font-bold text-[#716F6C] uppercase tracking-wider">Executed &amp; Sealed</div>
           </div>
         </div>
@@ -236,12 +264,12 @@ export default function SignaturesDashboardPage() {
 
       {/* Search & Tabs Controls */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 bg-white border-2 border-[#120F0A] p-1 rounded-xl shadow-[2px_2px_0px_0px_#120F0A]">
+        <div className="flex items-center gap-2 bg-white border-2 border-border p-1 rounded-base shadow-shadow">
           <button
             type="button"
             onClick={() => setActiveTab("all")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === "all" ? "bg-[#97192C] text-white" : "text-[#413F3B] hover:bg-gray-100"
+            className={`px-4 py-1.5 rounded-base text-xs font-bold transition-all ${
+              activeTab === "all" ? "bg-burgundy text-white" : "text-[#413F3B] hover:bg-gray-100"
             }`}
           >
             All Contracts ({totalCount})
@@ -249,8 +277,8 @@ export default function SignaturesDashboardPage() {
           <button
             type="button"
             onClick={() => setActiveTab("pending")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === "pending" ? "bg-[#97192C] text-white" : "text-[#413F3B] hover:bg-gray-100"
+            className={`px-4 py-1.5 rounded-base text-xs font-bold transition-all ${
+              activeTab === "pending" ? "bg-burgundy text-white" : "text-[#413F3B] hover:bg-gray-100"
             }`}
           >
             Pending ({pendingCount})
@@ -258,8 +286,8 @@ export default function SignaturesDashboardPage() {
           <button
             type="button"
             onClick={() => setActiveTab("completed")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === "completed" ? "bg-[#97192C] text-white" : "text-[#413F3B] hover:bg-gray-100"
+            className={`px-4 py-1.5 rounded-base text-xs font-bold transition-all ${
+              activeTab === "completed" ? "bg-burgundy text-white" : "text-[#413F3B] hover:bg-gray-100"
             }`}
           >
             Completed ({completedCount})
@@ -273,25 +301,25 @@ export default function SignaturesDashboardPage() {
             placeholder="Search contracts by title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-white border-2 border-[#120F0A] rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#97192C] shadow-[2px_2px_0px_0px_#120F0A]"
+            className="w-full pl-9 pr-3 py-2 bg-white border-2 border-border rounded-base text-xs font-medium focus:outline-none focus:ring-2 focus:ring-burgundy shadow-shadow"
           />
         </div>
       </div>
 
       {/* Contracts Table */}
-      <div className="bg-white border-2 border-[#120F0A] rounded-2xl shadow-[6px_6px_0px_0px_#120F0A] overflow-hidden">
+      <div className="bg-white border-2 border-border rounded-base shadow-shadow overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-xs font-bold text-[#716F6C]">Loading signature contracts...</div>
         ) : filteredRequests.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <FileText className="w-10 h-10 mx-auto text-[#716F6C]" />
-            <div className="text-sm font-bold text-[#120F0A]">No signature requests found</div>
+            <div className="text-sm font-bold text-dark">No signature requests found</div>
             <p className="text-xs text-[#716F6C]">Get started by creating your first digital contract signature request.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#FAF8F5] border-b-2 border-[#120F0A] uppercase tracking-wider font-bold text-[#716F6C]">
+              <thead className="bg-blank border-b-2 border-border uppercase tracking-wider font-bold text-main-foreground">
                 <tr>
                   <th className="p-4">Document Title</th>
                   <th className="p-4">Status</th>
@@ -302,9 +330,9 @@ export default function SignaturesDashboardPage() {
               </thead>
               <tbody className="divide-y divide-[#D0CFCE]">
                 {filteredRequests.map((req) => (
-                  <tr key={req.id} className="hover:bg-[#FEE9CF]/30 transition-colors font-medium">
+                  <tr key={req.id} className="hover:bg-blank/5 transition-colors font-medium">
                     <td className="p-4">
-                      <div className="font-bold text-[#120F0A] text-sm">{req.title}</div>
+                      <div className="font-bold text-dark text-sm">{req.title}</div>
                       {req.document_hash && (
                         <div className="text-[10px] text-[#716F6C] font-mono mt-0.5 truncate max-w-xs">
                           SHA256: {req.document_hash}
@@ -334,14 +362,14 @@ export default function SignaturesDashboardPage() {
                           return (
                             <div key={r.id} className="flex items-center gap-2 text-xs">
                               <span
-                                className={`w-2.5 h-2.5 rounded-full border border-[#120F0A] shrink-0 ${
+                                className={`w-2.5 h-2.5 rounded-full border border-border shrink-0 ${
                                   r.status === "signed" ? "bg-green-500" : "bg-amber-400"
                                 }`}
                                 title={r.status}
                               />
-                              <span className="font-bold text-[#120F0A] truncate max-w-[120px]">{r.name}</span>
+                              <span className="font-bold text-dark truncate max-w-[120px]">{r.name}</span>
                               {isOrg && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-[#120F0A] bg-[#FC920D] text-[9px] font-black uppercase text-[#120F0A]">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-orange text-[9px] font-black uppercase text-dark">
                                   <Stamp className="w-2.5 h-2.5" /> Org Seal {r.status === "signed" ? "✓" : "Pending"}
                                 </span>
                               )}
@@ -352,7 +380,7 @@ export default function SignaturesDashboardPage() {
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold transition-all ${
                                   isCopied
                                     ? "bg-green-600 text-white border-green-800"
-                                    : "bg-[#FEE9CF] text-[#120F0A] border-[#120F0A] hover:bg-[#FC920D]"
+                                    : "bg-orange/10 text-dark border-border hover:bg-orange"
                                 }`}
                                 title="Copy direct signing link"
                               >
@@ -365,7 +393,7 @@ export default function SignaturesDashboardPage() {
                                   type="button"
                                   onClick={() => handleResend(req.id, r.id)}
                                   disabled={resendingId === r.id}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold transition-all bg-[#3C0A12] text-white border-[#120F0A] hover:bg-[#97192C] disabled:opacity-50"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold transition-all bg-dark text-white border-border hover:bg-burgundy disabled:opacity-50"
                                   title="Resend signature email notification"
                                 >
                                   <Mail className="w-3 h-3" />
@@ -388,7 +416,7 @@ export default function SignaturesDashboardPage() {
                       <button
                         type="button"
                         onClick={() => setAuditRequestId(req.id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold text-[#120F0A] hover:bg-gray-100 shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border-2 border-border rounded-base text-[11px] font-bold text-dark hover:bg-gray-100 shadow-shadow"
                         title="View signature audit trail"
                       >
                         <ScrollText className="w-3 h-3" /> Audit
@@ -398,7 +426,7 @@ export default function SignaturesDashboardPage() {
                           type="button"
                           onClick={() => handleCountersign(req.id)}
                           disabled={sealingId === req.id}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#FC920D] text-[#120F0A] border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A] hover:bg-[#FED39E] disabled:opacity-50"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange text-dark border-2 border-border rounded-base text-[11px] font-bold shadow-shadow hover:bg-orange/90 disabled:opacity-50"
                           title="Execute legal@gobitsnbytes.org counter-signature (delegated authority)"
                         >
                           <Stamp className="w-3 h-3" />
@@ -409,13 +437,13 @@ export default function SignaturesDashboardPage() {
                         href={`/api/signatures/requests/${req.id}/download`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold text-[#120F0A] hover:bg-gray-100 shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border-2 border-border rounded-base text-[11px] font-bold text-dark hover:bg-gray-100 shadow-shadow"
                       >
                         <Download className="w-3 h-3" /> PDF
                       </a>
                       <Link
                         href={`/verify/${req.document_hash || req.id}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#97192C] text-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-burgundy text-white border-2 border-border rounded-base text-[11px] font-bold shadow-shadow"
                       >
                         <ShieldCheck className="w-3 h-3" /> Verify
                       </Link>
@@ -423,16 +451,16 @@ export default function SignaturesDashboardPage() {
                         <button
                           type="button"
                           onClick={() => handleVoid(req.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#FEE9CF] hover:bg-[#FED39E] text-red-900 border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blank hover:bg-red-500/10 text-main-foreground border-2 border-border rounded-base text-[11px] font-bold shadow-shadow"
                           title="Void / Quash agreement"
                         >
-                          <XCircle className="w-3 h-3 text-red-700" /> Void
+                          <XCircle className="w-3 h-3 text-red-400" /> Void
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => handleDelete(req.id)}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-red-800 hover:bg-red-900 text-white border-2 border-[#120F0A] rounded-lg text-[11px] font-bold shadow-[1.5px_1.5px_0px_0px_#120F0A]"
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-red-800 hover:bg-red-900 text-white border-2 border-border rounded-base text-[11px] font-bold shadow-shadow"
                         title="Download voided copy and permanently delete record"
                       >
                         <Trash2 className="w-3 h-3" /> Delete
@@ -445,6 +473,8 @@ export default function SignaturesDashboardPage() {
           </div>
         )}
       </div>
+      </>
+      )}
       <SignatureAuditModal
         requestId={auditRequestId}
         onClose={() => setAuditRequestId(null)}

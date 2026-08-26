@@ -123,6 +123,13 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             bot_token=settings.discord_bot_token,
         )
 
+    # Start Legal Agent jobs (inbox poller + signature nudge sequencer)
+    try:
+        from app.services.legal_agent import start_legal_agent_jobs
+        await start_legal_agent_jobs()
+    except Exception as legal_agent_err:
+        logger.warning(f"Legal Agent scheduler startup skipped: {legal_agent_err}")
+
     logger.info("bnb-api is ready.")
     yield
 
@@ -131,6 +138,13 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     if settings.enable_sync_scheduler:
         from app.provisioning.scheduler import stop_scheduler
         await stop_scheduler()
+
+    # Stop Legal Agent scheduler
+    try:
+        from app.services.legal_agent import stop_legal_agent_jobs
+        await stop_legal_agent_jobs()
+    except Exception as legal_agent_stop_err:
+        logger.warning(f"Legal Agent scheduler shutdown skipped: {legal_agent_stop_err}")
 
     # Unload plugins and trigger their on_unload hooks BEFORE stopping event_bus
     if hasattr(application.state, "plugin_loader"):

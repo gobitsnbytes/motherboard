@@ -10,7 +10,7 @@ import re
 import uuid
 import logging
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -262,9 +262,12 @@ async def _sync_signature_request_to_ca_contract(db: DbSession, sig_req: Signatu
 @router.get("/contracts")
 async def list_pipeline_contracts(
     db: DbSession,
+    source: Optional[str] = None,
     current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
 ):
-    """List all pipeline contracts with real database metrics (merging ca_contracts & signature_requests)."""
+    """List all pipeline contracts with real database metrics (merging ca_contracts & signature_requests).
+
+    ``?source=inbound_email`` restricts to contracts ingested from the legal inbox."""
     # Auto-sync any unlinked SignatureRequest entries
     sig_stmt = (
         select(SignatureRequest)
@@ -295,6 +298,9 @@ async def list_pipeline_contracts(
     )
     result = await db.execute(stmt)
     contracts = result.scalars().all()
+
+    if (source or "").strip().lower() == "inbound_email":
+        contracts = [c for c in contracts if c.message_id]
 
     output = []
     now = datetime.now(timezone.utc)
@@ -431,21 +437,21 @@ async def get_contract_detail(
     }
 
 
-@router.post("/analyze", response_model=ContractAnalysisResponse)
-async def analyze_contract_file(
+async def analyze_contract_bytes(
     db: DbSession,
-    file: UploadFile = File(...),
-    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
-):
-    """Parse document (.pdf or .docx), run 2-pass analysis (OKF Rule Engine + SparkCloud AI), and persist to DB."""
-    contents = await file.read()
-    filename = file.filename or "contract.pdf"
-
+    filename: str,
+    content: bytes,
+    source: str = "dashboard_upload",
+    source_meta: Optional[Dict[str, Any]] = None,
+) -> ContractAssistantContract:
+    """Core analysis pipeline shared by the /analyze endpoint and the legal-agent
+    inbox poller: parse document (.pdf/.docx), run 2-pass analysis (OKF Rule
+    Engine + SparkCloud AI), persist contract/clauses/findings/event, return the
+    loaded ContractAssistantContract."""
     try:
-        pdf_bytes = prepare_document_pdf(contents, filename)
-        previews = render_pdf_page_previews(pdf_bytes)
+        pdf_bytes = prepare_document_pdf(content, filename)
     except Exception as err:
-        raise HTTPException(status_code=400, detail=f"Document parsing error: {err}")
+        raise ValueError(f"Document parsing error: {err}")
 
     import fitz
 
@@ -457,7 +463,7 @@ async def analyze_contract_file(
             full_text += page.get_text() + "\n\n"
         doc.close()
     except Exception as err:
-        raise HTTPException(status_code=400, detail=f"Text extraction error: {err}")
+        raise ValueError(f"Text extraction error: {err}")
 
     paragraphs = [p.strip() for p in re.split(r'\n\s*\n', full_text) if len(p.strip()) > 20]
 
@@ -490,9 +496,6 @@ async def analyze_contract_file(
     llm_client = get_llm_client()
 
     issues: List[ClauseAnalysisItem] = []
-    high_count = 0
-    med_count = 0
-    low_count = 0
 
     for clause in extracted_clauses:
         # Step 1: Deterministic Rule Check (0 LLM cost)
@@ -500,13 +503,6 @@ async def analyze_contract_file(
 
         if rule_findings:
             for f in rule_findings:
-                if f["severity"] == "high":
-                    high_count += 1
-                elif f["severity"] == "medium":
-                    med_count += 1
-                else:
-                    low_count += 1
-
                 issues.append(
                     ClauseAnalysisItem(
                         clause_ref=clause["ref"],
@@ -528,14 +524,6 @@ async def analyze_contract_file(
             try:
                 llm_res = llm_client.analyze_clause_risk(clause["ref"], clause["heading"], clause["text"])
                 if llm_res.get("has_risk"):
-                    sev = llm_res.get("severity", "low")
-                    if sev == "high":
-                        high_count += 1
-                    elif sev == "medium":
-                        med_count += 1
-                    else:
-                        low_count += 1
-
                     issues.append(
                         ClauseAnalysisItem(
                             clause_ref=clause["ref"],
@@ -543,7 +531,7 @@ async def analyze_contract_file(
                             text=clause["text"],
                             has_risk=True,
                             risk_type=llm_res.get("risk_type", "general_risk"),
-                            severity=sev,
+                            severity=llm_res.get("severity", "low"),
                             source="llm_judgment",
                             plain_english=llm_res.get("plain_english", "Potential legal risk identified."),
                             suggested_action=llm_res.get("suggested_action", "Review clause language."),
@@ -553,8 +541,7 @@ async def analyze_contract_file(
             except Exception:
                 pass
 
-    # Save to Database
-    user_id = getattr(current_user, "id", None) if current_user else None
+    meta = dict(source_meta or {})
 
     db_contract = ContractAssistantContract(
         title=filename.replace(".pdf", "").replace(".docx", "").replace("_", " ").title(),
@@ -562,7 +549,8 @@ async def analyze_contract_file(
         status="in_review",
         value="Under Audit",
         original_file_path=filename,
-        created_by=user_id,
+        message_id=meta.get("message_id"),
+        created_by=meta.get("created_by"),
     )
     db.add(db_contract)
     await db.flush()
@@ -603,26 +591,106 @@ async def analyze_contract_file(
     db_evt = ContractAssistantEvent(
         contract_id=db_contract.id,
         type="ingested_and_analyzed",
-        actor_id=user_id,
-        payload={"filename": filename, "clauses_count": len(extracted_clauses), "issues_count": len(issues)},
+        actor_id=meta.get("created_by"),
+        payload={
+            "filename": filename,
+            "clauses_count": len(extracted_clauses),
+            "issues_count": len(issues),
+            "source": source,
+            "source_meta": meta,
+        },
     )
     db.add(db_evt)
 
     await db.commit()
-    await db.refresh(db_contract)
+
+    stmt = (
+        select(ContractAssistantContract)
+        .options(
+            selectinload(ContractAssistantContract.clauses),
+            selectinload(ContractAssistantContract.findings),
+            selectinload(ContractAssistantContract.signatories),
+            selectinload(ContractAssistantContract.envelopes),
+            selectinload(ContractAssistantContract.events),
+        )
+        .where(ContractAssistantContract.id == db_contract.id)
+    )
+    res = await db.execute(stmt)
+    return res.scalar_one()
+
+
+def _findings_to_issues(contract: ContractAssistantContract) -> List[ClauseAnalysisItem]:
+    """Rebuild the API issue list from persisted findings (shared pipeline output)."""
+    clause_text_by_id = {cl.id: cl.text for cl in (contract.clauses or [])}
+    return [
+        ClauseAnalysisItem(
+            clause_ref=f.clause_ref,
+            heading=f.heading,
+            text=(clause_text_by_id.get(f.clause_id) or f.plain_english),
+            has_risk=True,
+            risk_type=f.risk_type,
+            severity=f.severity,
+            source=f.source,
+            plain_english=f.plain_english,
+            suggested_action=f.suggested_action,
+            policy_link=f.policy_link,
+            template_fix=f.template_fix,
+            tier=f.tier,
+        )
+        for f in (contract.findings or [])
+    ]
+
+
+@router.post("/analyze", response_model=ContractAnalysisResponse)
+async def analyze_contract_file(
+    db: DbSession,
+    file: UploadFile = File(...),
+    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
+):
+    """Parse document (.pdf or .docx), run 2-pass analysis (OKF Rule Engine + SparkCloud AI), and persist to DB."""
+    contents = await file.read()
+    filename = file.filename or "contract.pdf"
+
+    try:
+        pdf_bytes = prepare_document_pdf(contents, filename)
+        previews = render_pdf_page_previews(pdf_bytes)
+    except Exception as err:
+        raise HTTPException(status_code=400, detail=f"Document parsing error: {err}")
+
+    try:
+        db_contract = await analyze_contract_bytes(
+            db,
+            filename,
+            contents,
+            "dashboard_upload",
+            {"created_by": getattr(current_user, "id", None) if current_user else None},
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    issues = _findings_to_issues(db_contract)
+    high_count = sum(1 for i in issues if i.severity == "high")
+    med_count = sum(1 for i in issues if i.severity == "medium")
+    low_count = sum(1 for i in issues if i.severity == "low")
+
+    created_at_utc = (
+        db_contract.created_at.replace(tzinfo=timezone.utc)
+        if db_contract.created_at and db_contract.created_at.tzinfo is None
+        else db_contract.created_at
+    )
 
     return ContractAnalysisResponse(
         contract_id=str(db_contract.id),
         filename=filename,
         title=db_contract.title,
-        total_clauses=len(extracted_clauses),
+        total_clauses=len(db_contract.clauses or []),
         high_risks=high_count,
         medium_risks=med_count,
         low_risks=low_count,
         page_count=len(previews),
         previews=previews,
         issues=issues,
-        created_at=db_contract.created_at.isoformat() if db_contract.created_at else datetime.now(timezone.utc).isoformat(),
+        created_at=created_at_utc.isoformat() if created_at_utc else datetime.now(timezone.utc).isoformat(),
     )
 
 
@@ -1137,5 +1205,198 @@ async def delete_contract_permanently(
         "status": "deleted",
         "message": f"Contract {contract_id} and all associated records permanently purged from database.",
     }
+
+
+class AskSourceChip(BaseModel):
+    label: str  # "OKF Rule" | "Executed Contract"
+    title: str
+
+
+class AskAnswerResponse(BaseModel):
+    answer: str
+    sources: List[AskSourceChip] = []
+
+
+def _ask_tokens(text: str) -> set:
+    return set(re.findall(r"[a-z0-9]{3,}", (text or "").lower()))
+
+
+async def _build_ask_corpus(db: DbSession) -> List[Dict[str, str]]:
+    """Retrieval corpus = OKF playbook concepts + clauses of executed contracts."""
+    corpus: List[Dict[str, str]] = []
+
+    okf_store = get_okf_store()
+    for concept in okf_store.concepts:
+        corpus.append({
+            "label": "OKF Rule",
+            "title": concept.title,
+            "text": f"{concept.title}\n{concept.description}\n{(concept.content or '')[:1500]}",
+        })
+
+    executed_stmt = (
+        select(ContractAssistantContract)
+        .join(
+            ContractAssistantEnvelope,
+            ContractAssistantEnvelope.contract_id == ContractAssistantContract.id,
+        )
+        .join(
+            SignatureRequest,
+            ContractAssistantEnvelope.signature_request_id == SignatureRequest.id,
+        )
+        .options(selectinload(ContractAssistantContract.clauses))
+        .where(SignatureRequest.status == "completed")
+        .distinct()
+    )
+    executed = (await db.execute(executed_stmt)).scalars().all()
+    for contract in executed:
+        for cl in contract.clauses or []:
+            corpus.append({
+                "label": "Executed Contract",
+                "title": contract.title,
+                "text": f"{contract.title} — {cl.ref} {cl.heading}: {(cl.text or '')[:1200]}",
+            })
+
+    return corpus
+
+
+@router.post("/ask", response_model=AskAnswerResponse)
+async def ask_contract_knowledge_base(
+    payload: AskQuestionRequest,
+    db: DbSession,
+    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
+):
+    """RAG over the OKF knowledge base plus executed contracts, with source chips."""
+    q_tokens = _ask_tokens(payload.question)
+
+    corpus = await _build_ask_corpus(db)
+    scored: List[tuple] = []
+    for idx, chunk in enumerate(corpus):
+        overlap = len(q_tokens & _ask_tokens(chunk["text"]))
+        if overlap > 0:
+            scored.append((overlap, -idx, chunk))
+    scored.sort(key=lambda pair: (pair[0], pair[1]), reverse=True)
+
+    # Per-label quotas keep executed contracts from being crowded out of the
+    # context window by generic OKF-rule keyword matches.
+    okf_hits = [chunk for _, _, chunk in scored if chunk["label"] == "OKF Rule"][:3]
+    executed_hits = [chunk for _, _, chunk in scored if chunk["label"] == "Executed Contract"][:3]
+    relevant = okf_hits + executed_hits
+
+    if not relevant:
+        return AskAnswerResponse(
+            answer=(
+                "I could not find anything in the OKF playbook or your executed "
+                "contracts matching that question. Try naming a clause topic "
+                "(liability, payment terms, renewal) or a contract title."
+            ),
+            sources=[],
+        )
+
+    context_block = "\n\n".join(
+        f"[{c['label']}: {c['title']}]\n{c['text']}" for c in relevant
+    )
+
+    llm_client = get_llm_client()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are the GOBITSNBYTES FOUNDATION legal assistant. Answer using ONLY "
+                "the provided context snippets. Cite snippets inline like [OKF Rule: title] "
+                "or [Executed Contract: title]. If the context is insufficient, say so."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Question: {payload.question}\n\nContext:\n{context_block}",
+        },
+    ]
+
+    answer: Optional[str] = None
+    try:
+        raw = llm_client._chat_completion(messages)
+        if raw and raw.strip():
+            answer = raw.strip()
+    except Exception as err:
+        logger.warning(f"/ask LLM synthesis failed, using deterministic fallback: {err}")
+
+    if not answer:
+        answer = "Based on the retrieved records:\n" + "\n".join(
+            f"- [{c['label']}: {c['title']}] {_truncate_for_ask(c['text'])}" for c in relevant
+        )
+
+    seen_titles = set()
+    sources: List[AskSourceChip] = []
+    for c in relevant:
+        key = (c["label"], c["title"])
+        if key in seen_titles:
+            continue
+        seen_titles.add(key)
+        sources.append(AskSourceChip(label=c["label"], title=c["title"]))
+
+    return AskAnswerResponse(answer=answer, sources=sources)
+
+
+def _truncate_for_ask(text: str, limit: int = 280) -> str:
+    cleaned = " ".join((text or "").split())
+    return cleaned if len(cleaned) <= limit else cleaned[: limit - 1].rstrip() + "…"
+
+
+@router.get("/agent/stats")
+async def get_legal_agent_stats(
+    db: DbSession,
+    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
+):
+    """Operational stats for the Legal Agent panel / Agent Ops drawer."""
+    from app.services.legal_agent import INBOUND_EVENT_TYPE, collect_nudge_targets, get_last_poll_at
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=24)
+
+    # Portable across SQLite/Postgres timestamp storage quirks: pull a bounded
+    # recent window of inbound-ingest events and filter precisely in Python.
+    inbox_stmt = (
+        select(ContractAssistantEvent.created_at)
+        .where(ContractAssistantEvent.type == INBOUND_EVENT_TYPE)
+        .order_by(ContractAssistantEvent.created_at.desc())
+        .limit(1000)
+    )
+    inbox_rows = (await db.execute(inbox_stmt)).scalars().all()
+    inbox_processed_24h = sum(
+        1
+        for ts in inbox_rows
+        if ts is not None and (_as_utc_safe(ts) or now) >= cutoff
+    )
+
+    status_stmt = select(ContractAssistantContract.status)
+    statuses = (await db.execute(status_stmt)).scalars().all()
+    counts = {"in_review": 0, "out_for_signature": 0, "dotted": 0}
+    for raw_status in statuses:
+        normalized = _normalize_status(raw_status)
+        if normalized in counts:
+            counts[normalized] += 1
+
+    try:
+        pending_nudges = len(await collect_nudge_targets(db, now=now))
+    except Exception as err:
+        logger.warning(f"Failed computing pending nudges: {err}")
+        pending_nudges = 0
+
+    last_poll = get_last_poll_at()
+
+    return {
+        "inbox_processed_24h": inbox_processed_24h,
+        "contracts_in_review": counts["in_review"],
+        "out_for_signature": counts["out_for_signature"],
+        "dotted_count": counts["dotted"],
+        "pending_nudges": pending_nudges,
+        "last_poll_at": last_poll.isoformat() if last_poll else None,
+    }
+
+
+def _as_utc_safe(ts: Optional[datetime]) -> Optional[datetime]:
+    if ts is None:
+        return None
+    return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
 
 

@@ -29,6 +29,21 @@ class Settings(BaseSettings):
     # RazorpayX API key — optional until real banking integration is wired
     razorpayx_api_key: str | None = Field(default=None, validation_alias="RAZORPAYX_API_KEY")
 
+    # Finance governance (OKF Rule 35 / Authority Matrix §3.2):
+    # commitments at or above the threshold need TWO distinct approvers
+    # (neither may be the requester); FY runs 1 April – 31 March.
+    finance_dual_approval_threshold_paise: int = Field(
+        default=10_000_000, validation_alias="FINANCE_DUAL_APPROVAL_THRESHOLD_PAISE"
+    )
+    finance_dual_approval_enabled: bool = Field(
+        default=True, validation_alias="FINANCE_DUAL_APPROVAL_ENABLED"
+    )
+
+    # RazorpayX credential pair — when both are set build_adapter() selects the
+    # live adapter seam; unset (default) keeps the pure paper-ledger adapter.
+    razorpayx_key_id: str | None = Field(default=None, validation_alias="RAZORPAYX_KEY_ID")
+    razorpayx_secret: str | None = Field(default=None, validation_alias="RAZORPAYX_SECRET")
+
     # Gemini API settings
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-2.5-flash", validation_alias="GEMINI_MODEL")
@@ -59,6 +74,18 @@ class Settings(BaseSettings):
 
     # Inbound Email Webhook Security
     inbound_email_webhook_secret: str | None = Field(default=None, validation_alias="INBOUND_EMAIL_WEBHOOK_SECRET")
+
+    # Legal Agent inbox polling (Dottr-style email-native contract teammate).
+    # Polling runs only when imap_host, imap_user and imap_password are set;
+    # poll_seconds <= 0 disables the scheduled job entirely.
+    legal_inbox_imap_host: str | None = Field(default=None, validation_alias="LEGAL_INBOX_IMAP_HOST")
+    legal_inbox_imap_port: int = Field(default=993, validation_alias="LEGAL_INBOX_IMAP_PORT")
+    legal_inbox_imap_user: str | None = Field(default=None, validation_alias="LEGAL_INBOX_IMAP_USER")
+    legal_inbox_imap_password: str | None = Field(default=None, validation_alias="LEGAL_INBOX_IMAP_PASSWORD")
+    legal_inbox_mailbox: str = Field(default="INBOX", validation_alias="LEGAL_INBOX_MAILBOX")
+    legal_inbox_poll_seconds: int = Field(default=60, validation_alias="LEGAL_INBOX_POLL_SECONDS")
+    legal_nudge_enabled: bool = Field(default=True, validation_alias="LEGAL_NUDGE_ENABLED")
+    legal_org_mailbox: str = Field(default="legal@gobitsnbytes.org", validation_alias="LEGAL_ORG_MAILBOX")
 
     # Notion Sync Settings
     notion_token: str | None = Field(default=None, validation_alias="NOTION_TOKEN")
