@@ -20,6 +20,7 @@ import {
   ClipboardList,
   GitBranch,
   UserCheck,
+  ClipboardSignature,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 import { APP_VERSION_LABEL } from "../../lib/version";
@@ -49,6 +50,7 @@ const navGroups = [
     { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
     { label: "Forms", href: "/dashboard/forms", icon: ClipboardList },
     { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
+    { label: "Onboarding", href: "/dashboard/onboarding", icon: ClipboardSignature },
     { label: "Contracts", href: "/dashboard/contract-assistant", icon: FileCheck },
     { label: "Dyslexic CRM", href: "/dashboard/dyslexic", icon: Handshake },
   ] },

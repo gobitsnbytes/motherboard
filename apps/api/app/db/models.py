@@ -1550,6 +1550,96 @@ class SignatureAuditLog(Base):
 
 
 # ---------------------------------------------------------------------------
+# Digital onboarding workflow
+# ---------------------------------------------------------------------------
+
+class OnboardingCase(Base):
+    """One volunteer or fork onboarding packet and its review state."""
+    __tablename__ = "onboarding_cases"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)  # volunteer | fork
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="collecting", nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    fork_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("forks.id", ondelete="SET NULL"), nullable=True)
+    case_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    participants: Mapped[list["OnboardingParticipant"]] = relationship("OnboardingParticipant", back_populates="case", cascade="all, delete-orphan")
+    documents: Mapped[list["OnboardingDocument"]] = relationship("OnboardingDocument", back_populates="case", cascade="all, delete-orphan")
+    reviews: Mapped[list["OnboardingReview"]] = relationship("OnboardingReview", back_populates="case", cascade="all, delete-orphan", order_by="OnboardingReview.created_at")
+
+
+class OnboardingParticipant(Base):
+    """A person with a scoped portal link; token hashes are never exposed in API responses."""
+    __tablename__ = "onboarding_participants"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("onboarding_cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(30), nullable=False)  # participant | parent | teammate
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    date_of_birth: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    is_minor: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="invited", nullable=False)
+    portal_token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    answers: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    case: Mapped["OnboardingCase"] = relationship("OnboardingCase", back_populates="participants")
+    documents: Mapped[list["OnboardingDocument"]] = relationship("OnboardingDocument", back_populates="participant", cascade="all, delete-orphan")
+
+
+class OnboardingDocument(Base):
+    """Evidence/source paths plus the linked canonical signature request."""
+    __tablename__ = "onboarding_documents"
+    __table_args__ = (UniqueConstraint("case_id", "participant_id", "document_key", name="uq_onboarding_document_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("onboarding_cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    participant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("onboarding_participants.id", ondelete="CASCADE"), nullable=True)
+    document_key: Mapped[str] = mapped_column(String(60), nullable=False)
+    template_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="awaiting_completion", nullable=False)
+    source_docx_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    filled_docx_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_pdf_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signature_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="SET NULL"), nullable=True)
+    evidence_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    canonical_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    field_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    case: Mapped["OnboardingCase"] = relationship("OnboardingCase", back_populates="documents")
+    participant: Mapped["OnboardingParticipant | None"] = relationship("OnboardingParticipant", back_populates="documents")
+    signature_request: Mapped["SignatureRequest | None"] = relationship("SignatureRequest")
+
+
+class OnboardingReview(Base):
+    """Append-only review decisions. A correction is a new row, never an update."""
+    __tablename__ = "onboarding_reviews"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("onboarding_cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("onboarding_documents.id", ondelete="SET NULL"), nullable=True)
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    decision: Mapped[str] = mapped_column(String(40), nullable=False)  # accepted | changes_requested | rejected
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    case: Mapped["OnboardingCase"] = relationship("OnboardingCase", back_populates="reviews")
+
+
+# ---------------------------------------------------------------------------
 # Public forms
 # ---------------------------------------------------------------------------
 
