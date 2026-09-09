@@ -33,15 +33,15 @@ export function MembersContent() {
           placeholder="Search registered members by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-black border-2 border-border text-white placeholder:text-zinc-500 font-mono text-xs shadow-light focus:outline-none focus:border-orange"
+          className="h-12 border-2 border-border bg-white pl-10 font-base text-sm text-foreground placeholder:text-stone-500 shadow-none focus:border-main"
         />
       </div>
 
       {/* Table container */}
-      <div className="rounded-base border-2 border-border bg-[#141418] shadow-dark overflow-hidden">
+      <div className="overflow-x-auto border-2 border-border bg-white">
         <table className="w-full text-left text-xs font-mono">
           <thead>
-            <tr className="border-b-2 border-border bg-[#121216] text-zinc-400 uppercase text-[11px] font-bold">
+            <tr className="border-b-2 border-border bg-[#f4f1eb] text-stone-600 text-xs font-semibold">
               <th className="px-4 py-3">Member</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Status</th>
@@ -53,30 +53,30 @@ export function MembersContent() {
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-zinc-400 font-mono">
+                <td colSpan={5} className="p-6 text-center text-stone-600">
                   Loading members directory...
                 </td>
               </tr>
             ) : filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-zinc-400 font-mono">
+                <td colSpan={5} className="p-6 text-center text-stone-600">
                   No members matched your search.
                 </td>
               </tr>
             ) : (
               filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-[#181820] transition-colors">
+                <tr key={user.id} className="transition-colors hover:bg-[#f4f1eb]">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="size-8 rounded-base border border-border bg-black flex items-center justify-center text-xs font-bold text-white shadow-light">
+                      <div className="flex size-8 items-center justify-center border border-border bg-[#17130f] text-xs font-bold text-white">
                         {user.display_name?.charAt(0) || "?"}
                       </div>
 
-                      <span className="font-bold text-white">{user.display_name}</span>
+                      <span className="font-semibold text-foreground">{user.display_name}</span>
                     </div>
                   </td>
 
-                  <td className="px-4 py-3 text-zinc-300">{user.email || "-"}</td>
+                  <td className="px-4 py-3 text-stone-700">{user.email || "-"}</td>
 
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-base text-[10px] font-bold border ${user.is_active ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
@@ -85,11 +85,11 @@ export function MembersContent() {
                   </td>
 
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-base text-[10px] font-bold border ${user.is_super_admin ? "bg-orange text-black border-black shadow-light" : "bg-[#181820] text-zinc-300 border-border"}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold border ${user.is_super_admin ? "bg-orange text-black border-black shadow-light" : "bg-stone-100 text-stone-700 border-stone-400"}`}>
                       {user.is_super_admin ? "Super Admin" : "Member"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">
+                  <td className="px-4 py-3 text-stone-600">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
                 </tr>
@@ -101,4 +101,3 @@ export function MembersContent() {
     </div>
   );
 }
-

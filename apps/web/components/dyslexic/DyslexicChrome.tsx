@@ -28,10 +28,10 @@ export function DyslexicTabs() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`rounded-base border-2 px-4 py-2 text-xs font-mono font-bold uppercase transition-all ${
+            className={`inline-flex min-h-11 items-center rounded-base border-2 px-4 text-sm font-medium transition-colors ${
               isActive
-                ? "bg-orange text-black border-black shadow-light translate-x-[1px] translate-y-[1px]"
-                : "border-border bg-[#141418] text-zinc-300 hover:bg-[#181820] hover:text-white"
+                ? "border-black bg-orange text-black shadow-light"
+                : "border-border bg-white text-foreground hover:bg-[#f4f1eb]"
             }`}
           >
             {tab.label}
@@ -62,10 +62,10 @@ export function StreamIndicator({ status }: { status: StreamStatus }) {
   if (status === "live") return null;
 
   return (
-    <span className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+    <span className="flex items-center gap-2 text-xs text-stone-600">
       <span
         className={`size-2 rounded-full ${
-          status === "degraded" ? "bg-orange" : "bg-white/40 animate-pulse"
+          status === "degraded" ? "bg-orange" : "bg-stone-400 animate-pulse"
         }`}
       />
       {status === "degraded" ? "Live updates standby &bull; polling active" : "Connecting…"}
@@ -85,9 +85,9 @@ export function SectionHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-white uppercase">{title}</h1>
+        <h1 className="font-heading text-2xl font-black tracking-tight text-foreground sm:text-3xl">{title}</h1>
         {description && (
-          <p className="mt-1 text-xs sm:text-sm text-zinc-300 font-base">{description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         )}
       </div>
       {action}
@@ -97,9 +97,8 @@ export function SectionHeader({
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <div className="rounded-base border-2 border-red-500 bg-red-950/80 px-4 py-3 text-xs font-mono font-bold text-red-200 shadow-light">
+    <div className="border-2 border-red-800 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
       {message}
     </div>
   );
 }
-

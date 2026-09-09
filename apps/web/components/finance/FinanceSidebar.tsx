@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -57,88 +57,30 @@ const NAV_ITEMS = [
 export default function FinanceSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const navigation = (close?: () => void, compact = collapsed) => <nav aria-label="Finance navigation" className="flex flex-1 flex-col gap-1 p-3">
+    {NAV_ITEMS.map((item) => {
+      const active = pathname === item.href || pathname.startsWith(item.href + "/");
+      return <Link key={item.href} href={item.href} onClick={close} className={`flex min-h-11 items-center gap-3 overflow-hidden whitespace-nowrap rounded-base border-2 px-3 text-sm font-medium no-underline transition-colors ${active ? "border-orange bg-orange text-black shadow-light" : "border-transparent text-zinc-300 hover:border-zinc-600 hover:bg-white/5 hover:text-white"}`}>
+        <span className="shrink-0">{item.icon}</span>
+        {!compact && <span className="overflow-hidden">{item.label}</span>}
+      </Link>;
+    })}
+  </nav>;
 
   return (
-    <aside
-      className={`relative z-10 flex shrink-0 flex-col border-r-2 border-border bg-main transition-[width] duration-200 ${collapsed ? "w-16" : "w-[220px]"}`}
-    >
-      {/* Logo area */}
-      <div className="border-b-2 border-border px-4 pb-4 pt-5">
-        <Link href="/finance/dashboard" className="flex items-center gap-2.5 no-underline">
-          <img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" className="h-auto w-7 shrink-0" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.15 }}
-                className="overflow-hidden whitespace-nowrap font-heading text-[13px] font-extrabold uppercase tracking-[0.05em] text-white"
-              >
-                Finance
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex flex-1 flex-col gap-1 p-2.5">
-        {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-2.5 whitespace-nowrap overflow-hidden rounded-base border-2 px-2.5 py-2 font-heading text-[13px] no-underline transition-all duration-150 ${
-                active
-                  ? "border-orange bg-orange/10 font-bold text-orange shadow-shadow"
-                  : "border-transparent font-medium text-muted-foreground hover:border-border hover:text-foreground"
-              }`}
-            >
-              <span className="shrink-0">{item.icon}</span>
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: "auto" }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.12 }}
-                    className="overflow-hidden"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="mx-2.5 mb-3 flex items-center justify-center rounded-base border-2 border-border bg-transparent p-2 text-muted-foreground transition-colors duration-150 hover:border-orange hover:text-orange"
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          {collapsed
-            ? <><polyline points="9 18 15 12 9 6" /></>
-            : <><polyline points="15 18 9 12 15 6" /></>}
-        </svg>
-      </button>
-
-      {/* Bottom label */}
-      {!collapsed && (
-        <div className="border-t-2 border-border px-4 pb-3.5 pt-2.5">
-          <div className="font-heading text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
-            GOBITSNBYTES FOUNDATION
-          </div>
-          <div className="mt-0.5 font-heading text-[9px] text-muted-foreground/60">
-            Powered by RazorpayX
-          </div>
+    <>
+      <aside className={`fixed inset-y-0 z-30 hidden flex-col border-r-2 border-zinc-700 bg-[#111115] md:flex ${collapsed ? "w-16" : "w-64"}`}>
+        <div className="flex items-center gap-3 border-b-2 border-zinc-700 px-4 py-4">
+          <Link href="/finance/dashboard" aria-label="Finance dashboard"><img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" className="h-7 w-auto shrink-0" /></Link>
+          {!collapsed && <span className="font-heading text-sm font-black tracking-wide text-white">Finance</span>}
         </div>
-      )}
-    </aside>
+        {navigation()}
+        <button type="button" onClick={() => setCollapsed((value) => !value)} className="m-3 min-h-11 border-2 border-zinc-600 px-3 text-sm text-zinc-300 transition-colors hover:border-orange hover:text-white" aria-label={collapsed ? "Expand finance navigation" : "Collapse finance navigation"}>{collapsed ? "→" : "Collapse"}</button>
+      </aside>
+      <button type="button" onClick={() => setMobileOpen(true)} className="fixed left-3 top-3 z-30 grid size-11 place-items-center border-2 border-zinc-700 bg-[#111115] text-white md:hidden" aria-label="Open finance navigation"><Menu size={19}/></button>
+      {mobileOpen && <div className="fixed inset-0 z-40 md:hidden"><button type="button" aria-label="Close finance navigation" onClick={() => setMobileOpen(false)} className="absolute inset-0 w-full bg-black/70"/><aside className="relative z-10 flex h-full w-72 flex-col border-r-2 border-zinc-700 bg-[#111115]"><div className="flex items-center justify-between border-b-2 border-zinc-700 px-4 py-4"><span className="font-heading text-sm font-black text-white">Finance</span><button type="button" onClick={() => setMobileOpen(false)} className="grid size-11 place-items-center border-2 border-zinc-600 text-zinc-300" aria-label="Close finance navigation"><X size={18}/></button></div>{navigation(() => setMobileOpen(false), false)}</aside></div>}
+    </>
   );
 }

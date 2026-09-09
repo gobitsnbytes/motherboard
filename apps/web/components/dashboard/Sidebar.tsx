@@ -82,7 +82,7 @@ function NavList({
   );
 
   return (
-    <nav className="flex flex-col gap-1">
+    <nav aria-label="Primary navigation" className="flex flex-col gap-1">
       {navItems.map((item) => {
         const isActive =
           pathname === item.href || pathname.startsWith(item.href + "/");
@@ -91,10 +91,10 @@ function NavList({
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
+            className={`flex min-h-11 items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-colors ${
               isActive
-                ? "bg-main text-main-foreground border-2 border-border shadow-light translate-x-[2px] translate-y-[2px]"
-                : "text-foreground hover:bg-main/10 hover:text-foreground border-2 border-transparent"
+                ? "border-2 border-orange bg-orange text-black shadow-light"
+                : "border-2 border-transparent text-zinc-300 hover:border-zinc-600 hover:bg-white/5 hover:text-white"
             }`}
           >
             <item.icon className="size-4 shrink-0" />
@@ -116,10 +116,10 @@ function NavList({
                 key={panel.id}
                 href={panel.href}
                 onClick={onNavigate}
-                className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`flex min-h-11 items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-main text-main-foreground border-2 border-border shadow-light translate-x-[2px] translate-y-[2px]"
-                    : "text-foreground hover:bg-main/10 hover:text-foreground border-2 border-transparent"
+                  ? "border-2 border-orange bg-orange text-black shadow-light"
+                  : "border-2 border-transparent text-zinc-300 hover:border-zinc-600 hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <DynamicIcon name={panel.icon} className="size-4 shrink-0" />
@@ -156,15 +156,15 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:border-r-2 md:border-border md:bg-[#0d0d10]">
-        <div className="flex items-center gap-3 border-b-2 border-border px-4 py-3.5 bg-[#121216]">
+      <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col md:border-r-2 md:border-zinc-700 md:bg-[#111115]">
+        <div className="flex items-center gap-3 border-b-2 border-zinc-700 px-4 py-4">
           <img
             src="https://gobitsnbytes.org/logo"
             alt="bits&bytes logo"
             className="h-7 w-auto select-none"
           />
           <div className="flex flex-col">
-            <span className="font-heading font-black text-sm tracking-wider text-white uppercase truncate">
+            <span className="font-heading text-sm font-black tracking-wide text-white truncate">
               bits&bytes™
             </span>
             <span className="font-mono text-[9px] text-zinc-400 uppercase tracking-widest">
@@ -173,12 +173,9 @@ export default function Sidebar() {
           </div>
         </div>
         <div className="flex-1 overflow-auto p-3">
-          <p className="mb-2 px-3 text-[10px] uppercase tracking-widest text-zinc-400 font-mono font-bold">
-            Navigation
-          </p>
           <NavList plugins={plugins} />
         </div>
-        <div className="border-t-2 border-border p-3 bg-[#121216]">
+        <div className="border-t-2 border-zinc-700 p-3">
           <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest text-center">
             motherboard v0.2.0
           </p>
@@ -203,8 +200,8 @@ export default function Sidebar() {
             onClick={closeMobile}
             aria-hidden="true"
           />
-          <aside className="fixed inset-y-0 left-0 w-72 bg-[#0d0d10] border-r-2 border-border flex flex-col z-50">
-            <div className="flex items-center justify-between border-b-2 border-border px-4 py-3.5 bg-[#121216]">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r-2 border-zinc-700 bg-[#111115]">
+            <div className="flex items-center justify-between border-b-2 border-zinc-700 px-4 py-4">
               <div className="flex items-center gap-3">
                 <img
                   src="https://gobitsnbytes.org/logo"
@@ -218,16 +215,13 @@ export default function Sidebar() {
               <button
                 type="button"
                 onClick={closeMobile}
-                className="flex items-center justify-center size-8 rounded-base text-zinc-300 hover:bg-main hover:text-white border border-border transition-colors"
+                className="flex size-11 items-center justify-center rounded-base border-2 border-zinc-600 text-zinc-300 transition-colors hover:border-orange hover:text-white"
                 aria-label="Close sidebar"
               >
                 <X className="size-5" />
               </button>
             </div>
             <div className="flex-1 overflow-auto p-3">
-              <p className="mb-2 px-3 text-[10px] uppercase tracking-widest text-zinc-400 font-mono font-bold">
-                Navigation
-              </p>
               <NavList plugins={plugins} onNavigate={closeMobile} />
             </div>
           </aside>

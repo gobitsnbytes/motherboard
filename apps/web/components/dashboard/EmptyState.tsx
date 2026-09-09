@@ -8,9 +8,9 @@ interface EmptyStateProps {
 
 export default function EmptyState({ icon, title, description }: EmptyStateProps) {
   return (
-    <div className="mx-auto max-w-md rounded-base border-2 border-border bg-[#111] p-8 shadow-shadow">
+    <div className="mx-auto max-w-md border-2 border-dashed border-border bg-background p-8">
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="flex size-14 items-center justify-center rounded-base border-2 border-border bg-secondary-background text-muted-foreground">
+        <div className="flex size-14 items-center justify-center border-2 border-border bg-secondary-background text-muted-foreground">
           {icon}
         </div>
         <div className="flex flex-col gap-1.5">

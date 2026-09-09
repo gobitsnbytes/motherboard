@@ -113,7 +113,7 @@
 .neobrutal-btn {
   border: 2px solid hsl(var(--border));
   box-shadow: var(--shadow);
-  transition: all 150ms ease-out;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
   border-radius: var(--border-radius);
 }
 .neobrutal-btn:hover {
@@ -125,3 +125,67 @@
   box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 1);
 }
 
+/* Motherboard's operational pages use a document canvas inside dark chrome.
+   These scoped tokens keep public routes and embedded plugins independent. */
+.motherboard-shell {
+  background: #111115;
+}
+
+.motherboard-canvas {
+  --background: 38 26% 91%;
+  --foreground: 24 12% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 24 12% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 24 12% 9%;
+  --muted: 38 18% 84%;
+  --muted-foreground: 24 8% 34%;
+  --border: 24 12% 9%;
+  --input: 24 12% 9%;
+  --ring: 351 71% 34%;
+  background: #ebe8e1;
+  color: #17130f;
+}
+
+.motherboard-canvas [data-slot="card"] {
+  border-color: #17130f;
+  background: #fff;
+  box-shadow: none;
+  color: #17130f;
+}
+
+.motherboard-canvas [data-slot="card"] [data-slot="card-header"] {
+  border-color: #17130f;
+  background: #f4f1eb;
+}
+
+.motherboard-canvas [data-slot="card"] :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300) {
+  color: #17130f;
+}
+
+.motherboard-canvas [data-slot="card"] :is(.text-zinc-400, .text-zinc-500, .text-muted-foreground) {
+  color: #625b52;
+}
+
+.motherboard-canvas [data-slot="card"] :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-black) {
+  background: #fff;
+}
+
+.motherboard-canvas [data-slot="button"]:focus-visible,
+.motherboard-canvas a:focus-visible,
+.motherboard-canvas button:focus-visible,
+.motherboard-canvas input:focus-visible,
+.motherboard-canvas textarea:focus-visible,
+.motherboard-canvas select:focus-visible {
+  outline: 2px solid #97192c;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

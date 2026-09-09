@@ -31,34 +31,34 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative w-full max-w-sm rounded-base border-2 border-border bg-[#121216] p-6 sm:p-8 shadow-heavy">
+    <div className="relative w-full max-w-sm border-2 border-[#17130f] bg-white p-6 text-[#17130f] shadow-[5px_5px_0_#97192c] sm:p-8">
       {/* Top Tag */}
-      <div className="absolute -top-3 left-4 bg-orange text-black font-mono font-black text-[10px] uppercase px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_#000]">
-        AUTHENTICATION // DESK 01
+      <div className="absolute -top-3 left-4 border-2 border-[#17130f] bg-orange px-2 py-0.5 font-mono text-[10px] font-bold text-black shadow-[2px_2px_0_#17130f]">
+        Member sign-in
       </div>
 
       <div className="flex flex-col items-center gap-5">
         {/* Logo */}
-        <div className="size-14 rounded-base border-2 border-border bg-black flex items-center justify-center shadow-light">
+        <div className="flex size-14 items-center justify-center border-2 border-[#17130f] bg-[#17130f] shadow-[3px_3px_0_#fc920d]">
           <img
             src="https://gobitsnbytes.org/logo"
-            alt="bits&bytes logo"
+            alt="bits&bytes™ logo"
             className="w-7 h-auto select-none"
           />
         </div>
 
         <div className="text-center space-y-1">
-          <h1 className="text-xl font-heading font-black uppercase tracking-tight text-white">
-            Motherboard Cockpit
+          <h1 className="font-heading text-2xl font-black tracking-tight">
+            Motherboard
           </h1>
-          <p className="text-xs text-zinc-300 font-base leading-relaxed">
+          <p className="text-sm font-base leading-6 text-stone-600">
             Sign in with your verified Discord account to access the internal operations platform.
           </p>
         </div>
 
         {/* Error state */}
         {error && (
-          <div className="w-full rounded-base border-2 border-red-500 bg-red-950/80 px-3.5 py-2.5 text-center text-xs font-bold text-red-200">
+          <div className="w-full border-2 border-red-800 bg-red-50 px-3.5 py-2.5 text-center text-xs font-bold text-red-900">
             Authentication failed. Please verify your Discord credentials.
           </div>
         )}
@@ -68,7 +68,7 @@ function LoginForm() {
           type="button"
           onClick={handleSignIn}
           disabled={isPending}
-          className="inline-flex w-full items-center justify-center gap-2.5 rounded-base border-2 border-black bg-[#5865F2] hover:bg-[#4752C4] px-6 py-3.5 text-xs font-heading font-black uppercase tracking-wider text-white shadow-[4px_4px_0px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50 disabled:pointer-events-none"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2.5 border-2 border-[#17130f] bg-[#5865F2] px-6 text-sm font-semibold text-white shadow-[4px_4px_0_#17130f] transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:pointer-events-none disabled:opacity-50"
         >
           <svg
             className="size-5 shrink-0"
@@ -82,9 +82,9 @@ function LoginForm() {
         </button>
 
         {/* Footer note */}
-        <div className="border-t-2 border-border pt-3 w-full text-center">
-          <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest">
-            Invite-Based Access &bull; GOBITSNBYTES FOUNDATION
+        <div className="w-full border-t-2 border-stone-200 pt-3 text-center">
+          <p className="font-mono text-[10px] tracking-wide text-stone-500">
+            Invite-based access · GOBITSNBYTES FOUNDATION
           </p>
         </div>
       </div>
@@ -94,11 +94,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-[#0a0a0c] px-4 blueprint-dot-grid">
+    <main className="flex min-h-screen w-full items-center justify-center bg-[#ebe8e1] px-4">
       <Suspense>
         <LoginForm />
       </Suspense>
     </main>
   );
 }
-
