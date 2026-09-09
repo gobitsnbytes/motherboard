@@ -40,6 +40,12 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - Inactive configured service users now return 401 instead of leaking a `ValueError` as a 500.
 - Verification: API-key authentication suite `8 passed`.
 
+### Phase Verification
+
+- Production-oriented review found no diff-format errors or new unhandled policy paths in the committed IAM/auth slices.
+- Final full backend verification after all current fixes: `103 passed`.
+- Current working tree still contains pre-existing untracked runtime artifacts (`.vercel/`, `apps/api/data/`, `apps/api/repro_temp.db`, `apps/bot/`, `apps/web/.vercel/`, `opencode.json`) that have not been touched or staged.
+
 ### IAM Authentication Ambiguity
 
 - Mixed API-key and internal-signature credentials are now rejected with a 400 instead of silently selecting the API-key path.
