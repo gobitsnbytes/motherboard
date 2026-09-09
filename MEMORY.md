@@ -1,541 +1,172 @@
 # Motherboard Operations Platform — Agent Memory
 
-Persistent log of tasks, decisions, and workspace status. Every agent invocation updates this file for continuity.
+Persistent log of tasks, architectural decisions, workspace status, and audit findings. Every agent invocation maintains this document.
 
 ---
 
 ## 1. Project Status
 
-- **Current Phase:** Completed All Phases ✅
-- **Next Milestone:** Production Rollout & Operations
+- **Current Phase:** All Phases Completed ✅ (Phases 0–11)
+- **Production URL:** `https://motherboard.gobitsnbytes.org` · **API:** `https://api.gobitsnbytes.org`
+- **Workspace Hub:** `https://workspace.gobitsnbytes.org` (Nextcloud Suite)
+- **Latest Test Baseline:** 247/247 pytest passing (100% green), Next.js 15 build clean (31/31 routes).
 
 ### Milestone Checklist
 
-- [x] **Phase 0: Repository Scaffolding** ✅
-- [x] **Phase 1: Database Schema** ✅ — 13 ORM tables, Alembic, idempotent seeder (15 groups, 23 permissions, 15 role mappings, 12 forks), 8 active routers, CORS, lifespan auto-migrate+seed
-- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, constants, schemas, router registered under `/api/iam`, pytest suite
-- [x] **Phase 3: Event Bus** ✅ — Redis pub/sub EventBus, Typed Event Schemas, lifespan integrated
-- [x] **Phase 4: Plugin SDK** (`apps/api/app/plugin_sdk`) ✅ — dynamic plugin loader, Pydantic lifecycle contracts, active manifest API router, automatic registry registration, permission seeding, router mounting, unit/integration tests
-- [x] **Phase 5: Provisioning Worker** (`apps/api/app/provisioning`) ✅ — Discord sync worker, client, sync logic, APScheduler periodic sync integration, sync router integration, test suite
-- [x] **Phase 6: Shared UI** (`@bnb/ui`) ✅ — 38 shadcn/neobrutalism components, barrel exports (sidebar/resizable/form excluded due to SSR)
-- [x] **Phase 7: Web Dashboard** (`apps/web`) ✅ — shell + NextAuth v5 + landing page + `/finance` double-entry ledger + dynamic page mounting for active plugins, sidebar plugin navigation
-- [x] **Phase 8: Core Plugins** ✅ — sample plugin with API router + permissions + React view dynamic dashboard loading
-- [x] **Phase 9: Docker Production** ✅ — audited Docker and Compose setups, programmatic Alembic lifespan execution, optimized build dependencies
-- [x] **Phase 10: chrono ↔ Motherboard Meetings Unification** ✅ — seamless integration of all chrono features into the Motherboard meetings tab. See §6.
-- [x] **Phase 11: Cockpit Architecture & UI Redesign** ✅ — Auto-login, fixed logout, Team Profile Setup (Chrono v2), Cockpit Debugger ("Stats for Nerds"), AI Agent Ops panel, Skeleton loaders, and Diagrammatic IAM Hierarchy visualizer. See §7.
+- [x] **Phase 0: Scaffolding** ✅ — Bun/Turborepo workspace + FastAPI (Python 3.12, uv) monorepo.
+- [x] **Phase 1: DB Schema** ✅ — SQLAlchemy 2.0 ORM (13 tables), Alembic, idempotent seeder, 8 active routers, auto-migrate lifespan.
+- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, Pydantic schemas, visual hierarchy tree.
+- [x] **Phase 3: Event Bus** ✅ — Redis 7 pub/sub EventBus, typed schemas, graceful fallback.
+- [x] **Phase 4: Plugin SDK** ✅ — Dynamic loader, Pydantic lifecycle contracts, active manifest API, permission seeding, route isolation.
+- [x] **Phase 5: Provisioning Worker** ✅ — Discord sync worker, APScheduler periodic sync, REST sync routes.
+- [x] **Phase 6: Shared UI (`@bnb/ui`)** ✅ — 38 Neobrutalism React components (barrel exports avoided for SSR safety).
+- [x] **Phase 7: Web Dashboard (`apps/web`)** ✅ — Next.js 15 App Router, NextAuth v5 (Discord OAuth), double-entry finance ledger, dynamic plugin loader.
+- [x] **Phase 8: Core Plugins** ✅ — `email_server`, `minecraft_server` with real telemetry & admin permission gates.
+- [x] **Phase 9: Docker & Deployment** ✅ — Multi-stage Dockerfiles, Docker Compose, automated VPS deploy script (`deploy.sh`), Nginx reverse proxy, SSL.
+- [x] **Phase 10: chrono ↔ Motherboard Unification** ✅ — Single meetings backend, `AvailabilityGrid`, `ChronoHostGrid`, `ChronoBookingPanel`, RFC-2446 email RSVP, agenda calendar tab.
+- [x] **Phase 11: Cockpit Architecture & Neobrutalism Overhaul** ✅ — Swiss Neobrutalism design system (Anton/Inter/JetBrains Mono), Cockpit Debugger (`Ctrl+Shift+D`), Agent Ops Drawer, `bnb-signatures` digital contract engine, Dottr-style Legal Agent.
 
 ---
 
+## 2. Architecture & Monorepo Layout
 
-## 2. Architecture
-
-**Hybrid monorepo:** Bun/TypeScript frontend + Python/uv FastAPI backend, orchestrated by Turborepo.
+Hybrid monorepo managed via Turborepo (`"packageManager": "bun@1.3.11"`):
 
 ```
-apps/web     — Next.js 15, React 19, Tailwind, framer-motion
-apps/api     — FastAPI (Python 3.12, uv)
-  app/db/          — SQLAlchemy 2.0 ORM (13 tables), seeder, seed data
-  app/iam/         — Principal resolver, policy evaluator, audit writer
-  app/events/      — Event bus (placeholder)
-  app/provisioning/— Discord sync worker (placeholder)
-  app/plugin_sdk/  — Plugin loader (placeholder)
-  app/routers/     — active routers including auth, iam, finance, sync, users, groups, forks, audit, and plugins
-  app/schemas/     — Pydantic v2 request/response schemas
-packages/ui  — 38 shadcn/neobrutalism React components
-plugins/     — First- and third-party plugins (includes sample_plugin workspace)
+apps/
+  web/          — Next.js 15 (React 19, Tailwind, Framer Motion, Neobrutalism UI)
+  api/          — FastAPI backend (Python 3.12, uv, SQLAlchemy 2.0 async, Alembic)
+    app/db/       — ORM models, Alembic migrations, idempotent seeders
+    app/iam/      — Principal resolver, policy evaluator, audit logger
+    app/events/   — Redis EventBus pub/sub
+    app/provisioning/ — Discord sync worker & background scheduler
+    app/plugin_sdk/  — Dynamic plugin loader & manifest validator
+    app/routers/  — auth, iam, finance, sync, users, groups, forks, audit, meetings, signatures, contract_assistant, dyslexic, plugins
+    app/services/ — signature_engine, legal_agent, razorpayx_adapter, llm_client
+  bot/          — Discord Bot clerk (@bnb/bot, Bun, bun:sqlite, signed HMAC API client)
+packages/
+  ui/           — @bnb/ui (38 Neobrutalism components)
+plugins/        — email_server, minecraft_server, sample_plugin
 ```
 
-- **DB:** PostgreSQL 16 (Docker) · **Cache/Events:** Redis 7 (Docker)
-- **Auth:** NextAuth v5 (Discord OAuth) → fire-and-forget upsert to FastAPI
-- **Runtime:** Bun (FE), Python 3.12 (BE)
+- **Databases:** PostgreSQL 16 (Alembic head: `a9c4e7f1b2d6`) · Redis 7 · Local `bot.db` (`bun:sqlite`, ephemeral bot tables only).
+- **Auth:** NextAuth v5 (Discord OAuth) → fire-and-forget upsert to FastAPI `/api/auth/upsert`. Public signing/verification routes bypass NextAuth.
+- **Mail & Relay:** Postfix/Dovecot on VPS + Brevo SMTP relay fallback (`smtp-relay.brevo.com:587`). Mandatory CC to `gobitsnbytes@gmail.com` across all systems.
 
 ---
 
-## 3. Key Learnings
+## 3. Key Learnings & Engineering Gotchas
 
-- Turborepo needs `"packageManager": "bun@1.3.11"` in root `package.json` to resolve workspaces.
-- `@bnb/ui` barrel imports cause SSR `d.createContext` errors with `transpilePackages` — dashboard uses plain HTML + Tailwind classes instead.
-- Grants use polymorphic `principal_id` (not FKs) to support user and group grants in one table.
-- `slug` used as human-readable unique key on Group and Fork alongside UUID PK.
-- Seeder uses `ON CONFLICT DO NOTHING` — safe to run on every container start.
-- `batch_can` uses single DB query with IN clause for efficiency.
+1. **Turborepo Workspace Resolution:** Root `package.json` must explicitly specify `"packageManager": "bun@1.3.11"`.
+2. **SSR Barrel Import Safety:** `@bnb/ui` barrel imports cause `d.createContext` errors with Next.js `transpilePackages` — use direct component imports or Tailwind utility tokens.
+3. **IAM Polymorphic Grants:** `grants` table uses polymorphic `principal_id` (not foreign keys) to unify user and group grants in a single table.
+4. **FastAPI Plugin Route Cloning:** APIRouters resolve route dependencies lazily. To enforce plugin permissions without mutating source routers or causing accumulation across reloads, the loader mounts a shallow clone (`copy.copy`) of each `APIRoute` with injected IAM dependencies.
+5. **aiosqlite / Pytest Event-Loop Isolation:** Shared SQLAlchemy engines across pytest-asyncio function-scoped loops cause connection leakage and rotating StaleDataErrors. Tests creating isolated transactions must use per-test `create_async_engine(..., poolclass=NullPool)` and explicitly dispose at teardown.
+6. **Timezone Normalization (SQLite vs Postgres):** `DateTime(timezone=True)` reads back naive on `aiosqlite`. Normalize with `.replace(tzinfo=timezone.utc)` before Python comparisons.
+7. **Database Decoupling:** The Discord bot does not query Postgres directly in production (`usePostgres = false`). It proxies shared state via signed HMAC requests (`callMotherboard`) to Motherboard APIs.
+8. **Dual Approval Persistence Pattern:** Money requests >= ₹1L require two distinct approvers (OKF Rule 35). Approvals are persisted as append-only `AuditLog` rows (`action=finance.request.approval_recorded`) and counted via `COUNT(DISTINCT actor_id)`.
 
 ---
 
-## 4. Session History
-
-### Pre-Production (S1-S33, up to 2026-06-25)
-
-**Major Milestones:**
-- **S1-S11:** Initialized Bun/Turborepo workspace, migrated to FastAPI/Python 3.12, rewrote specifications and set up legal rules.
-- **S12-S15:** Built landing page and NextAuth v5 dashboard shell. Completed Phase 1 (Database schema, 13 tables).
-- **S16-S22:** Implemented IAM module (Phase 2), Event Bus (Phase 3), and double-entry Finance Ledger (Phase 7). Fixed CORS and Next.js proxying.
-- **S23-S25:** Database seeder fixes, priority security/hardening implementation, full end-to-end audit (76/76 backend tests passing).
-- **S26-S33:** Setup VPS deploy scripts, Nginx reverse proxy, SSL certificates. Implemented Plugin SDK (Phase 4). Shipped dynamic Settings dashboard and Danger Zone actions. Deployed to production (`api.gobitsnbytes.org`).
-
-### 2026-06-26
-
-**S34 — Motherboard Operations & Discord Bot Clerk Integration:**
-- **Discord Bot Clerk Refactoring**: Refactored the Discord bot commands `/meet-schedule`, `/meet-start`, `/meet-stop` to proxy all operations (meetings, calendar, scheduling, teams, handling, transcript handling) to Motherboard FastAPI APIs via secure signed HMAC requests (`callMotherboard`).
-- **Audio Transcription Offload**: Removed direct `@google/genai` dependency and local timeline coalescing from the bot, shifting raw meeting audio uploads entirely to Motherboard's `/api/meetings/{id}/transcribe` endpoint.
-- **Database Consolidation**: Eliminated direct database insertions or remote Turso/SQLite queries in production, utilizing only Notion registries and Motherboard Neon PostgreSQL for storage.
-- **Test Suite Modernization**:
-  - Cleaned up obsolete local transcription tests.
-  - Setup callMotherboard mocks in `/meet-schedule`, `/meet-start`, `/meet-stop` commands inside the Discord bot test suite (`tests/meetings.test.js`), updating the local SQLite test DB during mock executions to maintain correct state validation.
-  - Addressed Bun test runner module cache mock pollution by restructuring `jest.mock()` and `require()` ordering across all test files.
-  - Verified all 208 bot tests pass 100% green via `bunx jest` and all 93 Motherboard backend tests pass 100% green via `pytest`.
-  - Created a detailed [walkthrough.md](file:///C:/Users/akshat/.gemini/antigravity/brain/17b7ba91-d25a-4d15-8f72-8ab6d2b45ea0/walkthrough.md) in the brain artifacts directory.
-
-**S35 — Chrono Portal Availability Fix:**
-- **Root Cause**: After the Neon PostgreSQL migration (S34), `user_availability` data lives exclusively in Motherboard's DB. The Chrono booking portal (`server.js`) was still querying the empty local SQLite, causing "Database Connection Failure" on every page load.
-- **Motherboard**: Added two new **public (no-auth)** endpoints to `app/routers/meetings.py`:
-  - `GET /api/meetings/public/hosts` — returns all users with a booking link set (used by Chrono landing page to render host cards).
-  - `GET /api/meetings/public/availability/{booking_link}` — looks up a single host by their booking slug (used by the Chrono booking flow).
-- **Discord Bot (`server.js`)**: Three endpoints updated to proxy through Motherboard in production, with SQLite fallback in test mode only:
-  - `GET /api/users` → proxies `GET /api/meetings/public/hosts`, enriches each record with Discord role metadata.
-  - `GET /api/availability/:bookingLink` → resolves host profiles from `GET /api/meetings/public/availability/:link`.
-  - `GET /dashboard` gate → falls back to Motherboard host list check if SQLite returns nothing.
-- **Auth Callback Sync**: When a contributor logs in via Discord OAuth, their profile is now fire-and-forget synced to Motherboard's `POST /api/meetings/availability` so the Chrono portal reflects them immediately.
-- **Tests**: All 208 bot tests and 93 Motherboard backend tests remain 100% green. Commits pushed: `dbc15d7` (bot `main`) and `a193405` (motherboard `prod`).
-
-**S36 — Discord Bot Test Hardening & DB Detection:**
-- **Test Suite Hardening**: Fixed sequential test runner leakages/pollution in Bun by refactoring `tests/auth.test.js`, `tests/forksInfo.test.js`, `tests/reportView.test.js`, `tests/channelSync.test.js`, and `tests/adminAddLead.test.js`. Replaced global `jest.mock('../lib/notion')` module-cache overrides with clean, isolated `jest.spyOn()` mocks inside `beforeEach` and added corresponding `jest.restoreAllMocks()` in `afterAll`/`afterEach`.
-- **Database Type Detection**: Updated `/ping` slash command in `commands/ping.js` to correctly detect and report `PostgreSQL` in production when `usePostgres` is active.
-- **Verification**: Verified that all 208 test cases in the Discord Bot test suite pass 100% green sequentially without any errors or leakage.
-
-
-**S37 — Phase 9/10 Gap Closure & Full Type Safety Sweep:**
-- **Phase 9 (Discord Role Mapping UI)**: Already fully implemented in `IAMRoleMappings.tsx` — blocked spinners, no optimistic updates, GET /api/iam/discord-roles + /api/iam/groups + PUT /api/iam/discord-mappings. No gaps found.
-- **Phase 10 (Docker Production)**: Both Dockerfiles exist. **Fixed**: `docker-compose.prod.yml` was missing `REDIS_URL: redis://redis:6379/0` for the API service, causing the EventBus to start in in-process mode in production despite a Redis container being present.
-- **Type Safety Sweep** (all `any` eliminated across frontend):
-  - `IAMContent.tsx`: Added `IamGroup`, `IamPermission`, `IamDiscordMapping` interfaces replacing `any[]` state
-  - `Sidebar.tsx`: Replaced `(Lucide as any)` with `as unknown as Record<string, ComponentType>` typed lookup
-  - `meetings/page.tsx`: All `err: any` → `err: unknown` + `instanceof Error` narrowing; added `useRouter` 401 redirect; typed `(item: any)` action items
-  - `finance/cards/page.tsx`: `payload: any` → fully typed object; `err: any` → `err: unknown`
-  - `finance/requests/new/page.tsx`, `finance/accounts/page.tsx`: `err: any` → `err: unknown`
-- **New Test**: `apps/api/tests/test_meetings_permissions.py` — 4 tests verifying `meetings.read` / `meetings.write` are in `CORE_PERMISSIONS` seed data with descriptions and no duplicates.
-- **Final State**: 97/97 backend tests pass (up from 93), `bun run typecheck` clean, zero `any` violations in project-owned frontend files.
-### 2026-06-26
-
-**S37 — Cal.com Sync & Webhook Hardening & Meeting Recovery Fixes:**
-- **Cal.com Rescheduling Sync Correction (`lib/calcomWebhook.js`)**: Updated the poll sync logic to call `meetingsDb.rescheduleMeeting` in production instead of running raw SQL updates directly on the meetings table (which is managed by Motherboard).
-- **Instant `BOOKING_RESCHEDULED` Webhook (`server.js`)**: Added a handler for `BOOKING_RESCHEDULED` trigger event in the Cal.com webhook listener, allowing meetings to be updated and reminders to be reset instantly when rescheduled by hosts/guests.
-- **Instant Booking Location Updates (`server.js`)**: Integrated `calcom.updateBookingLocation` inside the `BOOKING_CREATED` webhook handler, ensuring that bookings created through the webhook instantly get updated on Cal.com with the custom voice channel redirection link.
-- **Meeting Recovery Loop Fix (`jobs/meetingRecovery.js`)**: Fixed an infinite meeting recovery loop where stale VC meetings with missing `metadata.json` were repeatedly checked. These are now correctly marked as completed.
-- **Verification**: Added 2 new integration test suites in `tests/meetings.test.js` validating the meeting recovery status transitions and Cal.com synchronizer rescheduling functionality. Ran the bot test suite verifying all 210 test assertions pass 100% green. Commits pushed to `origin/main` branch.
-
-### 2026-08-04
-
-**S46 — Internal Contract Assistant & bnb-signatures Overhaul**:
-- **Signature Canvas Overhaul (`SignatureCanvas.tsx`)**: Added Upload tab (for image files of wet signatures), 5 script font picker options for typed signatures, and draw canvas clear/pressure support.
-- **Envelope Status Resolution & Contextual Signing Portal (`/sign/[token]/page.tsx` & `signatures.py`)**: Added `GET /api/signatures/sign/{token}/status` endpoint. Updated public signing page to poll envelope status after signing and render contextual state ("Fully Executed & Sealed" vs "Signature Recorded — Pending Remaining Signatories").
-- **Email Security & Dispatch Formatting (`signatures.py`)**: Cleaned email HTML formatting, added List-Unsubscribe headers, direct non-tracked link fallbacks, and proper display names.
-- **Inbound Email Domain Restriction (`contract_assistant.py`)**: Added strict `@gobitsnbytes.org` sender check (HTTP 401 on unauthorized domains) to `/api/contract-assistant/inbound-email` webhook.
-- **Contract Assistant Database ORM Models (`models.py`)**: Added `ContractAssistantContract`, `ContractAssistantClause`, `ContractAssistantFinding`, `ContractAssistantSignatory`, `ContractAssistantEnvelope`, and `ContractAssistantEvent` ORM models.
-- **Contract Dispatch & Search Endpoints (`contract_assistant.py`)**: Added `/dispatch` (with high-risk unresolved gate check) and `/ask` (RAG across OKF documents).
-- **Kanban Pipeline Board (`dashboard/contract-assistant/page.tsx`)**: Rebuilt Contract Assistant landing page into a 3-column Kanban pipeline board (`In Review`, `Out for Signature`, `Dotted & Sealed`) with quick search and contract upload triggers.
-- **OKF Rules Reference Panel (`dashboard/contract-assistant/rules/page.tsx`)**: Built read-only reference panel displaying 35 OKF policy rules with search and tag filters.
-- **Contract Review & Triage Screen (`dashboard/contract-assistant/[contractId]/page.tsx`)**: Built 2-pane review layout featuring clause text viewer, findings list with source badges (`⚡ OKF Rule` vs `✨ AI Pass`), Tier-1/Tier-2 redline diff modal, per-clause chat, and sticky dispatch gate bottom bar.
-- **Verification**: Verified `bun run typecheck` passes cleanly (code 0). Verified `pytest` passes 100% green across signature router tests and contract assistant test suites.
-
-### 2026-06-26 (Later)
-
-**S38 — On-Demand VC Joining Cache Resolution & Listener Fallback:**
-- **Robust Cache Resolution (`events/voiceStateUpdate.js`)**: Resolved cache race condition where `newState.channel` evaluated to null immediately after a user joined the channel. Implemented channel fetching fallback via `newState.guild.channels.fetch` to ensure the bot can resolve the target voice channel on-demand.
-- **Listener Client Fallback (`lib/voiceRecorder.js`)**: Wrapped the listener client channel resolution inside a validator to only overwrite the target voice channel when the listener bot client successfully resolves the channel. If it returns null, it falls back to the main bot's voice channel, preventing null property exceptions and joining crashes.
-- **Verification**: Ran the bot test suite verifying all 210 test assertions pass 100% green.
-
-### 2026-06-26 (Later Still)
-
-**S39 — Robust Meeting ID Display & Safe 404 Resolution:**
-- **Graceful Not-Found Handling (`commands/meet-start.js` & `commands/meet-stop.js`)**: Replaced direct API fetch calls to Motherboard with `meetingsDb.getMeeting(meetingId)`. This catches `404 Meeting not found` errors gracefully and returns a descriptive, user-friendly message to the user instead of throwing a generic `SYSTEM_FAILURE`.
-- **Visible Meeting IDs**: Added the `meeting.id` to the scheduled meeting confirmation embeds (`commands/meet-schedule.js`), start success command outputs (`commands/meet-start.js`), and the events channel live commencement embeds (`lib/meetingsHelper.js`).
-
-### 2026-06-28
-
-**S40 — Cal.com Lookup Performance Fix & Finance Portal UX Dropdowns**:
-- **Cal.com Lookup N+1 Query Resolution**: Optimized `/api/meetings` endpoint in the FastAPI backend by bulk-loading child relationships (`attendees`, `reschedule_history`, `transcripts`) in exactly 3 batch queries using SQL `.in_()` checks. Reduced latency from >10s to <50ms for meeting index and lookups.
-- **Cal.com ID Support**: Added `calcom_booking_id` and `calcom_uid` fields to FastAPI Pydantic schemas and database insertion code. Updated the bot's `meetingsDb.js` to pass and query by `calcom_booking_id` parameter to prevent duplicate meetings import and endless reminder spam.
-- **Finance Portal Navigation Integration**: Added a "Finance" navigation item to the motherboard's main dashboard `Sidebar.tsx`, and added an "Exit to Dashboard" back link in `FinanceSidebar.tsx` to prevent user navigation entrapment.
-- **Dropdown Selection UX**: Updated the Create Virtual Account modal (`accounts/page.tsx`) and the Issue Virtual Card modal (`cards/page.tsx`) to fetch active members and virtual accounts from the API and display them as dropdown `<select>` elements, eliminating the need to manually copy-paste raw 36-character UUIDs.
-- **Verification**: Verified that all 210 bot tests and 97 backend tests pass 100% green. Verified clean local Next.js compilation (`bun run build`). Deployed and pushed changes.
-
-### 2026-07-16
-
-**S41 — Command Database Wiring, DNS Routing & Cal.com Schema Migration:**
-- **Forks Dashboard Crash Fix (`commands/forks-info.js`)**: Removed the `NODE_ENV === 'test'` condition from the `bot_settings` table creation block. The table is now created idempotently on startup in all environments (including production Neon Postgres), preventing subsequent `db.get()` from crashing with a missing relation error.
-- **Event Update Performance & Direct DB Query (`commands/event-update.js`)**: Fixed a performance bottleneck by replacing the full-table scan/filter block (`notion.getEvents()`) with an optimized direct database row lookup by ID.
-- **Report Point Award Correction (`commands/report-submit.js`)**: Updated point awarding to use the canonical `gamification.POINTS.REPORT_SUBMISSION` (15 points) rather than a hardcoded `5` points to maintain system points parity.
-- **Announcement Channel Centralization (`commands/admin-add-lead.js`)**: Replaced a hardcoded channel ID string with `config.CHANNEL_IDS.announcement` for configuration parity.
-- **Dynamic Achievements Streak (`commands/fork-badges.js`)**: Removed a hardcoded `pulseStreak: 0` and replaced it with a dynamic weekly streak calculation derived from the fork's actual `Last Pulse` date in Notion, making the `PULSE_MASTER` badge earnable in Discord commands.
-- **Cal.com Database Schema Migration (`notion.js` & Motherboard model/migration)**:
-  - Added `calcom_booking_id` and `calcom_uid` columns to the events schema initialization in `lib/notion.js`.
-  - Updated `createEvent()` and `updateEvent()` to support writing and updating Cal.com IDs in the database.
-  - Added `calcom_booking_id` and `calcom_uid` properties to Motherboard's `EventCache` ORM model (`apps/api/app/db/models.py`).
-  - Created and ran a new Alembic database migration (`a1b2c3d4e5f6`) to add these columns to the production Neon PostgreSQL database.
-- **Local DNS Routing Fix on VPS**: Changed `MOTHERBOARD_API_URL` from `localhost:8000` to `127.0.0.1:8000` inside the bot's `.env` configuration on the VPS to resolve IPv6 loopback routing failures on local API requests.
-- **Gemini Transcription Fallback (`apps/api/app/routers/meetings.py`)**: Implemented a model fallback mechanism. If generating the transcription with the primary model fails (e.g. 503 unavailability on `gemini-3.5-flash`), the system automatically falls back to `gemini-2.5-flash` to ensure 100% successful meeting briefs.
-- **Calendar & Meetings Programmatic API Key Auth (`apps/api/app/dependencies.py`)**: Implemented a secure, API key-authorized fallback (supporting `X-API-Key` and `Authorization: Bearer <API_KEY>`) to `get_current_user` in the FastAPI backend (`motherboard.gobitsnbytes.org`). This enables external calendars, Cal.com scripts, and bots to query and modify scheduled meetings and user availability host lists without browser NextAuth sessions.
-- **Verification**: Verified that all 210 bot tests and 97 python backend tests pass 100% green. Tested the fallback directly on the VPS via python request calls, verifying successful 200 OK responses on the meetings index. Restarted all services.
-
-### 2026-07-19
-
-**S42 — Monorepo Consolidation, Database Decoupling & API Routing fixes:**
-- **Monorepo Integration**: Consolidated the Discord Bot into `apps/bot` under Turborepo, naming it `@bnb/bot`.
-- **Audio Workflow Migration**: Moved `merge-audio.yml` workflow to `.github/workflows/merge-audio.yml` and updated the dispatch repository target in `audioProcessor.js` to `gobitsnbytes/motherboard`.
-- **Database Decoupling**: Disabled direct Neon PostgreSQL database access in `db.js` completely (setting `usePostgres = false`). The bot now uses local SQLite (`data/bot.db`) for bot-only ephemeral tables (reminders, pings, registrations, subscriptions) and `callMotherboard()` API endpoints for all shared global meetings, transcripts, and preferences.
-- **Dynamic Routing Fix**: Refactored the dynamic booking page route `GET /:bookingLink` and booking creator route `POST /api/book/:bookingLink` in `server.js` to resolve host profiles using a global `resolveHostByLink` helper, fetching from Motherboard's public availability API instead of querying the local database, fixing dynamic routing on `cal.gobitsnbytes.org/:bookingLink`.
-- **Verification**: Ran `bun install --ignore-scripts` to build monorepo package locks. Verified that all 210 bot tests and 97 backend python tests pass 100% green. Verified Next.js monorepo build (`bun run build`) compiles cleanly with zero errors.
-
-### 2026-07-19 (Continued)
-
-**S43 — CI/CD Trigger Expansion, native compilation resolution & bun:sqlite migration:**
-- **Trigger Path Configuration**: Updated paths in `deploy-api.yml` to trigger on all bot, monorepo configs, deploy scripts, and workflow files (`apps/bot/**`, `package.json`, `bun.lock`, `.github/workflows/**`).
-- **deploy.sh Service Reload**: Configured `deploy.sh` to run `bun install` recursively and automatically restart the bot service (`bnb-bot`) on code changes.
-- **SQLite Native Bindings Refactor (`db.js`)**: Replaced the native C++ `sqlite3` npm package in the Discord bot with Bun's built-in `bun:sqlite` (`Database` from `bun:sqlite`), eliminating the external Node C++ native module dependency, resolving local GLIBC binary compilation conflicts on the VPS (Ubuntu 22.04 LTS), and removing compile-time dependencies.
-- **Parity Syncing**: Synchronized `db.js`, `audioProcessor.js`, and `server.js` modifications back to the standalone bot repository (`gobitsnbytes/bitsnbytes-discord-utility`) and pushed to origin/main.
-- **VPS Deployment**: Pulled latest updates to `/opt/bnb-api` and `/opt/bits-bytes-bot` on the VPS. Fixed permissions on `/opt/bnb-api/apps/bot/data` to be owned by `ubuntu` (since the bot service runs as `ubuntu`), enabling database directory initialization.
-- **Verification**: Verified all 210 bot tests pass locally with 100% success. Checked service states on VPS, verifying that both `bnb-bot` (using `bun:sqlite`) and `bnb-api` are fully online, healthy, and communicating without errors.
-
-### 2026-07-19 (Later Still)
-
-**S44 — Motherboard Slots API & Interactive Calendar RSVP Widget Integration:**
-- **Motherboard Slots API (`app/routers/meetings.py`)**: Designed and exposed a public availability slots route `/api/meetings/public/availability/{booking_link}/slots` on Motherboard to encapsulate the host weekly hours, timezone boundaries, and database-level active meeting overlap calculations.
-- **Chrono availability synchronization (`server.js`)**: Configured the Express booking backend (in both the monorepo `@bnb/bot` and the standalone `Bits-bytes-bot` repositories) to fetch availabilities via Motherboard's public slots API in production, keeping local mock database checks as fallback for tests.
-- **MIME Multipart RFC-2446 Email RSVP widget (`app/routers/meetings.py`)**: Modified `send_smtp_email` mailer to construct a structured `multipart/mixed` MIME message containing a `multipart/alternative` block hosting the HTML version alongside the raw `text/calendar; method=REQUEST` inline iCalendar, triggering Gmail and Outlook client native RSVP checkmarks.
-- **Deduplicated .ics Attendees & Organizer**: Enriched the `.ics` generator signature with dynamic `ORGANIZER` and `ATTENDEE` tags containing matching `CN` and `mailto:` values, enabling mail clients to associate the invitation widget with the recipient. Loaded reschedule history to resolve previous scheduled times.
-- **Verification**: Verified that all 97 backend FastAPI unit tests (`pytest`) and all 210 bot Express integration tests (`bun test`) pass 100% green. Pushed code changes successfully to Motherboard `prod` and standalone bot `main` branches.
-
-### 2026-08-02
-
-**S45 — VPS Database Recovery & End-to-End Digital Signature System (`bnb-signatures`)**:
-- **VPS Database Recovery**: Diagnosed `POST /api/auth/upsert` HTTP 500 errors on `bnb-backend`. Extracted `asyncpg.exceptions.InsufficientResourcesError` from journalctl logs caused by Neon Postgres compute quota limits. Deployed persistent Docker container `bnb-postgres` (`postgres:16-alpine`), updated `.env` configs, ran Alembic migrations (`alembic upgrade head`), and executed `run_seeds`. Restored `bnb-api` and `bnb-bot` service health (HTTP 200).
-- **Backend Signature Engine (`app/services/signature_engine.py`)**: Implemented PyMuPDF 150 DPI base64 page preview generator, `.docx` to PDF converter (`python-docx` + `reportlab`), 1-page Audit Certificate generator, signature image overlay embedding, and SHA-256 tamper-evident checksum sealing.
-- **ORM & Alembic DDL Migration (`f1a2b3c4d5e6`)**: Added `SignatureRequest`, `SignatureRecipient`, `SignatureField`, and `SignatureAuditLog` tables.
-- **REST Router (`app/routers/signatures.py`)**: Exposed `/upload`, `/requests`, `/sign/{token}`, `/requests/{id}/download`, and `/verify/{id}` endpoints.
-- **Pytest Suite (`tests/test_signatures_router.py`)**: Verified 103/103 tests pass 100% green across `apps/api`.
-- **Frontend Signature Platform (`apps/web`)**:
-  - `SignatureCanvas.tsx`: HTML5 canvas for drawing mouse/touch bezier curves or typing cursive script signatures.
-  - `DocumentEditor.tsx`: Responsive PDF previewer with drag & drop field placement.
-  - Overview Dashboard (`/dashboard/signatures`): Contract filter tabs, status badges, PDF download triggers, and verification links.
-  - 4-Step Builder (`/dashboard/signatures/builder`): Document upload $\rightarrow$ Signatories $\rightarrow$ Visual canvas $\rightarrow$ Review & Dispatch.
-  - Public Signing Portal (`/sign/[token]`): Tokenized recipient signing view with passcode security gate and legal consent agreement.
-  - Public Verification Portal (`/verify/[documentId]`): Public authenticity check rendering SHA-256 checksums and audit trail timeline.
-  - Navigation: Linked `Signatures` to `Sidebar.tsx`.
-
-
-**S46 — chrono ↔ Motherboard Meetings Unification (Phase 10)**:
-- **Problem**: Two parallel systems — `chrono` (bot/public/*.html Express portal) and `apps/web/app/dashboard/meetings/page.tsx` — sharing the same FastAPI `/api/meetings/` backend but feeling like completely separate apps. Critical data contract mismatch: `weekly_hours` was stored as structured JSON by chrono but free-text string by motherboard.
-- **New components (apps/web/components/dashboard/)**:
-  - `AvailabilityGrid.tsx` — Interactive 7-day availability grid with toggle switches, multi-slot-per-day support, "copy to all" UX. Reads/writes same JSON format as chrono's `dashboard.html` (`{"monday": [{"start": "09:00", "end": "17:00"}], ...}`). Includes preset buttons (Weekdays/Weekend/All/Clear).
-  - `ChronoHostGrid.tsx` — Host discovery card grid, fetches from public `/api/meetings/public/hosts` endpoint. No auth required. Shows avatar, title, timezone. Click to select.
-  - `ChronoBookingPanel.tsx` — Full booking flow: duration selector, month calendar, slot list from `/api/meetings/public/availability/{link}/slots`, booking form (title/notes/scope), submits to authenticated `/api/meetings/schedule`.
-- **Meetings page (`apps/web/app/dashboard/meetings/page.tsx`) full rewrite**:
-  - ⚡ Instant Meet launcher (always visible at top, same scope options as chrono index.html including tech/creative/ops councils)
-  - **"Book a Sync" tab**: integrates `ChronoHostGrid` + `ChronoBookingPanel` inside the dashboard — no need to visit `cal.gobitsnbytes.org` for internal bookings.
-  - **"My Availability" tab**: now uses `AvailabilityGrid` component instead of free-text. Booking handle slug editor with `cal.gobitsnbytes.org/` prefix preview.
-  - **Meetings list**: "Join VC" button for active meetings, external meeting page deep-link (`cal.gobitsnbytes.org/m/{code}`) on every card.
-  - **Reschedule modal**: inline form fires `PATCH /api/meetings/{id}`.
-  - **Detail modal**: action bar with Join VC + Open Meeting Page + Reschedule + Cancel, full transcript with search.
-- **TypeScript**: all 3 new files pass strict typecheck (0 errors).
-- **Data contract**: `weekly_hours` is now always serialized as JSON object — `AvailabilityGrid` handles both empty/null and legacy object. Both surfaces write the same format.
-
-### 2026-08-04 (Later)
-
-**S47 — Meetings Dashboard UI & Responsive Layout Overhaul**:
-- **Problem**: In the Meetings dashboard, selecting "My Availability" or "Notifications" rendered single-column forms constrained to `max-w-2xl` and `max-w-lg` aligned to the left half of the page, leaving a massive empty black void across the right half of wide screens.
-- **Full-Width Responsive Layout (`apps/web/app/dashboard/meetings/page.tsx`)**:
-  - Expanded wrapper max-width to `max-w-7xl` with responsive container padding (`p-4 sm:p-6 lg:p-8`).
-  - **My Availability Tab**: Refactored from narrow single column into a full-width 2-column grid (`grid grid-cols-1 lg:grid-cols-12 gap-6`).
-    - *Left Column (`lg:col-span-5`)*: Profile details (Email, Timezone, Title, Booking Handle, Short Bio, Cal.com Event Type ID) + **Live Guest Preview Card** showing how the host card renders to visitors on `cal.gobitsnbytes.org/{handle}`.
-    - *Right Column (`lg:col-span-7`)*: `AvailabilityGrid` schedule editor with preset chips, day toggles, multi-slot pickers, copy-to-all controls, Web Push & Discord DM notification notes, and full-width green "Save Availability Settings" CTA.
-  - **My Meetings Tab**: Added status filter chips ("All", "Scheduled", "Active", "Completed", "Cancelled"), meeting search bar, active meeting count badges, and responsive 3-column card grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`).
-  - **Notification Preferences Tab**: Refactored into a balanced 2-column layout (`lg:col-span-7` settings card + `lg:col-span-5` integrations info card).
-- **Verification**: Ran `npx tsc --noEmit` cleanly with zero TypeScript errors.
-
-**S48 — Dyslexic UI, Root Route Aliases & Ground-Truth City Forks Cleanup**:
-- **Dyslexic Root Redirect (`apps/web/app/dyslexic/page.tsx`)**: Created `/app/dyslexic/page.tsx` with server-side auto-redirect to `/dashboard/dyslexic` so navigating directly to `/dyslexic` in the browser URL resolves without a `404 Not Found`.
-- **Top Header Quick Button (`apps/web/components/dashboard/Topbar.tsx`)**: Added a 1-click Dyslexic access button with a live pulse indicator to the top bar header.
-- **Overview Dashboard Card (`apps/web/components/dashboard/OverviewContent.tsx`)**: Added a dedicated Dyslexic StatCard on the main overview dashboard linking to `/dashboard/dyslexic`. Updated `lib/dashboard.ts` to fetch live Dyslexic metrics via `/api/dyslexic/stats`.
-- **Root Router Handlers (`apps/api/app/routers/dyslexic.py`)**: Added `@router.get("")` and `@router.get("/")` root endpoints on `APIRouter(prefix="/api/dyslexic")` to return dashboard stats and prevent direct GET `404` errors.
-- **Ground-Truth Seeding Cleanup (`apps/api/app/db/seed.py`)**: Updated `seed_city_forks` to purge non-ground-truth fake/legacy forks and enforced real Notion ground-truth city forks (Lucknow HQ, Noida, Kolkata) and real team profiles in `run_seeds`.
-### 2026-08-05
-
-**S49 — Signature Email OTP, Class 1/2/3 DSC Support & IT Act Legal Page (`bnb-signatures`)**:
-- **Unauthenticated Public Signing Access**: Updated `apps/web/app/api/[...path]/route.ts` to permit unauthenticated proxy access to `/api/signatures/sign/*` and `/api/signatures/verify/*` so external signatories can sign without NextAuth sessions.
-- **6-Digit Email OTP Security Engine**: Added 2-stage verification flow (`POST /api/signatures/sign/{token}/request-otp` and `POST /api/signatures/sign/{token}/verify-otp`) with masked email challenge (e.g. `ak*******@g****.com`), 2-minute expiration countdown timer, background SMTP email dispatching, and per-recipient toggle in contract builder (`/dashboard/signatures/builder`).
-- **Class 1, 2, 3 Digital Signature Certificate (DSC) Engine**:
-  - Added `dsc_type`, `dsc_issuer`, `dsc_serial`, `dsc_common_name`, `allowed_sig_type` columns to `SignatureRecipient` model and Alembic migration `e5f6a1b2c3d4`.
-  - Added endpoints `/api/signatures/sign/{token}/dsc-digest`, `/api/signatures/sign/{token}/dsc-hardware-seal` (for USB dongles ePass2003, HYP2003, eMudhra, NIC, VSign), and `/api/signatures/sign/{token}/dsc-pfx-seal` (for `.pfx` / `.p12` certificates via Python `cryptography.x509` and `pkcs12`).
-  - Added dedicated **"DSC (Class 1/2/3)"** tab inside `SignatureCanvas.tsx` for hardware USB tokens and software certificates.
-- **Statutory Legal Validity Page & Modal**:
-  - Rendered a statutory legal framework modal and bottom footer cards on `/sign/[token]` referencing `d:/bitsnbytes/agreements/legal-docs/trust-center/terms-of-service.txt`:
-    - Operating Entity: GOBITSNBYTES FOUNDATION (Section 8 Non-Profit Company under Companies Act 2013, Uttar Pradesh, India).
-    - Section 10A of the IT Act, 2000: Enforceability of electronic contracts and e-signatures in Indian courts.
-    - Section 65B of the Indian Evidence Act / BSA 2023: Primary electronic evidence admissibility for SHA-256 document checksums, execution timestamps, IP addresses, and email OTP logs.
-    - DPDP Act 2023 & POCSO minor safeguarding compliance.
-    - Cryptographic SHA-256 tamper-evident sealing.
-- **Flexible Recipient Security Modes**: Added `allowed_sig_type` dropdown in `/dashboard/signatures/builder` per recipient: `"any"` (Default: DSC if available, or Simple OTP), `"dsc_only"`, and `"email_only"`.
-- **Verification**: `bun run typecheck` passed cleanly (exit code 0 across `apps/web`), 4/4 signature backend tests passed 100% green via `pytest`. Fixed Alembic branching migration tree multiple heads error (`a7f3c92b1d84` chained after `e5f6a1b2c3d4`). Pushed commits `8d2fd4a` and `a03583f` to `origin/prod`.
-
-**S50 — Database-Backed Contract Assistant & bnb-signatures Integration**:
-- **Database Persistence**: Updated `POST /api/contract-assistant/analyze` to extract real PDF text (PyMuPDF `fitz`), execute OKF deterministic rules & SparkCloud AI risk passes, and persist `ContractAssistantContract`, `ContractAssistantClause`, `ContractAssistantFinding`, and `ContractAssistantEvent` directly into database tables.
-- **Auto-Sync & Ingestion Engine (`_sync_signature_request_to_ca_contract`)**: Automatically ingests any unlinked `SignatureRequest` into `ContractAssistantContract`, running rule evaluations, generating risk findings, and rendering interactive legal overviews (`/dashboard/contract-assistant/[contractId]`).
-- **Resilient Pipeline Normalization**: Normalized status strings across backend and frontend (`pending`, `out_for_signature`, `dotted`, `voided`). Added fallback array handling so 100% of pipeline contracts display cleanly on the Kanban board.
-- **Vercel Build Fix**: Updated `PipelineContract` interface `status` type annotation in Next.js frontend, fixing Vercel deployment builds.
-
-**S51 — Agreement Quash / Void, Client-Side Export Purge & Legal Copy Polish**:
-- **Quash / Void Engine (`POST /api/contract-assistant/contracts/{id}/void`)**: Officially quashes and voids any agreement. Revokes all active recipient signing links and logs an immutable `VOIDED` audit log entry. Public signing/certificate portals state that execution was quashed by the issuing authority.
-- **Client-Side Export & Complete Data Purge (`DELETE /api/contract-assistant/contracts/{id}` & `GET /api/contract-assistant/contracts/{id}/export-void`)**: Generates an immediate client-side text download of an official **Certificate of Cancellation & Voided Copy** (with SHA-256 checksum, timestamps, registered parties, and statutory IT Act 2000 Sec 10A / BSA 65B notices), followed by a complete database deletion of all associated contract and signature records.
-- **Legal Copy Polish & UI Hardening**: Audited and polished `SigningPortalClient.tsx`, `verify/[documentId]`, and dashboard view pages to remove casual tone/placeholders and replace raw `alert()` popups with inline error banners.
-- **Verification**: `bun run --cwd apps/web build` passed cleanly with Next.js 15, and pytest suite passed 6/6 tests (100% green). Pushed to `origin/prod`.
-**S52 — Cockpit Architecture & UI Redesign (Auto-Login, Team Setup Profile, 2-Way Sync & Diagrammatic IAM Visualizer)**:
-- **Auto-Login & Fixed Logout**:
-  - Middleware (`apps/web/middleware.ts`) & Login Form (`apps/web/app/(public)/login/page.tsx`) auto-redirect authenticated sessions directly to `/dashboard/overview`.
-  - Topbar (`apps/web/components/dashboard/Topbar.tsx`) updated to perform clean `signOut({ callbackUrl: "/login", redirect: true })` without leaving stale tokens.
-- **Hero Section Redesign (`/impeccable quiet & distill`)**:
-  - Refined `HeroSection.tsx` with ambient glass visual styling, balanced typography (`text-wrap: balance`), and direct "Enter Cockpit →" auto-detect action button.
-- **Stats for Nerds & Debugger (`CockpitDebugger.tsx`)**:
-  - Added dockable debug bar (`Ctrl+Shift+D`) displaying real-time API latency (ms), active user ID, Granted IAM Scopes, DB & WS status, and AI Token metrics.
-- **Deep Agentic (AI Agent) Ops (`AgentOpsDrawer.tsx`)**:
-  - Added live AI Agent control drawer for monitoring subagents (Contract Assistant, Notion Sync, Dyslexic Sourcing, Chrono v2 Scheduler), execution logs, and prompt execution.
-- **Team Setup Profile (Chrono v2 Ready)**:
-  - Added `GET /api/users/me` and `PATCH /api/users/me` endpoints in FastAPI backend (`apps/api/app/routers/users.py`).
-  - Added single-source profile setup interface at `/dashboard/profile` (`ProfileContent.tsx`) for setting up Display Name, Bio, Role, Timezone, Skills, and Chrono v2 availability & call preferences.
-- **Diagrammatic IAM Hierarchy & 2-Way Discord Sync**:
-  - Added `GET /api/iam/hierarchy` endpoint in backend (`apps/api/app/routers/iam.py`).
-  - Added interactive visual node tree (`IAMHierarchyVisualizer.tsx`) at `/dashboard/iam` mapping system levels (`Super Admin -> Executive -> Lead -> Member -> Bot`), linked Discord roles, and permission policies.
-- **Skeleton Loaders**: Created `Skeletons.tsx` with shimmer loading cards and layout placeholders for Overview, IAM, Profile, and tables.
-- **Verification**: `bun run typecheck` passed 100% cleanly (0 errors), `bun run build` built Next.js 15 app successfully, and `uv run pytest` passed 188/188 backend tests (100% green).
-
-### 2026-08-09
-
-**S53 — Nextcloud Workspace Unification & Motherboard Deprecation**:
-- **Primary Operational Workspace**: Nextcloud (`workspace.gobitsnbytes.org`) officially established as the central Section 8 builder network operating hub replacing Motherboard.
-- **Suite Apps Active**:
-  - `/drive` → Nextcloud Files (5TB External Storage + PostgreSQL 14)
-  - `/meet` → Nextcloud Talk (HD Video Calls + Public Guest Access & Screen Share)
-  - `/calendar` → Nextcloud Calendar (CalDAV + Email Invites via `workspace@gobitsnbytes.org`)
-  - `/mail` → Nextcloud Webmail (IMAP/SMTP connected to India server `161.118.162.166`)
-  - `/deck` → Nextcloud Deck (Kanban Boards for Hackathons & Dev Squads)
-  - `/wiki` → Nextcloud Collectives (Team Wiki & Knowledge Base)
-  - `/forms` → Nextcloud Forms (Signups & Surveys)
-  - `/tasks` → Nextcloud Tasks
-  - `/notes` → Nextcloud Notes
-- **Automated Mail Provisioner Daemon**: Background daemon `/usr/local/bin/bnb_auto_mail_provisioner.py` running on VPS automatically provisions `@gobitsnbytes.org` mailboxes on India mail server `161.118.162.166` whenever a team member provides their Legal Full Name.
-- **Identity & Discord Auth**: Discord OAuth enabled with 1-click login on `workspace.gobitsnbytes.org`.
-- **Broken Icons & SVG Optimization**: Fixed SVG icon rendering by installing `php8.3-imagick` & `libmagickcore-6.q16-6-extra`, setting `www-data:www-data` ownership on data directory, clearing theming caches, and adding `include mime.types;` & `image/svg+xml svg;` in Nginx static location blocks.
-
-**S54 — Complete White-Labeling & 5TB Google Drive Integration**:
-- **Full White-Labeling**: Custom bits&bytes™ SVG logo and favicons deployed. Set `theming.name="bits&bytes™ Workspace"`, `theming.slogan="Getting ambitious teenagers to ship meaningful tech"`, `theming.color="#97192C"` (bits&bytes Core Burgundy). Injected CSS in `guest.css` hiding all Nextcloud footer credits and branding links.
-- **Mail SSO & Auto-Login**: Enabled `mail` app SSO auto-login (`provision-default-account=1`, `auto-provision=1`, `sso-login=1`). Configured Dovecot Master User authentication on India server (`161.118.162.166`). User mailboxes open directly without email password prompts.
-- **Google Drive 5TB Storage Mount**: Created Mount #1 `Google Drive (5TB)` in Nextcloud `files_external` linked to `admin` group. Installed Rclone + Fuse3 for high-speed 5TB storage streaming.
-- **Digital Signatures Shortcut**: Added `/signatures` clean redirect shortcut in Nginx to `https://gobitsnbytes.org/dashboard/signatures` for legal IT Act Section 10A digital contract signing.
-
-
-
-
-### Session S55 (2026-08-09) - Performance Supercharging & Group Hierarchy Realignment
-- **PHP 8.3 FPM OPCache & JIT**: Enabled 512MB RAM OPCache (`opcache.enable=1`, `memory_consumption=512`), JIT tracing compiler (`opcache.jit=tracing`, 128MB buffer), and 2GB RAM limit. Reduced TTFB response latency to 27-40ms.
-- **Nginx Dynamic SVG Icon Route Fix**: Fixed Nginx `/svg/` dynamic rewrite route (`location ^~ /svg/ { try_files $uri /index.php$request_uri; }`) and cleared theming icon cache.
-- **Group Hierarchy Realignment**:
-  - **`admin` + `volunteer`**: Sanjay Singh & Vijay Kushwaha (Board Directors), Akshat, Yash, Devaansh, Srishti, Legal.
-  - **`volunteer`** (Staff): All Admins, City Leads, and Volunteers (Hridyansh, Samiksha, Shantanu, Adithya, Atharva Upadhyay).
-  - **`builder` & `community`**: Reserved for external guests and hackathon participants.
-
-### Session S56 (2026-08-19) - bnb-signatures Verification, Compliance, Void & Delete Overhaul
-- **Verification Engine Overhaul**:
-  - Eliminated mock/dummy hash generation across `signatures.py` and `contract_assistant.py`; replaced with real SHA-256 cryptographic digest calculation of actual files on disk.
-  - Built `POST /api/signatures/verify/file` supporting direct file upload and in-memory SHA-256 validation against registered and pre-seal contracts.
-  - Created public verification landing portal `apps/web/app/(public)/verify/page.tsx` with search lookup and drag-and-drop PDF tamper detection.
-  - Updated `apps/web/app/(public)/verify/[documentId]/page.tsx` with dedicated status alerts (bold RED banner for voided contracts instead of green checkmark, amber for pending, green for sealed).
-- **Statutory & Regulatory Compliance Engine**:
-  - Implemented `GET /api/signatures/requests/{request_id}/compliance-check` evaluating 6 legal standards:
-    1. Section 10A Information Technology Act, 2000 (Electronic Formation)
-    2. Section 65B Evidence Act / Section 63 BSA 2023 (Forensic Tamper-Evident SHA-256 Audit Trail)
-    3. DPDP Act 2023 (Signatory Privacy & Email Verification PINs)
-    4. POCSO Act 2012 / Minor Capacity Representation Protocol
-    5. CCA Guidelines / Class 3 Digital Signature Certificate (DSC) Tiers
-    6. Section 8 Companies Act 2013 Non-Profit Authority Matrix
-  - Integrated interactive compliance report accordion into public verification UI.
-- **Void Functionality Security Hardening**:
-  - Enforced strict checks in `submit_signature`, `seal_hardware_dsc_signature`, `seal_software_pfx_dsc_signature`, `request_signing_otp`, and `verify_signing_otp` rejecting any actions on `voided` or `expired` contracts.
-  - Revoked and marked all pending signatories as `declined`, cleared active OTP codes, and cascaded void status to linked `ContractAssistantContract` models.
-  - Added dedicated cancellation view in `SigningPortalClient.tsx`.
-- **Permanent Purge & Safe Delete**:
-  - Updated `DELETE /api/signatures/requests/{request_id}` and `DELETE /api/contract-assistant/contracts/{contract_id}` to permanently remove both `original_file_path` and `signed_file_path` from storage disk.
-  - Handled cascading foreign keys and object identity checks to prevent SQLAlchemy double-deletion / session conflict errors.
-- **Testing & Quality Assurance**:
-  - Added 4 new pytest test suites in `apps/api/tests/test_signatures_router.py`.
-  - Ran full test suite: **192/192 tests passing (100% green)**.
-  - Ran web typecheck: `bun run typecheck` **0 errors**.
-
-### Session S57 (2026-08-21) - Mail Delivery Relay Fix & Mandatory Organization CC
-- **Brevo SMTP Relay & Resilient Fallback**:
-  - Resolved `SMTPAuthenticationError (535)` on `mail.gobitsnbytes.org` by integrating verified **Brevo SMTP Relay** (`smtp-relay.brevo.com:587`).
-  - Added resilient Brevo relay fallback in [`apps/api/app/routers/meetings.py`](file:///d:/motherboard/apps/api/app/routers/meetings.py) `send_smtp_email` to guarantee email and OTP delivery even during primary SMTP connection issues.
-  - Added security PIN and audit logging to [`apps/api/app/routers/signatures.py`](file:///d:/motherboard/apps/api/app/routers/signatures.py).
-- **Mandatory Organization-Wide CC Policy (`gobitsnbytes@gmail.com`)**:
-  - Enforced that **every single email dispatched by any tool or subsystem** includes `gobitsnbytes@gmail.com` in both the `Cc:` header and the SMTP envelope recipient list.
-  - Implemented across:
-    1. [`apps/api/app/routers/meetings.py`](file:///d:/motherboard/apps/api/app/routers/meetings.py) & [`apps/api/app/config.py`](file:///d:/motherboard/apps/api/app/config.py) (`smtp_cc="gobitsnbytes@gmail.com"`).
-    2. [`apps/bot/lib/mailer.js`](file:///d:/motherboard/apps/bot/lib/mailer.js) & [`Bits-bytes-bot/lib/mailer.js`](file:///d:/Bits-bytes-bot/lib/mailer.js).
-    3. [`email-server/scripts/brevo-send.py`](file:///d:/email-server/scripts/brevo-send.py).
-- **CI/CD Deployment Hardening**:
-  - Fixed `deploy/api/deploy.sh` import bug (`get_engine` from `app.database`) and added automatic verification and configuration of Brevo relay on the production VPS.
-
-### Session S58 (2026-08-26) - Agent D: Meetings Calendar Tab, Recording Chips & Brand Tokenization
-- **New Component [`MeetingsAgendaCalendar.tsx`](file:///d:/motherboard/apps/web/components/dashboard/MeetingsAgendaCalendar.tsx)**:
-  - Month-grid agenda calendar (Mon-start, dynamic week rows) with prev/next/Today navigation.
-  - Day cells render up to 3 status-color-coded meeting chips (active=green, scheduled=orange, completed=neutral, cancelled=red-muted) + "+N more" overflow indicator.
-  - Chip/day click → `onSelectMeeting`; today outlined in orange; empty/out-of-month days muted and non-interactive.
-  - Accessibility: meeting-bearing cells keyboard-focusable (tabIndex + Enter/Space), aria-labels with full dates, motion-reduce guards on all pulses/transitions, horizontal-scroll guard (`min-w-[640px]` wrapper) and responsive cell heights.
-- **Calendar tab wiring ([`meetings/page.tsx`](file:///d:/motherboard/apps/web/app/dashboard/meetings/page.tsx))**:
-  - `"calendar"` added as 5th member of the `ActiveTab` union; reuses existing `meetings` state from `fetchMeetings()` — zero new API calls.
-  - Selection resolves via `meetings.find(x => x.id === m.id)` before `setSelectedMeeting`, so the EXISTING detail modal always receives the full canonical Meeting object.
-- **Recording Chips**: New `RecordingChip` sub-component renders dot+label ("Uploaded"/"Transcribed") plus "Listen" link ONLY when `recording_status` is uploaded/transcribed; `recording_url?: string | null` added defensively to the `Meeting` interface (renders nothing when absent). Wired into meeting cards' meta box and detail-modal header row.
-- **Brand Tokenization Sweep (all four owned files)**:
-  - Hex refs driven to literal ZERO across page.tsx / AvailabilityGrid / ChronoHostGrid / ChronoBookingPanel (169+17+13+32 = 231 hex occurrences before → 0 after).
-  - Mapping applied: `#ff7a1b`→`orange`, `#97192c`→`bg-burgundy`, `#12100e/#161412`→`bg-dark`, `#1a1200`→`bg-orange/10`, `border-black`→`border-border`, hard-offset shadows→`shadow-shadow` (lift hovers use `var(--border)` arbitrary values, press hovers use `shadow-none`), gray panel tints→neutral palette classes, insets→`bg-black/40`.
-  - Emojis → lucide icons: ⚡(text)/📅/📍/🔗/📄/📝/{ }/🌐/✕ replaced with Zap/Clock/CalendarIcon/MapPin/Link2/FileSpreadsheet/Braces/FileText/Globe/X; icon-only buttons given aria-labels; primary CTAs given `font-heading`.
-- **Verification**: `npx tsc --noEmit` clean for all owned files (sole remaining repo error is pre-existing in `components/signatures/SigningPortalClient.tsx:685` — another agent's file, untouched). `rg -c "#ff7a1b|#161412|#12100e"` returns zero hits on all owned files. All 12 fetch call sites byte-identical before/after.
-
-
-
-### Session S58 (2026-08-26) - Agent C: Finance Governance Controls (Self-Approval, Dual Auth, Section 8, FY Export, RazorpayX Seam)
-- **Self-Approval Prohibition (IOM v2.0 §3.2)**: `approve` + `reject` on `/api/finance/requests/{id}/*` now return 403 when acting principal's `user_id == requester_id`. Verified previously missing; enforced before status checks, applies to admins too.
-- **Dual Authorization Band (OKF Rule 35)**:
-  - New Settings: `finance_dual_approval_threshold_paise` (default 10000000 = ₹1L), `finance_dual_approval_enabled` (default True).
-  - Requests >= threshold need TWO DISTINCT approvers (never the requester) before funds move; below threshold behaves as single-approval.
-  - **Approval-model decision**: money_requests has NO metadata column and new tables are forbidden (migrations owned elsewhere). Redis ruled out (volatile + unavailable in tests). Each qualifying approval persists as an append-only AuditLog row (`action=finance.request.approval_recorded`, target_type=`money_request`, target_id=request UUID); completion via COUNT(DISTINCT actor_id). Repeat approvals by the same actor do not duplicate signatures. Documented in router docstring.
-  - `MoneyRequestOut` gained `dual_approval_required`, `approvals_count`, `required_approvals` (populated on list/get/approve) for frontend n/2 progress chips.
-- **Section 8 Compliance Endpoint**: `GET /api/finance/compliance` (perm `finance.requests.read`) activates the dormant `Section8ComplianceOut`: hard-prohibition attestations with IOM §3 citations, dual-auth band from live settings, fy_start_month=4, computed current_fy label (e.g. "2026-27"), open_requests_above_threshold count, overall_status compliant/warning (warning when joint-approval commitments await).
-- **Audit Trail**: `write_audit_entry` on request created/approval_recorded/approved/rejected and card simulate-charge (`finance.request.*`, `finance.card.charged`; target_type `money_request`/`virtual_card`). Audit writer does not commit; callers commit atomically.
-- **FY CSV Export**: `GET /api/finance/reports/fy?fy=2026-27` (strict `finance.admin`) streams CSV (date, txn_type, account, counterparty, narration, amount_paise, direction). Validates `^\d{4}-\d{2}$` + Apr1–Mar31 span (400 otherwise). Uses AsyncSession.stream() chunked generator.
-- **RazorpayX Adapter Seam** (`apps/api/app/services/razorpayx_adapter.py`): Protocol `RazorpayXAdapter` (create_account/issue_card/list_transactions) with typed dataclasses; `PaperLedgerAdapter` (pure DB, mints VIRT-* numbers, zero network); `RazorpayXLiveAdapter` stub raising clear NotImplementedError; `build_adapter(settings, db)` picks live only when BOTH `razorpayx_key_id`+`razorpayx_secret` set (new Settings fields, default off). Router account/card-create handlers go through the seam; response shapes unchanged.
-- **Frontend Restyle** (`apps/web/app/finance/**` + `components/finance/FinanceSidebar.tsx`): converted all inline dark-chrome styles to Tailwind brand tokens (`rounded-base border-2 border-border shadow-shadow bg-main/bg-background text-muted-foreground font-heading/font-base`, burgundy/orange accents, 4px radii only). Kept framer-motion fades, "Exit to Dashboard" nav, paper-ledger disclaimer, and all fetch logic/URLs/state. Dashboard gains "Section 8 Status" card (fetches /api/finance/compliance, PASS/WARN rows). Requests list shows "n/2 approvals" chip when dual_approval_required.
-- **Verification**: py_compile clean; `uv run pytest tests/test_finance_compliance.py -q` → **14 passed** (self-approval, dual band incl. disabled-mode + duplicate-signature suppression, compliance shape/counts, audit trail, FY export happy/bad-format/forbidden, adapter seam). Full suite: ~236 passed with ~10 pre-existing flaky failures (legal_agent/plugins/signatures/meetings/auth rotate randomly per run — shared sqlite isolation issue, zero finance imports). `npx tsc --noEmit` in apps/web → clean.
-
-### Session S59 (2026-08-26) - Agent A: Meetings Persistence (Guest OTP→DB, Recording Register, My Action Items)
-- **Persistent Guest Verification** (`guest_verifications` table + migration `a9c4e7f1b2d6`, chained from head `h1i2j3k4l5m6`):
-  - Replaced module-level `guest_otp_store` / `verified_guest_tokens` dicts with the new `GuestVerification` ORM model. OTPs/tokens stored ONLY as SHA-256 hex (`otp_hash`); verify promotes the same row (`verified=True`, otp_hash=sha256(token), 1h TTL). `check_guest_token` is now an async DB lookup; expired rows lazily deleted on send. Request/response shapes byte-identical.
-  - NOTE: `meetings.id` is String(255), NOT UUID — so `GuestVerification.meeting_id` FK is String(255) ON DELETE SET NULL (task spec assumed UUID; inspect-first rule applied).
-  - Fixed latent NameError: guest send endpoint called undefined `get_base_email_html()` — added the helper.
-- **Recording Lifecycle**: `POST /api/meetings/{id}/recording/register` accepts `{audio_url?, file_size_bytes?, duration_seconds?, notes?}` → sets `recording_status="uploaded"`, stores metadata in NEW nullable JSON column `meetings.recording_metadata` (BotMeeting had no JSON column; single column added via same migration). Dual auth via `_recording_writer` dependency: X-API-Secret (cloud.py pattern) OR get_current_user+`meetings.write` — must go through FastAPI Depends; calling `get_current_user` manually silently loses resolved Header params (401 "Missing internal authentication headers"). Transcribe now ends with `recording_status="transcribed"` (was "completed"; no frontend value-comparisons existed). `MeetingOut.recording_metadata` added.
-- **My Action Items**: `GET /api/meetings/action-items/mine` (perm meetings.read) joins ActionItem×BotMeeting, matches assignee via user's DiscordAccount discord_ids (ActionItem has NO user_id column), excludes completed/cancelled, newest-first, limit 50, 200-char task snippet. Route registered before `/{meeting_id}/action-items`.
-- **Frontend**: `getMyActionItems()` + `MyActionItem` type in lib/dashboard.ts; "My Open Action Items" card in OverviewContent.tsx (top 5, rows link `/dashboard/meetings`, deadline + status Badge, "View all" link).
-- **Testing gotchas (sqlite)**: DateTime(timezone=True) reads back NAIVE on aiosqlite — normalize with `.replace(tzinfo=utc)` before Python-side compares (SQL-side binds are format-consistent). Never open extra sessions on the shared conftest engine from tests — pooled connections across function-scoped event loops cause rotating StaleDataError/flaky failures; use a dedicated `create_async_engine(..., poolclass=NullPool)` per simulated restart, disposed after.
-- **Verification**: py_compile clean on all touched files. Migration validated live on scratch SQLite (upgrade h1i2j3k4l5m6→a9c4e7f1b2d6 creates table+column; targeted downgrade reverts both). NOTE: full-chain `alembic upgrade head` on SQLite dies in PRE-EXISTING `a7f3c92b1d84` (Postgres-only `gen_random_uuid()` seed insert) — unrelated to this change. Tests: baseline before work 205 passed/0 failed; `tests/test_meetings_persistence.py` 6/6 green ×3 consecutive runs; meetings-area trio (persistence+smtp+api_key_auth) 12/12. Full suite currently rotates ~6F/2E among signatures/contract_assistant/dyslexic/plugins — other agents landing files concurrently (confirmed: fails identically with my test file removed; Agent C logged same phenomenon). `npx tsc --noEmit` exit 0.
-
-### Session S60 (2026-08-26) - Agent B: Plugin Telemetry Honesty + Loader Permission Enforcement
-- **email_server plugin — real SSL & DNS** (`plugins/email_server/api/main.py`):
-  - `_check_ssl_cert_days()` now fetches the LIVE certificate via `ssl.get_server_certificate` + `cryptography.x509.load_der_x509_certificate`, returns `(days_remaining, reachable)` tuple; connection failure => `(None, False)`. Removed hardcoded 85/90 values. Caller no longer applies `or 85`.
-  - `/dns` endpoint queries REAL MX / SPF TXT / DKIM TXT / DMARC TXT / A+AAAA records via dnspython and compares against expected policy; resolution errors become failed-check states (`actual="<unresolvable>"`, `valid=False`). Removed always-valid mock records.
-  - Panel UI (`plugins/email_server/ui/index.tsx`): SSL card shows "Cert Status Unavailable" instead of `?? 85`; "100% Policy Alignment" derived from `all_valid`; DNS checklist renders red AlertTriangle for invalid records.
-- **minecraft_server plugin — honest metrics** (`plugins/minecraft_server/api/main.py`):
-  - Removed ALL fabricated fallbacks (TPS 20.0, CPU 12.4%, RAM 3420/8192, disk 18.5, uptime "Up"). New `_collect_server_metrics()` returns `{available:false, error}` when SSH fails; TPS parsed from real RCON `tps` output; disk via `df -B1G --output=used,size`.
-  - Panel UI (`plugins/minecraft_server/ui/index.tsx`): renders OFFLINE/UNAVAILABLE badge + error text when metrics unavailable; fixed invalid TS `online: bool` -> `boolean`.
-- **Loader permission enforcement** (`apps/api/app/plugin_sdk/loader.py`):
-  - Derives default permission from the manifest's unique panel `required_permission` (warns + skips default when multiple distinct perms declared); honours per-route `endpoint.required_permission` attribute override; enforcement dep wraps `app.iam.policy.require_permission` with `CurrentUserDep`/`DbSession`.
-  - CRITICAL FastAPI detail: included routers resolve LAZILY (`_IncludedRouter._effective_candidates`), so mutate-then-restore of source-route dependencies silently drops enforcement at request time. Solution: mount a SHALLOW CLONE (`copy.copy`) of each APIRoute with the perm dep baked into a fresh APIRouter — keeps plugin routers pristine and repeat-loads accumulation-free.
-  - Updated `tests/test_plugins.py` step 4 (outside ownership, required by enforcement): regular user now expects 403 without `endpoint_test_plugin.read`, then 200 after an explicit Grant.
-- **Dependency**: added `dnspython>=2.6` to apps/api deps (installed 2.8.0; uv.lock regenerated).
-- **Tests**: new `tests/test_plugin_hardening.py` — 8 tests: real TLS server fixture w/ in-test self-signed cert (positive-days equality + unreachable `(None, False)`), mocked-resolver DNS all-match + mismatch/missing honesty, minecraft metrics failure/success without fabricated numbers, loader enforcement matrix (anon 401 / no-perm 403 / super_admin 200 / granted-user 200) + auth-only fallback regression. Assertion messages embed response bodies for diagnosability.
-- **Suite status caveat**: corroborates Agent A/C logs — full-suite has PRE-EXISTING nondeterministic failures outside Agent B ownership (test_signatures_router.py schema-drift KeyErrors + own-auth 401s varying 2/8/10 across identical reruns; test_meetings_persistence naive-vs-aware datetime at meetings.py:1630; pooled-connection cross-loop interference per S59 gotcha). All affected files pass SOLO. Agent B scope (plugin_hardening 8/8, plugins 3/3, iam_policy+iam_router) green in every run; best full-suite observation 241 passed / 6 failed (all 6 in signatures WIP).
-
-### Session S61 (2026-08-26) - Agent F: Legal Agent (Dottr-style email-native contract teammate)
-- **Backend** (`apps/api`):
-  - `app/services/legal_agent.py` (NEW ~640 lines): `LegalInboxMessage` dataclass + stdlib `parse_message()` (multipart walk, decoded bodies, contract attachments = pdf/docx/msword + octet-stream-with-doc-filename, capped 5/msg); `LegalInboxPoller.poll_once(db)` (IMAPS UNSEEN fetch via asyncio.to_thread, mark `\Seen` AFTER successful handling, failures left unread + rollback); dedupe primary on dedicated `ca_contracts.message_id` unique column (models.py already had it â€" task assumed metadata_json; ca_contracts/ca_envelopes have NO metadata_json), fallback Python-side scan of â‰¤500 recent `ca_events.payload`; ingestion replies from legal@gobitsnbytes.org with In-Reply-To/References via local `send_reply()` (smtplib starttls â†' Brevo-env-relay fallback chain mirrored from meetings.py WITHOUT editing it; meetings.send_smtp_email can't carry reply headers + forces audit CC). Summary reply = title, clause count, risk tier counts, top-3 findings (rationale â‰¤300 chars), fixed next-step line ("Reply ATTACH corrected version or APPROVE to dispatch for signature."). `run_forever()` jittered loop. Nudge sequencer: pending SignatureRequests linked via ca_envelopes (unlinked skipped), recipients pending/viewed only, staleness from last otp_requested/viewed/created audit else request.created_at, cadence 3/7/14d, cap 3/recipient, state persisted in NEW ca_events type `signature_reminder_sent` payload {recipient_id, request_id, cadence_day} + IAM `write_audit_entry(action="signature.reminder_sent", metadata={recipient_id, cadence_day})`, single commit. Branded HTML reminder w/ /sign/<access_token> link sent via meetings.send_smtp_email (lazy import, monkeypatchable). APScheduler jobs (`legal_inbox_poll_job` interval=legal_inbox_poll_seconds, registered ONLY when host/user/password set AND poll_seconds>0; `signature_nudge_job` hourly when legal_nudge_enabled) in module scheduler mirroring provisioning/scheduler.py.
-  - `contract_assistant.py`: extracted `analyze_contract_bytes(db, filename, content, source="dashboard_upload", source_meta)` = verbatim /analyze core (raises ValueError; endpoint maps to 400); endpoint re-renders previews itself then rebuilds counts/issues from persisted findings (`_findings_to_issues`) â€" response shape unchanged; created_by flows through source_meta.created_by (column + event actor preserved). `/analyze` message_id set from source_meta.message_id. NEW `POST /ask` â€" RAG corpus = OKF concepts + clauses of executed contracts (ca_contracts â‹ˆ ca_envelopes â‹ˆ signature_requests status='completed', .distinct()); per-label top-3 quotas so executed contracts aren't crowded out by generic OKF keyword hits; LLM via `llm_client._chat_completion` w/ deterministic snippet fallback; response {answer, sources:[{label:"OKF Rule"|"Executed Contract", title}]}. NEW `GET /agent/stats` â†' {inbox_processed_24h (Python-filtered over â¤1000 recent inbound events â€" dialect-portable), contracts_in_review/out_for_signature/dotted_count (_normalize_status), pending_nudges (=collect_nudge_targets dry-run count), last_poll_at (module var in legal_agent; lazy import avoids cycle)}. `GET /contracts?source=inbound_email` filter added (message_id not null).
-  - `config.py`: LEGAL_INBOX_IMAP_HOST/PORT(993)/USER/PASSWORD/MAILBOX(INBOX)/POLL_SECONDS(60,0=disabled), LEGAL_NUDGE_ENABLED(true), LEGAL_ORG_MAILBOX(legal@gobitsnbytes.org).
-  - `main.py`: lifespan start/stop_legal_agent_jobs() after Discord sync scheduler block (guarded try/except).
-- **Frontend** (`apps/web`):
-  - `lib/legal-agent.ts` (NEW): AgentStats/PipelineContractItem/AskSourceChip/AskResponse types + fetchAgentStats/fetchInboundContracts(?source=inbound_email)/askLegalAgent.
-  - `components/signatures/LegalAgentPanel.tsx` (NEW): 3-col responsive (lg:grid-cols-3): Inbox list (title/from/received/risk badge, skeletons, empty state pointing at legal@ mailbox), Pipeline mini-board (StatTiles in_review/out_for_sig/dotted + nudges-due chip + 3d/7d/14d cadence chips + last-poll line), Ask box (textarea â†' answer stream + source chips color-coded orange=OKF/burgundy=Executed). Tokens: border-2 border-border, bg-blank, rounded-base, shadow-shadow, font-heading, burgundy/orange accents; inline errors, no alert().
-  - `app/dashboard/signatures/page.tsx`: useState segmented toggle "Contracts | Legal Agent Inbox" rendering LegalAgentPanel (stats grid+search+tabs+table wrapped in conditional; audit modal/countersign/resend wiring untouched); tokenized ONLY this page per mapping: #97192Câ†'burgundy, #FC920Dâ†'orange, #3C0A12â†'banner bg-burgundy + resend btn bg-dark hover:bg-burgundy, #FAF8F5 theadâ†'bg-blank text-main-foreground, #FEE9CF/#FED39Eâ†'bg-burgundy|orange /10 tints + copy-chip bg-orange/10 + Voidâ†'bg-blank text-main-foreground (XCircle red-400), shadowsâ†'shadow-shadow, rounded-xl/2xl/lgâ†'rounded-base, border-[#120F0A]â†'border-border, text-[#120F0A]â†'text-dark. Neutral grays (#716F6C/#413F3B/#D0CFCE/#EFECE6) intentionally kept (not in mapping).
-  - `components/dashboard/AgentOpsDrawer.tsx`: removed mocked contract-assistant agent; live "Legal Agent â€" Contracts" card polls /agent/stats every 30s while open; Badge success/danger/neutral derived online/offline/connecting + "Watching Inbox" when last_poll_at<10min; 4 metric tiles + nudges-due footer; graceful offline panel w/ Retry.
-- **Tests** (`tests/test_legal_agent.py`, 14): MIME parse (attachments+bodies+headers), no-attachment clean parse, column dedupe, event-payload fallback dedupe, duplicate short-circuit (no analyze/no reply), poll_once vs mocked imaplib.IMAP4_SSL (marks \Seen on separate conn instance, no new rows, last_poll_at set), unconfigured skip, nudge selection cadence walk 3â†'7 + cap-at-3 + completion stop + unlinked skip + signed-recipient stop, send_nudge persists event+IAM audit (meetings.send_smtp_email monkeypatched), /ask executed-contract hit (SparkCloudAIClient._chat_completion patched at class), /ask empty-corpus fallback (asserts LLM never called), stats shape.
-- **CRITICAL testing gotcha (new)**: conftest's shared engine pools aiosqlite connections ACROSS pytest-asyncio function-scoped event loops â†' intermittent stale reads/wrong-query-results that rotate between tests (~30% of full-file runs). Fix pattern within owned files: per-test `create_async_engine(os.environ["DATABASE_URL"])` + sessionmaker inside an autouse async fixture, override get_session with it, `await engine.dispose()` at teardown (LIFO after db_session closes). Reproduced 0 misses in 18 consecutive runs after fix.
-- **Verification**: py_compile clean (legal_agent, contract_assistant, config, main, tests). `tests/test_legal_agent.py` 14/14 (18Ã— stable reruns). FULL suite `uv run pytest -q` = **247 passed / 0 failed twice consecutively** (baseline before my file was 230 passed/3 rotating pre-existing failures; suite-wide nondeterminism reported by Agents A/B appears resolved under current tree). `npx tsc --noEmit` exit 0. No git commands used.
-
-### Session S58 (2026-08-26) - Orchestrator: End-to-End Completion Sweep (Phases 0-10)
-
-**Mode**: 6 parallel subagents (A meetings-backend, B plugins, C finance, D meetings-UI, E signatures-branding, F legal-agent) with strict file-ownership contracts; orchestrator integrated, reviewed, and committed atomically.
-
-**Phase 0 - Hygiene**: git pull; fixed signatures.py logger NameError (broke OTP request path) + masked OTP in logs; removed dead code (shadowed email templates + unreachable ICS block in meetings.py, legacy seed_data.py, scratch scripts, DB dumps) -946 lines. Commit cfc9f91.
-**Phase 1 - Live data**: seeds now system-config ONLY (groups/permissions/mappings/zero-balance accounts/OKF rules); forks+team pulled live from Notion at startup + POST /api/sync/notion; auth/upsert reconciles by email so bootstrap identities adopt real Discord IDs without losing grants; notion_sync sync_team_from_notion added (NOTION_TEAM_DB); Notion fork sync preserves locally-owned governance metadata. Commit 9720bee.
-**Phase 2 - Fork onboarding E2E**: GET/PATCH onboarding checklist (7 NGC 4.1 steps), POST onboarding/action advance|reject|archive|reactivate gated by exit requirements + compliance; member add/remove writes; audited transitions; approval is explicit-only (derived stages cap at compliance_check); ForkOnboardingModal UI. Commits 56b0bd9, 434d36f.
-**Phase 3 - Signatures completion**: GET /requests/{id}/audit + audit_logs embedded in responses (eager-loaded everywhere); requires_org_countersign appends legal@gobitsnbytes.org org_signer; POST /requests/{id}/countersign IAM signatures.countersign-gated org seal finalizing via shared _finalize_request_if_complete; audit modal + Org Seal actions + builder toggle UI. Commits 831b752, 718fe95.
-**Phase 4 - Legal Agent (Agent F)**: see F entry above. Commit d3b648b.
-**Phase 5/6 - Calendar & calls (Agents A+D)**: GuestVerification table (hashed OTPs), recording lifecycle endpoints + chips, action-items mine API + overview widget, Calendar agenda tab. Commits 8de2876, f14d73e.
-**Phase 7 - Plugins (Agent B)**: real SSL/DNS checks, honest offline metrics, loader permission enforcement via route clones. Commit 3426b2b.
-**Phase 8 - Finance (Agent C)**: self-approval 403, dual-auth >1L via AuditLog-recorded approvals, Section8ComplianceOut live at /api/finance/compliance, FY CSV export, RazorpayXAdapter seam, /finance portal tokenized. Commit ea1369c.
-**Phase 9 - Branding (Agents D+E+F slice)**: ~500 hardcoded hex refs driven to ~0 across signatures/builder/canvas/portal/verify/contract-assistant/meetings/chrono components; emoji->lucide; rounded-base + shadow-shadow everywhere; statutory copy preserved verbatim. Commits f14d73e, 87b8254.
-
-**Final verification**: uv run pytest = 247/247 green; npx tsc --noEmit clean repo-wide; bun run build success. Security review pass: OTP hashed+timing-safe compare, countersign IAM-gated, IMAP4_SSL inbox, no secret logging anywhere, plugin permission matrix tested.
-
-**Rollout checklist (VPS bnb-backend)**: (1) alembic upgrade head (a9c4e7f1b2d6 adds guest_verifications + meetings.recording_metadata); (2) set LEGAL_INBOX_IMAP_* env after provisioning legal@ mailbox on mail VPS (reprovision.sh --plan/--apply); (3) restart bnb-api + bnb-bot; verify /health/ready + startup Notion sync log line; rollback = prior image + alembic downgrade -1.
-
-### Session S62 (2026-08-26) - Finance + Plugin Production-Readiness Audit (Read-Only)
-
-- **Scope and verification:** Read-only review of finance routes/schemas/models/migrations/tests, RazorpayX seam, plugin SDK/registry and production state on `ssh bnb-backend`; no implementation or production mutation. Targeted suite: `test_finance_compliance.py`, `test_plugins.py`, `test_plugin_hardening.py` = **26 passed**.
-- **Production facts (2026-08-26 ~19:20 IST):** `/api/finance/info` reports virtual-only banking with RazorpayX planned. PostgreSQL database `motherboard` is at Alembic head `a9c4e7f1b2d6`. Root `.env` declares `DATABASE_URL` but no `RAZORPAYX_*` or `FINANCE_*` keys. DB contains 5 virtual accounts with aggregate `balance_paise=955000000`, but 0 money requests and 0 virtual transactions; these balances have no ledger provenance and must be treated as unverified legacy opening balances.
-- **RazorpayX is not implemented:** `RazorpayXLiveAdapter` methods all raise `NotImplementedError`; only create-account and issue-card use the adapter seam, while approvals/charges mutate local balances. No payout/contact/fund-account flows, webhook signature verification, event idempotency, bank transaction ingestion, reconciliation, reversal/refund/status polling, provider IDs, or sandbox contract tests exist. `RAZORPAYX_API_KEY` is an unused duplicate setting; key-id/secret are the actual selector.
-- **Seed leakage:** startup always runs `seed_chart_of_accounts()` and inserts 5 `virtual_accounts` rows (`seed.py:589-620`), despite the no-operational-seed requirement. Current constants are zero-balance, but production retains historical seeded balances because `ON CONFLICT DO NOTHING` never reconciles them. Primary DB failure can silently switch the service to locally seeded SQLite (`main.py:85-98`), creating split-brain financial truth.
-- **Ledger/compliance blockers:** current model is mutable account balances plus single transaction rows, not double-entry accounting. Treasury draws have no balancing account/entry; there are no DB checks for positive amounts/status enums, no uniqueness/idempotency on reference events, no accounting periods/locks, payees/vendors, receipts/vouchers, restricted-fund dimensions, GST/TDS/80G/FCRA evidence, reversals, or reconciliation. `GET /compliance` hard-codes four `True` flags and can report `compliant` solely because no above-threshold request is pending (`finance.py:929-990`). Dual approvals stored as generic audit rows lack a DB uniqueness constraint; `audit_log` is only conventionally append-only (no DB trigger/privilege or tamper-evident chain).
-- **Required expand/contract migration:** add provider accounts + external IDs, webhook inbox (`provider_event_id UNIQUE`, payload hash, verified timestamp), immutable journal entries and balanced journal lines, dedicated request approvals (`UNIQUE(request_id, approver_id)`), payout/payee and evidence records, accounting periods, reconciliation runs/matches/exceptions, idempotency keys, reversal links, and tamper-evident audit hashes. Backfill the 5 production balances into a quarantine/opening-balance review table; post approved opening journal entries only after bank-statement/accountant reconciliation. Do not delete or silently normalize legacy rows.
-- **Plugin registry truth:** production registry has 6 enabled rows (`email_server`, `finance_ledger`, `fork_onboarding`, `minecraft_server`, `sample_plugin`, `signatures_vault`), but only email and Minecraft have tracked source. The other four production directories contain only `__pycache__/main.cpython-312.pyc`; loader cannot discover them, so registry state is stale/dummy. Local repository likewise contains only the two tracked plugins.
-- **Critical plugin authorization defect:** loader derives one default permission from the UI panel and applies it to every route unless `endpoint.required_permission` is set. Email/Minecraft declare `*.admin` but never attach it to destructive routes, so `email.read` can flush/restart mail services and `minecraft.read` can execute RCON/start/stop/restart/backup. Existing tests cover a one-permission synthetic manifest and miss read-vs-admin separation.
-- **Plugin platform blockers:** discovery imports and executes arbitrary filesystem Python; new discoveries default enabled; there is no artifact signature/hash/trust allowlist, package/source/version lock, isolation, install/uninstall transaction, health/desired-vs-actual state, config schema/secret references, or hot enable/disable (PATCH changes DB only until restart). Registry rows are never reconciled when artifacts disappear. Plugin UI uses a runtime template-string import and displays a fallback when a bundle is absent.
-- **Acceptance gate:** finance cannot be called end-to-end until provider sandbox flows, verified/idempotent webhooks, balanced journals, dual-auth payout execution, reconciliation, reversals, period close, evidence-backed compliance, and failure/retry tests pass. Plugins cannot be called real/secure until destructive endpoints require explicit admin grants, artifact-to-registry reconciliation is enforced, unknown artifacts fail closed, and deployment/E2E tests prove both API and UI bundles exist at the same version.
-
-### Session S63-SIGNATURES (2026-08-26) - Fork, Signature, Legal Agent, and Evidence Audit (Read-Only)
-
-- **Scope:** Read-only audit of fork onboarding/compliance, signature service, `legal@gobitsnbytes.org` agent, audit evidence, Indian-law claims, and `D:/email-server`; implementation and production state were not mutated. Production checks used `ssh bnb-backend` only for service/config-presence and aggregate database reads.
-- **Production truth:** deployed revision is `9a5c221`; `bnb-api`, Postfix, Dovecot, OpenDKIM, and mail-admin are active. The deployed mail host has a real `legal@gobitsnbytes.org` local mailbox, but `/opt/bnb-api/.env` has SMTP keys only: no `LEGAL_INBOX_IMAP_*`, `INBOUND_EMAIL_WEBHOOK_SECRET`, or `NOTION_TOKEN`. The legal inbox poller and live Notion fork sync therefore cannot run. Production has 3 forks, 0 active fork members, 7 signature requests (4 pending, 3 voided), 16 recipients, 65 signature audit rows, and 7 CA contracts. Four plaintext OTP codes remain stored; no recipients have `requires_otp`, passcodes, or DSC metadata. No CA contract has a Message-ID. Two signature records have hashes/signed files, despite no request currently being completed.
-- **P0 authorization/data-loss defects:** signature resend accepts optional auth without authorization; request detail/audit do not enforce ownership; download, compliance, void, void-certificate export, and permanent delete are public. Contract Assistant list/detail/analyze/dispatch/void/export/delete/ask/stats use optional auth. Public delete cascades through signature fields/recipients/audit logs and deletes original/signed files, directly contradicting an immutable evidence trail. Client-supplied `file_path` is accepted if it exists, without upload-root or ownership binding.
-- **P0 identity/signature defects:** `requires_otp` is not enforced by `POST /sign/{token}`; OTP verification stores no verified session/state, codes are plaintext, attempts/requests are not rate-limited, and codes are not cleared after success. Required fields, signing order, and `allowed_sig_type` are not server-enforced. Hardware DSC accepts arbitrary client `signature_hex`, issuer, serial, and CN without signature verification, chain building, certificate validity/EKU, CCA root, CRL/OCSP, or identity binding. PFX accepts the private key file and passphrase server-side but never signs the document with the parsed key. The frontend is worse: `SignatureCanvas.tsx` fabricates a DSC image with a random serial and literal `PKCS#7 Verified`; it never calls either DSC backend route and merely collects token PIN/PFX state. This must be removed from production UI until integrated with a CCA-compliant signing provider or a real locally verified CMS/PAdES flow.
-- **Org counter-signature bug:** normal signing finalizes when all `role == signer` recipients sign, ignoring the pending `org_signer`. Once status is `completed`, `/countersign` rejects the request. Tests only cover the opposite order (org signs first), so the common external-first flow is broken. The org seal is a database status/stamp, not a cryptographic signature by `legal@gobitsnbytes.org` or a named delegated natural person.
-- **Audit/evidence defects:** `signature_audit_logs` has no sequence number, previous/event hash, signature, trusted timestamp, immutable storage, retention hold, or DB write restrictions; it cascades on request deletion. The PDF certificate is generated before the current signing and completion events are added, so it can omit terminal events. It embeds a hash of the pre-certificate PDF while the DB stores the final PDF hash. IP/user-agent assertions are ordinary mutable strings. Fork audit calls are all missing `await`, confirmed by runtime warnings, so onboarding/member transitions do not persist IAM audit entries.
-- **Compliance engine is not evidence-based:** signature POCSO, DSC, and Section 8 checks are hard-coded pass; DPDP passes because a plaintext bearer token is at least 16 characters and falsely says token encryption/email PIN controls are active; any one audit row is labelled an immutable BSA trail; Section 10A formation passes on recipient+field existence. Fork Section 8 and financial-isolation checks default to pass when metadata is absent, while onboarding checklist items are self-attested booleans with no GitHub/Discord/mail/deployment/Notion/pulse/agreement evidence. Notion sync is capped at 100, has no pagination, does not sync fork members, and replaces compliance metadata while preserving only onboarding state.
-- **Legal claims requiring withdrawal/counsel review:** the UI says every electronic signature is legally binding/enforceable and every log is primary admissible evidence. IT Act section 10A only prevents rejection solely because electronic means were used; it does not cure capacity, authority, consent, attribution, stamping/registration, or excluded transaction issues. CCA guidance requires a licensed-CA DSC/eSign trust chain and verification material; the current canvas/hash stamp is not that. BSA 2023 section 63, not `Section 65B BSA`, governs computer-output admissibility and its scheduled certificate requires device/source/control particulars and signed Part A/Part B declarations, which the generated page does not contain. As of 2026-08-26, the November 2025 DPDP commencement notification phases the principal processing obligations to May 2027; token length is not current or future DPDP compliance evidence. References checked: India Code IT Act; India Code BSA 2023; CCA eSign, verification, India PKI, and active CA/ESP guidance; MeitY G.S.R. 843(E)/846(E).
-- **Legal-agent/mail gaps:** the IMAP poller accepts arbitrary external senders, trusts MIME/filename, has no byte/page/decompression caps, and auto-runs legal/LLM analysis and replies. Analysis swallows LLM failures and can report no policy violations. `analyze_contract_bytes` persists only the client filename as `original_file_path`, not the normalized PDF bytes, so later dispatch falls back to a title-derived hash and the signing portal can 404. The webhook does not ingest anything; when a webhook secret is configured, a request with neither token nor signature is still accepted due to a conditional bug. When no secret is configured (production), spoofable From-domain text is the only gate. Repository mail config maps all unknown addresses to `hello`, whereas deployed config has a distinct legal mailbox, so mail provisioning is not reproducible from `D:/email-server`.
-- **Tests:** focused run `test_forks_onboarding.py test_signatures_router.py test_legal_agent.py` produced **15 failures / 17 passes** plus four `write_audit_entry`-never-awaited warnings. Failures include onboarding 401/stale-session behavior, signature creation/auth schema drift, and nudge cadence. Existing tests explicitly call public void/delete/export successfully and therefore encode the authorization defect instead of detecting it. DSC endpoints, OTP bypass, ownership isolation, audit deletion resistance, external-first org countersign, BSA certificate structure, trusted signature validation, file-size/path traversal, and production IMAP delivery have no acceptance coverage.
-- **Release gate:** remove/disable all DSC and blanket legal/admissibility claims until counsel and a licensed CCA/eSign integration validate them; enforce owner/IAM authorization and retention holds; replace bearer/OTP flow with hashed, rate-limited, consumed verification sessions; use immutable object storage plus append-only hash-chained evidence and BSA certificate export; persist normalized source/final documents; require org countersign in completion logic; provision and test legal IMAP safely; replace metadata booleans with source-evidence adapters. No signature or fork compliance status should be presented as legally compliant before these gates pass.
-
-### Session S63 (2026-08-26) - Calendar, Meetings, Transcription + Mail Dependency Production Audit (Read-Only)
-
-- **Scope and verification:** Read-only audit of Motherboard FastAPI/web meeting paths, Discord bot scheduler/recording/transcription, the separate `D:\bitsnbytes` public `/about` booking UI/API routes, `D:\email-server`, and `ssh bnb-backend`. No implementation or production state was changed. Required skill guidance and `bunx skills find` checks were completed. Tests: API meeting persistence **6/6**, bot meeting/calendar/transcript/Cal.com **30/30**, public website `pnpm typecheck` clean.
-- **P0 split-brain:** [`apps/bot/lib/db.js`](file:///d:/motherboard/apps/bot/lib/db.js) hard-codes `usePostgres = false`; scheduler reads only local SQLite through `getUpcomingMeetings()`/`getActiveMeetings()`. Production bot `data/bot.db` has **0 meetings**, while API PostgreSQL has **173 scheduled meetings**. The one-time boot mirror failed at 19:04 (`Unable to connect`) and has no retry/continuous sync. Therefore bookings written by `/api/meetings/schedule` cannot reliably become bot-created VCs, reminders, recordings, transcripts, or deliveries.
-- **P0 Cal.com duplication:** Production's 173 rows are not seed fixtures; they are poll duplicates of only **2 real Cal.com booking IDs**: 103 copies created every ~2 minutes over 204 minutes, and 70 copies over 138 minutes. [`findMeetingByCalcomId`](file:///d:/motherboard/apps/bot/lib/meetingsDb.js) checks only the stale local SQLite mirror, while polling creates fresh random API IDs. `meetings.calcom_booking_id`/`calcom_uid` lack unique constraints and `/schedule` has no idempotency/upsert. All 173 are past yet remain `scheduled`; 0 have `meet_code`, transcripts, or action items.
-- **Public booking truth:** `https://gobitsnbytes.org/about`, host proxy, and slot proxy are live. Production has one real host (`akshat`) with weekly hours; a read-only Aug 27 probe returned 7 slots. [`D:\bitsnbytes\app\api\team\schedule\create\route.ts`](file:///d:/bitsnbytes/app/api/team/schedule/create/route.ts) parses `bookingLink` but ignores it, trusts caller-supplied `hostDiscordId`, and forwards a privileged API key. FastAPI does not atomically re-resolve host+booking link or recheck the selected slot, so spoofed-host scheduling and double booking are possible. There is no CAPTCHA, request rate limit, per-email quota, or booking idempotency key.
-- **Privacy/security gaps:** Public host schemas expose email and raw weekly-hours JSON (confirmed in production). Slot `duration` is unbounded at the API. Guest OTP send/verify has no throttling, lockout, attempt count, or abuse telemetry and uses `random.randint`/`random.random` rather than `secrets`. Guest meeting lookup and authorization use substring checks on comma-separated `external_emails`, not normalized relational membership. Any user with broad `meetings.read` can list every transcript; no attendee/resource scoping exists. Meeting/action-item status fields accept arbitrary strings.
-- **Transcription/action-item defects:** FastAPI `/transcribe` creates ActionItem rows, then [`transcriptionPipeline.js`](file:///d:/motherboard/apps/bot/lib/transcriptionPipeline.js) loops over the same model output and calls `createActionItem` again, producing duplicates whenever the pipeline works. Re-transcription also appends again. Bot production `addAttendee()` and `saveTranscript()` are explicit no-ops, relying on FastAPI side effects. Delivery is Discord DM only; external email guests receive no summary/transcript/action-items. DM success accounting increments `sent` even after the nested send `.catch()` records a failure. Audio is sent to Google GenAI; local merged audio keeps the last 8 recordings without a meeting-level retention/erasure policy or auditable consent evidence. Consent is passive “remain connected” text/audio, not affirmative acceptance, and no guardian-verification mechanism exists for minors.
-- **Mail dependency facts:** Production has Postfix/Dovecot active on 25/465/587/993, `legal@gobitsnbytes.org` has a virtual mapping, SMTP settings exist for API/bot, and the IMAPS certificate expires 2026-09-22. Meeting mail defaults to the **legal** mailbox and forcibly CC/BCCs the Gmail audit mailbox, exposing all invitees to CC and duplicating personal/calendar data. `send_smtp_email()` returns normally when unconfigured and swallows both primary+Brevo failures, so the booking UI can say “You're booked” and “check your inbox” without durable delivery state, retry, or bounce tracking. ICS uses a display-form `SMTP_FROM` as `ORGANIZER`, which can be syntactically invalid; cancellation emails omit `METHOD:CANCEL` ICS, and reschedules do not increment `SEQUENCE`.
-- **Tests missing despite green unit suites:** no website booking route tests; no browser E2E; no API public-create contract test; no host-link/ID binding test; no concurrent same-slot race; no Cal.com webhook/poll idempotency; no API↔bot scheduler integration; no restart/retry reconciliation; no real SMTP/ICS acceptance; no VC lifecycle/late-join consent integration; no audio merge→Gemini contract test; no re-transcription idempotency; no external deliverable test; no privacy/retention/erasure test. Existing bot tests run in test-mode SQLite and therefore mask production's split database/no-op branches.
-- **Acceptance gate/order:** (1) make PostgreSQL the sole scheduling source and have the bot claim due meetings directly or via a durable outbox; remove local mirror authority; (2) unique/idempotent Cal.com ingestion plus quarantine/reconcile the 173 duplicates without blind deletion; (3) server-owned public booking transaction that binds link→host, locks/rechecks slot, rate-limits and records consent/privacy; (4) relational guests + secure OTP controls; (5) one idempotent transcript/action-item writer with delivery ledger/retry and explicit internal/external recipient policy; (6) documented audio/transcript retention, deletion, access scope, processor disclosure and minor consent; (7) durable email dispatch state with valid ICS update/cancel semantics and a non-legal calendar sender. Only then run a staged real booking through invite→VC→record→transcribe→action-item→delivery→cancel/reschedule before production rollout.
-
-### Session S64 (2026-08-26) - Comprehensive Swiss Neobrutalism UI Overhaul & Design Polish
-
-- **Scope & Directive:** Overhaul and modernize all sections, pages, cards, tables, wizards, and modals across `apps/web` adhering strictly to **Approach A: Unified High-Contrast Swiss Neobrutalism** (`d:\bitsnbytes\DESIGN.md` & `d:\motherboard\docs\design.md`).
-- **Core Design Tokens & CSS Foundations:**
-  - Standardized on 2px solid borders (`border-2 border-border`), boxy corners (`rounded-base`), and sharp hard offset shadows (`shadow-dark`, `shadow-light`, `shadow-shadow`).
-  - Purged all low-contrast grey text, blurry frosted glass (`liquid-glass`), and non-standard rounded pills.
-  - Injected canonical typography stack: **Anton** (`font-heading font-black`) for headers, **Inter** for UI controls, **JetBrains Mono** (`font-mono`) for technical coordinates/metadata, and **Merriweather** for long-form prose.
-- **Components & Pages Overhauled:**
-  - **Landing & Public:** `HeroSection.tsx` redesigned as an Architectural Blueprint Cockpit with live telemetry coordinates; `/login` transformed with 2px solid borders, top desk badge, and Discord CTA.
-  - **Dashboard Shell:** `Sidebar.tsx` darkened to `#0d0d10` with brand header and version tag `v0.2.0`; `Topbar.tsx` updated with 2px border quick actions; `DashboardFooter.tsx` refreshed with Section 8, POCSO, and DPDP compliance cards.
-  - **Overview & Meetings:** `OverviewContent.tsx`, `StatCard.tsx`, and `Skeletons.tsx` standardized to dark `#141418` surfaces; `/dashboard/meetings` updated with high-contrast Chrono v2 day toggles, time slots, and instant voice banner.
-  - **Signatures & Legal Assistant:** `/dashboard/signatures` and 4-step `builder` converted to dark Swiss Neobrutalism; `/dashboard/contract-assistant` Kanban pipeline updated with OKF rule indicators and instant audit links.
-  - **Dyslexic CRM & Lead Pipeline:** `DyslexicChrome.tsx` and `DashboardContent.tsx` updated with high-contrast tabs, metric counters, follow-up chase list, and top contributor cards.
-  - **IAM, Members, Forks, Finance, Profile, Settings & Debugger:** `IAMContent.tsx`, `MembersContent.tsx`, `DashboardForksPage`, `DashboardFinancePage`, `ProfileContent.tsx`, `AuditContent.tsx`, `SettingsContent.tsx`, and `CockpitDebugger.tsx` all fully modernized with dark surfaces, 2px borders, hard shadows, and high-contrast typography.
-- **Verification:**
-  - `bun run --cwd apps/web build` succeeded with exit code 0 across all 31 static and dynamic routes.
-  - `uv run --directory apps/api pytest` succeeded with 100% test pass rate (**247 passed**).
-
-### Session S65 (2026-09-09) - App-wide document UI system
-
-- Replaced the internal app's dark-surface sprawl with a shared document canvas inside operational dark chrome. Dashboard, finance, and Dyslexic CRM now inherit the same responsive, keyboard-visible surface model; legacy cards and panels are normalized centrally rather than forked page by page.
-- Reworked shared shell, navigation, top bar, stat/empty states, finance navigation, login, and dashboard compliance footer. The mobile nav controls use 44px targets and global reduced-motion behavior is respected.
-- Used the official `Brand & Intellectual Property` guide as the final visual source: primary actions and focus use Burgundy `#97192c`, editorial accents use Orange `#fc920d`, and document/chrome neutrals use the approved `#120f0a` / `#d0cfce` range. Public brand naming and logo alternative text use `bits&bytes™`; legal entity text remains GOBITSNBYTES FOUNDATION only where appropriate.
-- Verification: `bun run typecheck` and `bun run build` complete successfully. The build still emits the existing Next/Auth Edge Runtime CompressionStream warnings from `jose`, but all 32 routes compile and generate.
+## 4. Subsystem Specifications
+
+### 4.1 IAM (Identity & Access Management)
+- Principal resolver (`principal.py`) resolves user + inherited group permissions.
+- Evaluator (`policy.py`) exposes `can(user, perm, resource)`, `require_permission(perm)`, `batch_can(user, perms)`.
+- Visual hierarchy at `/dashboard/iam` (`IAMHierarchyVisualizer.tsx`) maps Discord roles to system roles (`Super Admin -> Executive -> Lead -> Member -> Bot`).
+
+### 4.2 Meetings & Chrono v2 Engine
+- **Unification:** Both dashboard (`/dashboard/meetings`) and public booking portal (`cal.gobitsnbytes.org`) use Motherboard `/api/meetings` APIs.
+- **Availability:** `AvailabilityGrid.tsx` serializes 7-day schedule JSON. Public `/hosts` and `/{slug}/slots` calculate timezone and meeting overlaps.
+- **Persistence & OTP:** `GuestVerification` model (`a9c4e7f1b2d6`) stores SHA-256 hashed OTPs (1h TTL). `meetings.recording_metadata` JSON stores audio duration/size.
+- **RSVP Widget:** RFC-2446 `multipart/alternative` + `text/calendar; method=REQUEST` MIME generation for native 1-click Gmail/Outlook calendar RSVPs.
+- **Transcription:** Fallback pipeline: Gemini 3.5 Flash $\rightarrow$ Gemini 2.5 Flash $\rightarrow$ structured JSON briefs & action items (`/action-items/mine`).
+
+### 4.3 Finance & Double-Entry Ledger
+- **Self-Approval Prohibition:** HTTP 403 when `requester_id == actor_id` (IOM v2.0 §3.2).
+- **Dual Authorization Band:** Requests $\ge$ ₹1L require 2 distinct approvers before funds move (OKF Rule 35).
+- **Section 8 Compliance:** `GET /api/finance/compliance` delivers live compliance attestations, active FY labels (Apr 1–Mar 31), and audit counts.
+- **Adapter Seam:** `RazorpayXAdapter` protocol (`PaperLedgerAdapter` for DB virtual accounts; `RazorpayXLiveAdapter` stub for future API activation).
+- **FY CSV Export:** `GET /api/finance/reports/fy?fy=YYYY-YY` streams chunked ledger transactions.
+
+### 4.4 Digital Signatures & Legal Agent (`bnb-signatures`)
+- **Signature Engine:** PyMuPDF preview/overlay generator, `.docx` to PDF conversion, SHA-256 tamper-evident sealing, and Audit Certificates.
+- **Security & DSC:** 6-digit email OTP (2-min expiry), Class 1/2/3 USB token & PKCS#12 `.pfx` software certificate signing (`e5f6a1b2c3d4`).
+- **Statutory Framework:** Aligned with IT Act 2000 Sec 10A (electronic contracts) and BSA 2023 Sec 63 (forensic electronic records).
+- **Quash / Void & Purge:** `POST /void` invalidates active signing tokens with immutable audit entries; `DELETE` generates a downloadable Certificate of Cancellation before purging disk files.
+- **Legal Agent (`legal@gobitsnbytes.org`):** IMAP inbox poller, automatic clause risk analysis (OKF rules), RAG `/ask` over executed contracts, and 3/7/14-day automated signing reminder nudges.
+
+### 4.5 Swiss Neobrutalism Design System
+- **Core Tokens:** 2px solid borders (`border-2 border-border`), boxy corners (`rounded-base`), hard offset drop shadows (`shadow-shadow`), dark backgrounds (`#0d0d10`, `#141418`).
+- **Typography:** Anton (`font-heading font-black`) for headers, Inter (`font-base`) for UI controls, JetBrains Mono (`font-mono`) for coordinates and metrics, Merriweather for long-form prose.
+- **Branding Palette:** Core Burgundy (`#97192C`), Pop Orange (`#FC920D`), Dark Neutral (`#120F0A`), Warm Blank (`#FAF8F5`).
+
+---
+
+## 5. Alembic Migration History
+
+| Migration ID | Description |
+|---|---|
+| `initial_schema` | Core 13 tables (users, groups, permissions, grants, forks, audit_logs, events, virtual_accounts, etc.) |
+| `a1b2c3d4e5f6` | Added `calcom_booking_id` and `calcom_uid` to `EventCache` and meetings schema. |
+| `f1a2b3c4d5e6` | Added Digital Signatures tables (`signature_requests`, `recipients`, `fields`, `audit_logs`). |
+| `e5f6a1b2c3d4` | Added DSC certificate columns (`dsc_type`, `dsc_issuer`, `dsc_serial`, `allowed_sig_type`). |
+| `a7f3c92b1d84` | Contract Assistant ORM tables & clause findings. |
+| `h1i2j3k4l5m6` | Dyslexic CRM tables & lead tracking models. |
+| `a9c4e7f1b2d6` | Added `guest_verifications` table (hashed OTPs) and `meetings.recording_metadata` JSON column. |
+
+---
+
+## 6. Audit Findings & Production Priorities
+
+Comprehensive read-only production audits (S62–S63) established the following priority backlog for future rollout phases:
+
+1. **Finance & Banking:**
+   - Implement real double-entry journal lines (immutable credit/debit pairs) and reconcile historical opening balances.
+   - Complete live RazorpayX payout/contact integration with HMAC webhook signature validation.
+2. **Signatures & Legal Evidence:**
+   - Strengthen public verification endpoints with rate limiting and signed session tokens.
+   - Enforce mandatory org countersignature in final completion workflow before sealing.
+   - Update compliance copy to reference BSA 2023 Section 63 certificate requirements.
+3. **Meetings & Scheduling:**
+   - Ensure PostgreSQL is the single source of truth for the bot scheduler to prevent SQLite mirror split-brain.
+   - Enforce database-level UNIQUE constraints on `calcom_booking_id` to eliminate poll duplication.
+   - Add rate-limiting and server-side slot verification to public booking endpoints.
+4. **Plugins:**
+   - Enforce explicit `*.admin` permission checks on destructive routes across all plugin manifests.
+
+---
+
+## 7. Session Log
+
+### Pre-Production (S1–S33, up to 2026-06-25)
+- Scaffolding, Phase 1 (13 ORM tables), Phase 2 (IAM), Phase 3 (EventBus), Phase 4 (Plugin SDK), Phase 7 (Finance shell), VPS deployment, Nginx SSL.
+
+### S34–S44 (2026-06-26 to 2026-07-19)
+- **S34–S36:** Discord bot refactored to proxy all operations to Motherboard via HMAC `callMotherboard`; audio transcription offloaded to FastAPI; Bun test suite hardened (208/208 green).
+- **S37–S39:** Cal.com rescheduling webhook (`BOOKING_RESCHEDULED`); voice channel auto-join cache resolution; Docker compose Redis URL fix.
+- **S40–S41:** Meetings N+1 query optimization; Cal.com schema migration (`a1b2c3d4e5f6`); Gemini 3.5 $\rightarrow$ 2.5 Flash transcription fallback; programmatic API key auth.
+- **S42–S44:** Consolidated bot into monorepo (`apps/bot`); migrated SQLite to `bun:sqlite`; built public availability slots API; RFC-2446 email RSVP widget.
+
+### S45–S55 (2026-08-02 to 2026-08-09)
+- **S45–S48:** Launched `bnb-signatures` (`f1a2b3c4d5e6`); unified Chrono meetings UI with `AvailabilityGrid`; responsive layout overhaul; Dyslexic CRM routing.
+- **S49–S52:** Added email OTP & Class 1/2/3 DSC support (`e5f6a1b2c3d4`); database persistence for Contract Assistant; contract void/purge; Cockpit UI & IAM visualizer.
+- **S53–S55:** Integrated Nextcloud workspace (`workspace.gobitsnbytes.org`) as team operations hub; white-labeling & 5TB Google Drive mount; PHP 8.3 OPCache & JIT tuning.
+
+### S56–S61 (2026-08-19 to 2026-08-26)
+- **S56–S57:** Signature verification engine overhaul (real SHA-256 hashing); statutory compliance checks; Brevo SMTP relay fallback; mandatory `gobitsnbytes@gmail.com` CC policy.
+- **S58 (Agent D):** Built `MeetingsAgendaCalendar.tsx`; wired Calendar tab; added `RecordingChip`; tokenized meetings UI (zero hex colors).
+- **S58 (Agent C):** Implemented self-approval prohibition (403), dual authorization band (>= ₹1L via AuditLog), Section 8 compliance endpoint, FY CSV stream export, and `RazorpayXAdapter` seam.
+- **S59 (Agent A):** Created persistent `guest_verifications` table (SHA-256 OTPs, `a9c4e7f1b2d6`); added `recording_metadata` JSON column; built `/action-items/mine` endpoint.
+- **S60 (Agent B):** Hardened plugins with live SSL/DNS checks, honest metrics, and route-clone IAM permission enforcement.
+- **S61 (Agent F):** Implemented `legal@gobitsnbytes.org` Legal Agent with IMAP polling, OKF RAG `/ask`, contract analysis, and 3/7/14d reminder nudges.
+
+### S62–S64 (2026-08-26)
+- **S62–S63:** Executed comprehensive read-only audits across Finance, Signatures, Meetings, and Plugins; documented production gaps and architectural backlog.
+- **S64:** Full Swiss Neobrutalism UI overhaul across all 31 Next.js routes in `apps/web` (2px borders, hard shadows, Anton/Inter/JetBrains Mono typography). All 247 backend tests and web build passing.
+
+### S65 (2026-09-09)
+- Read-only Ponytail whole-repository audit completed. Confirmed simplification candidates include an orphaned Three.js background, an unused text animation, an oversized unused subset of `@bnb/ui`, duplicate npm/Bun lockfiles for the bot, and tracked generated signature PDFs. No code changes were applied.
+
+### S66 (2026-09-09)
+- Branded public form pages with the official bits&bytes™ logo/favicon, metadata, brand-neutral shell colour, and required legal footer. Preserved the existing editorial form composition. Production deployment: commit `8376d1d` on `origin/prod`; public form routes and API proxy returned 200 after deployment.
