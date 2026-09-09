@@ -347,3 +347,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 ### S123 (2026-09-09)
 - Reworked Meetings availability rows and agenda calendar from dark legacy utilities to semantic light surfaces: enabled/disabled day states, time inputs, quick presets, loading skeletons, calendar navigation, cells, and status chips. Web typecheck and diff review passed.
 - Pushed `d312fbf` to `prod` and verified Meetings live: the 171-record suppression notice remains visible, two scheduled meetings load, and scheduling/availability/calendar controls render. No meeting or availability mutation was triggered.
+
+### S124 (2026-09-09)
+- Normalized Chrono host cards and booking panel surfaces: host summaries, duration controls, calendar states, slot loading/error/empty states, and booking form fields now use semantic light tokens. Web typecheck and diff review passed.
+- Pushed `2efc38e` to `prod` and verified the authenticated booking flow without mutation: a host loads, duration controls render, past calendar dates are disabled, future dates are selectable, and the slot pane starts in its prompt state. No date, slot, or booking was submitted.
