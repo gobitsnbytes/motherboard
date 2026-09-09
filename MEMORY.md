@@ -232,3 +232,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S86 (2026-09-09)
 - RLVR on live Meetings found repeated records flooding the operator view. Added non-destructive client-side deduplication by meeting identity/schedule/room, a visible warning with the duplicate count, and left source records untouched for a later data cleanup pass.
+
+### S87 (2026-09-09)
+- RLVR on live Finance found the daily dashboard presenting configured policy flags as legal/compliance verification, including a licence number. Renamed the surface to “Governance checks,” changed the status to “Policy configured,” removed the licence claim, and kept the no-real-money disclaimer and operational controls intact. Typecheck and diff checks pass.

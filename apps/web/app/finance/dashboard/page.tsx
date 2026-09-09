@@ -179,10 +179,10 @@ export default function FinanceDashboard() {
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Section 8 Status */}
+        {/* Governance checks */}
         <div className="rounded-base border-2 border-border bg-main p-5 shadow-shadow lg:col-span-1">
           <div className="mb-4 flex items-center justify-between">
-            <span className="font-heading text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Section 8 Status</span>
+            <span className="font-heading text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Governance checks</span>
             {compliance && (
               <span
                 className={`rounded-base border-2 px-1.5 py-0.5 font-heading text-[9px] font-bold uppercase tracking-[0.08em] ${
@@ -197,7 +197,7 @@ export default function FinanceDashboard() {
           </div>
           {!compliance ? (
             <div className="font-base text-xs text-muted-foreground/50">
-              {loading ? "Loading compliance…" : "Compliance disclosure unavailable."}
+              {loading ? "Loading policy checks…" : "Policy checks unavailable."}
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -220,7 +220,7 @@ export default function FinanceDashboard() {
                 </span>
               </div>
               <div className="mt-1 font-heading text-[10px] uppercase tracking-[0.1em] text-muted-foreground/70">
-                FY {compliance.current_fy} · Licence No. 186266
+                FY {compliance.current_fy} · configured finance policy
               </div>
             </div>
           )}

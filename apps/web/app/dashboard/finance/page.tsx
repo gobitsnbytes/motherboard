@@ -191,17 +191,17 @@ export default function DashboardFinancePage() {
         <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
-              Compliance Status
+              Governance checks
             </CardTitle>
             <ShieldCheck className="size-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 mt-1">
               <span className="border-2 border-emerald-800 bg-emerald-950 text-emerald-400 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base shadow-light">
-                Section 8 Verified
+                Policy configured
               </span>
             </div>
-            <p className="text-[11px] font-mono text-zinc-400 mt-2">Zero informal UPI routing</p>
+            <p className="text-[11px] font-mono text-zinc-400 mt-2">No informal UPI routing configured</p>
           </CardContent>
         </Card>
       </div>
