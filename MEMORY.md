@@ -319,3 +319,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S115 (2026-09-09)
 - Pushed `e24fa87` to `prod` and re-verified IAM live: hierarchy loads with 15 groups and 17 mapped Discord roles, the Super Admin scope inspector remains usable, and the privileged mapping warning remains present. No access state was changed.
+
+### S116 (2026-09-09)
+- Reworked Audit Log: paper metric cards, readable search, light ledger/table surfaces, clearer event foregrounds, and consistent empty/error states. Audit data and filtering behavior are unchanged. Full build/typecheck/diff checks pass before promotion.
