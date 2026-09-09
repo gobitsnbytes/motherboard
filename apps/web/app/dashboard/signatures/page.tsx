@@ -189,9 +189,9 @@ export default function SignaturesDashboardPage() {
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Action Error Banner */}
       {actionError && (
-        <div className="p-3 bg-red-950/80 border-2 border-red-500 rounded-base text-red-200 text-xs font-mono font-bold flex items-center justify-between shadow-light">
+        <div className="p-3 bg-red-50 border-2 border-red-700 rounded-base text-red-900 text-xs font-mono font-bold flex items-center justify-between shadow-light">
           <span>{actionError}</span>
-          <button onClick={() => setActionError(null)} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
+          <button onClick={() => setActionError(null)} className="text-red-700 hover:text-red-950 font-bold ml-2">✕</button>
         </div>
       )}
       {actionSuccess && (
@@ -201,12 +201,12 @@ export default function SignaturesDashboardPage() {
       )}
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#141418] text-white p-5 rounded-base border-2 border-border shadow-dark">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-main text-main-foreground p-5 rounded-base border-2 border-border shadow-dark">
         <div>
           <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight uppercase">
             Digital Signatures &amp; Contracts
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-300 mt-1 font-base">
+          <p className="text-xs sm:text-sm text-main-foreground/80 mt-1 font-base">
             Cryptographic, legally-binding contract workflow management (`bnb-signatures`).
           </p>
         </div>
@@ -219,12 +219,12 @@ export default function SignaturesDashboardPage() {
       </div>
 
       {/* View Toggle: Contracts | Legal Agent Inbox */}
-      <div className="flex w-fit items-center gap-2 rounded-base border-2 border-border bg-[#141418] p-1 shadow-light">
+      <div className="flex w-fit flex-wrap items-center gap-2 rounded-base border-2 border-border bg-secondary-background p-1 shadow-light">
         <button
           type="button"
           onClick={() => setView("contracts")}
           className={`flex items-center gap-1.5 rounded-base px-4 py-1.5 text-xs font-mono font-bold uppercase transition-all ${
-            view === "contracts" ? "bg-orange text-black border border-black shadow-light" : "text-zinc-300 hover:text-white"
+            view === "contracts" ? "bg-orange text-black border border-black shadow-light" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <LayoutList className="w-3.5 h-3.5" /> Contracts
@@ -233,7 +233,7 @@ export default function SignaturesDashboardPage() {
           type="button"
           onClick={() => setView("agent")}
           className={`flex items-center gap-1.5 rounded-base px-4 py-1.5 text-xs font-mono font-bold uppercase transition-all ${
-            view === "agent" ? "bg-orange text-black border border-black shadow-light" : "text-zinc-300 hover:text-white"
+            view === "agent" ? "bg-orange text-black border border-black shadow-light" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Inbox className="w-3.5 h-3.5" /> Legal Agent Inbox
@@ -246,45 +246,45 @@ export default function SignaturesDashboardPage() {
       <>
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#141418] border-2 border-border p-4 rounded-base shadow-light flex items-center gap-4">
+        <div className="bg-secondary-background border-2 border-border p-4 rounded-base shadow-light flex items-center gap-4">
           <div className="w-10 h-10 rounded-base bg-main/20 border-2 border-border flex items-center justify-center text-orange">
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-heading font-black text-white">{totalCount}</div>
-            <div className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Total Contracts</div>
+            <div className="text-2xl font-heading font-black text-foreground">{totalCount}</div>
+            <div className="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">Total Contracts</div>
           </div>
         </div>
 
-        <div className="bg-[#141418] border-2 border-border p-4 rounded-base shadow-light flex items-center gap-4">
+        <div className="bg-secondary-background border-2 border-border p-4 rounded-base shadow-light flex items-center gap-4">
           <div className="w-10 h-10 rounded-base bg-amber-500/20 border-2 border-border flex items-center justify-center text-amber-400">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-heading font-black text-white">{pendingCount}</div>
-            <div className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Pending Outbound</div>
+            <div className="text-2xl font-heading font-black text-foreground">{pendingCount}</div>
+            <div className="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">Pending Outbound</div>
           </div>
         </div>
 
-        <div className="bg-[#141418] border-2 border-border p-4 rounded-base shadow-light flex items-center gap-4">
+        <div className="bg-secondary-background border-2 border-border p-4 rounded-base shadow-light flex items-center gap-4">
           <div className="w-10 h-10 rounded-base bg-emerald-500/20 border-2 border-border flex items-center justify-center text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-heading font-black text-white">{completedCount}</div>
-            <div className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Executed &amp; Sealed</div>
+            <div className="text-2xl font-heading font-black text-foreground">{completedCount}</div>
+            <div className="text-xs font-mono font-bold text-muted-foreground uppercase tracking-wider">Executed &amp; Sealed</div>
           </div>
         </div>
       </div>
 
       {/* Search & Tabs Controls */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 bg-[#141418] border-2 border-border p-1 rounded-base shadow-light">
+        <div className="flex flex-wrap items-center gap-2 bg-secondary-background border-2 border-border p-1 rounded-base shadow-light">
           <button
             type="button"
             onClick={() => setActiveTab("all")}
             className={`px-3 py-1.5 rounded-base text-xs font-mono font-bold uppercase transition-all ${
-              activeTab === "all" ? "bg-orange text-black border border-black shadow-light" : "text-zinc-400 hover:text-white"
+              activeTab === "all" ? "bg-orange text-black border border-black shadow-light" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             All Contracts ({totalCount})
@@ -293,7 +293,7 @@ export default function SignaturesDashboardPage() {
             type="button"
             onClick={() => setActiveTab("pending")}
             className={`px-3 py-1.5 rounded-base text-xs font-mono font-bold uppercase transition-all ${
-              activeTab === "pending" ? "bg-orange text-black border border-black shadow-light" : "text-zinc-400 hover:text-white"
+              activeTab === "pending" ? "bg-orange text-black border border-black shadow-light" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Pending ({pendingCount})
@@ -302,7 +302,7 @@ export default function SignaturesDashboardPage() {
             type="button"
             onClick={() => setActiveTab("completed")}
             className={`px-3 py-1.5 rounded-base text-xs font-mono font-bold uppercase transition-all ${
-              activeTab === "completed" ? "bg-orange text-black border border-black shadow-light" : "text-zinc-400 hover:text-white"
+              activeTab === "completed" ? "bg-orange text-black border border-black shadow-light" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Completed ({completedCount})
@@ -310,31 +310,31 @@ export default function SignaturesDashboardPage() {
         </div>
 
         <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search contracts by title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-black border-2 border-border rounded-base text-xs font-mono text-white focus:outline-none focus:border-orange shadow-light"
+            className="w-full pl-9 pr-3 py-2 bg-secondary-background border-2 border-border rounded-base text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-orange shadow-light"
           />
         </div>
       </div>
 
       {/* Contracts Table */}
-      <div className="bg-[#141418] border-2 border-border rounded-base shadow-dark overflow-hidden">
+      <div className="bg-secondary-background border-2 border-border rounded-base shadow-dark overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-xs font-mono font-bold text-zinc-400">Loading signature contracts...</div>
+          <div className="p-8 text-center text-xs font-mono font-bold text-muted-foreground">Loading signature contracts...</div>
         ) : filteredRequests.length === 0 ? (
           <div className="p-12 text-center space-y-3">
-            <FileText className="w-10 h-10 mx-auto text-zinc-600" />
-            <div className="text-sm font-heading font-black uppercase tracking-wider text-white">No signature requests found</div>
-            <p className="text-xs text-zinc-400 font-mono">Get started by creating your first digital contract signature request.</p>
+            <FileText className="w-10 h-10 mx-auto text-muted-foreground" />
+            <div className="text-sm font-heading font-black uppercase tracking-wider text-foreground">No signature requests found</div>
+            <p className="text-xs text-muted-foreground font-mono">Get started by creating your first digital contract signature request.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#121216] border-b-2 border-border uppercase tracking-wider font-mono font-bold text-zinc-400">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="bg-muted border-b-2 border-border uppercase tracking-wider font-mono font-bold text-muted-foreground">
                 <tr>
                   <th className="p-4">Document Title</th>
                   <th className="p-4">Status</th>
@@ -345,11 +345,11 @@ export default function SignaturesDashboardPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredRequests.map((req) => (
-                  <tr key={req.id} className="hover:bg-[#181820] transition-colors font-medium">
+                  <tr key={req.id} className="hover:bg-muted/60 transition-colors font-medium">
                     <td className="p-4">
-                      <div className="font-bold text-white text-sm">{req.title}</div>
+                      <div className="font-bold text-foreground text-sm">{req.title}</div>
                       {req.document_hash && (
-                        <div className="text-[10px] text-zinc-400 font-mono mt-0.5 truncate max-w-xs">
+                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate max-w-xs">
                           SHA256: {req.document_hash}
                         </div>
                       )}
@@ -382,7 +382,7 @@ export default function SignaturesDashboardPage() {
                                 }`}
                                 title={r.status}
                               />
-                              <span className="font-bold text-zinc-200 truncate max-w-[120px]">{r.name}</span>
+                              <span className="font-bold text-foreground truncate max-w-[120px]">{r.name}</span>
                               {isOrg && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-base border border-black bg-orange text-[9px] font-black uppercase text-black">
                                   <Stamp className="w-2.5 h-2.5" /> Org Seal {r.status === "signed" ? "✓" : "Pending"}
@@ -395,7 +395,7 @@ export default function SignaturesDashboardPage() {
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-base border text-[10px] font-mono font-bold transition-all ${
                                   isCopied
                                     ? "bg-emerald-950 text-emerald-400 border-emerald-800"
-                                    : "bg-[#181820] text-zinc-300 border-border hover:bg-orange hover:text-black hover:border-black"
+                                    : "bg-secondary-background text-foreground border-border hover:bg-orange hover:text-black hover:border-black"
                                 }`}
                                 title="Copy direct signing link"
                               >
@@ -408,7 +408,7 @@ export default function SignaturesDashboardPage() {
                                   type="button"
                                   onClick={() => handleResend(req.id, r.id)}
                                   disabled={resendingId === r.id}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-base border text-[10px] font-mono font-bold transition-all bg-[#181820] text-zinc-300 border-border hover:bg-main hover:text-white disabled:opacity-50"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-base border text-[10px] font-mono font-bold transition-all bg-secondary-background text-foreground border-border hover:bg-main hover:text-white disabled:opacity-50"
                                   title="Resend signature email notification"
                                 >
                                   <Mail className="w-3 h-3" />
@@ -420,7 +420,7 @@ export default function SignaturesDashboardPage() {
                         })}
                       </div>
                     </td>
-                    <td className="p-4 text-zinc-400 font-mono text-xs">
+                    <td className="p-4 text-muted-foreground font-mono text-xs">
                       {new Date(req.created_at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -431,7 +431,7 @@ export default function SignaturesDashboardPage() {
                       <button
                         type="button"
                         onClick={() => setAuditRequestId(req.id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#181820] border-2 border-border rounded-base text-[11px] font-mono font-bold text-zinc-200 hover:bg-white/10 shadow-light"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-secondary-background border-2 border-border rounded-base text-[11px] font-mono font-bold text-foreground hover:bg-muted shadow-light"
                         title="View signature audit trail"
                       >
                         <ScrollText className="w-3 h-3 text-orange" /> Audit
@@ -452,9 +452,9 @@ export default function SignaturesDashboardPage() {
                         href={`/api/signatures/requests/${req.id}/download`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#181820] border-2 border-border rounded-base text-[11px] font-mono font-bold text-zinc-200 hover:bg-white/10 shadow-light"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-secondary-background border-2 border-border rounded-base text-[11px] font-mono font-bold text-foreground hover:bg-muted shadow-light"
                       >
-                        <Download className="w-3 h-3 text-zinc-400" /> PDF
+                        <Download className="w-3 h-3 text-muted-foreground" /> PDF
                       </a>
                       <Link
                         href={`/verify/${req.document_hash || req.id}`}
@@ -466,7 +466,7 @@ export default function SignaturesDashboardPage() {
                         <button
                           type="button"
                           onClick={() => handleVoid(req.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#181820] hover:bg-red-950/80 text-zinc-300 border-2 border-border rounded-base text-[11px] font-mono font-bold shadow-light"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-secondary-background hover:bg-red-50 text-red-800 border-2 border-border rounded-base text-[11px] font-mono font-bold shadow-light"
                           title="Void / Quash agreement"
                         >
                           <XCircle className="w-3 h-3 text-red-400" /> Void

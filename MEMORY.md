@@ -271,3 +271,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S99 (2026-09-09)
 - Reworked the operational canvas token boundary so `bg-blank`, legacy dark module surfaces, and dark form controls resolve to the warm brand paper system instead of the global dark theme. This directly addresses the black Legal Agent Inbox and signatures surfaces seen in production screenshots while preserving burgundy/orange controls. Legal Agent skeletons and input placeholders now remain legible. Typecheck and diff checks pass.
+
+### S100 (2026-09-09)
+- Removed the remaining hard-coded dark visual language from the signatures/contracts page: paper surfaces, readable foregrounds, light search and tab controls, responsive table minimum width, and clearer hover/action states. Data and signature actions are unchanged. Full typecheck and production build pass; awaiting CI/Vercel promotion before live RLVR.
