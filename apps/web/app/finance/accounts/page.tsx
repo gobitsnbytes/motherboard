@@ -14,7 +14,7 @@ interface Account {
 interface CreateForm { name: string; description: string; owner_id: string; }
 
 const inputClass =
-  "box-border w-full rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-white outline-none focus:border-orange";
+  "box-border w-full rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-foreground outline-none focus:border-orange";
 
 const labelClass =
   "mb-1.5 block font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground";
@@ -72,7 +72,7 @@ export default function AccountsPage() {
     <div className="font-heading">
       <div className="mb-7 flex items-start justify-between">
         <div>
-          <h1 className="m-0 font-heading text-[22px] font-extrabold text-white">Virtual Accounts</h1>
+          <h1 className="m-0 font-heading text-[22px] font-extrabold text-foreground">Virtual Accounts</h1>
           <p className="mt-1 font-base text-xs text-muted-foreground">Paper bank accounts — no real money attached</p>
         </div>
         <button onClick={() => setShowCreate(true)}
@@ -82,7 +82,7 @@ export default function AccountsPage() {
       </div>
 
       {error && (
-        <div className="mb-5 rounded-base border-2 border-burgundy bg-burgundy/10 px-4 py-3 font-base text-[13px] text-red-300 shadow-shadow">
+        <div className="mb-5 rounded-base border-2 border-burgundy bg-burgundy/10 px-4 py-3 font-base text-[13px] text-burgundy shadow-shadow">
           {error}
         </div>
       )}
@@ -92,7 +92,7 @@ export default function AccountsPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="w-[420px] rounded-base border-2 border-orange bg-main p-7"
             style={{ boxShadow: "6px 6px 0 0 rgba(252,146,13,0.3)" }}>
-            <h2 className="m-0 mb-5 font-heading text-base font-extrabold text-white">Create Virtual Account</h2>
+            <h2 className="m-0 mb-5 font-heading text-base font-extrabold text-foreground">Create Virtual Account</h2>
             <form onSubmit={handleCreate} className="flex flex-col gap-3.5">
               <div>
                 <label className={labelClass}>Account Name *</label>
@@ -145,7 +145,7 @@ export default function AccountsPage() {
               <Link href={`/finance/accounts/${a.id}`} className="group block no-underline">
                 <div className="relative cursor-pointer rounded-base border-2 border-border bg-main p-5 shadow-shadow transition-all duration-150 group-hover:border-orange group-hover:shadow-[4px_4px_0_0_#fc920d]">
                   <div className={`absolute right-3.5 top-3.5 size-[7px] rounded-full ${a.is_active ? "bg-green-500" : "bg-muted-foreground/50"}`} />
-                  <div className="mb-1 font-heading text-sm font-bold text-white/90">{a.name}</div>
+                  <div className="mb-1 font-heading text-sm font-bold text-foreground">{a.name}</div>
                   {a.description && <div className="mb-3 font-base text-[11px] text-muted-foreground">{a.description}</div>}
                   <div className="mb-3.5 font-mono text-[11px] text-muted-foreground/60">
                     {a.account_number.replace(/(\d{4})/g, "$1 ").trim()} · {a.ifsc}

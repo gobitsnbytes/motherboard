@@ -9,7 +9,7 @@ interface Card { id: string; card_name: string; last_four: string; card_type: st
 interface CreateCardForm { account_id: string; holder_id: string; card_name: string; card_type: "virtual" | "debit"; expires_month: string; expires_year: string; daily_limit_rupees: string; monthly_limit_rupees: string; }
 
 const inputClass =
-  "box-border w-full rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-white outline-none focus:border-orange";
+  "box-border w-full rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-foreground outline-none focus:border-orange";
 
 const labelClass =
   "mb-1.5 block font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground";
@@ -135,7 +135,7 @@ export default function CardsPage() {
     <div className="font-heading">
       <div className="mb-7 flex items-start justify-between">
         <div>
-          <h1 className="m-0 font-heading text-[22px] font-extrabold text-white">Virtual Cards</h1>
+          <h1 className="m-0 font-heading text-[22px] font-extrabold text-foreground">Virtual Cards</h1>
           <p className="mt-1 font-base text-xs text-muted-foreground">Tracking instruments only — no real payment rails</p>
         </div>
         <button onClick={() => setShowCreate(true)}
@@ -149,7 +149,7 @@ export default function CardsPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="w-[420px] rounded-base border-2 border-burgundy bg-main p-7"
             style={{ boxShadow: "6px 6px 0 0 rgba(151,25,44,0.3)" }}>
-            <h2 className="m-0 mb-5 font-heading text-base font-extrabold text-white">Issue Virtual Card</h2>
+            <h2 className="m-0 mb-5 font-heading text-base font-extrabold text-foreground">Issue Virtual Card</h2>
             <form onSubmit={handleCreate} className="flex flex-col gap-3.5">
               <div>
                 <label className={labelClass}>Account *</label>
@@ -276,8 +276,8 @@ export default function CardsPage() {
 
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between font-heading text-[11px] text-muted-foreground">
-                  <span>Daily: <strong className="text-white/60">{c.daily_limit_rupees !== null && c.daily_limit_rupees !== undefined ? `₹${c.daily_limit_rupees}` : "No Limit"}</strong></span>
-                  <span>Monthly: <strong className="text-white/60">{c.monthly_limit_rupees !== null && c.monthly_limit_rupees !== undefined ? `₹${c.monthly_limit_rupees}` : "No Limit"}</strong></span>
+                  <span>Daily: <strong className="text-foreground">{c.daily_limit_rupees !== null && c.daily_limit_rupees !== undefined ? `₹${c.daily_limit_rupees}` : "No Limit"}</strong></span>
+                  <span>Monthly: <strong className="text-foreground">{c.monthly_limit_rupees !== null && c.monthly_limit_rupees !== undefined ? `₹${c.monthly_limit_rupees}` : "No Limit"}</strong></span>
                 </div>
                 <button
                   onClick={() => {
@@ -287,7 +287,7 @@ export default function CardsPage() {
                     setSimSuccess(false);
                   }}
                   disabled={!c.is_active}
-                  className={`w-full rounded-base border-2 border-border bg-background py-1.5 font-heading text-[11px] font-bold ${c.is_active ? "cursor-pointer text-white/75 hover:border-orange hover:text-orange" : "cursor-not-allowed text-muted-foreground/40"}`}
+                  className={`w-full rounded-base border-2 border-border bg-background py-1.5 font-heading text-[11px] font-bold ${c.is_active ? "cursor-pointer text-foreground hover:border-orange hover:text-orange" : "cursor-not-allowed text-muted-foreground/40"}`}
                 >
                   ⚡ Simulate Charge
                 </button>
@@ -302,7 +302,7 @@ export default function CardsPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="w-[420px] rounded-base border-2 border-orange bg-main p-7"
             style={{ boxShadow: "6px 6px 0 0 rgba(252,146,13,0.3)" }}>
-            <h2 className="m-0 mb-2.5 font-heading text-base font-extrabold text-white">Simulate Card Charge</h2>
+            <h2 className="m-0 mb-2.5 font-heading text-base font-extrabold text-foreground">Simulate Card Charge</h2>
             <p className="mb-5 font-base text-xs text-muted-foreground">
               Simulate an auth/capture request on card ending in <strong>{simulatingCard.last_four}</strong>.
             </p>

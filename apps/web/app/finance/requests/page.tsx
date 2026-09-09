@@ -66,7 +66,7 @@ export default function RequestsPage() {
     <div className="font-heading">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="m-0 font-heading text-[22px] font-extrabold text-white">Money Requests</h1>
+          <h1 className="m-0 font-heading text-[22px] font-extrabold text-foreground">Money Requests</h1>
           <p className="mt-1 font-base text-xs text-muted-foreground">Pool draws and inter-account transfers</p>
         </div>
         <Link href="/finance/requests/new"
@@ -100,13 +100,13 @@ export default function RequestsPage() {
                 borderColor: reviewing.action === "approve" ? "#22c55e" : "#ef4444",
                 boxShadow: `6px 6px 0 0 ${reviewing.action === "approve" ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
               }}>
-              <h2 className="m-0 mb-4 font-heading text-[15px] font-extrabold capitalize text-white">
+              <h2 className="m-0 mb-4 font-heading text-[15px] font-extrabold capitalize text-foreground">
                 {reviewing.action} Request
               </h2>
               <div>
                 <label className="mb-1.5 block font-heading text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Note (optional)</label>
                 <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="Add a note for the requester…"
-                  className="box-border w-full resize-vertical rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-white outline-none focus:border-orange" />
+                  className="box-border w-full resize-vertical rounded-base border-2 border-border bg-background px-3 py-2 font-base text-[13px] text-foreground outline-none focus:border-orange" />
               </div>
               <div className="mt-4 flex gap-2.5">
                 <button onClick={handleReview} disabled={submitting}
@@ -148,7 +148,7 @@ export default function RequestsPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <div className="mb-1.5 font-base text-sm font-semibold text-white/85">{r.description}</div>
+                      <div className="mb-1.5 font-base text-sm font-semibold text-foreground">{r.description}</div>
                       <div className="flex flex-wrap items-center gap-4">
                         <span className="font-heading text-[10px] text-muted-foreground">
                           {r.from_account_id ? "account transfer" : "pool draw"} · {new Date(r.created_at).toLocaleDateString("en-IN")}
@@ -166,7 +166,7 @@ export default function RequestsPage() {
                     </div>
                     <div className="ml-4 flex shrink-0 items-center gap-3">
                       <div className="text-right">
-                        <div className="font-heading text-lg font-extrabold text-white">₹{r.amount_rupees.toLocaleString("en-IN")}</div>
+                        <div className="font-heading text-lg font-extrabold text-foreground">₹{r.amount_rupees.toLocaleString("en-IN")}</div>
                         <div className="font-heading text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: statusColor }}>{r.status}</div>
                       </div>
                       {r.status === "pending" && (
