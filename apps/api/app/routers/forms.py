@@ -61,7 +61,10 @@ def _public_form(form: PublicForm) -> dict:
 
 @router.get("", response_model=list[dict])
 async def list_forms(db: DbSession, current_user: ResolvedPrincipal = Depends(get_current_user)):
-    rows = (await db.execute(select(PublicForm).where(PublicForm.created_by == current_user.user_id).order_by(PublicForm.updated_at.desc()))).scalars().all()
+    statement = select(PublicForm).order_by(PublicForm.updated_at.desc())
+    if not current_user.is_super_admin:
+        statement = statement.where(PublicForm.created_by == current_user.user_id)
+    rows = (await db.execute(statement)).scalars().all()
     return [_staff_form(row) for row in rows]
 
 
@@ -80,7 +83,10 @@ async def create_form(payload: FormCreate, db: DbSession, current_user: Resolved
 
 @router.put("/{form_id}")
 async def update_form(form_id: uuid.UUID, payload: FormUpdate, db: DbSession, current_user: ResolvedPrincipal = Depends(get_current_user)):
-    form = (await db.execute(select(PublicForm).where(PublicForm.id == form_id, PublicForm.created_by == current_user.user_id))).scalar_one_or_none()
+    statement = select(PublicForm).where(PublicForm.id == form_id)
+    if not current_user.is_super_admin:
+        statement = statement.where(PublicForm.created_by == current_user.user_id)
+    form = (await db.execute(statement)).scalar_one_or_none()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     for key, value in payload.model_dump().items():
@@ -96,7 +102,10 @@ async def update_form(form_id: uuid.UUID, payload: FormUpdate, db: DbSession, cu
 
 @router.get("/{form_id}/submissions", response_model=list[FormSubmissionResponse])
 async def list_submissions(form_id: uuid.UUID, db: DbSession, current_user: ResolvedPrincipal = Depends(get_current_user)):
-    form = (await db.execute(select(PublicForm).where(PublicForm.id == form_id, PublicForm.created_by == current_user.user_id))).scalar_one_or_none()
+    statement = select(PublicForm).where(PublicForm.id == form_id)
+    if not current_user.is_super_admin:
+        statement = statement.where(PublicForm.created_by == current_user.user_id)
+    form = (await db.execute(statement)).scalar_one_or_none()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     rows = (await db.execute(select(PublicFormSubmission).where(PublicFormSubmission.form_id == form_id).order_by(PublicFormSubmission.created_at.desc()))).scalars().all()
