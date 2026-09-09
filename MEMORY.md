@@ -187,3 +187,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S71 (2026-09-09)
 - Continued the daily-operator pass across Overview, Members, and IAM: removed emoji/implementation copy, replaced Overview browser alerts with inline status feedback, improved page-level hierarchy and copy, and made the network/operator purpose explicit.
+
+### S72 (2026-09-09)
+- Aligned the separate Finance shell with the same product language: burgundy navigation rail, warm canvas header, shared focus/active-state treatment, and consistent mobile navigation controls.

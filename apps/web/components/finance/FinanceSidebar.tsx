@@ -62,7 +62,7 @@ export default function FinanceSidebar() {
   const navigation = (close?: () => void, compact = collapsed) => <nav aria-label="Finance navigation" className="flex flex-1 flex-col gap-1 p-3">
     {NAV_ITEMS.map((item) => {
       const active = pathname === item.href || pathname.startsWith(item.href + "/");
-      return <Link key={item.href} href={item.href} onClick={close} className={`flex min-h-11 items-center gap-3 overflow-hidden whitespace-nowrap rounded-base border-2 px-3 text-sm font-medium no-underline transition-colors ${active ? "border-orange bg-orange text-black shadow-light" : "border-transparent text-zinc-300 hover:border-zinc-600 hover:bg-white/5 hover:text-white"}`}>
+      return <Link key={item.href} href={item.href} onClick={close} className={`flex min-h-11 items-center gap-3 overflow-hidden whitespace-nowrap rounded-base border-2 px-3 text-sm font-medium no-underline transition-colors ${active ? "border-[#120f0a] bg-orange text-black shadow-light" : "border-transparent text-white/75 hover:border-black/40 hover:bg-black/10 hover:text-white"}`}>
         <span className="shrink-0">{item.icon}</span>
         {!compact && <span className="overflow-hidden">{item.label}</span>}
       </Link>;
@@ -71,16 +71,16 @@ export default function FinanceSidebar() {
 
   return (
     <>
-      <aside className={`fixed inset-y-0 z-30 hidden flex-col border-r-2 border-zinc-700 bg-[#111115] md:flex ${collapsed ? "w-16" : "w-64"}`}>
-        <div className="flex items-center gap-3 border-b-2 border-zinc-700 px-4 py-4">
+      <aside className={`fixed inset-y-0 z-30 hidden flex-col border-r-2 border-black bg-burgundy md:flex ${collapsed ? "w-16" : "w-64"}`}>
+        <div className="flex items-center gap-3 border-b-2 border-black/40 px-4 py-4">
           <Link href="/finance/dashboard" aria-label="Finance dashboard"><img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" className="h-7 w-auto shrink-0" /></Link>
-          {!collapsed && <div><span className="block font-heading text-sm font-black tracking-wide text-white">Finance</span><span className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">Internal ledger</span></div>}
+          {!collapsed && <div><span className="block font-heading text-sm font-black tracking-wide text-white">Finance</span><span className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/60">Internal ledger</span></div>}
         </div>
         {navigation()}
-        <button type="button" onClick={() => setCollapsed((value) => !value)} className="m-3 min-h-11 border-2 border-zinc-600 px-3 text-sm text-zinc-300 transition-colors hover:border-orange hover:text-white" aria-label={collapsed ? "Expand finance navigation" : "Collapse finance navigation"}>{collapsed ? "→" : "Collapse"}</button>
+        <button type="button" onClick={() => setCollapsed((value) => !value)} className="m-3 min-h-11 border-2 border-black/50 px-3 text-sm text-white transition-colors hover:border-orange hover:text-orange" aria-label={collapsed ? "Expand finance navigation" : "Collapse finance navigation"}>{collapsed ? "→" : "Collapse"}</button>
       </aside>
-      <button type="button" onClick={() => setMobileOpen(true)} className="fixed left-3 top-3 z-30 grid size-11 place-items-center border-2 border-zinc-700 bg-[#111115] text-white md:hidden" aria-label="Open finance navigation"><Menu size={19}/></button>
-      {mobileOpen && <div className="fixed inset-0 z-40 md:hidden"><button type="button" aria-label="Close finance navigation" onClick={() => setMobileOpen(false)} className="absolute inset-0 w-full bg-black/70"/><aside className="relative z-10 flex h-full w-72 flex-col border-r-2 border-zinc-700 bg-[#111115]"><div className="flex items-center justify-between border-b-2 border-zinc-700 px-4 py-4"><span className="font-heading text-sm font-black text-white">Finance</span><button type="button" onClick={() => setMobileOpen(false)} className="grid size-11 place-items-center border-2 border-zinc-600 text-zinc-300" aria-label="Close finance navigation"><X size={18}/></button></div>{navigation(() => setMobileOpen(false), false)}</aside></div>}
+      <button type="button" onClick={() => setMobileOpen(true)} className="fixed left-3 top-3 z-30 grid size-11 place-items-center border-2 border-black bg-burgundy text-white md:hidden" aria-label="Open finance navigation"><Menu size={19}/></button>
+      {mobileOpen && <div className="fixed inset-0 z-40 md:hidden"><button type="button" aria-label="Close finance navigation" onClick={() => setMobileOpen(false)} className="absolute inset-0 w-full bg-black/70"/><aside className="relative z-10 flex h-full w-72 flex-col border-r-2 border-black bg-burgundy"><div className="flex items-center justify-between border-b-2 border-black/40 px-4 py-4"><span className="font-heading text-sm font-black text-white">Finance</span><button type="button" onClick={() => setMobileOpen(false)} className="grid size-11 place-items-center border-2 border-black/50 text-white" aria-label="Close finance navigation"><X size={18}/></button></div>{navigation(() => setMobileOpen(false), false)}</aside></div>}
     </>
   );
 }
