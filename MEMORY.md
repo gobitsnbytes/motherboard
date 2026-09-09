@@ -246,4 +246,15 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - User decisions: ship volunteer and fork onboarding together; signed PDF is canonical; original and filled DOCX files are evidence; review is assigned to an IAM-authorized reviewer with self-approval prevention; legal/director signing uses the authenticated dashboard with optional DSC; participant completion uses the web portal only; fork recognition requires two distinct directors.
 - Added and committed the design spec at `docs/superpowers/specs/2026-09-09-onboarding-design.md` in commit `8f10882`.
 - Renderer decision recorded in follow-up commit `fd05f65`: provision headless LibreOffice in the API image, expose an explicit binary path, and fail closed if it is unavailable. The local runtime currently has Word but no LibreOffice.
-- Current state: design is written and awaiting user review before implementation planning. Existing user changes in `MEMORY.md`, `apps/api/app/dependencies.py`, dashboard UI files, and untracked `templates/` were not staged by this work.
+- Current state: design choices were adopted for implementation planning after the user supplied the delivery constraints and raised no objections to the documented defaults. Existing user changes in `apps/api/app/dependencies.py`, dashboard UI files, and untracked `templates/` were not staged by this work.
+
+### 2026-09-09 — Digital Onboarding Implementation Slice
+
+- Implemented `onboarding_cases`, scoped `onboarding_participants`, `onboarding_documents`, and append-only `onboarding_reviews` with Alembic migration `l5m6n7o8p9q0`.
+- Added IAM permissions for onboarding read/write/review/certificate actions and registered the new `/api/onboarding` router.
+- Added volunteer and fork-lead case creation, age gating (under 13 rejected; 13-17 requires parent), parent portal invitations, fork teammate invitations restricted to a submitted fork lead, and token-hashed portal access.
+- Added a raw-template-derived manifest for all six DOCX templates. Submitted answers are retained in filled DOCX evidence, rendered with headless LibreOffice, and handed to the existing signature engine as child requests with legal org-signature recipients.
+- Added public portal and IAM dashboard surfaces. The dashboard can create cases and record acceptance of signed documents; existing signature dashboard remains the internal signing surface.
+- Added focused service and router tests. `test_onboarding_documents.py` and `test_onboarding_router.py` pass; web typecheck passes. Existing IAM/fork suites remain green. Renderer QA remains a container step because LibreOffice is not installed on this Windows workspace.
+- The local `bunx skills find` command remains unavailable because its temporary package cannot import `yaml`; checked-in FastAPI/frontend/security/deployment skill documents were used instead.
+- Full backend suite result: 256 passed, 1 pre-existing failure in `test_smtp_email.py` because the repository `.env` overrides the test fixture's `smtp_from` with `hello@gobitsnbytes.org`; onboarding-focused tests and the web typecheck pass.

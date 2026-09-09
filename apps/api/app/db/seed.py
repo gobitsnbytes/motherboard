@@ -186,6 +186,10 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
     {"key": "meetings.write", "description": "Schedule, reschedule, start, stop, and configure meetings."},
     # Signatures
     {"key": "signatures.countersign", "description": "Execute organizational counter-signatures as legal@gobitsnbytes.org (Authority Matrix delegation required)."},
+    {"key": "onboarding.read", "description": "View onboarding cases and their document status."},
+    {"key": "onboarding.write", "description": "Create onboarding cases and invite participants."},
+    {"key": "onboarding.review", "description": "Review onboarding documents and record acceptance decisions."},
+    {"key": "onboarding.certificate", "description": "Initiate fork recognition certificates after approval."},
 ]
 
 # ---------------------------------------------------------------------------
