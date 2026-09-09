@@ -322,3 +322,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S116 (2026-09-09)
 - Reworked Audit Log: paper metric cards, readable search, light ledger/table surfaces, clearer event foregrounds, and consistent empty/error states. Audit data and filtering behavior are unchanged. Full build/typecheck/diff checks pass before promotion.
+
+### S117 (2026-09-09)
+- Pushed `db30466` to `prod` and verified Audit Log live in the authenticated browser: 50 total events, a 10-event recent window, and 50 filtered events rendered in the ledger. The visible dataset includes signature reminder events and Dyslexic activity; no mutating action was taken.
