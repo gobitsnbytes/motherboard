@@ -1,20 +1,36 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, Input } from "@bnb/ui";
-import { Search } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, Input, Skeleton } from "@bnb/ui";
+import { AlertCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getAuditLogs } from "lib/audit";
 
+interface AuditLog {
+  id: string;
+  action: string;
+  actor_user_id?: string | null;
+  actor_id?: string | null;
+  actor?: string | null;
+  created_at: string;
+}
+
 export function AuditContent() {
   const [search, setSearch] = useState("");
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    getAuditLogs()
-      .then(setLogs)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const [error, setError] = useState<string | null>(null);
+  const loadLogs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setLogs((await getAuditLogs()) as AuditLog[]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load audit events.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void loadLogs(); }, []);
   const filteredLogs = useMemo(() => {
     return logs.filter((log) =>
       log.action?.toLowerCase().includes(search.toLowerCase()),
@@ -69,6 +85,13 @@ export function AuditContent() {
         />
       </div>
 
+      {error ? (
+        <div role="alert" className="flex items-center justify-between gap-4 border-2 border-red-700 bg-red-50 p-4 text-sm text-red-900">
+          <span className="flex items-center gap-2"><AlertCircle className="size-4" aria-hidden="true" />{error}</span>
+          <button type="button" onClick={() => void loadLogs()} className="font-bold underline">Try again</button>
+        </div>
+      ) : null}
+
       {/* Table */}
       <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base overflow-hidden">
         <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
@@ -78,6 +101,7 @@ export function AuditContent() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
+              <caption className="sr-only">Administrative audit events</caption>
               <thead>
                 <tr className="border-b-2 border-border bg-[#121216] text-zinc-400 uppercase text-[11px] font-bold">
                   <th className="px-4 py-3">Action</th>
@@ -90,7 +114,7 @@ export function AuditContent() {
                 {loading ? (
                   <tr>
                     <td colSpan={3} className="p-6 text-center text-zinc-400">
-                      Loading audit events...
+                      <Skeleton className="mx-auto h-5 w-3/4" />
                     </td>
                   </tr>
                 ) : filteredLogs.length === 0 ? (
@@ -103,7 +127,7 @@ export function AuditContent() {
                   filteredLogs.map((log) => (
                     <tr key={log.id || log.created_at} className="hover:bg-[#181820] transition-colors">
                       <td className="px-4 py-3 font-bold text-orange">{log.action}</td>
-                      <td className="px-4 py-3 text-white">{log.actor_user_id || log.actor || "system"}</td>
+                      <td className="px-4 py-3 text-white">{log.actor_user_id || log.actor_id || log.actor || "system"}</td>
                       <td className="px-4 py-3 text-zinc-400">
                         {log.created_at ? new Date(log.created_at).toLocaleString() : "-"}
                       </td>

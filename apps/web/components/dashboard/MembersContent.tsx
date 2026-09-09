@@ -1,20 +1,36 @@
 "use client";
 
-import { Badge, Input } from "@bnb/ui";
+import { Input, Skeleton } from "@bnb/ui";
 import { getUsers } from "lib/users";
-import { Search } from "lucide-react";
+import { AlertCircle, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
+interface Member {
+  id: string;
+  display_name?: string | null;
+  email?: string | null;
+  is_active: boolean;
+  is_super_admin: boolean;
+  created_at: string;
+}
+
 export function MembersContent() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  useEffect(() => {
-    getUsers()
-      .then(setUsers)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const loadUsers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setUsers((await getUsers()) as Member[]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load members.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void loadUsers(); }, []);
   const filteredUsers = users.filter(
   (user) =>
     user.display_name
@@ -37,6 +53,13 @@ export function MembersContent() {
         />
       </div>
 
+      {error ? (
+        <div role="alert" className="flex items-center justify-between gap-4 border-2 border-red-700 bg-red-50 p-4 text-sm text-red-900">
+          <span className="flex items-center gap-2"><AlertCircle className="size-4" aria-hidden="true" />{error}</span>
+          <button type="button" onClick={() => void loadUsers()} className="font-bold underline">Try again</button>
+        </div>
+      ) : null}
+
       {/* Table container */}
       <div className="overflow-x-auto border-2 border-border bg-white">
         <table className="w-full text-left text-xs font-mono">
@@ -50,11 +73,12 @@ export function MembersContent() {
             </tr>
           </thead>
 
+          <caption className="sr-only">Motherboard members and account status</caption>
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-stone-600">
-                  Loading members directory...
+                <td colSpan={5} className="p-4">
+                  <Skeleton className="h-6 w-full" />
                 </td>
               </tr>
             ) : filteredUsers.length === 0 ? (
