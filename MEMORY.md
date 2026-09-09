@@ -226,3 +226,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S84 (2026-09-09)
 - Local browser verification found stale Overview copy claiming specific infrastructure and statutory compliance. Replaced it with truthful connected-service labels and a restrained operational footer; removed fake telemetry/legal badges from the daily workspace surface.
+
+### S85 (2026-09-09)
+- RLVR on live IAM exposed one remaining overclaim: the action said “2-Way Discord Sync” even though the surface triggers a role refresh. Renamed it to “Refresh Discord roles” so the control matches the verified behavior.

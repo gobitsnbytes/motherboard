@@ -127,7 +127,7 @@ export default function IAMHierarchyVisualizer() {
         <div className="flex items-center gap-3">
           <Button onClick={handleTriggerDiscordSync} disabled={syncing} size="sm">
             <RefreshCw className={`mr-2 size-3.5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing Roles..." : "Trigger 2-Way Discord Sync"}
+            {syncing ? "Refreshing roles..." : "Refresh Discord roles"}
           </Button>
         </div>
       </div>
