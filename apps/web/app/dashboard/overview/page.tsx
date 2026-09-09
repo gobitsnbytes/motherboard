@@ -17,8 +17,8 @@ export default function OverviewPage() {
           Overview
         </h1>
 
-        <p className="text-sm text-muted-foreground font-base mt-1">
-          Dashboard home — organization health at a glance.
+        <p className="text-sm text-muted-foreground font-base mt-1 max-w-2xl">
+          The operating picture for the network: people, city chapters, evidence, and integration health.
         </p>
       </div>
 

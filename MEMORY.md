@@ -184,3 +184,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S70 (2026-09-09)
 - Reworked Settings operation feedback to use inline success/error notices instead of browser-native alerts. Manual sync, cache reset, permission rebuild, and sync-history clearing now expose actionable status inside the page while preserving explicit confirmation for destructive actions.
+
+### S71 (2026-09-09)
+- Continued the daily-operator pass across Overview, Members, and IAM: removed emoji/implementation copy, replaced Overview browser alerts with inline status feedback, improved page-level hierarchy and copy, and made the network/operator purpose explicit.

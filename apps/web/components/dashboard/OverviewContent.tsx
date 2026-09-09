@@ -1,8 +1,8 @@
 "use client";
 
-import { Users, GitBranch, Puzzle, RefreshCw, Handshake, Plus, UserPlus, Loader2, Copy, Bot, Terminal, ShieldCheck } from "lucide-react";
-import StatCard from "components/dashboard/StatCard";
+import { Users, GitBranch, Puzzle, RefreshCw, Handshake, Plus, UserPlus, Loader2, Copy } from "lucide-react";
 import Link from "next/link";
+import StatCard from "components/dashboard/StatCard";
 import { OverviewSkeleton } from "./Skeletons";
 import {
   Badge,
@@ -35,6 +35,7 @@ export function OverviewContent() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [creatingFork, setCreatingFork] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [forkForm, setForkForm] = useState({
     slug: "",
     city_name: "",
@@ -71,7 +72,7 @@ export function OverviewContent() {
       setForks(forksData);
       setActionItems(itemsData);
     } catch (error) {
-      console.error(error);
+      setNotice({ kind: "error", message: "The overview could not load completely. Refresh to retry." });
     } finally {
       setLoading(false);
     }
@@ -87,18 +88,18 @@ export function OverviewContent() {
 
   const handleRunSync = async () => {
     setSyncing(true);
+    setNotice(null);
     try {
       const response = await fetch("/api/sync/trigger", { method: "POST" });
       if (response.ok) {
-        alert("Sync triggered successfully!");
+        setNotice({ kind: "success", message: "Discord sync started. Refreshing operational data." });
         loadDashboard();
       } else {
         const err = await response.json();
-        alert(`Failed to trigger sync: ${err.detail || response.statusText}`);
+        setNotice({ kind: "error", message: `Discord sync failed: ${err.detail || response.statusText}` });
       }
     } catch (e) {
-      console.error(e);
-      alert("An error occurred triggering the sync.");
+      setNotice({ kind: "error", message: "Discord sync failed because the server could not be reached." });
     } finally {
       setSyncing(false);
     }
@@ -107,6 +108,7 @@ export function OverviewContent() {
   const handleCreateFork = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingFork(true);
+    setNotice(null);
     try {
       const payload: any = {
         slug: forkForm.slug,
@@ -122,17 +124,16 @@ export function OverviewContent() {
       });
 
       if (response.ok) {
-        alert("Fork created successfully!");
+        setNotice({ kind: "success", message: `City chapter ${forkForm.city_name} was created.` });
         setCreateForkOpen(false);
         setForkForm({ slug: "", city_name: "", discord_city_role_id: "", discord_contributor_role_id: "" });
         loadDashboard();
       } else {
         const err = await response.json();
-        alert(`Failed to create fork: ${err.detail || response.statusText}`);
+        setNotice({ kind: "error", message: `City chapter could not be created: ${err.detail || response.statusText}` });
       }
     } catch (e) {
-      console.error(e);
-      alert("An error occurred creating the fork.");
+      setNotice({ kind: "error", message: "City chapter could not be created because the server could not be reached." });
     } finally {
       setCreatingFork(false);
     }
@@ -140,6 +141,15 @@ export function OverviewContent() {
 
   return (
     <div className="space-y-6">
+      {notice ? (
+        <div
+          role="status"
+          className={`border-2 px-4 py-3 text-sm font-mono ${notice.kind === "success" ? "border-[#265d3a] bg-[#eaf5ed] text-[#173d24]" : "border-[#97192c] bg-[#fbecef] text-[#5b0f1a]"}`}
+        >
+          {notice.message}
+        </div>
+      ) : null}
+
       {/* Top Stat Cards Grid */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -177,7 +187,7 @@ export function OverviewContent() {
       <Card className="border-2 border-border bg-[#141418] shadow-light">
         <CardContent className="py-5">
           <h2 className="text-xl font-heading font-black text-white uppercase tracking-tight">
-            Welcome to Motherboard Cockpit 👋
+            Welcome to Motherboard
           </h2>
           <p className="text-xs sm:text-sm text-zinc-300 font-base mt-1">
             Central operations layer: manage member IAM policies, city fork onboarding, digital signatures, and meetings.
@@ -436,4 +446,3 @@ export function OverviewContent() {
     </div>
   );
 }
-
