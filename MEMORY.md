@@ -175,3 +175,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Re-audited production branch topology before deployment. `origin/prod` is the live API deployment branch and is ahead of local `main`; preserved local IAM work on `codex/pre-prod-sync` and `codex/iam-overhaul-prod` rather than force-pushing stale history.
 - Hardened production-branch IAM in an integration branch: explicit non-admin API service identity, active/expired principal checks, scope-safe policy evaluation, mutation audit coverage, and mixed-credential rejection. Live read-only inspection confirmed active users exist, but no user is designated as a service principal; do not guess one before deploying this backend change.
 - Ported the safe Members/Audit operator improvements onto the production UI line: typed records, retryable failures, skeleton loading, empty states, and accessible table captions. This is the next safe production checkpoint.
+
+### S68 (2026-09-09)
+- Fixed the production IAM route so it actually renders the IAM directory alongside the hierarchy and Discord role mapper. Added functional group search, retryable load errors, skeleton loading, and an accessible table caption. Production web build remains green; checkpoint is ready to push.

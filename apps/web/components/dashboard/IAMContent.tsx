@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, Input } from "@bnb/ui";
+import { Card, CardContent, CardHeader, CardTitle, Input, Skeleton } from "@bnb/ui";
 import { getDiscordMappings, getPermissions, getGroups } from "lib/iam";
 
 interface IamGroup {
@@ -25,19 +25,26 @@ interface IamDiscordMapping {
   priority: number;
 }
 
-import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertCircle, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 export function IAMContent() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [groups, setGroups] = useState<IamGroup[]>([]);
   const [permissions, setPermissions] = useState<IamPermission[]>([]);
   const [mappings, setMappings] = useState<IamDiscordMapping[]>([]);
-  useEffect(() => {
-    async function loadIAM() {
-      try {
+  const filteredGroups = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return groups;
+    return groups.filter((group) => `${group.name} ${group.slug} ${group.description ?? ""}`.toLowerCase().includes(query));
+  }, [groups, search]);
+  const loadIAM = async () => {
+    setLoading(true);
+    setError(null);
+    try {
         const [groupsData, permissionsData, mappingsData] = await Promise.all([
           getGroups(),
           getPermissions(),
@@ -47,15 +54,14 @@ export function IAMContent() {
         setGroups(groupsData);
         setPermissions(permissionsData);
         setMappings(mappingsData);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load IAM data.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    loadIAM();
-  }, []);
+  useEffect(() => { void loadIAM(); }, []);
   return (
     <div className="space-y-6">
       {/* Stats */}
@@ -111,6 +117,13 @@ export function IAMContent() {
         />
       </div>
 
+      {error ? (
+        <div role="alert" className="flex items-center justify-between gap-4 border-2 border-red-800 bg-[#2a1014] p-4 text-sm text-red-100">
+          <span className="flex items-center gap-2"><AlertCircle className="size-4" aria-hidden="true" />{error}</span>
+          <button type="button" onClick={() => void loadIAM()} className="font-bold text-orange underline">Try again</button>
+        </div>
+      ) : null}
+
       {/* Table Placeholder */}
       <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base overflow-hidden">
         <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
@@ -122,6 +135,7 @@ export function IAMContent() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
+              <caption className="sr-only">Configured Motherboard IAM groups</caption>
               <thead className="border-b-2 border-border bg-[#121216] text-zinc-400 uppercase text-[11px] font-bold">
                 <tr>
                   <th className="px-4 py-3">Name</th>
@@ -134,17 +148,17 @@ export function IAMContent() {
                 {loading ? (
                   <tr>
                     <td colSpan={3} className="p-6 text-center text-zinc-400">
-                      Loading IAM directory...
+                      <Skeleton className="mx-auto h-5 w-3/4" />
                     </td>
                   </tr>
-                ) : groups.length === 0 ? (
+                ) : filteredGroups.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="p-6 text-center text-zinc-400">
-                      No IAM groups found.
+                      {search ? `No IAM groups match “${search}”.` : "No IAM groups found."}
                     </td>
                   </tr>
                 ) : (
-                  groups.map((group) => (
+                  filteredGroups.map((group) => (
                     <tr key={group.id} className="hover:bg-[#181820] transition-colors">
                       <td className="px-4 py-3 font-bold text-white">{group.name}</td>
                       <td className="px-4 py-3 text-orange font-bold">{group.slug}</td>

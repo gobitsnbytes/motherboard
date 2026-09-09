@@ -1,6 +1,7 @@
 
 import React from "react";
 import IAMHierarchyVisualizer from "../../../components/dashboard/IAMHierarchyVisualizer";
+import { IAMContent } from "../../../components/dashboard/IAMContent";
 import IAMRoleMappings from "../../../components/dashboard/IAMRoleMappings";
 
 export const metadata = {
@@ -20,6 +21,7 @@ export default function IAMPage() {
         </p>
       </div>
 
+      <IAMContent />
       <IAMHierarchyVisualizer />
       <IAMRoleMappings />
     </div>
