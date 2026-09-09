@@ -87,6 +87,21 @@ async def test_api_key_auth_invalid(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_api_key_auth_rejects_mixed_credentials(db_session: AsyncSession):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get(
+            "/api/meetings/",
+            headers={
+                "X-API-Key": get_settings().api_internal_secret,
+                "X-Internal-User-Id": "not-used",
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Use one authentication method per request"
+
+
+@pytest.mark.asyncio
 async def test_api_key_auth_requires_explicit_service_identity(db_session: AsyncSession):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

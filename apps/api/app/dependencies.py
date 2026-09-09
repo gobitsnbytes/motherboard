@@ -70,6 +70,16 @@ async def get_current_user(
         if auth_header and auth_header.strip().startswith("Bearer "):
             api_key = auth_header.split("Bearer ", 1)[1].strip()
 
+    has_internal_headers = any(
+        value is not None
+        for value in (x_internal_user_id, x_internal_timestamp, x_internal_signature)
+    )
+    if api_key and has_internal_headers:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Use one authentication method per request",
+        )
+
     if api_key:
         settings = get_settings()
         expected_api_key = settings.api_internal_secret

@@ -35,6 +35,11 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - Updated the policy regression test to assert allow for `res_1` and deny for `res_2` under the same permission key.
 - Verification: IAM policy suite `7 passed`.
 
+### IAM Authentication Ambiguity
+
+- Mixed API-key and internal-signature credentials are now rejected with a 400 instead of silently selecting the API-key path.
+- Verification: API-key authentication suite `7 passed`.
+
 
 ## 1. Project Status
 
