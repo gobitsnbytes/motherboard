@@ -70,14 +70,24 @@ export default function SignaturesDashboardPage() {
   }, []);
 
   const fetchRequests = async () => {
+    setLoading(true);
+    setActionError(null);
     try {
-      const res = await fetch("/api/signatures/requests");
-      if (res.ok) {
-        const data = await res.json();
-        setRequests(data);
+      const res = await fetch("/api/signatures/requests", {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) {
+        throw new Error(`Signature requests unavailable (${res.status}).`);
       }
+      const data = await res.json();
+      setRequests(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error("Failed to fetch signature requests", e);
+      const message = e instanceof DOMException && e.name === "TimeoutError"
+        ? "Signature requests took too long to load. Retry when the API is available."
+        : e instanceof Error
+          ? e.message
+          : "Could not load signature requests.";
+      setActionError(message);
     } finally {
       setLoading(false);
     }
@@ -189,9 +199,12 @@ export default function SignaturesDashboardPage() {
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Action Error Banner */}
       {actionError && (
-        <div className="p-3 bg-red-50 border-2 border-red-700 rounded-base text-red-900 text-xs font-mono font-bold flex items-center justify-between shadow-light">
+        <div role="alert" className="p-3 bg-red-50 border-2 border-red-700 rounded-base text-red-900 text-xs font-mono font-bold flex items-center justify-between gap-3 shadow-light">
           <span>{actionError}</span>
-          <button onClick={() => setActionError(null)} className="text-red-700 hover:text-red-950 font-bold ml-2">✕</button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={fetchRequests} className="border-2 border-red-900 px-2 py-1 hover:bg-red-100">Retry</button>
+            <button type="button" onClick={() => setActionError(null)} className="text-red-700 hover:text-red-950 font-bold" aria-label="Dismiss error">✕</button>
+          </div>
         </div>
       )}
       {actionSuccess && (
