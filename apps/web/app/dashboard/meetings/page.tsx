@@ -648,40 +648,6 @@ export default function MeetingsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b-4 border-black pb-2">
-        <button
-          onClick={() => setActiveTab("meetings")}
-          className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
-            activeTab === "meetings"
-              ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-              : "bg-secondary-background text-foreground hover:bg-muted"
-          }`}
-        >
-          Meetings & Calendar
-        </button>
-        <button
-          onClick={() => setActiveTab("availability")}
-          className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
-            activeTab === "availability"
-              ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-              : "bg-secondary-background text-foreground hover:bg-muted"
-          }`}
-        >
-          My Availability
-        </button>
-        <button
-          onClick={() => setActiveTab("notifications")}
-          className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
-            activeTab === "notifications"
-              ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-              : "bg-secondary-background text-foreground hover:bg-muted"
-          }`}
-        >
-          Notification Preferences
-        </button>
-      </div>
-
       {/* Booking success banner */}
       {bookingSuccess && (
           <div className="flex items-center gap-3 p-4 bg-emerald-50 border-2 border-emerald-700 text-emerald-900 text-xs font-mono font-bold rounded-base shadow-light">

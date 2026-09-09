@@ -234,3 +234,4 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Merged the current IAM/auth hardening line with the production UI/release checkpoint in merge commit `ba2b144` without force-pushing or dropping either line of work.
 - Reconciled Meetings, FinanceSidebar, dashboard navigation, and IAM role-mapping typing/runtime issues introduced by the merge. The web typecheck is green and the focused IAM suites pass.
 - Preserved the `0.85.5-beta` version contract and existing CI promotion path. User-owned signature PDFs and local templates remain untracked and were not staged.
+- Authenticated production smoke checks confirmed the v0.85.5 beta shell and Finance route. Removed the duplicate legacy Meetings tab row found during that check.
