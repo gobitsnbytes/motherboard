@@ -207,9 +207,9 @@ export function OverviewContent() {
           <CardContent className="pt-4">
             <div className="space-y-2.5">
               {loading ? (
-                <div className="text-xs text-zinc-400 font-mono">Loading activity...</div>
+                <div className="text-xs text-muted-foreground font-mono">Loading activity...</div>
               ) : activity.length === 0 ? (
-                <div className="text-xs text-zinc-400 font-mono">No recent activity logged.</div>
+                <div className="text-xs text-muted-foreground font-mono">No recent activity logged.</div>
               ) : (
                 activity.map((item, index) => (
                     <div key={index} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5 text-xs">
@@ -235,28 +235,28 @@ export function OverviewContent() {
             <div className="space-y-3 font-mono text-xs">
               <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-foreground">Motherboard API</span>
-                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.apiStatus === "ok" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.apiStatus === "ok" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-red-50 text-red-800 border-red-600"}`}>
                   {stats.apiStatus === "ok" ? "Available" : "Unavailable"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-foreground">Operational data</span>
-                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.databaseStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.databaseStatus === "healthy" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-muted text-muted-foreground border-border"}`}>
                   {stats.databaseStatus === "healthy" ? "Available" : "Unknown"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
                 <span className="text-foreground">Discord connection</span>
-                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.discordStatus === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.discordStatus === "connected" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-muted text-muted-foreground border-border"}`}>
                   {stats.discordStatus === "connected" ? "Connected" : "Not connected"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="text-foreground">Background sync</span>
-                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.syncStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.syncStatus === "healthy" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-amber-50 text-amber-800 border-amber-600"}`}>
                   {stats.syncStatus === "healthy" ? "Running" : "Standby"}
                 </span>
               </div>
@@ -277,7 +277,7 @@ export function OverviewContent() {
           <CardContent className="pt-4">
             <div className="space-y-2">
               {actionItems.length === 0 ? (
-                <div className="text-xs text-zinc-400 font-mono">No pending action items.</div>
+                <div className="text-xs text-muted-foreground font-mono">No pending action items.</div>
               ) : (
                 actionItems.slice(0, 5).map((item) => (
                   <Link
@@ -309,9 +309,9 @@ export function OverviewContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
-          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
+          <CardHeader className="border-b-2 border-border pb-3 bg-muted">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">
               Fork Chapter Health
             </CardTitle>
           </CardHeader>
@@ -319,9 +319,9 @@ export function OverviewContent() {
           <CardContent className="pt-4">
             <div className="space-y-2.5 font-mono text-xs">
               {loading ? (
-                <div className="text-xs text-zinc-400">Loading chapters...</div>
+                <div className="text-xs text-muted-foreground">Loading chapters...</div>
               ) : forks.length === 0 ? (
-                <div className="text-xs text-zinc-400">No active forks registered.</div>
+                <div className="text-xs text-muted-foreground">No active forks registered.</div>
               ) : (
                 forks.map((fork) => {
                   const score = fork.health_score ?? 100;
@@ -331,7 +331,7 @@ export function OverviewContent() {
                   return (
                     <div key={fork.id} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5">
                       <span className="font-bold text-foreground">{fork.city_name || fork.name}</span>
-                      <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${isHealthy ? "bg-emerald-950 text-emerald-400 border-emerald-800" : isWarning ? "bg-amber-950 text-amber-400 border-amber-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+                      <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${isHealthy ? "bg-emerald-50 text-emerald-800 border-emerald-600" : isWarning ? "bg-amber-50 text-amber-800 border-amber-600" : "bg-red-50 text-red-800 border-red-600"}`}>
                         {score}/100
                       </span>
                     </div>
@@ -407,7 +407,7 @@ export function OverviewContent() {
               <DialogTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-[#181820] text-white rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-muted text-foreground rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
                 >
                   <UserPlus className="size-4 text-emerald-400" />
                   Invite Contributor
@@ -420,11 +420,11 @@ export function OverviewContent() {
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
-                  <p className="text-xs text-zinc-300 font-base">
+                  <p className="text-xs text-muted-foreground font-base">
                     Share this verified invite link with new contributors to join the bits&bytes community Discord server.
                   </p>
                   <div className="flex gap-2 items-center">
-                    <Input readOnly value="https://discord.gg/bitsnbytes" className="flex-1 border-2 border-border bg-black text-white font-mono text-xs" />
+                    <Input readOnly value="https://discord.gg/bitsnbytes" className="flex-1 border-2 border-border bg-background text-foreground font-mono text-xs" />
                     <button
                       type="button"
                       onClick={() => {
