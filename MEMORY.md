@@ -211,3 +211,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S79 (2026-09-09)
 - Production verification after the login push exposed that `motherboard.gobitsnbytes.org` is still serving the previous web bundle. The repository has no Vercel project link or web deploy workflow; the Vercel CLI is unauthenticated and was stopped without entering credentials. Git `prod` remains authoritative for the code, but web deployment wiring must be connected before claiming browser verification of new UI.
+
+### S80 (2026-09-09)
+- Reworked the public home and not-found surfaces to remove unverified “system online,” coordinate, and compliance claims. The home page now explains identity, coordination, and evidence using the shared burgundy/paper system, with a clear Discord access path and public-form path.
