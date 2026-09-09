@@ -247,3 +247,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S91 (2026-09-09)
 - RLVR on a public certificate exposed signatory email addresses and IP addresses in the public audit trail. Masked emails and replaced public IP output with a private-record notice; the underlying audit data remains available to authorized internal systems.
+
+### S92 (2026-09-09)
+- Fixed the root cause behind the public certificate privacy issue. Public signature verification responses now use dedicated redacted schemas: no access tokens, raw emails, IP addresses, user agents, or unredacted audit details leave the API. Added regression assertions; the signature router suite passes 11 tests.

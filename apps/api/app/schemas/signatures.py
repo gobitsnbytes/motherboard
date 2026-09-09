@@ -157,6 +157,26 @@ class SignatureAuditLogResponse(BaseModel):
     created_at: datetime
 
 
+class PublicSignatureAuditLogResponse(BaseModel):
+    id: uuid.UUID
+    request_id: uuid.UUID
+    recipient_id: Optional[uuid.UUID] = None
+    action: str
+    details: Optional[str] = None
+    created_at: datetime
+
+
+class PublicRecipientResponse(BaseModel):
+    id: uuid.UUID
+    request_id: uuid.UUID
+    name: str
+    email: str
+    role: str
+    signing_order: int
+    status: str
+    signed_at: Optional[datetime] = None
+
+
 class DocumentVerificationResponse(BaseModel):
     document_id: uuid.UUID
     title: str
@@ -166,8 +186,8 @@ class DocumentVerificationResponse(BaseModel):
     document_hash: Optional[str] = None
     total_signatories: int
     completed_signatories: int
-    audit_trail: List[SignatureAuditLogResponse]
-    recipients: Optional[List[RecipientResponse]] = None
+    audit_trail: List[PublicSignatureAuditLogResponse]
+    recipients: Optional[List[PublicRecipientResponse]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -208,8 +228,8 @@ class FileVerificationResponse(BaseModel):
     document_hash: Optional[str] = None
     total_signatories: int = 0
     completed_signatories: int = 0
-    audit_trail: List[SignatureAuditLogResponse] = []
-    recipients: List[RecipientResponse] = []
+    audit_trail: List[PublicSignatureAuditLogResponse] = []
+    recipients: List[PublicRecipientResponse] = []
     details: str
 
 

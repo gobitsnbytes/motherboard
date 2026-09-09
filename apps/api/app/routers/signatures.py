@@ -7,6 +7,7 @@ import hashlib
 import logging
 import os
 import random
+import re
 import uuid
 from typing import List, Optional
 
@@ -44,6 +45,8 @@ from app.schemas.signatures import (
     ContractComplianceCheckItem,
     ContractComplianceReport,
     FileVerificationResponse,
+    PublicRecipientResponse,
+    PublicSignatureAuditLogResponse,
 )
 from app.services.signature_engine import (
     embed_signatures_and_seal,
@@ -57,6 +60,47 @@ logger = logging.getLogger(__name__)
 # bind the Foundation flows only through recorded delegation — enforced by IAM
 # permission on the countersign endpoint, never by email link possession).
 ORG_LEGAL_EMAIL = "legal@gobitsnbytes.org"
+
+
+def _public_email(email: str) -> str:
+    local, separator, domain = email.partition("@")
+    if not separator or not local:
+        return "Verified signatory"
+    return f"{local[:1]}{'*' * max(2, len(local) - 1)}@{domain}"
+
+
+def _public_recipients(recipients: list[SignatureRecipient]) -> list[PublicRecipientResponse]:
+    return [
+        PublicRecipientResponse(
+            id=recipient.id,
+            request_id=recipient.request_id,
+            name=recipient.name,
+            email=_public_email(recipient.email),
+            role=recipient.role,
+            signing_order=recipient.signing_order,
+            status=recipient.status,
+            signed_at=recipient.signed_at,
+        )
+        for recipient in recipients
+    ]
+
+
+def _public_audit_logs(logs: list[SignatureAuditLog]) -> list[PublicSignatureAuditLogResponse]:
+    return [
+        PublicSignatureAuditLogResponse(
+            id=log.id,
+            request_id=log.request_id,
+            recipient_id=log.recipient_id,
+            action=log.action,
+            details=re.sub(
+                r"(?:[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?:\d{1,3}\.){3}\d{1,3})",
+                "[redacted]",
+                log.details or "",
+            ) or None,
+            created_at=log.created_at,
+        )
+        for log in logs
+    ]
 
 router = APIRouter(prefix="/api/signatures", tags=["signatures"])
 
@@ -1283,8 +1327,8 @@ async def verify_contract_authenticity(
         document_hash=sig_request.document_hash,
         total_signatories=total_sig,
         completed_signatories=completed_sig,
-        audit_trail=sig_request.audit_logs,
-        recipients=sig_request.recipients,
+        audit_trail=_public_audit_logs(sig_request.audit_logs),
+        recipients=_public_recipients(sig_request.recipients),
     )
 
 
@@ -1327,8 +1371,8 @@ async def verify_uploaded_document_file(
             document_hash=sig_request.document_hash,
             total_signatories=total_sig,
             completed_signatories=completed_sig,
-            audit_trail=sig_request.audit_logs,
-            recipients=sig_request.recipients,
+            audit_trail=_public_audit_logs(sig_request.audit_logs),
+            recipients=_public_recipients(sig_request.recipients),
             details=f"Document verified successfully. Matches finalized, cryptographically sealed record '{sig_request.title}'.",
         )
 
@@ -1363,8 +1407,8 @@ async def verify_uploaded_document_file(
                         document_hash=sr.document_hash,
                         total_signatories=total_sig,
                         completed_signatories=completed_sig,
-                        audit_trail=sr.audit_logs,
-                        recipients=sr.recipients,
+                        audit_trail=_public_audit_logs(sr.audit_logs),
+                        recipients=_public_recipients(sr.recipients),
                         details=f"Authentic pre-execution document. Matches original draft for '{sr.title}'.",
                     )
             except Exception:

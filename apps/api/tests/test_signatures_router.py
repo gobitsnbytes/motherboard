@@ -126,6 +126,9 @@ async def test_signature_request_creation_and_signing_flow(db_session: AsyncSess
         assert verify_data["status"] == "completed"
         assert verify_data["completed_signatories"] == 1
         assert len(verify_data["audit_trail"]) >= 2
+        assert verify_data["recipients"][0]["email"] == "j***@example.com"
+        assert "access_token" not in verify_data["recipients"][0]
+        assert all("ip_address" not in entry for entry in verify_data["audit_trail"])
 
 
 @pytest.mark.asyncio
