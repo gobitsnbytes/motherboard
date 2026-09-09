@@ -196,3 +196,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S74 (2026-09-09)
 - Reworked Meetings mutation feedback to use a shared inline notice for instant meetings, scheduling, availability, notification preferences, cancellation, and rescheduling. Browser alerts remain only for explicit cancellation confirmation.
+
+### S75 (2026-09-09)
+- Reworked Signatures mutation feedback to use inline success/error banners for counter-signing, invitation resend, voiding, and purge/export actions. Explicit confirmation remains for legally destructive operations.

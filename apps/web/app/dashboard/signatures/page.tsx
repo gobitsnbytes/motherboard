@@ -33,6 +33,7 @@ export default function SignaturesDashboardPage() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [auditRequestId, setAuditRequestId] = useState<string | null>(null);
   const [sealingId, setSealingId] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const orgSignerPending = (req: SignatureRequestItem) =>
     req.status === "pending" &&
@@ -40,6 +41,7 @@ export default function SignaturesDashboardPage() {
 
   const handleCountersign = async (id: string) => {
     setActionError(null);
+    setActionSuccess(null);
     if (!confirm("Execute the organizational counter-signature as legal@gobitsnbytes.org? This binds GOBITSNBYTES FOUNDATION under your delegated authority and is recorded in the audit log.")) return;
     setSealingId(id);
     try {
@@ -53,6 +55,7 @@ export default function SignaturesDashboardPage() {
         const detail = typeof data.detail === "string" ? data.detail : "Counter-signature failed.";
         setActionError(detail);
       } else {
+        setActionSuccess("Counter-signature recorded and the audit trail has been updated.");
         fetchRequests();
       }
     } catch {
@@ -84,18 +87,19 @@ export default function SignaturesDashboardPage() {
 
   const handleResend = async (requestId: string, recipientId: string) => {
     setResendingId(recipientId);
+    setActionError(null);
+    setActionSuccess(null);
     try {
       const res = await fetch(`/api/signatures/requests/${requestId}/recipients/${recipientId}/resend`, {
         method: "POST",
       });
       if (res.ok) {
-        alert("Signature invitation email resent successfully!");
+        setActionSuccess("Signature invitation email resent successfully.");
       } else {
-        alert("Failed to resend signature invitation.");
+        setActionError("Failed to resend signature invitation.");
       }
     } catch (e) {
-      console.error(e);
-      alert("Error resending signature email.");
+      setActionError("Could not resend the signature email because the server could not be reached.");
     } finally {
       setResendingId(null);
     }
@@ -112,6 +116,7 @@ export default function SignaturesDashboardPage() {
 
   const handleVoid = async (id: string) => {
     setActionError(null);
+    setActionSuccess(null);
     if (!confirm("Are you sure you want to quash and void this agreement? Active signature links will be revoked.")) return;
     try {
       let res = await fetch(`/api/contract-assistant/contracts/${id}/void`, { method: "POST" });
@@ -119,6 +124,7 @@ export default function SignaturesDashboardPage() {
         res = await fetch(`/api/signatures/requests/${id}/void`, { method: "POST" });
       }
       if (res.ok) {
+        setActionSuccess("Agreement voided. Active signature links have been revoked.");
         fetchRequests();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -131,6 +137,7 @@ export default function SignaturesDashboardPage() {
 
   const handleDelete = async (id: string) => {
     setActionError(null);
+    setActionSuccess(null);
     if (!confirm("This will download an official CANCELLED & VOID certificate copy to your device and permanently purge all database records. Proceed?")) return;
     try {
       let exportRes = await fetch(`/api/contract-assistant/contracts/${id}/export-void`);
@@ -154,6 +161,7 @@ export default function SignaturesDashboardPage() {
         deleteRes = await fetch(`/api/signatures/requests/${id}`, { method: "DELETE" });
       }
       if (deleteRes.ok) {
+        setActionSuccess("Agreement purged. The void certificate was downloaded before removal.");
         fetchRequests();
       } else {
         const data = await deleteRes.json().catch(() => ({}));
@@ -184,6 +192,11 @@ export default function SignaturesDashboardPage() {
         <div className="p-3 bg-red-950/80 border-2 border-red-500 rounded-base text-red-200 text-xs font-mono font-bold flex items-center justify-between shadow-light">
           <span>{actionError}</span>
           <button onClick={() => setActionError(null)} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
+        </div>
+      )}
+      {actionSuccess && (
+        <div role="status" className="border-2 border-[#265d3a] bg-[#eaf5ed] p-3 text-sm font-mono text-[#173d24]">
+          {actionSuccess}
         </div>
       )}
 
