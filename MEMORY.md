@@ -181,3 +181,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S69 (2026-09-09)
 - Reset the redesign direction after review: the app was still visually fragmented despite the safe IAM checkpoint. Added a shared product design contract and began the real shell overhaul: burgundy control rail, warm document canvas, consistent topbar controls, stronger navigation hierarchy, and restrained page-entry motion. This is a broad UI pass and must be validated across routes before more backend work is pushed.
+
+### S70 (2026-09-09)
+- Reworked Settings operation feedback to use inline success/error notices instead of browser-native alerts. Manual sync, cache reset, permission rebuild, and sync-history clearing now expose actionable status inside the page while preserving explicit confirmation for destructive actions.

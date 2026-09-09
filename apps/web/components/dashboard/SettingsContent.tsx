@@ -33,6 +33,7 @@ export function SettingsContent() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const [statusData, setStatusData] = useState<{
     database: string;
@@ -66,7 +67,7 @@ export function SettingsContent() {
         setStatusData(data);
       }
     } catch (e) {
-      console.error("Failed to fetch settings status:", e);
+      setNotice({ kind: "error", message: "Could not load system status. Try refreshing this page." });
     } finally {
       setLoading(false);
     }
@@ -78,18 +79,18 @@ export function SettingsContent() {
 
   const handleManualSync = async () => {
     setSyncing(true);
+    setNotice(null);
     try {
       const response = await fetch("/api/sync/trigger", { method: "POST" });
       if (response.ok) {
-        alert("Manual sync triggered successfully!");
+        setNotice({ kind: "success", message: "Manual sync started. Status will refresh when the run reports back." });
         await fetchStatus();
       } else {
         const err = await response.json();
-        alert(`Failed to trigger sync: ${err.detail || response.statusText}`);
+        setNotice({ kind: "error", message: `Sync could not start: ${err.detail || response.statusText}` });
       }
     } catch (e) {
-      console.error(e);
-      alert("An error occurred triggering the sync.");
+      setNotice({ kind: "error", message: "Sync could not start because the server could not be reached." });
     } finally {
       setSyncing(false);
     }
@@ -98,18 +99,18 @@ export function SettingsContent() {
   const handleResetCache = async () => {
     if (!window.confirm("Are you sure you want to flush the Redis cache database?")) return;
     setActionLoading("cache");
+    setNotice(null);
     try {
       const response = await fetch("/api/admin/reset-cache", { method: "POST" });
       if (response.ok) {
-        alert("Redis cache database flushed successfully.");
+        setNotice({ kind: "success", message: "Redis cache database flushed successfully." });
         await fetchStatus();
       } else {
         const err = await response.json();
-        alert(`Failed to reset cache: ${err.detail || response.statusText}`);
+        setNotice({ kind: "error", message: `Cache reset failed: ${err.detail || response.statusText}` });
       }
     } catch (e) {
-      console.error(e);
-      alert("An error occurred resetting the cache.");
+      setNotice({ kind: "error", message: "Cache reset failed because the server could not be reached." });
     } finally {
       setActionLoading(null);
     }
@@ -118,18 +119,18 @@ export function SettingsContent() {
   const handleRebuildPermissions = async () => {
     if (!window.confirm("Are you sure you want to rebuild system permissions and role mappings?")) return;
     setActionLoading("permissions");
+    setNotice(null);
     try {
       const response = await fetch("/api/admin/rebuild-permissions", { method: "POST" });
       if (response.ok) {
-        alert("System permissions and role mappings rebuilt successfully.");
+        setNotice({ kind: "success", message: "System permissions and role mappings rebuilt successfully." });
         await fetchStatus();
       } else {
         const err = await response.json();
-        alert(`Failed to rebuild permissions: ${err.detail || response.statusText}`);
+        setNotice({ kind: "error", message: `Permission rebuild failed: ${err.detail || response.statusText}` });
       }
     } catch (e) {
-      console.error(e);
-      alert("An error occurred rebuilding permissions.");
+      setNotice({ kind: "error", message: "Permission rebuild failed because the server could not be reached." });
     } finally {
       setActionLoading(null);
     }
@@ -138,18 +139,18 @@ export function SettingsContent() {
   const handleClearSyncState = async () => {
     if (!window.confirm("Are you sure you want to clear the entire sync run history? This action is irreversible.")) return;
     setActionLoading("sync-state");
+    setNotice(null);
     try {
       const response = await fetch("/api/admin/clear-sync-state", { method: "POST" });
       if (response.ok) {
-        alert("Sync run history cleared successfully.");
+        setNotice({ kind: "success", message: "Sync run history cleared successfully." });
         await fetchStatus();
       } else {
         const err = await response.json();
-        alert(`Failed to clear sync history: ${err.detail || response.statusText}`);
+        setNotice({ kind: "error", message: `Sync history could not be cleared: ${err.detail || response.statusText}` });
       }
     } catch (e) {
-      console.error(e);
-      alert("An error occurred clearing sync history.");
+      setNotice({ kind: "error", message: "Sync history could not be cleared because the server could not be reached." });
     } finally {
       setActionLoading(null);
     }
@@ -157,6 +158,15 @@ export function SettingsContent() {
 
   return (
     <div className="space-y-6">
+      {notice ? (
+        <div
+          role="status"
+          className={`border-2 px-4 py-3 text-sm font-mono ${notice.kind === "success" ? "border-[#265d3a] bg-[#eaf5ed] text-[#173d24]" : "border-[#97192c] bg-[#fbecef] text-[#5b0f1a]"}`}
+        >
+          {notice.message}
+        </div>
+      ) : null}
+
       {/* Top Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Organization */}
