@@ -110,10 +110,19 @@ export default function IAMRoleMappings() {
     () => groups.map((group) => ({
       id: group.id,
       label: group.name,
+      slug: group.slug,
       description: group.description,
       isSystem: group.is_system,
     })),
     [groups],
+  );
+
+  const privilegedMappingCount = useMemo(
+    () => Object.values(mappings).filter((mapping) => {
+      const group = groupOptions.find((option) => option.id === mapping.group_id);
+      return group?.slug === "sg_super_admin";
+    }).length,
+    [groupOptions, mappings],
   );
 
   const getRowStatus = (roleId: string) => {
@@ -209,6 +218,15 @@ export default function IAMRoleMappings() {
         </div>
       ) : null}
 
+      {privilegedMappingCount > 0 ? (
+        <div className="rounded-base border-2 border-orange bg-[#fff4df] p-4 text-sm text-[#6b3b00]" role="status">
+          <p className="font-heading font-bold uppercase tracking-wide">Review privileged mappings</p>
+          <p className="mt-1 text-xs leading-5">
+            {privilegedMappingCount} Discord {privilegedMappingCount === 1 ? "role is" : "roles are"} mapped to Super Admin. Confirm each one is an intentional break-glass role before leaving it enabled.
+          </p>
+        </div>
+      ) : null}
+
       <div className="rounded-base border-2 border-border bg-main p-4">
         {loading ? (
           <div className="space-y-3">
@@ -232,6 +250,8 @@ export default function IAMRoleMappings() {
                 const selectedGroupId = selectedGroups[role.id] ?? "";
                 const currentMapping = mappingByRole[role.id];
                 const isUnchanged = currentMapping?.group_id === selectedGroupId;
+                const selectedGroup = groupOptions.find((group) => group.id === selectedGroupId);
+                const isPrivileged = selectedGroup?.slug === "sg_super_admin";
                 return (
                   <TableRow key={role.id}>
                     <TableCell>
@@ -258,6 +278,11 @@ export default function IAMRoleMappings() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {isPrivileged ? (
+                          <span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-[#97192c]">
+                            Break-glass access
+                          </span>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>

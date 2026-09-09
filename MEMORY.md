@@ -250,3 +250,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S92 (2026-09-09)
 - Fixed the root cause behind the public certificate privacy issue. Public signature verification responses now use dedicated redacted schemas: no access tokens, raw emails, IP addresses, user agents, or unredacted audit details leave the API. Added regression assertions; the signature router suite passes 11 tests.
+
+### S93 (2026-09-09)
+- Added IAM role-mapping guardrails in the operator surface: privileged Discord mappings now show a review banner and break-glass label instead of looking like ordinary saved mappings. This is intentionally non-mutating; existing access assignments still require an explicit operator decision.
