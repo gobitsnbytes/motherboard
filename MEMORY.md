@@ -253,3 +253,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S93 (2026-09-09)
 - Added IAM role-mapping guardrails in the operator surface: privileged Discord mappings now show a review banner and break-glass label instead of looking like ordinary saved mappings. This is intentionally non-mutating; existing access assignments still require an explicit operator decision.
+
+### S94 (2026-09-09)
+- Live IAM RLVR confirmed a canonical data mismatch: the seeded `Executive Leadership` Discord role was mapped to `sg_super_admin` instead of `sg_executive`. Added a narrowly scoped reversible Alembic migration that repairs only that role ID when the incorrect Super Admin target is present.
