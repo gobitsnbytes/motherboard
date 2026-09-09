@@ -205,3 +205,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S77 (2026-09-09)
 - Began normalizing all Finance routes into the shared warm document canvas. Finance panels and form fields now inherit paper surfaces and dark readable text instead of the legacy second dark theme, while burgundy/orange actions remain available for emphasis.
+
+### S78 (2026-09-09)
+- Reworked the public login surface from a generic centered card into a responsive bits&bytes™ access composition: burgundy brand panel, warm paper auth panel, explicit identity/scope/audit framing, clearer copy, and logged invite-only access language.

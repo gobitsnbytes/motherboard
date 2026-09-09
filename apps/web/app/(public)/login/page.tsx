@@ -3,7 +3,6 @@
 import React, { Suspense, useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ShieldCheck, ArrowRight, Lock } from "lucide-react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -31,29 +30,41 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative w-full max-w-sm border-2 border-[#17130f] bg-white p-6 text-[#17130f] shadow-[5px_5px_0_#97192c] sm:p-8">
+    <div className="relative w-full max-w-md border-2 border-[#120f0a] bg-white p-6 text-[#120f0a] shadow-[6px_6px_0_#97192c] sm:p-9">
       {/* Top Tag */}
       <div className="absolute -top-3 left-4 border-2 border-[#17130f] bg-orange px-2 py-0.5 font-mono text-[10px] font-bold text-black shadow-[2px_2px_0_#17130f]">
         Member sign-in
       </div>
 
-      <div className="flex flex-col items-center gap-5">
+      <div className="flex flex-col gap-6">
         {/* Logo */}
-        <div className="flex size-14 items-center justify-center border-2 border-[#17130f] bg-[#17130f] shadow-[3px_3px_0_#fc920d]">
-          <img
-            src="https://gobitsnbytes.org/logo"
-            alt="bits&bytes™ logo"
-            className="w-7 h-auto select-none"
-          />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex size-14 items-center justify-center border-2 border-[#120f0a] bg-[#120f0a] shadow-[3px_3px_0_#fc920d]">
+            <img
+              src="https://gobitsnbytes.org/logo"
+              alt="bits&bytes™ logo"
+              className="w-7 h-auto select-none"
+            />
+          </div>
+          <div className="text-right">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#97192c]">Private access</p>
+            <p className="mt-1 max-w-[15rem] font-mono text-[10px] leading-4 text-stone-500">Verified Discord identity required</p>
+          </div>
         </div>
 
-        <div className="text-center space-y-1">
-          <h1 className="font-heading text-2xl font-black tracking-tight">
+        <div className="space-y-2">
+          <h1 className="font-heading text-3xl font-black tracking-tight sm:text-4xl">
             Motherboard
           </h1>
-          <p className="text-sm font-base leading-6 text-stone-600">
-            Sign in with your verified Discord account to access the internal operations platform.
+          <p className="max-w-sm text-sm font-base leading-6 text-stone-600">
+            The operating system for people, city chapters, evidence, and decisions across bits&amp;bytes™.
           </p>
+        </div>
+
+        <div className="grid grid-cols-3 border-y-2 border-stone-200 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-stone-500">
+          <span><strong className="block text-base text-[#120f0a]">01</strong>identity</span>
+          <span><strong className="block text-base text-[#120f0a]">02</strong>scope</span>
+          <span><strong className="block text-base text-[#120f0a]">03</strong>audit</span>
         </div>
 
         {/* Error state */}
@@ -68,7 +79,7 @@ function LoginForm() {
           type="button"
           onClick={handleSignIn}
           disabled={isPending}
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2.5 border-2 border-[#17130f] bg-[#5865F2] px-6 text-sm font-semibold text-white shadow-[4px_4px_0_#17130f] transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2.5 border-2 border-[#120f0a] bg-[#5865F2] px-6 text-sm font-semibold text-white shadow-[4px_4px_0_#120f0a] transition-transform hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:pointer-events-none disabled:opacity-50"
         >
           <svg
             className="size-5 shrink-0"
@@ -83,8 +94,8 @@ function LoginForm() {
 
         {/* Footer note */}
         <div className="w-full border-t-2 border-stone-200 pt-3 text-center">
-          <p className="font-mono text-[10px] tracking-wide text-stone-500">
-            Invite-based access · GOBITSNBYTES FOUNDATION
+          <p className="font-mono text-[10px] leading-4 tracking-wide text-stone-500">
+            Invite-based access · GOBITSNBYTES FOUNDATION · access is logged
           </p>
         </div>
       </div>
@@ -94,10 +105,31 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-[#ebe8e1] px-4">
-      <Suspense>
-        <LoginForm />
-      </Suspense>
+    <main className="min-h-screen w-full bg-[#f4f1ec] px-4 py-6 sm:px-8 sm:py-10">
+      <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl items-stretch overflow-hidden border-2 border-[#120f0a] bg-[#97192c] shadow-[8px_8px_0_#120f0a] lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="relative hidden flex-col justify-between overflow-hidden p-8 text-white lg:flex xl:p-12">
+          <div className="relative z-10 flex items-center gap-3">
+            <img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" className="h-9 w-auto" />
+            <span className="font-heading text-lg font-black tracking-wide">bits&amp;bytes™</span>
+          </div>
+          <div className="relative z-10 max-w-md">
+            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-orange">Motherboard / internal operations</p>
+            <h2 className="font-heading text-5xl font-black leading-[0.95] tracking-[-0.04em] xl:text-6xl">One operating picture for a distributed network.</h2>
+            <p className="mt-6 max-w-sm font-base text-base leading-7 text-white/80">Identity, city scope, meetings, finance, signatures, and evidence in one accountable place.</p>
+          </div>
+          <div className="relative z-10 flex items-end justify-between gap-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/60">
+            <span>built for the network</span>
+            <span>v0.2.0</span>
+          </div>
+          <div aria-hidden="true" className="absolute -bottom-24 -right-24 size-80 rounded-full border-[36px] border-orange/25" />
+          <div aria-hidden="true" className="absolute right-20 top-24 size-3 rotate-45 bg-orange" />
+        </section>
+        <section className="flex items-center justify-center bg-[#f4f1ec] p-5 sm:p-10">
+          <Suspense>
+            <LoginForm />
+          </Suspense>
+        </section>
+      </div>
     </main>
   );
 }
