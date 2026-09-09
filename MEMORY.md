@@ -217,3 +217,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S81 (2026-09-09)
 - Extended the shared internal canvas normalization so older dark utility classes and muted white text resolve to the warm paper system. This reduces the split-brain look across legacy audit, finance, signatures, and CRM surfaces without changing the public routes or sidebar chrome.
+
+### S82 (2026-09-09)
+- Hardened IAM authorization semantics: expired memberships no longer resolve into groups, scoped grants cannot satisfy an unscoped check, and batch authorization now returns an independent result for each permission/resource pair. Added input constraints for permission, grant, and group identifiers. The API-key service identity fallback remains isolated until a real non-admin production service principal is configured.

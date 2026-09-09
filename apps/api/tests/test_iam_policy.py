@@ -87,6 +87,7 @@ async def test_can_resource_scope(db_session: AsyncSession):
 
     assert await can(db_session, principal, "scoped.action", "project_a") is True
     assert await can(db_session, principal, "scoped.action", "project_b") is False
+    assert await can(db_session, principal, "scoped.action") is False
     assert await can(db_session, principal, "global.action", "project_c") is True
 
 @pytest.mark.asyncio
@@ -118,6 +119,27 @@ async def test_batch_can(db_session: AsyncSession):
 
     results = await batch_can(db_session, principal, checks)
 
-    assert results["batch.read"] is True
-    assert results["batch.scoped"] is True # it's evaluated together across res_1 and res_2 if key is returned, but let's change batch_can to return correct per key logic
-    assert results["batch.unknown"] is False
+    assert results[("batch.read", None)] is True
+    assert results[("batch.scoped", "res_1")] is True
+    assert results[("batch.scoped", "res_2")] is False
+    assert results[("batch.unknown", None)] is False
+
+
+@pytest.mark.asyncio
+async def test_expired_membership_does_not_resolve_group(db_session: AsyncSession):
+    from app.db.models import Group, Membership, User
+    from app.iam.principal import resolve_principal
+
+    user = User(display_name="Expired Member")
+    group = Group(name="Expired Group", slug="expired-group")
+    db_session.add_all([user, group])
+    await db_session.commit()
+    db_session.add(Membership(
+        user_id=user.id,
+        group_id=group.id,
+        expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    ))
+    await db_session.commit()
+
+    principal = await resolve_principal(db_session, user.id)
+    assert principal.group_ids == []

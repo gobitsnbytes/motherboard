@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.db.models import User, Membership
@@ -18,7 +19,11 @@ async def resolve_principal(db: AsyncSession, user_id: uuid.UUID) -> ResolvedPri
     if not user or not user.is_active:
         raise ValueError("User not found or deactivated")
 
-    membership_stmt = select(Membership.group_id).where(Membership.user_id == user_id)
+    now = datetime.now(timezone.utc)
+    membership_stmt = select(Membership.group_id).where(
+        Membership.user_id == user_id,
+        or_(Membership.expires_at.is_(None), Membership.expires_at > now),
+    )
     membership_res = await db.execute(membership_stmt)
     group_ids = list(membership_res.scalars().all())
 

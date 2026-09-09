@@ -42,9 +42,10 @@ async def can(
         return False
 
     if not resource_scope:
-        return True
+        return any(g.resource_scope is None for g in matching_grants)
 
-    # Grant matches if it has a null resource_scope (global wildcard) or matches exactly
+    # A scoped check must never be satisfied by a grant scoped to another
+    # resource. A null scope is the explicit global wildcard.
     return any(g.resource_scope is None or g.resource_scope == resource_scope for g in matching_grants)
 
 
@@ -65,15 +66,12 @@ async def batch_can(
     db: AsyncSession,
     principal: ResolvedPrincipal,
     checks: list[tuple[str, Optional[str]]]
-) -> dict[str, bool]:
-    # Need to handle case where same key might be requested with different scopes
-    result = {}
-    for key, _ in checks:
-        if key not in result:
-            result[key] = False
+) -> dict[tuple[str, Optional[str]], bool]:
+    """Evaluate each permission/resource pair independently."""
+    result = {check: False for check in dict.fromkeys(checks)}
 
     if principal.is_super_admin:
-        return {key: True for key, _ in checks}
+        return {check: True for check in result}
 
     if not checks:
         return result
@@ -101,22 +99,15 @@ async def batch_can(
     res = await db.execute(stmt)
     matching_grants = res.scalars().all()
 
-    # Evaluation per check:
-    # If a check is satisfied, result[key] becomes True.
     for key, resource_scope in checks:
-        if result[key]:
-            # already True from another check on same key? (Wait, the batch_can returns dict[str, bool], so if the key is True for any scope requested or what? The spec says returns `{permission_key: bool}` map. The test expects "batch.scoped" to be True if ANY of the checks for it pass? Or wait... if a user requests batch.scoped on res_1 AND res_2, and they only have res_1, is it True?
-            # Actually let's just do: result[key] is True if ANY check for that key passed.)
-            pass
-
         grants_for_key = [g for g in matching_grants if g.permission_key == key]
         if not grants_for_key:
             continue
 
-        if not resource_scope:
-            result[key] = True
-        else:
-            if any(g.resource_scope is None or g.resource_scope == resource_scope for g in grants_for_key):
-                result[key] = True
+        if not resource_scope or any(
+            g.resource_scope is None or g.resource_scope == resource_scope
+            for g in grants_for_key
+        ):
+            result[(key, resource_scope)] = True
 
     return result

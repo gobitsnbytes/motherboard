@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Optional, List, Any
+from typing import Literal, Optional, List, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 # Principal
@@ -22,7 +22,7 @@ class PermissionResponse(BaseModel):
     created_at: datetime
 
 class PermissionCreate(BaseModel):
-    key: str
+    key: str = Field(min_length=1, max_length=150, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:-]*$")
     description: Optional[str] = None
     plugin_id: Optional[str] = None
 
@@ -41,9 +41,9 @@ class GrantResponse(BaseModel):
     created_at: datetime
 
 class GrantCreate(BaseModel):
-    principal_type: str
+    principal_type: Literal["user", "group"]
     principal_id: uuid.UUID
-    permission_key: str
+    permission_key: str = Field(min_length=1, max_length=150, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:-]*$")
     resource_scope: Optional[str] = None
     expires_at: Optional[datetime] = None
 
@@ -61,8 +61,8 @@ class GroupResponse(BaseModel):
     updated_at: datetime
 
 class GroupCreate(BaseModel):
-    name: str
-    slug: Optional[str] = None
+    name: str = Field(min_length=1, max_length=100)
+    slug: Optional[str] = Field(default=None, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
     description: Optional[str] = None
 
 # Memberships
