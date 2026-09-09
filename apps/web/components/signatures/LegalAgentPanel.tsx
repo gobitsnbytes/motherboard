@@ -46,8 +46,8 @@ function StatTile({ label, value }: { label: string; value: number | string }) {
 function SkeletonRow() {
   return (
     <div className="space-y-2 rounded-base border-2 border-border bg-blank p-3">
-      <div className="h-3 w-3/4 animate-pulse rounded-base bg-white/10" />
-      <div className="h-2.5 w-1/2 animate-pulse rounded-base bg-white/5" />
+      <div className="h-3 w-3/4 animate-pulse rounded-base bg-stone-200" />
+      <div className="h-2.5 w-1/2 animate-pulse rounded-base bg-stone-100" />
     </div>
   );
 }
@@ -260,7 +260,7 @@ export default function LegalAgentPanel() {
               onChange={(e) => setQuestion(e.target.value)}
               rows={3}
               placeholder="e.g. What is the liability cap in the Master Services Agreement?"
-              className="w-full resize-none rounded-base border-2 border-border bg-blank p-2.5 text-xs text-main-foreground placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-burgundy"
+              className="w-full resize-none rounded-base border-2 border-border bg-blank p-2.5 text-xs text-main-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-burgundy"
             />
             <button
               type="submit"
@@ -286,9 +286,9 @@ export default function LegalAgentPanel() {
             )}
             {asking && (
               <div className="space-y-2 pt-1">
-                <div className="h-2.5 w-full animate-pulse rounded-base bg-white/10" />
-                <div className="h-2.5 w-5/6 animate-pulse rounded-base bg-white/10" />
-                <div className="h-2.5 w-2/3 animate-pulse rounded-base bg-white/5" />
+                <div className="h-2.5 w-full animate-pulse rounded-base bg-stone-200" />
+                <div className="h-2.5 w-5/6 animate-pulse rounded-base bg-stone-200" />
+                <div className="h-2.5 w-2/3 animate-pulse rounded-base bg-stone-100" />
               </div>
             )}
             {askResult && (

@@ -135,6 +135,14 @@
 }
 
 .motherboard-canvas {
+  --bg: #f4f1ec;
+  --bw: #ffffff;
+  --blank: #ffffff;
+  --text: #120f0a;
+  --mtext: #120f0a;
+  --main: #97192c;
+  --main-foreground: #ffffff;
+  --secondary-background: #ffffff;
   --background: 0 1% 81%;
   --foreground: 30 29% 6%;
   --card: 0 0% 100%;
@@ -275,6 +283,28 @@
 }
 
 .motherboard-canvas [data-slot="card"] :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300) {
+  color: #120f0a;
+}
+
+/* Legacy module surfaces inherit the operational canvas instead of the old
+   dark application tokens. Brand-colored controls remain untouched because
+   these selectors only target their legacy dark surface classes. */
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-blank, .bg-dark) {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-black, .bg-neutral-800, .bg-neutral-900) {
+  background: #f4f1ec;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-blank, .bg-dark, .bg-black, .bg-neutral-800, .bg-neutral-900) :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300, .text-zinc-400) {
+  color: #413f3b;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-blank, .bg-dark, .bg-black, .bg-neutral-800, .bg-neutral-900) :is(input, textarea, select) {
+  background: #ffffff;
   color: #120f0a;
 }
 

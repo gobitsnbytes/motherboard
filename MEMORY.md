@@ -268,3 +268,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S98 (2026-09-09)
 - Continued the visual overhaul on the live Overview command center: replaced legacy near-black content cards, headers, list rows, action controls, and dialogs with the warm paper, burgundy, and orange brand system. Data loading, sync, fork creation, invitation, and navigation behavior are unchanged. Local typecheck/build passed before deployment preparation.
+
+### S99 (2026-09-09)
+- Reworked the operational canvas token boundary so `bg-blank`, legacy dark module surfaces, and dark form controls resolve to the warm brand paper system instead of the global dark theme. This directly addresses the black Legal Agent Inbox and signatures surfaces seen in production screenshots while preserving burgundy/orange controls. Legal Agent skeletons and input placeholders now remain legible. Typecheck and diff checks pass.
