@@ -138,6 +138,7 @@ async def test_batch_can(db_session: AsyncSession):
 
     results = await batch_can(db_session, principal, checks)
 
-    assert results["batch.read"] is True
-    assert results["batch.scoped"] is True # it's evaluated together across res_1 and res_2 if key is returned, but let's change batch_can to return correct per key logic
-    assert results["batch.unknown"] is False
+    assert results[("batch.read", None)] is True
+    assert results[("batch.scoped", "res_1")] is True
+    assert results[("batch.scoped", "res_2")] is False
+    assert results[("batch.unknown", None)] is False

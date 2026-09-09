@@ -29,6 +29,12 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - Added audit entries for permission creation, group creation, membership creation, grant creation, and Discord mapping upserts.
 - Verification: focused IAM/auth suite `20 passed`; full backend suite `101 passed`.
 
+### IAM Policy Batch Semantics
+
+- Changed `batch_can` to return an independent result for every `(permission_key, resource_scope)` pair instead of collapsing different city scopes into one boolean.
+- Updated the policy regression test to assert allow for `res_1` and deny for `res_2` under the same permission key.
+- Verification: IAM policy suite `7 passed`.
+
 
 ## 1. Project Status
 
