@@ -140,8 +140,8 @@ export default function CardsPage() {
     <div style={{ fontFamily: "Inter, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px" }}>
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: 0 }}>Virtual Cards</h1>
-          <p style={{ fontSize: "12px", color: "#555", marginTop: "4px" }}>Tracking instruments only — no real payment rails</p>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#120f0a", margin: 0 }}>Virtual Cards</h1>
+          <p style={{ fontSize: "12px", color: "#6b6258", marginTop: "4px" }}>Tracking instruments only — no real payment rails</p>
         </div>
         <button onClick={() => setShowCreate(true)}
           style={{ padding: "9px 16px", background: "#97192c", border: "2px solid #97192c", borderRadius: "3px", color: "#fff", fontWeight: 700, fontSize: "12px", cursor: "pointer", boxShadow: "3px 3px 0 0 rgba(151,25,44,0.4)" }}>

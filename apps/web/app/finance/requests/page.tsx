@@ -63,8 +63,8 @@ export default function RequestsPage() {
     <div style={{ fontFamily: "Inter, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: 0 }}>Money Requests</h1>
-          <p style={{ fontSize: "12px", color: "#555", marginTop: "4px" }}>Pool draws and inter-account transfers</p>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#120f0a", margin: 0 }}>Money Requests</h1>
+          <p style={{ fontSize: "12px", color: "#6b6258", marginTop: "4px" }}>Pool draws and inter-account transfers</p>
         </div>
         <Link href="/finance/requests/new"
           style={{ padding: "9px 16px", background: "#fc920d", border: "2px solid #fc920d", borderRadius: "3px", color: "#000", fontWeight: 700, fontSize: "12px", textDecoration: "none", display: "inline-block", boxShadow: "3px 3px 0 0 rgba(252,146,13,0.4)" }}>

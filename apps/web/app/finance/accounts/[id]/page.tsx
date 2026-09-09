@@ -53,8 +53,8 @@ export default function AccountDetailPage() {
     <div style={{ fontFamily: "Inter, sans-serif" }}>
       <div style={{ marginBottom: "24px" }}>
         <Link href="/finance/accounts" style={{ fontSize: "11px", color: "#555", textDecoration: "none", letterSpacing: "0.08em" }}>← Accounts</Link>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "8px 0 4px" }}>{account.name}</h1>
-        {account.description && <p style={{ fontSize: "12px", color: "#555" }}>{account.description}</p>}
+        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#120f0a", margin: "8px 0 4px" }}>{account.name}</h1>
+        {account.description && <p style={{ fontSize: "12px", color: "#6b6258" }}>{account.description}</p>}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "28px" }}>

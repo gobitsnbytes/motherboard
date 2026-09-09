@@ -63,8 +63,8 @@ export default function FinanceSidebar() {
       style={{
         width: collapsed ? "64px" : "220px",
         transition: "width 220ms cubic-bezier(0.4,0,0.2,1)",
-        background: "#111111",
-        borderRight: "2px solid #1e1e1e",
+        background: "#3c0a12",
+        borderRight: "2px solid #5b0f1a",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
@@ -73,7 +73,7 @@ export default function FinanceSidebar() {
       }}
     >
       {/* Logo area */}
-      <div style={{ padding: "20px 16px 16px", borderBottom: "2px solid #1e1e1e" }}>
+      <div style={{ padding: "20px 16px 16px", borderBottom: "2px solid #97192c" }}>
         <Link href="/finance/dashboard" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
           <img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" style={{ width: "28px", height: "auto", flexShrink: 0 }} />
           <AnimatePresence>
@@ -83,7 +83,7 @@ export default function FinanceSidebar() {
                 animate={{ opacity: 1, width: "auto" }}
                 exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.15 }}
-                style={{ fontFamily: "Inter, sans-serif", fontWeight: 800, fontSize: "13px", color: "#ffffff", letterSpacing: "0.05em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden" }}
+                style={{ fontFamily: "Inter, sans-serif", fontWeight: 800, fontSize: "13px", color: "#ffffff", letterSpacing: "0.12em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden" }}
               >
                 Finance
               </motion.span>
@@ -107,8 +107,8 @@ export default function FinanceSidebar() {
                 padding: "9px 10px",
                 borderRadius: "4px",
                 border: active ? "2px solid #fc920d" : "2px solid transparent",
-                background: active ? "rgba(252,146,13,0.1)" : "transparent",
-                color: active ? "#fc920d" : "#9a9a9a",
+                background: active ? "#97192c" : "transparent",
+                color: active ? "#ffffff" : "rgba(255,255,255,0.7)",
                 textDecoration: "none",
                 fontFamily: "Inter, sans-serif",
                 fontWeight: active ? 700 : 500,
@@ -146,9 +146,9 @@ export default function FinanceSidebar() {
           margin: "12px 10px",
           padding: "8px",
           background: "transparent",
-          border: "2px solid #2a2a2a",
+          border: "2px solid rgba(255,255,255,0.2)",
           borderRadius: "4px",
-          color: "#555",
+          color: "rgba(255,255,255,0.6)",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -167,10 +167,10 @@ export default function FinanceSidebar() {
       {/* Bottom label */}
       {!collapsed && (
         <div style={{ padding: "10px 16px 14px", borderTop: "2px solid #1e1e1e" }}>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "#333", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: "0.15em" }}>
             GOBITSNBYTES FOUNDATION
           </div>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "#2a2a2a", marginTop: "2px" }}>
+          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "rgba(255,255,255,0.35)", marginTop: "2px" }}>
             Powered by RazorpayX
           </div>
         </div>

@@ -61,8 +61,8 @@ export default function NewRequestPage() {
     <div style={{ fontFamily: "Inter, sans-serif", maxWidth: "520px" }}>
       <div style={{ marginBottom: "28px" }}>
         <Link href="/finance/requests" style={{ fontSize: "11px", color: "#555", textDecoration: "none", letterSpacing: "0.08em" }}>← Requests</Link>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: "8px 0 4px" }}>New Money Request</h1>
-        <p style={{ fontSize: "12px", color: "#555" }}>Submit a virtual fund request for admin approval</p>
+        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#120f0a", margin: "8px 0 4px" }}>New Money Request</h1>
+        <p style={{ fontSize: "12px", color: "#6b6258" }}>Submit a virtual fund request for admin approval</p>
       </div>
 
       <div style={{ background: "#111", border: "2px solid #1e1e1e", borderRadius: "4px", padding: "28px", boxShadow: "4px 4px 0 0 #fc920d" }}>

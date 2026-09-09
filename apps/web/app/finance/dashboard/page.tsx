@@ -62,8 +62,8 @@ export default function FinanceDashboard() {
     <div style={{ fontFamily: "Inter, sans-serif" }}>
       {/* Page title */}
       <div style={{ marginBottom: "28px" }}>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#fff", margin: 0, letterSpacing: "-0.01em" }}>Dashboard</h1>
-        <p style={{ fontSize: "12px", color: "#555", marginTop: "4px" }}>
+        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#120f0a", margin: 0, letterSpacing: "-0.01em" }}>Dashboard</h1>
+        <p style={{ fontSize: "12px", color: "#6b6258", marginTop: "4px" }}>
           Virtual ledger overview · all balances are internal paper values
         </p>
       </div>
