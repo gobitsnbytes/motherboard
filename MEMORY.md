@@ -336,3 +336,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S120 (2026-09-09)
 - Verified the live Dyslexic CRM dashboard without mutation: 19 companies, 1 contact, zero emails/replies/follow-ups/sponsors closed, contributor data, and recent activity render after the stream settles. The shared canvas produces the intended light readable surfaces despite legacy component utility names.
+
+### S121 (2026-09-09)
+- Reworked the Forms workspace index/editor header/inspector/responses surfaces from dark legacy treatments to the brand's paper/light system while preserving form block editing, save, publish, and response behavior. Web typecheck and diff review passed.
+- Pushed `122b5ec` to `prod` and verified the live Forms index: two existing published forms render with their block counts. No form was opened, edited, published, or mutated.
