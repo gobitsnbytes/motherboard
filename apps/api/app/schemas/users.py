@@ -10,6 +10,11 @@ class UserBase(BaseModel):
     display_name: str
     email: EmailStr | None = None
     avatar_url: str | None = None
+    title: str | None = None
+    bio: str | None = None
+    timezone: str | None = None
+    skills: list[str] | None = None
+    chrono_v2_data: dict | None = None
 
 
 class UserCreate(UserBase):
@@ -21,6 +26,12 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     avatar_url: str | None = None
     is_active: bool | None = None
+    title: str | None = None
+    bio: str | None = None
+    timezone: str | None = None
+    skills: list[str] | None = None
+    chrono_v2_data: dict | None = None
+    profile_completed: bool | None = None
 
 
 class UserOut(UserBase):
@@ -29,5 +40,6 @@ class UserOut(UserBase):
     id: uuid.UUID
     is_active: bool
     is_super_admin: bool
+    profile_completed: bool = False
     created_at: datetime
     updated_at: datetime

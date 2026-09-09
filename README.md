@@ -1,79 +1,77 @@
 # bnb-motherboard
 
-Internal operations platform for the bits&bytes network.
+internal operations platform and core monorepo for the bits&bytes network (GOBITSNBYTES FOUNDATION).
 
-The repo is a hybrid monorepo:
+the repository is a hybrid monorepo:
+- `apps/web` & `packages/ui` are Bun/pnpm-managed Next.js 15 TypeScript workspaces.
+- `apps/api` is an independent Python FastAPI backend managed via `uv`.
+- `plugins/*` holds internal extension packages and integrations.
 
-- `apps/web` and `packages/ui` are Bun-managed TypeScript workspaces.
-- `apps/api` is an independent Python FastAPI project managed by `uv`.
-- `plugins/*` holds first-party and third-party plugin packages.
+---
 
-## What It Covers
+## Core Capabilities
 
-- Discord-backed identity and access management.
-- Provisioning and sync for guild roles and internal memberships.
-- Plugin loading and extension points.
-- **Finance & Ledger** — Ledger + Banking system for GOBITSNBYTES FOUNDATION powered by [RazorpayX](https://razorpay.com/x/) API. Frontend at `/finance`, backend at `/api/finance/*`.
-- A Next.js 15 dashboard backed by a FastAPI REST API.
-- Docker-based local and production deployment.
+- **IAM Engine**: custom principal resolver and policy evaluator (`can`, `require_permission`, `batch_can`) backed by async SQLAlchemy & non-committing audit logs.
+- **Discord OAuth & Guild Sync**: Discord-backed identity management, automated guild role mapping, and member sync.
+- **Finance & Banking Ledger**: RazorpayX ledger and banking integration for section 8 compliance (`apps/api/app/routers/finance.py` & `apps/web/app/finance`).
+- **Dashboard**: Next.js 15 App Router frontend connected to FastAPI via REST and WebSockets.
+- **Orchestration**: Docker Compose setup for local development and production environments.
+
+---
 
 ## Repository Layout
 
 ```text
 bnb-motherboard/
 ├── apps/
-│   ├── web/                    # Next.js 15 App Router frontend
-│   └── api/                    # FastAPI backend managed with uv
+│   ├── web/                    # Next.js 15 App Router dashboard
+│   └── api/                    # FastAPI REST API managed with uv
 ├── packages/
 │   └── ui/                     # Shared React component library
-├── plugins/                    # First-party plugin workspace
+├── plugins/                    # Extension packages
 ├── docker/                     # Service Dockerfiles
 ├── docker-compose.yml          # Local orchestration
 ├── docker-compose.prod.yml     # Production orchestration
-├── .env.example                # Environment template
-├── turbo.json                  # Bun/Turborepo task graph
-└── AGENTS.md                   # Workspace instructions
+└── AGENTS.md                   # Workspace instructions & team roles
 ```
+
+---
 
 ## Local Setup
 
 ```bash
-# 1. Install JS/TS dependencies
+# 1. install dependencies
 bun install
 
-# 2. Copy env and fill in secrets
-copy .env.example .env
+# 2. setup environment secrets
+cp .env.example .env
 
-# 3. Start infrastructure (Postgres + Redis)
+# 3. start local infrastructure (PostgreSQL + Redis)
 docker compose up -d postgres redis
 
-# 4. Start the FastAPI backend (in a separate terminal)
+# 4. start FastAPI backend
 cd apps/api
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
 
-# 5. Start the Next.js frontend (in a separate terminal)
+# 5. start Next.js dashboard
 bun run dev --filter=web
 ```
 
-## Docker — Full Stack
+---
+
+## Docker Deployment
 
 ```bash
-# Build and run everything (Postgres, Redis, API, Web)
+# dev full stack
 docker compose up --build -d
 
-# Production mode (no exposed DB/Redis ports)
+# production stack (isolated ports)
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
 | Service | URL | Description |
-|---------|-----|-------------|
-| **Web (Next.js)** | `http://localhost:3000` | Frontend dashboard |
-| **API (FastAPI)** | `http://localhost:8000` | Backend REST API |
-| **API Docs** | `http://localhost:8000/api/docs` | Swagger UI (auto-generated) |
-| **Postgres** | `localhost:5432` | Database (dev only) |
-| **Redis** | `localhost:6379` | Cache / event bus (dev only) |
-
-## Environment
-
-Copy [.env.example](.env.example) to `.env` and fill in the Discord OAuth, session, and API secrets.
+|---|---|---|
+| **Web** | `http://localhost:3000` | Next.js frontend |
+| **API** | `http://localhost:8000` | FastAPI REST API |
+| **Docs** | `http://localhost:8000/api/docs` | Swagger UI OpenAPI docs |

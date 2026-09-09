@@ -5,6 +5,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Skeleton,
 } from "@bnb/ui";
 
 interface StatCardProps {
@@ -20,23 +21,33 @@ export default function StatCard({
   description,
   icon,
 }: StatCardProps) {
+  const isLoading = value === "...";
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="min-h-36 border-2 border-border bg-background text-foreground shadow-none">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle>{title}</CardTitle>
-          {icon}
+          <CardTitle className="text-sm font-semibold text-foreground">
+            {title}
+          </CardTitle>
+          {icon && <div className="text-orange">{icon}</div>}
         </div>
 
         {description && (
-          <CardDescription>{description}</CardDescription>
+          <CardDescription className="mt-1 text-xs text-muted-foreground">
+            {description}
+          </CardDescription>
         )}
       </CardHeader>
 
       <CardContent>
-        <p className="text-4xl font-heading font-bold">
-          {value}
-        </p>
+        {isLoading ? (
+          <Skeleton className="h-9 w-20" />
+        ) : (
+          <p className="text-3xl font-heading font-black tracking-tight text-foreground">
+            {value}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

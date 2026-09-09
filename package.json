@@ -1,9 +1,11 @@
 {
   "name": "bnb-motherboard",
+  "version": "0.85.5-beta",
   "private": true,
   "packageManager": "bun@1.3.11",
   "workspaces": [
     "apps/web",
+    "apps/bot",
     "packages/ui",
     "plugins/*"
   ],

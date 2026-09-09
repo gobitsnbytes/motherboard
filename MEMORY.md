@@ -1,6 +1,6 @@
 # Motherboard Operations Platform — Agent Memory
 
-Persistent log of tasks, decisions, and workspace status. Every agent invocation updates this file for continuity.
+Persistent log of tasks, architectural decisions, workspace status, and audit findings. Every agent invocation maintains this document.
 
 ---
 
@@ -60,145 +60,147 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 
 ## 1. Project Status
 
-- **Current Phase:** Completed All Phases ✅
-- **Next Milestone:** Production Rollout & Operations
+- **Current Phase:** All Phases Completed ✅ (Phases 0–11)
+- **Production URL:** `https://motherboard.gobitsnbytes.org` · **API:** `https://api.gobitsnbytes.org`
+- **Workspace Hub:** `https://workspace.gobitsnbytes.org` (Nextcloud Suite)
+- **Latest Test Baseline:** 247/247 pytest passing (100% green), Next.js 15 build clean (31/31 routes).
 
 ### Milestone Checklist
 
-- [x] **Phase 0: Repository Scaffolding** ✅
-- [x] **Phase 1: Database Schema** ✅ — 13 ORM tables, Alembic, idempotent seeder (15 groups, 23 permissions, 15 role mappings, 12 forks), 8 active routers, CORS, lifespan auto-migrate+seed
-- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, constants, schemas, router registered under `/api/iam`, pytest suite
-- [x] **Phase 3: Event Bus** ✅ — Redis pub/sub EventBus, Typed Event Schemas, lifespan integrated
-- [x] **Phase 4: Plugin SDK** (`apps/api/app/plugin_sdk`) ✅ — dynamic plugin loader, Pydantic lifecycle contracts, active manifest API router, automatic registry registration, permission seeding, router mounting, unit/integration tests
-- [x] **Phase 5: Provisioning Worker** (`apps/api/app/provisioning`) ✅ — Discord sync worker, client, sync logic, APScheduler periodic sync integration, sync router integration, test suite
-- [x] **Phase 6: Shared UI** (`@bnb/ui`) ✅ — 38 shadcn/neobrutalism components, barrel exports (sidebar/resizable/form excluded due to SSR)
-- [x] **Phase 7: Web Dashboard** (`apps/web`) ✅ — shell + NextAuth v5 + landing page + `/finance` double-entry ledger + dynamic page mounting for active plugins, sidebar plugin navigation
-- [x] **Phase 8: Core Plugins** ✅ — sample plugin with API router + permissions + React view dynamic dashboard loading
-- [x] **Phase 9: Docker Production** ✅ — audited Docker and Compose setups, programmatic Alembic lifespan execution, optimized build dependencies
-
+- [x] **Phase 0: Scaffolding** ✅ — Bun/Turborepo workspace + FastAPI (Python 3.12, uv) monorepo.
+- [x] **Phase 1: DB Schema** ✅ — SQLAlchemy 2.0 ORM (13 tables), Alembic, idempotent seeder, 8 active routers, auto-migrate lifespan.
+- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, Pydantic schemas, visual hierarchy tree.
+- [x] **Phase 3: Event Bus** ✅ — Redis 7 pub/sub EventBus, typed schemas, graceful fallback.
+- [x] **Phase 4: Plugin SDK** ✅ — Dynamic loader, Pydantic lifecycle contracts, active manifest API, permission seeding, route isolation.
+- [x] **Phase 5: Provisioning Worker** ✅ — Discord sync worker, APScheduler periodic sync, REST sync routes.
+- [x] **Phase 6: Shared UI (`@bnb/ui`)** ✅ — 38 Neobrutalism React components (barrel exports avoided for SSR safety).
+- [x] **Phase 7: Web Dashboard (`apps/web`)** ✅ — Next.js 15 App Router, NextAuth v5 (Discord OAuth), double-entry finance ledger, dynamic plugin loader.
+- [x] **Phase 8: Core Plugins** ✅ — `email_server`, `minecraft_server` with real telemetry & admin permission gates.
+- [x] **Phase 9: Docker & Deployment** ✅ — Multi-stage Dockerfiles, Docker Compose, automated VPS deploy script (`deploy.sh`), Nginx reverse proxy, SSL.
+- [x] **Phase 10: chrono ↔ Motherboard Unification** ✅ — Single meetings backend, `AvailabilityGrid`, `ChronoHostGrid`, `ChronoBookingPanel`, RFC-2446 email RSVP, agenda calendar tab.
+- [x] **Phase 11: Cockpit Architecture & Neobrutalism Overhaul** ✅ — Swiss Neobrutalism design system (Anton/Inter/JetBrains Mono), Cockpit Debugger (`Ctrl+Shift+D`), Agent Ops Drawer, `bnb-signatures` digital contract engine, Dottr-style Legal Agent.
 
 ---
 
-## 2. Architecture
+## 2. Architecture & Monorepo Layout
 
-**Hybrid monorepo:** Bun/TypeScript frontend + Python/uv FastAPI backend, orchestrated by Turborepo.
+Hybrid monorepo managed via Turborepo (`"packageManager": "bun@1.3.11"`):
 
 ```
-apps/web     — Next.js 15, React 19, Tailwind, framer-motion
-apps/api     — FastAPI (Python 3.12, uv)
-  app/db/          — SQLAlchemy 2.0 ORM (13 tables), seeder, seed data
-  app/iam/         — Principal resolver, policy evaluator, audit writer
-  app/events/      — Event bus (placeholder)
-  app/provisioning/— Discord sync worker (placeholder)
-  app/plugin_sdk/  — Plugin loader (placeholder)
-  app/routers/     — active routers including auth, iam, finance, sync, users, groups, forks, audit, and plugins
-  app/schemas/     — Pydantic v2 request/response schemas
-packages/ui  — 38 shadcn/neobrutalism React components
-plugins/     — First- and third-party plugins (includes sample_plugin workspace)
+apps/
+  web/          — Next.js 15 (React 19, Tailwind, Framer Motion, Neobrutalism UI)
+  api/          — FastAPI backend (Python 3.12, uv, SQLAlchemy 2.0 async, Alembic)
+    app/db/       — ORM models, Alembic migrations, idempotent seeders
+    app/iam/      — Principal resolver, policy evaluator, audit logger
+    app/events/   — Redis EventBus pub/sub
+    app/provisioning/ — Discord sync worker & background scheduler
+    app/plugin_sdk/  — Dynamic plugin loader & manifest validator
+    app/routers/  — auth, iam, finance, sync, users, groups, forks, audit, meetings, signatures, contract_assistant, dyslexic, plugins
+    app/services/ — signature_engine, legal_agent, razorpayx_adapter, llm_client
+  bot/          — Discord Bot clerk (@bnb/bot, Bun, bun:sqlite, signed HMAC API client)
+packages/
+  ui/           — @bnb/ui (38 Neobrutalism components)
+plugins/        — email_server, minecraft_server, sample_plugin
 ```
 
-- **DB:** PostgreSQL 16 (Docker) · **Cache/Events:** Redis 7 (Docker)
-- **Auth:** NextAuth v5 (Discord OAuth) → fire-and-forget upsert to FastAPI
-- **Runtime:** Bun (FE), Python 3.12 (BE)
+- **Databases:** PostgreSQL 16 (Alembic head: `a9c4e7f1b2d6`) · Redis 7 · Local `bot.db` (`bun:sqlite`, ephemeral bot tables only).
+- **Auth:** NextAuth v5 (Discord OAuth) → fire-and-forget upsert to FastAPI `/api/auth/upsert`. Public signing/verification routes bypass NextAuth.
+- **Mail & Relay:** Postfix/Dovecot on VPS + Brevo SMTP relay fallback (`smtp-relay.brevo.com:587`). Mandatory CC to `gobitsnbytes@gmail.com` across all systems.
 
 ---
 
-## 3. Key Learnings
+## 3. Key Learnings & Engineering Gotchas
 
-- Turborepo needs `"packageManager": "bun@1.3.11"` in root `package.json` to resolve workspaces.
-- `@bnb/ui` barrel imports cause SSR `d.createContext` errors with `transpilePackages` — dashboard uses plain HTML + Tailwind classes instead.
-- Grants use polymorphic `principal_id` (not FKs) to support user and group grants in one table.
-- `slug` used as human-readable unique key on Group and Fork alongside UUID PK.
-- Seeder uses `ON CONFLICT DO NOTHING` — safe to run on every container start.
-- `batch_can` uses single DB query with IN clause for efficiency.
+1. **Turborepo Workspace Resolution:** Root `package.json` must explicitly specify `"packageManager": "bun@1.3.11"`.
+2. **SSR Barrel Import Safety:** `@bnb/ui` barrel imports cause `d.createContext` errors with Next.js `transpilePackages` — use direct component imports or Tailwind utility tokens.
+3. **IAM Polymorphic Grants:** `grants` table uses polymorphic `principal_id` (not foreign keys) to unify user and group grants in a single table.
+4. **FastAPI Plugin Route Cloning:** APIRouters resolve route dependencies lazily. To enforce plugin permissions without mutating source routers or causing accumulation across reloads, the loader mounts a shallow clone (`copy.copy`) of each `APIRoute` with injected IAM dependencies.
+5. **aiosqlite / Pytest Event-Loop Isolation:** Shared SQLAlchemy engines across pytest-asyncio function-scoped loops cause connection leakage and rotating StaleDataErrors. Tests creating isolated transactions must use per-test `create_async_engine(..., poolclass=NullPool)` and explicitly dispose at teardown.
+6. **Timezone Normalization (SQLite vs Postgres):** `DateTime(timezone=True)` reads back naive on `aiosqlite`. Normalize with `.replace(tzinfo=timezone.utc)` before Python comparisons.
+7. **Database Decoupling:** The Discord bot does not query Postgres directly in production (`usePostgres = false`). It proxies shared state via signed HMAC requests (`callMotherboard`) to Motherboard APIs.
+8. **Dual Approval Persistence Pattern:** Money requests >= ₹1L require two distinct approvers (OKF Rule 35). Approvals are persisted as append-only `AuditLog` rows (`action=finance.request.approval_recorded`) and counted via `COUNT(DISTINCT actor_id)`.
 
 ---
 
-## 4. Session History
+## 4. Subsystem Specifications
 
-### Pre-Production (S1-S33, up to 2026-06-25)
+### 4.1 IAM (Identity & Access Management)
+- Principal resolver (`principal.py`) resolves user + inherited group permissions.
+- Evaluator (`policy.py`) exposes `can(user, perm, resource)`, `require_permission(perm)`, `batch_can(user, perms)`.
+- Visual hierarchy at `/dashboard/iam` (`IAMHierarchyVisualizer.tsx`) maps Discord roles to system roles (`Super Admin -> Executive -> Lead -> Member -> Bot`).
 
-**Major Milestones:**
-- **S1-S11:** Initialized Bun/Turborepo workspace, migrated to FastAPI/Python 3.12, rewrote specifications and set up legal rules.
-- **S12-S15:** Built landing page and NextAuth v5 dashboard shell. Completed Phase 1 (Database schema, 13 tables).
-- **S16-S22:** Implemented IAM module (Phase 2), Event Bus (Phase 3), and double-entry Finance Ledger (Phase 7). Fixed CORS and Next.js proxying.
-- **S23-S25:** Database seeder fixes, priority security/hardening implementation, full end-to-end audit (76/76 backend tests passing).
-- **S26-S33:** Setup VPS deploy scripts, Nginx reverse proxy, SSL certificates. Implemented Plugin SDK (Phase 4). Shipped dynamic Settings dashboard and Danger Zone actions. Deployed to production (`api.gobitsnbytes.org`).
+### 4.2 Meetings & Chrono v2 Engine
+- **Unification:** Both dashboard (`/dashboard/meetings`) and public booking portal (`cal.gobitsnbytes.org`) use Motherboard `/api/meetings` APIs.
+- **Availability:** `AvailabilityGrid.tsx` serializes 7-day schedule JSON. Public `/hosts` and `/{slug}/slots` calculate timezone and meeting overlaps.
+- **Persistence & OTP:** `GuestVerification` model (`a9c4e7f1b2d6`) stores SHA-256 hashed OTPs (1h TTL). `meetings.recording_metadata` JSON stores audio duration/size.
+- **RSVP Widget:** RFC-2446 `multipart/alternative` + `text/calendar; method=REQUEST` MIME generation for native 1-click Gmail/Outlook calendar RSVPs.
+- **Transcription:** Fallback pipeline: Gemini 3.5 Flash $\rightarrow$ Gemini 2.5 Flash $\rightarrow$ structured JSON briefs & action items (`/action-items/mine`).
 
-### 2026-06-26
+### 4.3 Finance & Double-Entry Ledger
+- **Self-Approval Prohibition:** HTTP 403 when `requester_id == actor_id` (IOM v2.0 §3.2).
+- **Dual Authorization Band:** Requests $\ge$ ₹1L require 2 distinct approvers before funds move (OKF Rule 35).
+- **Section 8 Compliance:** `GET /api/finance/compliance` delivers live compliance attestations, active FY labels (Apr 1–Mar 31), and audit counts.
+- **Adapter Seam:** `RazorpayXAdapter` protocol (`PaperLedgerAdapter` for DB virtual accounts; `RazorpayXLiveAdapter` stub for future API activation).
+- **FY CSV Export:** `GET /api/finance/reports/fy?fy=YYYY-YY` streams chunked ledger transactions.
 
-**S34 — Motherboard Operations & Discord Bot Clerk Integration:**
-- **Discord Bot Clerk Refactoring**: Refactored the Discord bot commands `/meet-schedule`, `/meet-start`, `/meet-stop` to proxy all operations (meetings, calendar, scheduling, teams, handling, transcript handling) to Motherboard FastAPI APIs via secure signed HMAC requests (`callMotherboard`).
-- **Audio Transcription Offload**: Removed direct `@google/genai` dependency and local timeline coalescing from the bot, shifting raw meeting audio uploads entirely to Motherboard's `/api/meetings/{id}/transcribe` endpoint.
-- **Database Consolidation**: Eliminated direct database insertions or remote Turso/SQLite queries in production, utilizing only Notion registries and Motherboard Neon PostgreSQL for storage.
-- **Test Suite Modernization**:
-  - Cleaned up obsolete local transcription tests.
-  - Setup callMotherboard mocks in `/meet-schedule`, `/meet-start`, `/meet-stop` commands inside the Discord bot test suite (`tests/meetings.test.js`), updating the local SQLite test DB during mock executions to maintain correct state validation.
-  - Addressed Bun test runner module cache mock pollution by restructuring `jest.mock()` and `require()` ordering across all test files.
-  - Verified all 208 bot tests pass 100% green via `bunx jest` and all 93 Motherboard backend tests pass 100% green via `pytest`.
-  - Created a detailed [walkthrough.md](file:///C:/Users/akshat/.gemini/antigravity/brain/17b7ba91-d25a-4d15-8f72-8ab6d2b45ea0/walkthrough.md) in the brain artifacts directory.
+### 4.4 Digital Signatures & Legal Agent (`bnb-signatures`)
+- **Signature Engine:** PyMuPDF preview/overlay generator, `.docx` to PDF conversion, SHA-256 tamper-evident sealing, and Audit Certificates.
+- **Security & DSC:** 6-digit email OTP (2-min expiry), Class 1/2/3 USB token & PKCS#12 `.pfx` software certificate signing (`e5f6a1b2c3d4`).
+- **Statutory Framework:** Aligned with IT Act 2000 Sec 10A (electronic contracts) and BSA 2023 Sec 63 (forensic electronic records).
+- **Quash / Void & Purge:** `POST /void` invalidates active signing tokens with immutable audit entries; `DELETE` generates a downloadable Certificate of Cancellation before purging disk files.
+- **Legal Agent (`legal@gobitsnbytes.org`):** IMAP inbox poller, automatic clause risk analysis (OKF rules), RAG `/ask` over executed contracts, and 3/7/14-day automated signing reminder nudges.
 
-**S35 — Chrono Portal Availability Fix:**
-- **Root Cause**: After the Neon PostgreSQL migration (S34), `user_availability` data lives exclusively in Motherboard's DB. The Chrono booking portal (`server.js`) was still querying the empty local SQLite, causing "Database Connection Failure" on every page load.
-- **Motherboard**: Added two new **public (no-auth)** endpoints to `app/routers/meetings.py`:
-  - `GET /api/meetings/public/hosts` — returns all users with a booking link set (used by Chrono landing page to render host cards).
-  - `GET /api/meetings/public/availability/{booking_link}` — looks up a single host by their booking slug (used by the Chrono booking flow).
-- **Discord Bot (`server.js`)**: Three endpoints updated to proxy through Motherboard in production, with SQLite fallback in test mode only:
-  - `GET /api/users` → proxies `GET /api/meetings/public/hosts`, enriches each record with Discord role metadata.
-  - `GET /api/availability/:bookingLink` → resolves host profiles from `GET /api/meetings/public/availability/:link`.
-  - `GET /dashboard` gate → falls back to Motherboard host list check if SQLite returns nothing.
-- **Auth Callback Sync**: When a contributor logs in via Discord OAuth, their profile is now fire-and-forget synced to Motherboard's `POST /api/meetings/availability` so the Chrono portal reflects them immediately.
-- **Tests**: All 208 bot tests and 93 Motherboard backend tests remain 100% green. Commits pushed: `dbc15d7` (bot `main`) and `a193405` (motherboard `prod`).
+### 4.5 Swiss Neobrutalism Design System
+- **Core Tokens:** 2px solid borders (`border-2 border-border`), boxy corners (`rounded-base`), hard offset drop shadows (`shadow-shadow`), dark backgrounds (`#0d0d10`, `#141418`).
+- **Typography:** Anton (`font-heading font-black`) for headers, Inter (`font-base`) for UI controls, JetBrains Mono (`font-mono`) for coordinates and metrics, Merriweather for long-form prose.
+- **Branding Palette:** Core Burgundy (`#97192C`), Pop Orange (`#FC920D`), Dark Neutral (`#120F0A`), Warm Blank (`#FAF8F5`).
 
-**S36 — Discord Bot Test Hardening & DB Detection:**
-- **Test Suite Hardening**: Fixed sequential test runner leakages/pollution in Bun by refactoring `tests/auth.test.js`, `tests/forksInfo.test.js`, `tests/reportView.test.js`, `tests/channelSync.test.js`, and `tests/adminAddLead.test.js`. Replaced global `jest.mock('../lib/notion')` module-cache overrides with clean, isolated `jest.spyOn()` mocks inside `beforeEach` and added corresponding `jest.restoreAllMocks()` in `afterAll`/`afterEach`.
-- **Database Type Detection**: Updated `/ping` slash command in `commands/ping.js` to correctly detect and report `PostgreSQL` in production when `usePostgres` is active.
-- **Verification**: Verified that all 208 test cases in the Discord Bot test suite pass 100% green sequentially without any errors or leakage.
+---
 
+## 5. Alembic Migration History
 
-**S37 — Phase 9/10 Gap Closure & Full Type Safety Sweep:**
-- **Phase 9 (Discord Role Mapping UI)**: Already fully implemented in `IAMRoleMappings.tsx` — blocked spinners, no optimistic updates, GET /api/iam/discord-roles + /api/iam/groups + PUT /api/iam/discord-mappings. No gaps found.
-- **Phase 10 (Docker Production)**: Both Dockerfiles exist. **Fixed**: `docker-compose.prod.yml` was missing `REDIS_URL: redis://redis:6379/0` for the API service, causing the EventBus to start in in-process mode in production despite a Redis container being present.
-- **Type Safety Sweep** (all `any` eliminated across frontend):
-  - `IAMContent.tsx`: Added `IamGroup`, `IamPermission`, `IamDiscordMapping` interfaces replacing `any[]` state
-  - `Sidebar.tsx`: Replaced `(Lucide as any)` with `as unknown as Record<string, ComponentType>` typed lookup
-  - `meetings/page.tsx`: All `err: any` → `err: unknown` + `instanceof Error` narrowing; added `useRouter` 401 redirect; typed `(item: any)` action items
-  - `finance/cards/page.tsx`: `payload: any` → fully typed object; `err: any` → `err: unknown`
-  - `finance/requests/new/page.tsx`, `finance/accounts/page.tsx`: `err: any` → `err: unknown`
-- **New Test**: `apps/api/tests/test_meetings_permissions.py` — 4 tests verifying `meetings.read` / `meetings.write` are in `CORE_PERMISSIONS` seed data with descriptions and no duplicates.
-- **Final State**: 97/97 backend tests pass (up from 93), `bun run typecheck` clean, zero `any` violations in project-owned frontend files.
-### 2026-06-26
+| Migration ID | Description |
+|---|---|
+| `initial_schema` | Core 13 tables (users, groups, permissions, grants, forks, audit_logs, events, virtual_accounts, etc.) |
+| `a1b2c3d4e5f6` | Added `calcom_booking_id` and `calcom_uid` to `EventCache` and meetings schema. |
+| `f1a2b3c4d5e6` | Added Digital Signatures tables (`signature_requests`, `recipients`, `fields`, `audit_logs`). |
+| `e5f6a1b2c3d4` | Added DSC certificate columns (`dsc_type`, `dsc_issuer`, `dsc_serial`, `allowed_sig_type`). |
+| `a7f3c92b1d84` | Contract Assistant ORM tables & clause findings. |
+| `h1i2j3k4l5m6` | Dyslexic CRM tables & lead tracking models. |
+| `a9c4e7f1b2d6` | Added `guest_verifications` table (hashed OTPs) and `meetings.recording_metadata` JSON column. |
 
-**S37 — Cal.com Sync & Webhook Hardening & Meeting Recovery Fixes:**
-- **Cal.com Rescheduling Sync Correction (`lib/calcomWebhook.js`)**: Updated the poll sync logic to call `meetingsDb.rescheduleMeeting` in production instead of running raw SQL updates directly on the meetings table (which is managed by Motherboard).
-- **Instant `BOOKING_RESCHEDULED` Webhook (`server.js`)**: Added a handler for `BOOKING_RESCHEDULED` trigger event in the Cal.com webhook listener, allowing meetings to be updated and reminders to be reset instantly when rescheduled by hosts/guests.
-- **Instant Booking Location Updates (`server.js`)**: Integrated `calcom.updateBookingLocation` inside the `BOOKING_CREATED` webhook handler, ensuring that bookings created through the webhook instantly get updated on Cal.com with the custom voice channel redirection link.
-- **Meeting Recovery Loop Fix (`jobs/meetingRecovery.js`)**: Fixed an infinite meeting recovery loop where stale VC meetings with missing `metadata.json` were repeatedly checked. These are now correctly marked as completed.
-- **Verification**: Added 2 new integration test suites in `tests/meetings.test.js` validating the meeting recovery status transitions and Cal.com synchronizer rescheduling functionality. Ran the bot test suite verifying all 210 test assertions pass 100% green. Commits pushed to `origin/main` branch.
+---
 
-### 2026-06-26 (Later)
+## 6. Audit Findings & Production Priorities
 
-**S38 — On-Demand VC Joining Cache Resolution & Listener Fallback:**
-- **Robust Cache Resolution (`events/voiceStateUpdate.js`)**: Resolved cache race condition where `newState.channel` evaluated to null immediately after a user joined the channel. Implemented channel fetching fallback via `newState.guild.channels.fetch` to ensure the bot can resolve the target voice channel on-demand.
-- **Listener Client Fallback (`lib/voiceRecorder.js`)**: Wrapped the listener client channel resolution inside a validator to only overwrite the target voice channel when the listener bot client successfully resolves the channel. If it returns null, it falls back to the main bot's voice channel, preventing null property exceptions and joining crashes.
-- **Verification**: Ran the bot test suite verifying all 210 test assertions pass 100% green.
+Comprehensive read-only production audits (S62–S63) established the following priority backlog for future rollout phases:
 
-### 2026-06-26 (Later Still)
+1. **Finance & Banking:**
+   - Implement real double-entry journal lines (immutable credit/debit pairs) and reconcile historical opening balances.
+   - Complete live RazorpayX payout/contact integration with HMAC webhook signature validation.
+2. **Signatures & Legal Evidence:**
+   - Strengthen public verification endpoints with rate limiting and signed session tokens.
+   - Enforce mandatory org countersignature in final completion workflow before sealing.
+   - Update compliance copy to reference BSA 2023 Section 63 certificate requirements.
+3. **Meetings & Scheduling:**
+   - Ensure PostgreSQL is the single source of truth for the bot scheduler to prevent SQLite mirror split-brain.
+   - Enforce database-level UNIQUE constraints on `calcom_booking_id` to eliminate poll duplication.
+   - Add rate-limiting and server-side slot verification to public booking endpoints.
+4. **Plugins:**
+   - Enforce explicit `*.admin` permission checks on destructive routes across all plugin manifests.
 
-**S39 — Robust Meeting ID Display & Safe 404 Resolution:**
-- **Graceful Not-Found Handling (`commands/meet-start.js` & `commands/meet-stop.js`)**: Replaced direct API fetch calls to Motherboard with `meetingsDb.getMeeting(meetingId)`. This catches `404 Meeting not found` errors gracefully and returns a descriptive, user-friendly message to the user instead of throwing a generic `SYSTEM_FAILURE`.
-- **Visible Meeting IDs**: Added the `meeting.id` to the scheduled meeting confirmation embeds (`commands/meet-schedule.js`), start success command outputs (`commands/meet-start.js`), and the events channel live commencement embeds (`lib/meetingsHelper.js`).
+---
 
-### 2026-06-28
+## 7. Session Log
 
-**S40 — Cal.com Lookup Performance Fix & Finance Portal UX Dropdowns**:
-- **Cal.com Lookup N+1 Query Resolution**: Optimized `/api/meetings` endpoint in the FastAPI backend by bulk-loading child relationships (`attendees`, `reschedule_history`, `transcripts`) in exactly 3 batch queries using SQL `.in_()` checks. Reduced latency from >10s to <50ms for meeting index and lookups.
-- **Cal.com ID Support**: Added `calcom_booking_id` and `calcom_uid` fields to FastAPI Pydantic schemas and database insertion code. Updated the bot's `meetingsDb.js` to pass and query by `calcom_booking_id` parameter to prevent duplicate meetings import and endless reminder spam.
-- **Finance Portal Navigation Integration**: Added a "Finance" navigation item to the motherboard's main dashboard `Sidebar.tsx`, and added an "Exit to Dashboard" back link in `FinanceSidebar.tsx` to prevent user navigation entrapment.
-- **Dropdown Selection UX**: Updated the Create Virtual Account modal (`accounts/page.tsx`) and the Issue Virtual Card modal (`cards/page.tsx`) to fetch active members and virtual accounts from the API and display them as dropdown `<select>` elements, eliminating the need to manually copy-paste raw 36-character UUIDs.
-- **Verification**: Verified that all 210 bot tests and 97 backend tests pass 100% green. Verified clean local Next.js compilation (`bun run build`). Deployed and pushed changes.
+### Pre-Production (S1–S33, up to 2026-06-25)
+- Scaffolding, Phase 1 (13 ORM tables), Phase 2 (IAM), Phase 3 (EventBus), Phase 4 (Plugin SDK), Phase 7 (Finance shell), VPS deployment, Nginx SSL.
 
-### 2026-07-16
+### S34–S44 (2026-06-26 to 2026-07-19)
+- **S34–S36:** Discord bot refactored to proxy all operations to Motherboard via HMAC `callMotherboard`; audio transcription offloaded to FastAPI; Bun test suite hardened (208/208 green).
+- **S37–S39:** Cal.com rescheduling webhook (`BOOKING_RESCHEDULED`); voice channel auto-join cache resolution; Docker compose Redis URL fix.
+- **S40–S41:** Meetings N+1 query optimization; Cal.com schema migration (`a1b2c3d4e5f6`); Gemini 3.5 $\rightarrow$ 2.5 Flash transcription fallback; programmatic API key auth.
+- **S42–S44:** Consolidated bot into monorepo (`apps/bot`); migrated SQLite to `bun:sqlite`; built public availability slots API; RFC-2446 email RSVP widget.
 
 **S41 — Command Database Wiring, DNS Routing & Cal.com Schema Migration:**
 - **Forks Dashboard Crash Fix (`commands/forks-info.js`)**: Removed the `NODE_ENV === 'test'` condition from the `bot_settings` table creation block. The table is now created idempotently on startup in all environments (including production Neon Postgres), preventing subsequent `db.get()` from crashing with a missing relation error.

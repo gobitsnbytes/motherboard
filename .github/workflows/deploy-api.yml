@@ -6,8 +6,11 @@ on:
       - prod
     paths:
       - 'apps/api/**'
-      - 'deploy/api/**'
-      - '.github/workflows/deploy-api.yml'
+      - 'apps/bot/**'
+      - 'deploy/**'
+      - 'package.json'
+      - 'bun.lock'
+      - '.github/workflows/**'
 
 jobs:
   test:

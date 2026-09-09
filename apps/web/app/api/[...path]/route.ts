@@ -25,14 +25,21 @@ function getApiBase() {
 }
 
 async function proxy(request: Request, context: RouteContext) {
+  const { path } = await context.params;
+  const inboundPath = `/${path.join("/")}`;
+
+  // Public routes (signing portal & verification engine) do not require Next.js session auth
+  const isPublicRoute =
+    (path[0] === "signatures" && (path[1] === "sign" || path[1] === "verify")) ||
+    (path[0] === "forms" && path[1] === "public") ||
+    inboundPath === "/health";
+
   const session = await auth();
   const userId = session?.user?.internalUserId;
-  if (!userId) {
+  if (!userId && !isPublicRoute) {
     return Response.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
-  const { path } = await context.params;
-  const inboundPath = `/${path.join("/")}`;
   const upstreamPath = inboundPath === "/health" ? "/health" : `/api${inboundPath}`;
   const incomingUrl = new URL(request.url);
   const upstreamUrl = new URL(`${upstreamPath}${incomingUrl.search}`, getApiBase());
@@ -46,7 +53,7 @@ async function proxy(request: Request, context: RouteContext) {
   const authHeaders = createInternalAuthHeaders({
     method: request.method,
     path: upstreamPath,
-    userId,
+    userId: userId || "public-signatory",
   });
   for (const [key, value] of Object.entries(authHeaders)) {
     headers.set(key, value);
@@ -64,6 +71,21 @@ async function proxy(request: Request, context: RouteContext) {
   const responseHeaders = new Headers(upstreamResponse.headers);
   for (const header of HOP_BY_HOP_HEADERS) {
     responseHeaders.delete(header);
+  }
+
+  // Server-sent events must stream through. Buffering the body below would wait
+  // for a response that never ends, so the connection would hang open forever
+  // and no event would ever reach the browser.
+  const upstreamType = upstreamResponse.headers.get("content-type") ?? "";
+  if (upstreamType.startsWith("text/event-stream")) {
+    responseHeaders.set("Cache-Control", "no-cache, no-transform");
+    responseHeaders.set("Connection", "keep-alive");
+    responseHeaders.set("X-Accel-Buffering", "no");
+    return new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      headers: responseHeaders,
+    });
   }
 
   return new Response(await upstreamResponse.arrayBuffer(), {
@@ -92,4 +114,3 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return proxy(request, context);
 }
-

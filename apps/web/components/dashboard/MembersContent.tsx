@@ -14,6 +14,15 @@ interface Member {
   created_at: string;
 }
 
+interface Member {
+  id: string;
+  display_name?: string | null;
+  email?: string | null;
+  is_active: boolean;
+  is_super_admin: boolean;
+  created_at: string;
+}
+
 export function MembersContent() {
   const [users, setUsers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);

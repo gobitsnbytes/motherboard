@@ -48,3 +48,30 @@ __pycache__/
 .next
 next-env.d.ts
 
+# Local env backups and scratch databases from local test runs
+.env.*backup
+*.env.backup
+apps/api/*.db
+apps/api/*.db-journal
+apps/api/*.db-wal
+apps/api/*.db-shm
+
+.vercel
+
+# Local signature uploads & test artifacts
+data/signatures/
+apps/api/data/signatures/
+apps/api/data/*.db*
+
+# Security & Secret safeguarding (SSH keys, tokens, environment files)
+*.key
+*.pem
+*.id_rsa
+*.id_ed25519
+.env*
+!.env.example
+
+
+.vercel
+
+opencode.json

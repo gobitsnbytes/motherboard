@@ -8,9 +8,11 @@ from app.database import get_session
 from app.db.models import PluginRegistry, Permission, User
 from app.plugin_sdk.loader import PluginLoader
 from app.plugin_sdk.types import PluginManifest, PermissionDeclaration, UiPanelDeclaration, PluginContext
-from conftest import request_as
+from conftest import request_as, engine
 from fastapi import APIRouter, FastAPI
 
+
+from contextlib import asynccontextmanager
 
 @pytest.fixture(autouse=True)
 def override_db(db_session: AsyncSession):
@@ -19,6 +21,14 @@ def override_db(db_session: AsyncSession):
     app.dependency_overrides[get_session] = _get_test_session
     yield
     app.dependency_overrides.clear()
+
+
+def make_session_factory(session: AsyncSession):
+    @asynccontextmanager
+    async def _factory():
+        yield session
+    return _factory
+
 
 
 # Mock Router and Lifecycle Hooks
@@ -75,7 +85,7 @@ async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
     on_load_called = False
     on_unload_called = False
 
-    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    session_factory = make_session_factory(db_session)
     test_app = FastAPI()
     loader = PluginLoader(test_app, session_factory)
 
@@ -122,7 +132,7 @@ async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
     db_session.add(disabled_plugin)
     await db_session.commit()
 
-    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    session_factory = make_session_factory(db_session)
     test_app = FastAPI()
     loader = PluginLoader(test_app, session_factory)
 
@@ -151,7 +161,7 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
     # The actual app runs the PluginLoader inside lifespan against the real plugins dir.
     # In tests, override_db provides the isolated DB session.
     # Let's seed a sample plugin registry record so that the loader enables it.
-    session_factory = async_sessionmaker(bind=db_session.bind, class_=AsyncSession, expire_on_commit=False)
+    session_factory = make_session_factory(db_session)
     
     # Snapshot original routes and state to restore them after the test
     original_routes = list(app.router.routes)
@@ -208,10 +218,23 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
             assert response.status_code == 200
 
             # 4. Test dynamic router mounting under /api/plugins/{plugin_id}
-            # This should allow authenticated requests (Depends(get_current_user))
+            # Manifest-level panel permission is enforced by the loader, so a user
+            # without endpoint_test_plugin.read must be rejected.
             response = await request_as(ac, super_admin.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
             assert response.status_code == 200
             assert response.json() == {"message": "Success"}
+
+            denied = await request_as(ac, regular_user.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
+            assert denied.status_code == 403
+
+            plugin_grant = Grant(
+                id=uuid.uuid4(),
+                principal_type="user",
+                principal_id=regular_user.id,
+                permission_key="endpoint_test_plugin.read"
+            )
+            db_session.add(plugin_grant)
+            await db_session.commit()
 
             response = await request_as(ac, regular_user.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
             assert response.status_code == 200
@@ -226,3 +249,5 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
         else:
             if hasattr(app.state, "plugin_loader"):
                 delattr(app.state, "plugin_loader")
+
+

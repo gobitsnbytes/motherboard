@@ -1,6 +1,9 @@
 "use client";
-import { Users, GitBranch, Puzzle, RefreshCw } from "lucide-react";
+
+import { Users, GitBranch, Puzzle, RefreshCw, Handshake, Plus, UserPlus, Loader2, Copy } from "lucide-react";
+import Link from "next/link";
 import StatCard from "components/dashboard/StatCard";
+import { OverviewSkeleton } from "./Skeletons";
 import {
   Badge,
   Button,
@@ -8,18 +11,43 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Input,
+  Label,
 } from "@bnb/ui";
-import { Plus, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getDashboardStats, getRecentActivity, getForks } from "lib/dashboard";
+import {
+  getDashboardStats,
+  getRecentActivity,
+  getForks,
+  getMyActionItems,
+  type MyActionItem,
+} from "lib/dashboard";
 
 export function OverviewContent() {
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [createForkOpen, setCreateForkOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [creatingFork, setCreatingFork] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [forkForm, setForkForm] = useState({
+    slug: "",
+    city_name: "",
+    discord_city_role_id: "",
+    discord_contributor_role_id: "",
+  });
 
   const [stats, setStats] = useState({
     members: 0,
     forks: 0,
     plugins: 0,
+    dyslexicCompanies: 0,
     apiStatus: "loading",
     databaseStatus: "loading",
     discordStatus: "loading",
@@ -27,77 +55,166 @@ export function OverviewContent() {
   });
   const [activity, setActivity] = useState<any[]>([]);
   const [forks, setForks] = useState<any[]>([]);
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const [statsData, activityData, forksData] = await Promise.all([
-          getDashboardStats(),
-          getRecentActivity(),
-          getForks(),
-        ]);
+  const [actionItems, setActionItems] = useState<MyActionItem[]>([]);
 
-        setStats(statsData);
-        setActivity(activityData);
-        setForks(forksData);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
+  const loadDashboard = async () => {
+    setLoading(true);
+    try {
+      const [statsData, activityData, forksData, itemsData] = await Promise.all([
+        getDashboardStats(),
+        getRecentActivity(),
+        getForks(),
+        getMyActionItems().catch(() => [] as MyActionItem[]),
+      ]);
+
+      setStats(statsData);
+      setActivity(activityData);
+      setForks(forksData);
+      setActionItems(itemsData);
+    } catch (error) {
+      setNotice({ kind: "error", message: "The overview could not load completely. Refresh to retry." });
+    } finally {
+      setLoading(false);
     }
+  };
 
+  useEffect(() => {
     loadDashboard();
   }, []);
+
+  if (loading) {
+    return <OverviewSkeleton />;
+  }
+
+  const handleRunSync = async () => {
+    setSyncing(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/sync/trigger", { method: "POST" });
+      if (response.ok) {
+        setNotice({ kind: "success", message: "Discord sync started. Refreshing operational data." });
+        loadDashboard();
+      } else {
+        const err = await response.json();
+        setNotice({ kind: "error", message: `Discord sync failed: ${err.detail || response.statusText}` });
+      }
+    } catch (e) {
+      setNotice({ kind: "error", message: "Discord sync failed because the server could not be reached." });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleCreateFork = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingFork(true);
+    setNotice(null);
+    try {
+      const payload: any = {
+        slug: forkForm.slug,
+        city_name: forkForm.city_name,
+      };
+      if (forkForm.discord_city_role_id) payload.discord_city_role_id = forkForm.discord_city_role_id;
+      if (forkForm.discord_contributor_role_id) payload.discord_contributor_role_id = forkForm.discord_contributor_role_id;
+
+      const response = await fetch("/api/forks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        setNotice({ kind: "success", message: `City chapter ${forkForm.city_name} was created.` });
+        setCreateForkOpen(false);
+        setForkForm({ slug: "", city_name: "", discord_city_role_id: "", discord_contributor_role_id: "" });
+        loadDashboard();
+      } else {
+        const err = await response.json();
+        setNotice({ kind: "error", message: `City chapter could not be created: ${err.detail || response.statusText}` });
+      }
+    } catch (e) {
+      setNotice({ kind: "error", message: "City chapter could not be created because the server could not be reached." });
+    } finally {
+      setCreatingFork(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {notice ? (
+        <div
+          role="status"
+          className={`border-2 px-4 py-3 text-sm font-mono ${notice.kind === "success" ? "border-[#265d3a] bg-[#eaf5ed] text-[#173d24]" : "border-[#97192c] bg-[#fbecef] text-[#5b0f1a]"}`}
+        >
+          {notice.message}
+        </div>
+      ) : null}
+
+      {/* Top Stat Cards Grid */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Members"
           value={loading ? "..." : stats.members}
-          description="+24 this week"
+          description="Total registered"
           icon={<Users className="size-5" />}
         />
 
         <StatCard
           title="Forks"
           value={loading ? "..." : stats.forks}
-          description="Active locations"
+          description="Active city chapters"
           icon={<GitBranch className="size-5" />}
         />
 
         <StatCard
           title="Plugins"
           value={loading ? "..." : stats.plugins}
-          description="Installed"
+          description="Loaded extensions"
           icon={<Puzzle className="size-5" />}
         />
-      </div>
-      <Card>
-        <CardContent className="py-6">
-          <h2 className="text-xl font-heading font-bold">Welcome back 👋</h2>
 
-          <p className="text-sm text-muted-foreground mt-2">
-            Manage members, forks, plugins, and organization operations from a
-            single place.
+        <Link href="/dashboard/dyslexic" className="block">
+          <StatCard
+            title="Dyslexic"
+            value={loading ? "..." : stats.dyslexicCompanies}
+            description="Sponsorship pipeline"
+            icon={<Handshake className="size-5" />}
+          />
+        </Link>
+      </div>
+
+      {/* Welcome Banner */}
+      <Card className="border-2 border-border bg-burgundy text-white shadow-light">
+        <CardContent className="py-5">
+          <h2 className="text-xl font-heading font-black text-white uppercase tracking-tight">
+            Welcome to Motherboard
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-300 font-base mt-1">
+            Central operations layer: manage member IAM policies, city fork onboarding, digital signatures, and meetings.
           </p>
         </CardContent>
       </Card>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+
+      {/* Activity & connected services */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 border-2 border-border bg-background shadow-light">
+          <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+            <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
+              Recent Activity
+            </CardTitle>
           </CardHeader>
 
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="pt-4">
+            <div className="space-y-2.5">
               {loading ? (
-                <div>Loading activity...</div>
+                <div className="text-xs text-muted-foreground font-mono">Loading activity...</div>
+              ) : activity.length === 0 ? (
+                <div className="text-xs text-muted-foreground font-mono">No recent activity logged.</div>
               ) : (
                 activity.map((item, index) => (
-                  <div key={index} className="flex justify-between">
-                    <span>{item.action}</span>
-
-                    <span className="text-xs text-muted-foreground">
+                    <div key={index} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5 text-xs">
+                    <span className="font-mono text-foreground">{item.action}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
                       {new Date(item.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -106,95 +223,223 @@ export function OverviewContent() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
+
+        <Card className="border-2 border-border bg-background shadow-light">
+          <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+            <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
+              Connected services
+            </CardTitle>
           </CardHeader>
 
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>API</span>
-
-                <Badge
-                  variant={stats.apiStatus === "ok" ? "success" : "danger"}
-                >
-                  {stats.apiStatus === "ok" ? "Online" : "Offline"}
-                </Badge>
+          <CardContent className="pt-4">
+            <div className="space-y-3 font-mono text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-foreground">Motherboard API</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.apiStatus === "ok" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-red-50 text-red-800 border-red-600"}`}>
+                  {stats.apiStatus === "ok" ? "Available" : "Unavailable"}
+                </span>
               </div>
 
-              <div className="flex justify-between">
-                <span>Database</span>
-                <Badge
-                  variant={stats.databaseStatus === "healthy" ? "success" : stats.databaseStatus === "loading" ? "neutral" : "danger"}
-                >
-                  {stats.databaseStatus === "healthy" ? "Healthy" : stats.databaseStatus === "loading" ? "Loading..." : "Degraded"}
-                </Badge>
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-foreground">Operational data</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.databaseStatus === "healthy" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-muted text-muted-foreground border-border"}`}>
+                  {stats.databaseStatus === "healthy" ? "Available" : "Unknown"}
+                </span>
               </div>
 
-              <div className="flex justify-between">
-                <span>Discord</span>
-                <Badge
-                  variant={stats.discordStatus === "connected" ? "success" : stats.discordStatus === "unconfigured" ? "neutral" : stats.discordStatus === "loading" ? "neutral" : "danger"}
-                >
-                  {stats.discordStatus === "connected" ? "Connected" : stats.discordStatus === "unconfigured" ? "Unconfigured" : stats.discordStatus === "loading" ? "Loading..." : "Disconnected"}
-                </Badge>
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-foreground">Discord connection</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.discordStatus === "connected" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-muted text-muted-foreground border-border"}`}>
+                  {stats.discordStatus === "connected" ? "Connected" : "Not connected"}
+                </span>
               </div>
 
-              <div className="flex justify-between">
-                <span>Sync</span>
-                <Badge
-                  variant={stats.syncStatus === "healthy" ? "success" : stats.syncStatus === "syncing" ? "warning" : stats.syncStatus === "no_runs" ? "neutral" : stats.syncStatus === "loading" ? "neutral" : "danger"}
-                >
-                  {stats.syncStatus === "healthy" ? "Healthy" : stats.syncStatus === "syncing" ? "Syncing" : stats.syncStatus === "no_runs" ? "No Runs" : stats.syncStatus === "loading" ? "Loading..." : "Unhealthy"}
-                </Badge>
+              <div className="flex justify-between items-center">
+                <span className="text-foreground">Background sync</span>
+                <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.syncStatus === "healthy" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-amber-50 text-amber-800 border-amber-600"}`}>
+                  {stats.syncStatus === "healthy" ? "Running" : "Standby"}
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Fork Health</CardTitle>
+
+      {/* Action Items & Fork Health */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-2 border-border bg-background shadow-light">
+          <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+            <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
+              My Open Action Items
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="pt-4">
+            <div className="space-y-2">
+              {actionItems.length === 0 ? (
+                <div className="text-xs text-muted-foreground font-mono">No pending action items.</div>
+              ) : (
+                actionItems.slice(0, 5).map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/dashboard/meetings"
+                    className="flex items-center justify-between gap-4 rounded-base border border-border bg-secondary-background p-2.5 transition-colors hover:bg-orange/10"
+                  >
+                    <span className="truncate font-mono text-xs text-foreground">{item.task}</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      {item.deadline ? (
+                        <span className="font-mono text-[10px] text-muted-foreground">{item.deadline}</span>
+                      ) : null}
+                      <span className="rounded-base border border-orange/50 bg-orange/15 px-2 py-0.5 font-mono text-[10px] font-bold text-burgundy">
+                        {item.status}
+                      </span>
+                    </span>
+                  </Link>
+                ))
+              )}
+              {actionItems.length > 0 && (
+                <Link
+                  href="/dashboard/meetings"
+                  className="block pt-2 text-xs font-mono font-bold text-orange hover:underline"
+                >
+                  View all in Meetings &rarr;
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
+          <CardHeader className="border-b-2 border-border pb-3 bg-muted">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">
+              Fork Chapter Health
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="pt-4">
+            <div className="space-y-2.5 font-mono text-xs">
+              {loading ? (
+                <div className="text-xs text-muted-foreground">Loading chapters...</div>
+              ) : forks.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No active forks registered.</div>
+              ) : (
+                forks.map((fork) => {
+                  const score = fork.health_score ?? 100;
+                  const isHealthy = score >= 70;
+                  const isWarning = score >= 50 && score < 70;
+
+                  return (
+                    <div key={fork.id} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5">
+                      <span className="font-bold text-foreground">{fork.city_name || fork.name}</span>
+                      <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${isHealthy ? "bg-emerald-50 text-emerald-800 border-emerald-600" : isWarning ? "bg-amber-50 text-amber-800 border-amber-600" : "bg-red-50 text-red-800 border-red-600"}`}>
+                        {score}/100
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions Card */}
+      <Card className="border-2 border-border bg-background shadow-light">
+        <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+          <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
+            Quick Actions
+          </CardTitle>
         </CardHeader>
 
-        <CardContent>
-          <div className="space-y-3">
-            {loading ? (
-              <div>Loading forks...</div>
-            ) : (
-              forks.map((fork) => (
-                <div key={fork.id} className="flex justify-between">
-                  <span>{fork.city_name}</span>
+        <CardContent className="pt-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Dialog open={createForkOpen} onOpenChange={setCreateForkOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-burgundy px-4 py-2.5 font-heading text-xs font-black uppercase tracking-wider text-white shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                >
+                  <Plus className="size-4" />
+                  Create Fork
+                </button>
+              </DialogTrigger>
+              <DialogContent className="border-2 border-border bg-background text-foreground">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-lg font-black uppercase tracking-tight text-foreground">
+                    Create New City Chapter Fork
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCreateFork} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="slug" className="font-mono text-xs text-muted-foreground">Slug *</Label>
+                    <Input id="slug" required value={forkForm.slug} onChange={(e) => setForkForm(prev => ({...prev, slug: e.target.value}))} placeholder="e.g. blr" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city_name" className="font-mono text-xs text-muted-foreground">City Name *</Label>
+                    <Input id="city_name" required value={forkForm.city_name} onChange={(e) => setForkForm(prev => ({...prev, city_name: e.target.value}))} placeholder="e.g. Bangalore" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discord_city_role_id" className="font-mono text-xs text-muted-foreground">Discord City Role ID (optional)</Label>
+                    <Input id="discord_city_role_id" value={forkForm.discord_city_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_city_role_id: e.target.value}))} placeholder="e.g. 1234567890" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discord_contributor_role_id" className="font-mono text-xs text-muted-foreground">Discord Contributor Role ID (optional)</Label>
+                    <Input id="discord_contributor_role_id" value={forkForm.discord_contributor_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_contributor_role_id: e.target.value}))} placeholder="e.g. 0987654321" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
+                  </div>
+                  <button type="submit" className="w-full py-3 bg-orange text-black font-heading font-black text-xs uppercase tracking-wider rounded-base border-2 border-black shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50" disabled={creatingFork}>
+                    {creatingFork ? <Loader2 className="mx-auto size-4 animate-spin" /> : "Create Chapter"}
+                  </button>
+                </form>
+              </DialogContent>
+            </Dialog>
 
-                  <Badge variant="success">Healthy</Badge>
+            <button
+              type="button"
+              onClick={handleRunSync}
+              disabled={syncing}
+              className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-secondary-background px-4 py-2.5 font-heading text-xs font-black uppercase tracking-wider text-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
+            >
+              {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4 text-orange" />}
+              {syncing ? "Syncing..." : "Trigger Discord Sync"}
+            </button>
+
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-muted text-foreground rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+                >
+                  <UserPlus className="size-4 text-emerald-400" />
+                  Invite Contributor
+                </button>
+              </DialogTrigger>
+              <DialogContent className="border-2 border-border bg-background text-foreground">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-lg font-black uppercase tracking-tight text-foreground">
+                    Invite Member
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <p className="text-xs text-muted-foreground font-base">
+                    Share this verified invite link with new contributors to join the bits&bytes community Discord server.
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <Input readOnly value="https://discord.gg/bitsnbytes" className="flex-1 border-2 border-border bg-background text-foreground font-mono text-xs" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://discord.gg/bitsnbytes");
+                        setCopyFeedback(true);
+                        setTimeout(() => setCopyFeedback(false), 2000);
+                      }}
+                      className="px-3 py-2 border-2 border-border bg-orange text-black font-mono font-bold text-xs rounded-base shadow-light hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                    >
+                      {copyFeedback ? "Copied!" : <Copy className="size-4" />}
+                    </button>
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-3">
-            <Button>
-              <Plus className="size-4" />
-              Create Fork
-            </Button>
-
-            <Button>
-              <RefreshCw className="size-4" />
-              Run Sync
-            </Button>
-
-            <Button>
-              <UserPlus className="size-4" />
-              Invite Member
-            </Button>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>

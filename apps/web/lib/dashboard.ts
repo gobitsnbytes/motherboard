@@ -1,28 +1,29 @@
 export async function getDashboardStats() {
-  const [usersRes, forksRes, pluginsRes, healthRes] =
+  const [usersRes, forksRes, pluginsRes, healthRes, dyslexicRes] =
     await Promise.all([
-      fetch("/api/users"),
-      fetch("/api/forks"),
-      fetch("/api/plugins"),
-      fetch("/api/health/status"),
+      fetch("/api/users").catch(() => null),
+      fetch("/api/forks").catch(() => null),
+      fetch("/api/plugins").catch(() => null),
+      fetch("/api/health/status").catch(() => null),
+      fetch("/api/dyslexic/stats").catch(() => null),
     ]);
-    
 
-  const users = await usersRes.json();
-  const forks = await forksRes.json();
-  const plugins = await pluginsRes.json();
-  const health = await healthRes.json();
+  const users = usersRes?.ok ? await usersRes.json() : [];
+  const forks = forksRes?.ok ? await forksRes.json() : [];
+  const plugins = pluginsRes?.ok ? await pluginsRes.json() : [];
+  const health = healthRes?.ok ? await healthRes.json() : {};
+  const dyslexic = dyslexicRes?.ok ? await dyslexicRes.json() : { companies: 0 };
 
   return {
-    members: users.length,
-    forks: forks.length,
-    plugins: plugins.length,
-    apiStatus: health.status,
-    databaseStatus: health.database,
-    discordStatus: health.discord,
-    syncStatus: health.sync,
+    members: Array.isArray(users) ? users.length : 0,
+    forks: Array.isArray(forks) ? forks.length : 0,
+    plugins: Array.isArray(plugins) ? plugins.length : 0,
+    dyslexicCompanies: dyslexic.companies ?? 0,
+    apiStatus: health.status ?? "unknown",
+    databaseStatus: health.database ?? "unknown",
+    discordStatus: health.discord ?? "unknown",
+    syncStatus: health.sync ?? "unknown",
   };
-
 }
 
 export async function getRecentActivity() {
@@ -44,6 +45,27 @@ export async function getForks() {
 
   if (!response.ok) {
     throw new Error("Failed to load forks");
+  }
+
+  return response.json();
+}
+
+export interface MyActionItem {
+  id: number;
+  task: string;
+  meeting_id: string;
+  meeting_title: string | null;
+  assignee: string;
+  deadline: string | null;
+  status: string;
+  created_at: number;
+}
+
+export async function getMyActionItems(): Promise<MyActionItem[]> {
+  const response = await fetch("/api/meetings/action-items/mine");
+
+  if (!response.ok) {
+    throw new Error("Failed to load action items");
   }
 
   return response.json();

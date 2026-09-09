@@ -1,134 +1,64 @@
 "use client";
 
-import React from "react";
-import { motion } from "framer-motion";
-import FadingVideo from "./FadingVideo";
-import BlurText from "./BlurText";
 import Link from "next/link";
-import RefractiveGlassBackground from "./RefractiveGlassBackground";
+import { useSession } from "next-auth/react";
+import { ArrowRight, FileCheck2, GitBranch, ShieldCheck, type LucideIcon } from "lucide-react";
+
+const FEATURES: Array<{ icon: LucideIcon; title: string; copy: string }> = [
+  { icon: ShieldCheck, title: "Identity & access", copy: "Clear roles and an auditable access path." },
+  { icon: GitBranch, title: "Coordination", copy: "Projects, meetings, and decisions that stay connected." },
+  { icon: FileCheck2, title: "Evidence", copy: "Forms, signatures, and records people can find later." },
+];
 
 export default function HeroSection() {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated" && !!session;
+
   return (
-    <section
-      id="home"
-      className="h-screen w-full relative flex flex-col justify-between items-center overflow-hidden bg-black select-none font-body py-8 md:py-12 px-6"
-    >
-      {/* Background Refractive Glass */}
-      <RefractiveGlassBackground />
-
-      {/* Top Navbar */}
-      <nav className="fixed top-6 left-0 right-0 px-8 lg:px-16 z-50 flex items-center justify-between pointer-events-none">
-        {/* Left: Logo & Naming */}
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <img
-            src="https://gobitsnbytes.org/logo"
-            alt="bits&bytes™ logo"
-            className="h-8 w-auto select-none"
-          />
-          <span className="font-heading font-black text-lg tracking-wider text-white">
-            motherboard
-          </span>
-        </div>
-
-        {/* Right: Badge */}
-        <div className="flex items-center gap-2 bg-burgundy/40 border border-burgundy/30 text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full pointer-events-auto select-none">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Operational
-        </div>
-      </nav>
-
-      {/* Centered Low-Key Card */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full pt-16">
-        <motion.div
-          initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="liquid-glass rounded-[1.5rem] p-8 flex flex-col items-center text-center w-full shadow-2xl"
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.035)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-          }}
-        >
-          {/* Logo container */}
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center liquid-glass mb-6"
-            style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
-          >
-            <img
-              src="https://gobitsnbytes.org/logo"
-              alt="bits&bytes™ logo"
-              className="w-8 h-auto"
-            />
-          </div>
-
-          {/* Heading */}
-          <h1 className="text-4xl font-heading font-extrabold text-white leading-none tracking-tight mb-4">
-            <BlurText text="bits&bytes Operations" />
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-sm text-white/80 font-body leading-relaxed mb-6">
-            this is an internal tool to manage all operations and work of
-            bits&bytes™ (GOBITSNBYTES FOUNDATION)
-          </p>
-          <Link
-            href="/login"
-            className="w-full mb-6 rounded-[1rem] bg-orange text-black font-heading font-bold py-3 px-4 text-center transition-all duration-200 hover:scale-[1.02]"
-          >
-            Access Platform
+    <section id="home" className="min-h-screen bg-[#f4f1ec] text-[#120f0a]">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-5 py-5 sm:px-8 lg:px-12">
+        <header className="flex items-center justify-between border-b border-[#120f0a]/20 pb-5">
+          <Link href="/" className="flex items-center gap-3" aria-label="bits&bytes motherboard home">
+            <div className="grid size-10 place-items-center bg-[#97192c] text-sm font-black text-white shadow-[4px_4px_0_#120f0a]">b&b</div>
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#97192c]">bits&bytes™</p>
+              <p className="font-serif text-lg leading-none">motherboard</p>
+            </div>
           </Link>
-          {/* Info Section */}
-          <div className="flex flex-col gap-2.5 w-full border-t border-white/10 pt-5 text-xs text-white/70">
-            <div className="flex justify-between items-center px-1">
-              <span className="font-heading uppercase tracking-wider text-orange font-bold">
-                Scope
-              </span>
-              <span className="font-body text-white">
-                Strictly Internal Tool
-              </span>
-            </div>
-            <div className="flex justify-between items-center px-1">
-              <span className="font-heading uppercase tracking-wider text-orange font-bold">
-                Teammates
-              </span>
-              <span className="font-body text-white">~100 active members</span>
-            </div>
-            <div className="flex justify-between items-center px-1">
-              <span className="font-heading uppercase tracking-wider text-orange font-bold">
-                Access Control
-              </span>
-              <span className="font-body text-white">Invite-based access</span>
+          <span className="hidden font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#120f0a]/60 sm:block">Internal coordination</span>
+        </header>
+
+        <main className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20">
+          <div>
+            <p className="mb-6 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#97192c]">One shared operating picture</p>
+            <h1 className="max-w-3xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] sm:text-7xl lg:text-8xl">Make the work visible. Keep the people moving.</h1>
+            <p className="mt-8 max-w-xl text-lg leading-8 text-[#120f0a]/70">Motherboard is the internal workspace for bits&bytes™ teams: people, projects, meetings, signatures, and evidence in one place.</p>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link href={isAuthenticated ? "/dashboard/overview" : "/login"} className="inline-flex items-center justify-center gap-3 border-2 border-[#120f0a] bg-[#97192c] px-6 py-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-white shadow-[5px_5px_0_#120f0a] transition-transform hover:translate-x-1 hover:translate-y-1 hover:shadow-none">
+                {isAuthenticated ? "Open workspace" : "Sign in with Discord"}<ArrowRight className="size-4" />
+              </Link>
+              <Link href="/form/example" className="inline-flex items-center justify-center border-2 border-[#120f0a]/25 px-6 py-4 font-mono text-xs font-bold uppercase tracking-[0.14em] transition-colors hover:border-[#97192c] hover:text-[#97192c]">View a public form</Link>
             </div>
           </div>
 
-          {/* Links Section */}
-          <div className="flex justify-center gap-4 w-full border-t border-white/10 pt-5 mt-5 text-xs">
-            <a
-              href="https://gobitsnbytes.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/60 hover:text-orange transition-colors duration-200 font-heading uppercase tracking-wider font-semibold"
-            >
-              gobitsnbytes.org
-            </a>
-            <span className="text-white/20">•</span>
-            <a
-              href="https://github.com/gobitsnbytes/motherboard"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/60 hover:text-orange transition-colors duration-200 font-heading uppercase tracking-wider font-semibold"
-            >
-              GitHub
-            </a>
-          </div>
-        </motion.div>
+          <aside className="border-2 border-[#120f0a] bg-white p-6 shadow-[8px_8px_0_#97192c] sm:p-8">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#97192c]">What lives here</p>
+            <div className="mt-6 divide-y divide-[#120f0a]/15">
+              {FEATURES.map(({ icon: Icon, title, copy }) => (
+                <div key={title} className="flex gap-4 py-5 first:pt-0 last:pb-0">
+                  <div className="grid size-10 shrink-0 place-items-center bg-[#fc920d] text-[#120f0a]"><Icon className="size-5" /></div>
+                  <div><h2 className="font-serif text-xl">{title}</h2><p className="mt-1 text-sm leading-6 text-[#120f0a]/60">{copy}</p></div>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </main>
+
+        <footer className="flex flex-col gap-2 border-t border-[#120f0a]/20 pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-[#120f0a]/55 sm:flex-row sm:items-center sm:justify-between">
+          <span>bits&bytes™ by GOBITSNBYTES FOUNDATION</span>
+          <span>Invite-only internal workspace</span>
+        </footer>
       </div>
-
-      {/* Footer */}
-      <footer className="relative z-10 text-[10px] text-white/40 font-heading tracking-widest uppercase text-center mt-auto pt-4 border-t border-burgundy/5 w-full max-w-sm">
-        <div>built with ❤️ by the techies of bits&bytes™</div>
-      </footer>
     </section>
   );
 }

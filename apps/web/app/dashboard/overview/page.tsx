@@ -11,13 +11,14 @@ export const metadata = {
 export default function OverviewPage() {
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold text-foreground">
+      <div className="border-b-2 border-[#120f0a] pb-5">
+        <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-burgundy">Operations / overview</p>
+        <h1 className="text-3xl font-heading font-bold text-foreground sm:text-4xl">
           Overview
         </h1>
 
-        <p className="text-sm text-muted-foreground font-base mt-1">
-          Dashboard home — organization health at a glance.
+        <p className="text-sm text-muted-foreground font-base mt-1 max-w-2xl">
+          The operating picture for the network: people, city chapters, evidence, and integration health.
         </p>
       </div>
 

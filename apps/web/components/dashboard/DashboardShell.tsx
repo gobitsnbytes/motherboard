@@ -1,8 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import DashboardFooter from "./DashboardFooter";
+import CockpitDebugger from "./CockpitDebugger";
+import AgentOpsDrawer from "./AgentOpsDrawer";
 
 export default function DashboardShell({
   children,

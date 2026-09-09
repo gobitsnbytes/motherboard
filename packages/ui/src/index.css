@@ -33,28 +33,28 @@
     --ring: 351 71% 34%;
 
     /* Neobrutalist variables */
-    --bg: #fff;
-    --bw: #fff;
-    --blank: #000;
-    --text: #000;
-    --mtext: #000;
+    --bg: #faf8f5;
+    --bw: #ffffff;
+    --blank: #000000;
+    --text: #120f0a;
+    --mtext: #120f0a;
     --main: #97192c; /* Burgundy */
     --main-foreground: #ffffff;
     --secondary-background: #ffffff;
     --border-radius: 4px;
     --box-shadow-x: 4px;
     --box-shadow-y: 4px;
-    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px var(--border);
+    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px rgba(0, 0, 0, 1);
   }
 
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 3.9%;
+    --card: 0 0% 6%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 3.9%;
+    --popover: 0 0% 6%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 351 71% 34%;
@@ -64,76 +64,322 @@
     --secondary-foreground: 0 0% 0%;
 
     --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted-foreground: 0 0% 75%;
 
     --accent: 34 80% 52%;
     --accent-foreground: 0 0% 0%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 0 0% 24%;
+    --input: 0 0% 24%;
+    --ring: 351 71% 34%;
+
+    /* Dark Neobrutalist variables */
+    --bg: #0a0a0c;
+    --bw: #121216;
+    --blank: #ffffff;
+    --text: #ffffff;
+    --mtext: #ffffff;
+    --main: #97192c;
+    --main-foreground: #ffffff;
+    --secondary-background: #141418;
+    --border-radius: 4px;
+    --box-shadow-x: 4px;
+    --box-shadow-y: 4px;
+    --shadow: var(--box-shadow-x) var(--box-shadow-y) 0px 0px rgba(0, 0, 0, 1);
   }
 }
 
-/* Liquid-Glass Utilities */
-.liquid-glass {
-  background: rgba(255, 255, 255, 0.01);
-  background-blend-mode: luminosity;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: none;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-.liquid-glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.4px;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.45) 0%,
-    rgba(255, 255, 255, 0.15) 20%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.15) 80%,
-    rgba(255, 255, 255, 0.45) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+/* Blueprint Dot-Grid & Structural Utilities */
+.blueprint-dot-grid {
+  background-size: 24px 24px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
 }
 
-.liquid-glass-strong {
-  background: rgba(255, 255, 255, 0.01);
-  background-blend-mode: luminosity;
-  backdrop-filter: blur(50px);
-  -webkit-backdrop-filter: blur(50px);
-  border: none;
-  box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-  position: relative;
-  overflow: hidden;
-}
-.liquid-glass-strong::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.4px;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(255, 255, 255, 0.2) 20%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.2) 80%,
-    rgba(255, 255, 255, 0.5) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+.blueprint-dot-grid-dense {
+  background-size: 16px 16px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
 }
 
+.neobrutal-card {
+  border: 2px solid hsl(var(--border));
+  background-color: var(--bw);
+  box-shadow: var(--shadow);
+  border-radius: var(--border-radius);
+}
+
+.neobrutal-btn {
+  border: 2px solid hsl(var(--border));
+  box-shadow: var(--shadow);
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
+  border-radius: var(--border-radius);
+}
+.neobrutal-btn:hover {
+  transform: translate(var(--box-shadow-x), var(--box-shadow-y));
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 1);
+}
+.neobrutal-btn:active {
+  transform: translate(var(--box-shadow-x), var(--box-shadow-y));
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 1);
+}
+
+/* Motherboard's operational pages use a document canvas inside dark chrome.
+   These scoped tokens keep public routes and embedded plugins independent. */
+.motherboard-shell {
+  --shell-ink: #120f0a;
+  --shell-burgundy: #97192c;
+  --shell-orange: #fc920d;
+  background: var(--shell-ink);
+}
+
+.motherboard-canvas {
+  --bg: #f4f1ec;
+  --bw: #ffffff;
+  --blank: #ffffff;
+  --text: #120f0a;
+  --mtext: #120f0a;
+  --main: #97192c;
+  --main-foreground: #ffffff;
+  --secondary-background: #ffffff;
+  --background: 0 1% 81%;
+  --foreground: 30 29% 6%;
+  --card: 0 0% 100%;
+  --card-foreground: 24 12% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 24 12% 9%;
+  --muted: 38 18% 84%;
+  --muted-foreground: 24 8% 34%;
+  --border: 24 12% 9%;
+  --input: 24 12% 9%;
+  --ring: 351 71% 34%;
+  background: #f4f1ec;
+  color: #120f0a;
+}
+
+.motherboard-shell aside a {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.motherboard-shell aside a:hover {
+  border-color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.12);
+  color: #fff;
+}
+
+.motherboard-shell aside a.border-orange {
+  border-color: #120f0a;
+  background: #fc920d;
+  color: #120f0a;
+}
+
+.motherboard-canvas > div > * {
+  animation: motherboard-enter 240ms ease-out both;
+}
+
+/* Finance is a product surface inside the same shell, not a second dark app. */
+.finance-shell .motherboard-canvas {
+  background: #f4f1ec;
+}
+
+.finance-shell .motherboard-canvas .bg-main {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas .bg-background {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas .bg-main :is(.text-white, .text-white\/75, .text-white\/85, .text-white\/90, .text-white\/60) {
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas .bg-background :is(.text-white, .text-white\/75, .text-white\/85, .text-white\/90, .text-white\/60) {
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas :is(input, textarea, select) {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+@keyframes motherboard-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motherboard-canvas > div > * { animation: none; }
+}
+
+.motherboard-canvas > div {
+  min-width: 0;
+}
+
+.motherboard-canvas h1 {
+  letter-spacing: -0.03em;
+}
+
+.motherboard-canvas :is(input, textarea, select) {
+  background: #fff;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(button, a):focus-visible,
+.motherboard-shell :is(button, a):focus-visible {
+  outline: 2px solid #fc920d;
+  outline-offset: 3px;
+}
+
+/* Meetings is a high-density work surface: keep the data readable and the
+   hierarchy quiet even while older page classes are being phased out. */
+.meetings-workspace > :first-child {
+  border-color: #120f0a;
+  background: #fff;
+  color: #120f0a;
+  box-shadow: 4px 4px 0 #120f0a;
+}
+
+.meetings-workspace :is(.bg-\[\#141418\], .bg-\[\#181820\], .bg-neutral-900, .bg-dark) {
+  background: #fff;
+  color: #120f0a;
+}
+
+.meetings-workspace :is(.bg-black, .bg-black\/40, .bg-neutral-800, .bg-neutral-900\/50) {
+  background: #f4f1ec;
+  color: #120f0a;
+}
+
+.meetings-workspace :is(.text-white, .text-gray-300, .text-zinc-300, .text-gray-400) {
+  color: #413f3b;
+}
+
+.meetings-workspace :is(.text-gray-500, .text-zinc-500) {
+  color: #716f6c;
+}
+
+.meetings-workspace .text-orange {
+  color: #97192c;
+}
+
+.meetings-workspace :is(input, textarea, select) {
+  border-color: #120f0a;
+  box-shadow: none;
+}
+
+.motherboard-canvas [data-slot="card"] {
+  border-color: #120f0a;
+  background: #fff;
+  box-shadow: none;
+  color: #120f0a;
+}
+
+.motherboard-canvas [data-slot="card"] [data-slot="card-header"] {
+  border-color: #120f0a;
+  background: #f4f4f3;
+}
+
+.motherboard-canvas [data-slot="card"] :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300) {
+  color: #120f0a;
+}
+
+/* Legacy module surfaces inherit the operational canvas instead of the old
+   dark application tokens. Brand-colored controls remain untouched because
+   these selectors only target their legacy dark surface classes. */
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-blank, .bg-dark) {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-black, .bg-neutral-800, .bg-neutral-900) {
+  background: #f4f1ec;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-blank, .bg-dark, .bg-black, .bg-neutral-800, .bg-neutral-900) :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300, .text-zinc-400) {
+  color: #413f3b;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-blank, .bg-dark, .bg-black, .bg-neutral-800, .bg-neutral-900) :is(input, textarea, select) {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.motherboard-canvas [data-slot="card"] :is(.text-zinc-400, .text-zinc-500, .text-muted-foreground) {
+  color: #625b52;
+}
+
+.motherboard-canvas [data-slot="card"] :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-black) {
+  background: #fff;
+}
+
+/* Older operational routes still use these first-generation surface classes
+   directly. Normalize them only inside the internal document canvas. */
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) {
+  background: #fff;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300) {
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) :is(.text-zinc-400, .text-zinc-500) {
+  color: #625b52;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) :is(.bg-black, .bg-\[\#181820\]) {
+  background: #f4f4f3;
+}
+
+/* The first generation routes use several dark utility names directly. Keep
+   their content readable while those components are being migrated to the
+   shared paper tokens. */
+.motherboard-canvas :is(.bg-dark, .bg-neutral-800, .bg-neutral-900, .bg-\[\#0d0d0d\], .bg-\[\#0d0d10\], .bg-\[\#111\]) {
+  background: #fff;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-dark, .bg-neutral-800, .bg-neutral-900, .bg-\[\#0d0d0d\], .bg-\[\#0d0d10\], .bg-\[\#111\]) :is(.text-white, .text-gray-300, .text-zinc-300, .text-gray-400, .text-zinc-400) {
+  color: #413f3b;
+}
+
+.motherboard-canvas :is(.text-white, .text-gray-300, .text-zinc-300, .text-gray-400, .text-zinc-400, .text-gray-500, .text-zinc-500) {
+  color: #625b52;
+}
+
+.motherboard-canvas :is(.bg-burgundy, .bg-main, .bg-orange, .bg-red-700, .bg-red-800, .bg-\[\#97192c\], .bg-\[\#fc920d\]) :is(.text-white, .text-black, .text-foreground) {
+  color: #fff;
+}
+
+.motherboard-canvas :is(.bg-orange, .bg-\[\#fc920d\]) .text-black {
+  color: #120f0a;
+}
+
+/* Keep intentional brand actions legible after legacy text surfaces are normalized. */
+.motherboard-canvas [data-slot="card"] :is(button, a).bg-main,
+.motherboard-canvas [data-slot="card"] :is(button, a).bg-burgundy,
+.motherboard-canvas [data-slot="card"] [data-slot="button"].bg-main {
+  color: #fff;
+}
+
+.motherboard-canvas [data-slot="button"]:focus-visible,
+.motherboard-canvas a:focus-visible,
+.motherboard-canvas button:focus-visible,
+.motherboard-canvas input:focus-visible,
+.motherboard-canvas textarea:focus-visible,
+.motherboard-canvas select:focus-visible {
+  outline: 2px solid #97192c;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

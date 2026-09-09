@@ -431,3 +431,52 @@ async def upsert_discord_mapping(
     await db.commit()
     await db.refresh(mapping)
     return mapping
+
+
+@router.get("/hierarchy")
+async def get_iam_hierarchy(current_user: CurrentUserDep, db: DbDep) -> dict[str, Any]:
+    await require_permission(db, current_user, "iam.groups.read")
+
+    groups_res = await db.execute(select(Group))
+    groups = list(groups_res.scalars().all())
+
+    grants_res = await db.execute(select(Grant))
+    grants = list(grants_res.scalars().all())
+
+    mappings_res = await db.execute(select(DiscordRoleMapping))
+    mappings = list(mappings_res.scalars().all())
+
+    memberships_res = await db.execute(select(Membership))
+    memberships = list(memberships_res.scalars().all())
+
+    hierarchy = []
+    for g in groups:
+        group_grants = [grant for grant in grants if grant.principal_type == "group" and grant.principal_id == g.id]
+        group_mappings = [m for m in mappings if m.group_id == g.id]
+        group_members = [m for m in memberships if m.group_id == g.id]
+
+        hierarchy.append({
+            "id": str(g.id),
+            "name": g.name,
+            "slug": g.slug,
+            "description": g.description,
+            "is_system": g.is_system,
+            "grants_count": len(group_grants),
+            "members_count": len(group_members),
+            "mapped_roles": [
+                {
+                    "discord_role_id": m.discord_role_id,
+                    "discord_role_name": m.discord_role_name,
+                    "sync_enabled": m.sync_enabled
+                }
+                for m in group_mappings
+            ]
+        })
+
+    return {
+        "groups": hierarchy,
+        "total_groups": len(groups),
+        "total_grants": len(grants),
+        "total_mappings": len(mappings),
+        "total_memberships": len(memberships),
+    }

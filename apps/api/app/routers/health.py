@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func
 
 from app.config import get_settings
-from app.dependencies import DbDep, CurrentUserDep
+from app.dependencies import DbDep, CurrentUserDep, OptionalUserDep
 from app.events import event_bus
 from app.db.models import SyncRun, Group, Permission, DiscordRoleMapping
 
@@ -58,8 +58,9 @@ async def health_ready(db: DbDep) -> dict[str, str]:
     }
 
 
+
 @router.get("/api/health/status")
-async def get_detailed_status(db: DbDep, current_user: CurrentUserDep) -> dict[str, Any]:
+async def get_detailed_status(db: DbDep, current_user: OptionalUserDep = None) -> dict[str, Any]:
     """Return detailed health and status information for dashboard widgets."""
     # Database check
     db_status = "healthy"
@@ -114,8 +115,7 @@ async def get_detailed_status(db: DbDep, current_user: CurrentUserDep) -> dict[s
 
     import os
     env_name = os.environ.get("APP_ENV") or os.environ.get("NODE_ENV") or "development"
-    # Read version from config or standard constant
-    app_version = "0.1.1"
+    app_version = settings.app_version
 
     groups_count = 0
     permissions_count = 0
@@ -140,4 +140,3 @@ async def get_detailed_status(db: DbDep, current_user: CurrentUserDep) -> dict[s
         "permissions_count": permissions_count,
         "role_mappings_count": role_mappings_count,
     }
-

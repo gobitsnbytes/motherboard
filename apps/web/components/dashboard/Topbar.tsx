@@ -1,12 +1,36 @@
 "use client";
 
 import React from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, Bot, Terminal, UserCheck } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-export default function Topbar() {
+interface TopbarProps {
+  onToggleDebug?: () => void;
+  onToggleAgentOps?: () => void;
+}
+
+export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps) {
   const { data: session } = useSession();
   const user = session?.user;
+  const pathname = usePathname();
+
+  const pageMeta = (() => {
+    if (pathname.includes("/meetings")) return { section: "Work", title: "Meetings" };
+    if (pathname.includes("/forms")) return { section: "Work", title: "Forms" };
+    if (pathname.includes("/signatures")) return { section: "Work", title: "Signatures" };
+    if (pathname.includes("/contract-assistant")) return { section: "Work", title: "Contracts" };
+    if (pathname.includes("/dyslexic")) return { section: "Work", title: "Dyslexic CRM" };
+    if (pathname.includes("/members")) return { section: "Governance", title: "Members" };
+    if (pathname.includes("/iam")) return { section: "Governance", title: "IAM" };
+    if (pathname.includes("/audit")) return { section: "Governance", title: "Audit log" };
+    if (pathname.includes("/forks")) return { section: "Network", title: "Forks" };
+    if (pathname.includes("/finance")) return { section: "Network", title: "Finance" };
+    if (pathname.includes("/settings")) return { section: "Network", title: "Settings" };
+    if (pathname.includes("/profile")) return { section: "Overview", title: "Profile" };
+    return { section: "Overview", title: "Dashboard" };
+  })();
 
   const displayName = user?.name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName
@@ -43,7 +67,7 @@ export default function Topbar() {
         <button
           type="button"
           onClick={() => {
-            signOut({ callbackUrl: "/login" });
+            signOut({ callbackUrl: "/login", redirect: true });
           }}
           className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-[#fc920d] bg-[#fc920d] px-3 py-1.5 text-xs font-bold text-[#120f0a] shadow-[2px_2px_0_#120f0a] transition-transform hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none"
         >

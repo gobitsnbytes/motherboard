@@ -12,6 +12,7 @@ module.exports = {
         burgundy: "#97192c",
         orange: "#fc920d",
         dark: "#120f0a",
+        surface: "#141418",
         // Neobrutalism tokens from @bnb/ui
         main: "var(--main)",
         "main-foreground": "var(--main-foreground)",
@@ -25,15 +26,22 @@ module.exports = {
       },
       fontFamily: {
         heading: ["'Inter'", "sans-serif"],
-        body: ["'Merriweather'", "serif"],
-        base: ["'Merriweather'", "Georgia", "serif"],
+        display: ["'Anton'", "'Inter'", "sans-serif"],
+        body: ["'Merriweather'", "'Georgia'", "serif"],
+        base: ["'Merriweather'", "'Georgia'", "serif"],
+        mono: ["'JetBrains Mono'", "'Fira Code'", "monospace"],
       },
       borderRadius: {
-        DEFAULT: "9999px",
+        none: "0px",
         base: "var(--border-radius)",
+        sm: "2px",
+        md: "4px",
       },
       boxShadow: {
         shadow: "var(--shadow)",
+        light: "2px 2px 0px 0px rgba(0, 0, 0, 1)",
+        dark: "4px 4px 0px 0px rgba(0, 0, 0, 1)",
+        heavy: "6px 6px 0px 0px rgba(0, 0, 0, 1)",
       },
       translate: {
         boxShadowX: "var(--box-shadow-x)",
@@ -45,3 +53,4 @@ module.exports = {
   },
   plugins: [],
 }
+

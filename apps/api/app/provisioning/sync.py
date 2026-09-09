@@ -89,18 +89,20 @@ async def run_sync(
         accounts_by_discord_id = {acc.discord_id: acc for acc in accounts}
         registered_user_ids = [acc.user_id for acc in accounts]
 
-        # Fetch memberships created by discord_sync only for registered guild members
+        # Fetch all existing memberships for registered guild members (to check existing user-group pairs)
         memberships_stmt = select(Membership).where(
-            Membership.source == "discord_sync",
             Membership.user_id.in_(registered_user_ids)
         ) if registered_user_ids else select(Membership).where(False)
         memberships_res = await db.execute(memberships_stmt)
-        sync_memberships = memberships_res.scalars().all()
+        all_memberships = memberships_res.scalars().all()
 
         # Group memberships by user_id
-        memberships_by_user: Dict[Any, List[Membership]] = {}
-        for m in sync_memberships:
-            memberships_by_user.setdefault(m.user_id, []).append(m)
+        all_memberships_by_user: Dict[Any, List[Membership]] = {}
+        sync_memberships_by_user: Dict[Any, List[Membership]] = {}
+        for m in all_memberships:
+            all_memberships_by_user.setdefault(m.user_id, []).append(m)
+            if m.source == "discord_sync":
+                sync_memberships_by_user.setdefault(m.user_id, []).append(m)
 
         members_synced = 0
         members_added = 0
@@ -133,13 +135,17 @@ async def run_sync(
                 if role_id in mapping_dict
             }
 
-            # Current memberships of the user created by discord_sync
-            user_sync_memberships = memberships_by_user.get(user_id, [])
-            current_group_ids = {m.group_id for m in user_sync_memberships}
+            # All current memberships of the user (any source) and discord_sync managed memberships
+            user_all_memberships = all_memberships_by_user.get(user_id, [])
+            user_sync_memberships = sync_memberships_by_user.get(user_id, [])
 
-            # Identify groups to add and remove
-            groups_to_add = target_group_ids - current_group_ids
-            groups_to_remove = current_group_ids - target_group_ids
+            all_existing_group_ids = {m.group_id for m in user_all_memberships}
+            current_sync_group_ids = {m.group_id for m in user_sync_memberships}
+
+            # Identify groups to add (only if user doesn't already belong to group via ANY source)
+            groups_to_add = target_group_ids - all_existing_group_ids
+            # Identify groups to remove (only among discord_sync managed memberships)
+            groups_to_remove = current_sync_group_ids - target_group_ids
 
             # ADD missing memberships
             for g_id in groups_to_add:

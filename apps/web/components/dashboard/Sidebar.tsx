@@ -13,9 +13,16 @@ import {
   X,
   Puzzle,
   Calendar,
+  Handshake,
+  FileSignature,
   Coins,
+  FileCheck,
+  ClipboardList,
+  GitBranch,
+  UserCheck,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
+import { APP_VERSION_LABEL } from "../../lib/version";
 
 interface UiPanel {
   id: string;
@@ -33,14 +40,28 @@ interface ActivePlugin {
   ui_panels: UiPanel[];
 }
 
-const navItems = [
-  { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
-  { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
-  { label: "Members", href: "/dashboard/members", icon: Users },
-  { label: "Finance", href: "/finance", icon: Coins },
-  { label: "IAM", href: "/dashboard/iam", icon: Shield },
-  { label: "Audit Log", href: "/dashboard/audit", icon: ScrollText },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+const navGroups = [
+  { label: "Overview", items: [
+    { label: "Dashboard", href: "/dashboard/overview", icon: LayoutDashboard },
+    { label: "Profile", href: "/dashboard/profile", icon: UserCheck },
+  ] },
+  { label: "Work", items: [
+    { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
+    { label: "Forms", href: "/dashboard/forms", icon: ClipboardList },
+    { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
+    { label: "Contracts", href: "/dashboard/contract-assistant", icon: FileCheck },
+    { label: "Dyslexic CRM", href: "/dashboard/dyslexic", icon: Handshake },
+  ] },
+  { label: "Governance", items: [
+    { label: "Members", href: "/dashboard/members", icon: Users },
+    { label: "IAM", href: "/dashboard/iam", icon: Shield },
+    { label: "Audit log", href: "/dashboard/audit", icon: ScrollText },
+  ] },
+  { label: "Network", items: [
+    { label: "Forks", href: "/dashboard/forks", icon: GitBranch },
+    { label: "Finance", href: "/dashboard/finance", icon: Coins },
+    { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  ] },
 ] as const;
 
 function DynamicIcon({ name, className }: { name: string; className?: string }) {
@@ -104,7 +125,7 @@ function NavList({
                 key={panel.id}
                 href={panel.href}
                 onClick={onNavigate}
-                className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`flex min-h-11 items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                       ? "bg-[#97192c] text-white border-2 border-[#fc920d] shadow-[2px_2px_0_#120f0a] translate-x-[2px] translate-y-[2px]"
                       : "text-white/75 hover:bg-white/10 hover:text-white border-2 border-transparent"
@@ -182,7 +203,7 @@ export default function Sidebar() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="fixed inset-0 bg-black/60"
+            className="fixed inset-0 bg-black/80"
             onClick={closeMobile}
             aria-hidden="true"
           />
@@ -194,14 +215,14 @@ export default function Sidebar() {
                   alt="bits&bytes logo"
                   className="h-7 w-auto select-none"
                 />
-                <span className="font-heading font-bold text-sm tracking-wider text-foreground">
-                  bits&bytes
+                <span className="font-heading font-black text-sm tracking-wider text-white uppercase">
+                  bits&bytes™
                 </span>
               </div>
               <button
                 type="button"
                 onClick={closeMobile}
-                className="flex items-center justify-center size-8 rounded-base text-foreground hover:bg-main hover:text-main-foreground transition-colors"
+                className="flex size-11 items-center justify-center rounded-base border-2 border-black/50 text-white transition-colors hover:border-orange hover:text-orange"
                 aria-label="Close sidebar"
               >
                 <X className="size-5" />

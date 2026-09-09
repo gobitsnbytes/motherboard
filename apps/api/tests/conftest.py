@@ -12,14 +12,25 @@ os.environ.setdefault("DISCORD_GUILD_ID", "mock_guild_id")
 os.environ["TESTING"] = "True"
 db_url = os.environ.get("DATABASE_URL")
 if not db_url or "sqlite" in db_url:
-    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///test_temp_router.db"
+    db_file = "test_temp_router.db"
+    if os.path.exists(db_file):
+        try:
+            os.remove(db_file)
+        except Exception:
+            pass
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{db_file}"
 os.environ.setdefault("SESSION_SECRET", "mock_session_secret_32_bytes_long_secret_123")
 os.environ.setdefault("API_INTERNAL_SECRET", "mock_internal_secret")
 os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")
+os.environ.setdefault("SPARKCLOUD_API_KEY", "sc-ai-test_key_123")
+os.environ.setdefault("INBOUND_EMAIL_WEBHOOK_SECRET", "inbound_sec_8f9a2b4c1d3e5f6g")
+os.environ.setdefault("SMTP_PASS", "test_smtp_pass_123")
+os.environ.setdefault("DISCORD_CLOUD_APPROVAL_WEBHOOK_URL", "https://discord.com/api/webhooks/mock_cloud_approval")
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import app.db.models  # Ensure all models are registered on Base.metadata
 from app.db.models import Base, User
 from app.dependencies import canonical_auth_path
 from sqlalchemy.dialects.postgresql import JSONB
@@ -31,34 +42,54 @@ from sqlalchemy.ext.compiler import compiles
 def compile_jsonb_sqlite(type_, compiler, **kw):
     return "JSON"
 
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
+@compiles(PG_UUID, 'sqlite')
+def compile_uuid_sqlite(type_, compiler, **kw):
+    return "CHAR(36)"
+
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
 engine = create_async_engine(TEST_DATABASE_URL)
 TestingSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def cleanup_engine():
+async def init_session_db():
+    import app.db.models
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
     yield
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
+    except Exception:
+        pass
     await engine.dispose()
+
+
+from sqlalchemy import text
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db(request):
-    # Clear DB engine cache and config settings cache
-    from app.database import clear_db_cache
+    import app.database
     from app.config import get_settings
-    clear_db_cache()
+    import app.db.models
+
+    app.database.get_engine = lambda: engine
+    app.database.get_sessionmaker = lambda: TestingSessionLocal
     get_settings.cache_clear()
 
-    # Skip setup/teardown if the test is in test_phase1 to avoid interference
-    if "test_phase1" in request.module.__name__:
-        yield
-        return
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with TestingSessionLocal() as session:
+        await session.execute(text("PRAGMA foreign_keys = OFF;"))
+        for table in Base.metadata.sorted_tables:
+            await session.execute(table.delete())
+        await session.execute(text("PRAGMA foreign_keys = ON;"))
+        await session.commit()
     yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+
 
 @pytest_asyncio.fixture
 async def db_session():

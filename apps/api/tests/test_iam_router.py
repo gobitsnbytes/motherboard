@@ -76,14 +76,17 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
     db_session.add(user)
     await db_session.commit()
 
-    group = Group(name="Track Tech", slug="sg_track_tech")
-    db_session.add(group)
-    await db_session.commit()
+    result = await db_session.execute(select(Group).where(Group.slug == "sg_track_tech"))
+    group = result.scalar_one_or_none()
+    if not group:
+        group = Group(name="Track Tech", slug="sg_track_tech_test_iam")
+        db_session.add(group)
+        await db_session.commit()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
-            "discord_role_id": "role_1001",
+            "discord_role_id": "role_1001_iam_unique",
             "discord_role_name": "Discord Tech",
             "group_id": str(group.id),
             "sync_enabled": True,
@@ -94,7 +97,7 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
         assert response.status_code == 200
         data = response.json()
         assert data["priority"] == 42
-        assert data["discord_role_id"] == "role_1001"
+        assert data["discord_role_id"] == "role_1001_iam_unique"
 
         # Update mapping
         payload["priority"] = 99
@@ -104,7 +107,7 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
         assert data["priority"] == 99
 
         # Verify database record directly
-        stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.discord_role_id == "role_1001")
+        stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.discord_role_id == "role_1001_iam_unique")
         res = await db_session.execute(stmt)
         record = res.scalar_one()
         assert record.priority == 99

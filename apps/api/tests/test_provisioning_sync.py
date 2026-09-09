@@ -14,7 +14,7 @@ from app.provisioning.sync import run_sync
 @pytest.mark.asyncio
 async def test_sync_happy_path(db_session: AsyncSession):
     # 1. Create a group
-    group = Group(slug="sg_tech_lead", name="Tech Lead", is_system=True)
+    group = Group(slug="test_sync_group_1", name="Tech Lead", is_system=True)
     db_session.add(group)
     await db_session.commit()
 
@@ -84,27 +84,27 @@ async def test_sync_happy_path(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_sync_removes_stale_memberships(db_session: AsyncSession):
     # User currently has membership from discord_sync, but role is removed on Discord
-    group = Group(slug="sg_tech_lead", name="Tech Lead", is_system=True)
+    group = Group(slug="test_sync_group_2", name="Tech Lead", is_system=True)
     db_session.add(group)
     await db_session.commit()
 
     mapping = DiscordRoleMapping(
-        discord_role_id="role_123",
-        discord_role_name="Discord Tech Lead",
+        discord_role_id="role_123_stale",
+        discord_role_name="Discord Tech Lead Stale",
         group_id=group.id,
         sync_enabled=True,
         priority=0,
     )
     db_session.add(mapping)
 
-    user = User(display_name="Alice", is_active=True)
+    user = User(display_name="Alice Stale", is_active=True)
     db_session.add(user)
     await db_session.commit()
 
     da = DiscordAccount(
         user_id=user.id,
-        discord_id="discord_alice",
-        username="alice_on_discord",
+        discord_id="discord_alice_stale",
+        username="alice_on_discord_stale",
     )
     db_session.add(da)
 
@@ -122,7 +122,7 @@ async def test_sync_removes_stale_memberships(db_session: AsyncSession):
     mock_client.get_guild_members = AsyncMock(
         return_value=[
             {
-                "user": {"id": "discord_alice", "username": "alice_on_discord"},
+                "user": {"id": "discord_alice_stale", "username": "alice_on_discord_stale"},
                 "roles": [],  # role removed
             }
         ]
@@ -146,27 +146,27 @@ async def test_sync_removes_stale_memberships(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     # Manual membership should not be deleted even if roles don't match
-    group = Group(slug="sg_tech_lead", name="Tech Lead", is_system=True)
+    group = Group(slug="test_sync_group_3", name="Tech Lead", is_system=True)
     db_session.add(group)
     await db_session.commit()
 
     mapping = DiscordRoleMapping(
-        discord_role_id="role_123",
-        discord_role_name="Discord Tech Lead",
+        discord_role_id="role_123_manual",
+        discord_role_name="Discord Tech Lead Manual",
         group_id=group.id,
         sync_enabled=True,
         priority=0,
     )
     db_session.add(mapping)
 
-    user = User(display_name="Alice", is_active=True)
+    user = User(display_name="Alice Manual", is_active=True)
     db_session.add(user)
     await db_session.commit()
 
     da = DiscordAccount(
         user_id=user.id,
-        discord_id="discord_alice",
-        username="alice_on_discord",
+        discord_id="discord_alice_manual",
+        username="alice_on_discord_manual",
     )
     db_session.add(da)
 
@@ -183,7 +183,7 @@ async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     mock_client.get_guild_members = AsyncMock(
         return_value=[
             {
-                "user": {"id": "discord_alice", "username": "alice_on_discord"},
+                "user": {"id": "discord_alice_manual", "username": "alice_on_discord_manual"},
                 "roles": [],  # no mapped roles
             }
         ]

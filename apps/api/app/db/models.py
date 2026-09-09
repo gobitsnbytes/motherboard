@@ -28,6 +28,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -36,6 +37,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -100,6 +102,12 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    title: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    skills: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    chrono_v2_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    profile_completed: Mapped[bool | None] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -870,6 +878,9 @@ class VirtualTransaction(Base):
         "VirtualAccount", back_populates="credits", foreign_keys=[destination_account_id]
     )
 
+    def __repr__(self) -> str:
+        return f"<VirtualTransaction id={self.id} amount={self.amount_paise} type={self.reference_type!r}>"
+
 
 # ---------------------------------------------------------------------------
 # Discord Bot Tables
@@ -897,6 +908,7 @@ class BotMeeting(Base):
     booked_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     scope: Mapped[str] = mapped_column(String(50), default="invite", server_default="invite", nullable=False)
     activated_at: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    recording_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class UserAvailability(Base):
@@ -1007,6 +1019,37 @@ class MeetingRescheduleHistory(Base):
     rescheduled_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
+class GuestVerification(Base):
+    """Persistent guest email verification state.
+
+    Holds the SHA-256 OTP hash before verification and the hashed session
+    token afterwards, so guest flows survive restarts and multiple workers.
+    """
+
+    __tablename__ = "guest_verifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    # SHA-256 hex digest of the OTP (pre-verify) or session token (post-verify)
+    otp_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    booking_link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    meeting_id: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("meetings.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<GuestVerification email={self.email!r} verified={self.verified}>"
+
+
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 
@@ -1082,5 +1125,590 @@ class BotSetting(Base):
     val: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+# ---------------------------------------------------------------------------
+# Dyslexic — Sponsorship & Outreach
+# ---------------------------------------------------------------------------
+
+class DyslexicCompany(Base):
+    """A prospective sponsor. Research is AI-generated and advisory only."""
+
+    __tablename__ = "dyslexic_companies"
+    __table_args__ = (
+        Index("ix_dyslexic_companies_stage", "stage"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Lowercased, scheme/www/path stripped. Unique so the same sponsor cannot
+    # be added twice. Null when no website was supplied.
+    normalized_domain: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True, index=True
+    )
+    stage: Mapped[str] = mapped_column(String(30), default="research", nullable=False)
+    research_status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False
+    )
+    research_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Model output kept verbatim when JSON parsing fails, so a bad response is
+    # debuggable instead of lost.
+    research_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
+    research_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    research_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    research_model: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    added_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    fork_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("forks.id", ondelete="SET NULL"), nullable=True
+    )
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    contacts: Mapped[list["DyslexicContact"]] = relationship(
+        "DyslexicContact", back_populates="company", cascade="all, delete-orphan"
+    )
+    adder: Mapped["User | None"] = relationship("User", foreign_keys=[added_by])
+
     def __repr__(self) -> str:
-        return f"<VirtualTransaction id={self.id} amount={self.amount_paise} type={self.reference_type!r}>"
+        return f"<DyslexicCompany name={self.name!r} stage={self.stage!r}>"
+
+
+class DyslexicContact(Base):
+    """A person at a prospective sponsor, and the outreach state for them."""
+
+    __tablename__ = "dyslexic_contacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "email", name="uq_dyslexic_contact_company_email"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # Always stored lowercased so uniqueness is case-insensitive in practice.
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="new", nullable=False)
+    # Set once at the first send and never overwritten — this is the record of
+    # who owns this outreach.
+    contacted_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    contacted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Soft claim while drafting. Expires on its own; no cleanup job.
+    claimed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claim_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    added_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    company: Mapped["DyslexicCompany"] = relationship(
+        "DyslexicCompany", back_populates="contacts"
+    )
+    contacter: Mapped["User | None"] = relationship("User", foreign_keys=[contacted_by])
+    claimer: Mapped["User | None"] = relationship("User", foreign_keys=[claimed_by])
+    adder: Mapped["User | None"] = relationship("User", foreign_keys=[added_by])
+
+    def __repr__(self) -> str:
+        return f"<DyslexicContact name={self.name!r} status={self.status!r}>"
+
+
+class DyslexicEmail(Base):
+    """A generated draft. Kept whether or not it was ever sent."""
+
+    __tablename__ = "dyslexic_emails"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), default="initial", nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    tone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    extra_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    generated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<DyslexicEmail contact={self.contact_id} kind={self.kind!r}>"
+
+
+class DyslexicOutreach(Base):
+    """One 'I've Sent Email' click. The duplicate guard lives here."""
+
+    __tablename__ = "dyslexic_outreach"
+    __table_args__ = (
+        # At most one initial email per contact, enforced by the database so a
+        # race between two volunteers cannot produce two.
+        Index(
+            "uq_dyslexic_outreach_initial_per_contact",
+            "contact_id",
+            unique=True,
+            postgresql_where=text("kind = 'initial'"),
+            sqlite_where=text("kind = 'initial'"),
+        ),
+        Index("ix_dyslexic_outreach_sent_by_kind", "sent_by", "kind"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Null when the volunteer wrote the email themselves instead of generating.
+    email_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_emails.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), default="initial", nullable=False)
+    sent_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    outcome: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    outcome_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    outcome_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    outcome_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<DyslexicOutreach contact={self.contact_id} kind={self.kind!r}>"
+
+
+class DyslexicFollowUp(Base):
+    """A reminder to chase. At most one pending per contact."""
+
+    __tablename__ = "dyslexic_follow_ups"
+    __table_args__ = (
+        Index(
+            "ix_dyslexic_follow_ups_assignee_due", "assigned_to", "status", "due_at"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    outreach_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_outreach.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<DyslexicFollowUp contact={self.contact_id} due={self.due_at}>"
+
+
+class DyslexicEvent(Base):
+    """
+    Per-company product timeline.
+
+    Distinct from audit_log, which stays a platform-wide forensic record
+    indexed by action rather than by company. Both are written; they serve
+    different readers.
+    """
+
+    __tablename__ = "dyslexic_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dyslexic_contacts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    summary: Mapped[str] = mapped_column(String(300), nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON, name="metadata", default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    actor: Mapped["User | None"] = relationship("User", foreign_keys=[actor_id])
+
+    def __repr__(self) -> str:
+        return f"<DyslexicEvent kind={self.kind!r} company={self.company_id}>"
+
+
+# ---------------------------------------------------------------------------
+# Digital Signatures System (bnb-signatures)
+# ---------------------------------------------------------------------------
+
+class SignatureRequest(Base):
+    """Master record for a digital signature contract request."""
+    __tablename__ = "signature_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="draft", nullable=False)  # draft, pending, completed, voided, expired
+    original_file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    signed_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    document_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    recipients: Mapped[list["SignatureRecipient"]] = relationship("SignatureRecipient", back_populates="request", cascade="all, delete-orphan", order_by="SignatureRecipient.signing_order")
+    fields: Mapped[list["SignatureField"]] = relationship("SignatureField", back_populates="request", cascade="all, delete-orphan")
+    audit_logs: Mapped[list["SignatureAuditLog"]] = relationship("SignatureAuditLog", back_populates="request", cascade="all, delete-orphan", order_by="SignatureAuditLog.created_at")
+
+
+class SignatureRecipient(Base):
+    """Signatory or viewer associated with a signature request."""
+    __tablename__ = "signature_recipients"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default="signer", nullable=False)  # signer, viewer, cc
+    signing_order: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, sent, viewed, signed, declined
+    access_token: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    access_passcode: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    requires_otp: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    otp_code: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dsc_type: Mapped[str | None] = mapped_column(String(50), nullable=True)  # hardware_token, software_pfx
+    dsc_issuer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dsc_serial: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    dsc_common_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    allowed_sig_type: Mapped[str | None] = mapped_column(String(50), nullable=True, default="any")  # "any", "dsc_only", "email_only"
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="recipients")
+    fields: Mapped[list["SignatureField"]] = relationship("SignatureField", back_populates="recipient", cascade="all, delete-orphan")
+
+
+class SignatureField(Base):
+    """Interactive field overlay placed on document page canvas."""
+    __tablename__ = "signature_fields"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    recipient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_recipients.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # signature, fullname, date, text, checkbox
+    page_number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-indexed
+    pos_x: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    pos_y: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    width: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    height: Mapped[float] = mapped_column(Float, nullable=False)  # percentage (0-100)
+    required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)  # filled text / signature base64 image data URL
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="fields")
+    recipient: Mapped["SignatureRecipient"] = relationship("SignatureRecipient", back_populates="fields")
+
+
+class SignatureAuditLog(Base):
+    """Immutable event log for all signature workflow steps."""
+    __tablename__ = "signature_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    recipient_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_recipients.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)  # created, sent, viewed, signed, declined, completed, voided
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="audit_logs")
+
+
+# ---------------------------------------------------------------------------
+# Public forms
+# ---------------------------------------------------------------------------
+
+class PublicForm(Base):
+    """A versioned, staff-authored public form. Blocks remain JSON to keep the builder flexible."""
+    __tablename__ = "public_forms"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    slug: Mapped[str] = mapped_column(String(160), unique=True, index=True, nullable=False)
+    description_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blocks: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    submissions: Mapped[list["PublicFormSubmission"]] = relationship("PublicFormSubmission", back_populates="form", cascade="all, delete-orphan")
+
+
+class PublicFormSubmission(Base):
+    __tablename__ = "public_form_submissions"
+    __table_args__ = (UniqueConstraint("form_id", "idempotency_key", name="uq_form_submission_idempotency"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    form_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("public_forms.id", ondelete="CASCADE"), index=True, nullable=False)
+    answers: Mapped[dict] = mapped_column(JSON, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    terms_accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    form: Mapped["PublicForm"] = relationship("PublicForm", back_populates="submissions")
+    uploads: Mapped[list["PublicFormUpload"]] = relationship("PublicFormUpload", back_populates="submission", cascade="all, delete-orphan")
+
+
+class PublicFormUpload(Base):
+    __tablename__ = "public_form_uploads"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    submission_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("public_form_submissions.id", ondelete="CASCADE"), index=True, nullable=False)
+    field_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+    submission: Mapped["PublicFormSubmission"] = relationship("PublicFormSubmission", back_populates="uploads")
+
+
+class ContractAssistantContract(Base):
+    """Internal Contract Assistant reviewed contracts."""
+    __tablename__ = "ca_contracts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    counterparty: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="in_review", nullable=False)  # in_review, out_for_signature, dotted, archived
+    value: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    original_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    message_id: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)  # Deduplication for inbound email
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    clauses: Mapped[list["ContractAssistantClause"]] = relationship("ContractAssistantClause", back_populates="contract", cascade="all, delete-orphan")
+    findings: Mapped[list["ContractAssistantFinding"]] = relationship("ContractAssistantFinding", back_populates="contract", cascade="all, delete-orphan")
+    signatories: Mapped[list["ContractAssistantSignatory"]] = relationship("ContractAssistantSignatory", back_populates="contract", cascade="all, delete-orphan")
+    envelopes: Mapped[list["ContractAssistantEnvelope"]] = relationship("ContractAssistantEnvelope", back_populates="contract", cascade="all, delete-orphan")
+    events: Mapped[list["ContractAssistantEvent"]] = relationship("ContractAssistantEvent", back_populates="contract", cascade="all, delete-orphan")
+
+
+class ContractAssistantClause(Base):
+    """Parsed clauses of a contract."""
+    __tablename__ = "ca_clauses"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    ref: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., §4.2
+    heading: Mapped[str] = mapped_column(String(255), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    page_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="clauses")
+    findings: Mapped[list["ContractAssistantFinding"]] = relationship("ContractAssistantFinding", back_populates="clause", cascade="all, delete-orphan")
+
+
+class ContractAssistantFinding(Base):
+    """Merged findings list (Rule Engine + LLM Risk Pass)."""
+    __tablename__ = "ca_findings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    clause_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_clauses.id", ondelete="CASCADE"), nullable=True)
+    clause_ref: Mapped[str] = mapped_column(String(50), nullable=False)
+    heading: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)  # rule_engine | llm_judgment
+    severity: Mapped[str] = mapped_column(String(50), nullable=False)  # high | medium | low
+    risk_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    plain_english: Mapped[str] = mapped_column(Text, nullable=False)
+    suggested_action: Mapped[str] = mapped_column(Text, nullable=False)
+    policy_link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    template_fix: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_rewrite: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tier: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # 1 = Template swap, 2 = LLM redline
+    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)  # open, resolved, dismissed
+    dismissed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="findings")
+    clause: Mapped["ContractAssistantClause"] = relationship("ContractAssistantClause", back_populates="findings")
+
+
+class ContractAssistantSignatory(Base):
+    """Signatory tracked for contract assistant dispatch."""
+    __tablename__ = "ca_signatories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), default="signer", nullable=False)
+    envelope_status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="signatories")
+
+
+class ContractAssistantEnvelope(Base):
+    """Linked bnb-signatures request envelope."""
+    __tablename__ = "ca_envelopes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    signature_request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="envelopes")
+    signature_request: Mapped["SignatureRequest"] = relationship("SignatureRequest")
+
+
+class ContractAssistantEvent(Base):
+    """Audit event trail for Contract Assistant actions."""
+    __tablename__ = "ca_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ca_contracts.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(String(100), nullable=False)  # ingested, analyzed, fix_applied, finding_dismissed, dispatched
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    contract: Mapped["ContractAssistantContract"] = relationship("ContractAssistantContract", back_populates="events")

@@ -65,21 +65,9 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
               Virtual Ledger · Paper Accounts Only
             </span>
           </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: "#22c55e",
-                display: "inline-block",
-                boxShadow: "0 0 6px rgba(34,197,94,0.5)",
-              }}
-            />
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "#555", letterSpacing: "0.05em" }}>
-              GOBITSNBYTES FOUNDATION
-            </span>
+          <div className="flex items-center gap-2 text-xs text-[#625b52]">
+            <span aria-hidden="true" className="size-2 bg-emerald-400" />
+            <span className="hidden sm:inline">Internal ledger</span>
           </div>
         </header>
 

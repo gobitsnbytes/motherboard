@@ -43,33 +43,76 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Ensure Alembic can discover DATABASE_URL from the environment
     _ensure_alembic_env(settings)
 
-    # Run Alembic migrations programmatically
-    logger.info("Running Alembic migrations…")
-    import asyncio
-    from alembic import command
-    from alembic.config import Config as AlembicConfig
-
-    def _run_migrations() -> None:
-        alembic_cfg = AlembicConfig("alembic.ini")
-        alembic_cfg.set_main_option("skip_logging_config", "True")
-        command.upgrade(alembic_cfg, "head")
-
-    await asyncio.to_thread(_run_migrations)
-    logger.info("Migrations complete.")
-
-    # Seed reference data
+    # Session factory for DB access
     session_factory = get_sessionmaker()
-    async with session_factory() as session:
-        await run_seeds(session)
+
+    # Run Alembic migrations programmatically (graceful fallback if DB is offline/quota exceeded)
+    try:
+        logger.info("Running Alembic migrations…")
+        import asyncio
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+
+        def _run_migrations() -> None:
+            alembic_cfg = AlembicConfig("alembic.ini")
+            alembic_cfg.set_main_option("skip_logging_config", "True")
+            command.upgrade(alembic_cfg, "head")
+
+        await asyncio.to_thread(_run_migrations)
+        logger.info("Migrations complete.")
+
+        # Seed system configuration (no operational data)
+        async with session_factory() as session:
+            await run_seeds(session)
+
+        # Pull live operational data from Notion (forks + team). Best-effort:
+        # skipped when NOTION_TOKEN/NOTION_TEAM_DB are not configured.
+        try:
+            from app.provisioning.notion_sync import sync_forks_from_notion, sync_team_from_notion
+
+            async with session_factory() as session:
+                fork_sync = await sync_forks_from_notion(session)
+                team_sync = await sync_team_from_notion(session)
+            logger.info(
+                "Startup Notion sync: forks=%s (%s), team=%s (%s)",
+                fork_sync.get("status"),
+                fork_sync.get("synced_count", 0),
+                team_sync.get("status"),
+                team_sync.get("synced_count", 0),
+            )
+        except Exception as notion_err:
+            logger.warning("Startup Notion sync failed (non-fatal): %s", notion_err)
+    except Exception as db_err:
+        logger.warning("Primary DB migration/seed failed (%s). Initializing local SQLite engine fallback...", db_err)
+        try:
+            from app.database import get_sqlite_engine, clear_db_cache
+            from app.db.models import Base
+            sqlite_engine = get_sqlite_engine()
+            async with sqlite_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            os.environ["USE_LOCAL_SQLITE"] = "true"
+            clear_db_cache()
+            session_factory = get_sessionmaker()
+            async with session_factory() as session:
+                await run_seeds(session)
+            logger.info("Local SQLite database fallback initialized & seeded successfully.")
+        except Exception as sqlite_err:
+            logger.error("Failed to initialize SQLite fallback: %s", sqlite_err)
 
     # Start the event bus so that plugins can publish/subscribe during on_load
-    await event_bus.start(settings.redis_url)
+    try:
+        await event_bus.start(settings.redis_url)
+    except Exception as redis_err:
+        logger.warning(f"EventBus startup skipped: {redis_err}")
 
     # Initialize and run dynamic PluginLoader
-    from app.plugin_sdk.loader import PluginLoader
-    plugin_loader = PluginLoader(application, session_factory)
-    application.state.plugin_loader = plugin_loader
-    await plugin_loader.discover_and_load()
+    try:
+        from app.plugin_sdk.loader import PluginLoader
+        plugin_loader = PluginLoader(application, session_factory)
+        application.state.plugin_loader = plugin_loader
+        await plugin_loader.discover_and_load()
+    except Exception as plugin_err:
+        logger.warning(f"PluginLoader startup skipped: {plugin_err}")
 
     # Start periodic Discord sync scheduler if enabled
     if settings.enable_sync_scheduler:
@@ -80,6 +123,19 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             bot_token=settings.discord_bot_token,
         )
 
+    # Start Legal Agent jobs (inbox poller + signature nudge sequencer)
+    try:
+        from app.services.legal_agent import start_legal_agent_jobs
+        await start_legal_agent_jobs()
+    except Exception as legal_agent_err:
+        logger.warning(f"Legal Agent scheduler startup skipped: {legal_agent_err}")
+
+    try:
+        from app.routers.forms import start_form_cleanup
+        await start_form_cleanup()
+    except Exception as form_cleanup_err:
+        logger.warning(f"Public form upload cleanup scheduler skipped: {form_cleanup_err}")
+
     logger.info("bnb-api is ready.")
     yield
 
@@ -88,6 +144,16 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     if settings.enable_sync_scheduler:
         from app.provisioning.scheduler import stop_scheduler
         await stop_scheduler()
+
+    # Stop Legal Agent scheduler
+    try:
+        from app.services.legal_agent import stop_legal_agent_jobs
+        await stop_legal_agent_jobs()
+    except Exception as legal_agent_stop_err:
+        logger.warning(f"Legal Agent scheduler shutdown skipped: {legal_agent_stop_err}")
+
+    from app.routers.forms import stop_form_cleanup
+    await stop_form_cleanup()
 
     # Unload plugins and trigger their on_unload hooks BEFORE stopping event_bus
     if hasattr(application.state, "plugin_loader"):
@@ -107,7 +173,7 @@ def create_app() -> FastAPI:
 
     application = FastAPI(
         title="bnb-motherboard API",
-        version="0.1.1",
+        version=settings.app_version,
         description="Internal operations platform for the bits&bytes network.",
         lifespan=lifespan,
         openapi_url="/api/openapi.json",
@@ -125,7 +191,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings
+    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic, cloud, signatures, contract_assistant, forms
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
@@ -138,6 +204,11 @@ def create_app() -> FastAPI:
     application.include_router(iam.router, prefix="/api/iam", tags=["iam"])
     application.include_router(meetings.router)
     application.include_router(admin.router)
+    application.include_router(dyslexic.router)
+    application.include_router(cloud.router)
+    application.include_router(signatures.router)
+    application.include_router(contract_assistant.router)
+    application.include_router(forms.router)
 
 
     return application

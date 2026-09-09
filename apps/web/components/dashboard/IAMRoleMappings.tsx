@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@bnb/ui";
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@bnb/ui";
 
 interface DiscordRole {
   id: string;
@@ -49,13 +49,14 @@ export default function IAMRoleMappings() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadMappings = async () => {
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
 
     const headers = getHeaders();
-    Promise.all([
+    try {
+      const [groupsData, rolesData, mappingsData] = await Promise.all([
       fetch(`${API_BASE}/iam/groups`, { headers }).then(async (res) => {
         if (!res.ok) {
           throw new Error(`Could not load groups: ${res.status}`);
@@ -74,25 +75,28 @@ export default function IAMRoleMappings() {
         }
         return res.json();
       }),
-    ])
-      .then(([groupsData, rolesData, mappingsData]) => {
-        setGroups(groupsData ?? []);
-        setRoles(rolesData ?? []);
-        const mappingRecords: Record<string, DiscordRoleMapping> = {};
-        (mappingsData ?? []).forEach((mapping: DiscordRoleMapping) => {
-          mappingRecords[mapping.discord_role_id] = mapping;
-        });
-        setMappings(mappingRecords);
-        const selected: Record<string, string> = {};
-        (rolesData ?? []).forEach((role: DiscordRole) => {
-          selected[role.id] = mappingRecords[role.id]?.group_id ?? "";
-        });
-        setSelectedGroups(selected);
-      })
-      .catch((err) => {
-        setError(err.message ?? "Unable to load IAM role mappings.");
-      })
-      .finally(() => setLoading(false));
+      ]);
+      setGroups(groupsData ?? []);
+      setRoles(rolesData ?? []);
+      const mappingRecords: Record<string, DiscordRoleMapping> = {};
+      (mappingsData ?? []).forEach((mapping: DiscordRoleMapping) => {
+        mappingRecords[mapping.discord_role_id] = mapping;
+      });
+      setMappings(mappingRecords);
+      const selected: Record<string, string> = {};
+      (rolesData ?? []).forEach((role: DiscordRole) => {
+        selected[role.id] = mappingRecords[role.id]?.group_id ?? "";
+      });
+      setSelectedGroups(selected);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load IAM role mappings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMappings();
   }, []);
 
   const sortedRoles = useMemo(
@@ -106,6 +110,7 @@ export default function IAMRoleMappings() {
     () => groups.map((group) => ({
       id: group.id,
       label: group.name,
+      slug: group.slug,
       description: group.description,
       isSystem: group.is_system,
     })),
@@ -164,7 +169,7 @@ export default function IAMRoleMappings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-base border-2 border-border bg-[#111] p-6">
+      <div className="flex flex-col gap-3 rounded-base border-2 border-border bg-main p-6">
         <div>
           <h2 className="text-xl font-heading font-bold text-foreground">Discord Role Mapping</h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -176,10 +181,9 @@ export default function IAMRoleMappings() {
             <span>{groups.length} groups</span>
             <span>{roles.length} Discord roles</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-sm text-foreground/80">
-            <Badge variant="neutral">No optimistic updates</Badge>
-            <Badge variant="neutral">Blocking spinner on save</Badge>
-          </div>
+          <p className="max-w-sm text-right text-xs text-muted-foreground">
+            Changes are saved one role at a time and recorded in the access audit trail.
+          </p>
         </div>
       </div>
 
@@ -199,7 +203,16 @@ export default function IAMRoleMappings() {
         </div>
       ) : null}
 
-      <div className="rounded-base border-2 border-border bg-[#111] p-4">
+      {privilegedMappingCount > 0 ? (
+        <div className="rounded-base border-2 border-orange bg-[#fff4df] p-4 text-sm text-[#6b3b00]" role="status">
+          <p className="font-heading font-bold uppercase tracking-wide">Review privileged mappings</p>
+          <p className="mt-1 text-xs leading-5">
+            {privilegedMappingCount} Discord {privilegedMappingCount === 1 ? "role is" : "roles are"} mapped to Super Admin. Confirm each one is an intentional break-glass role before leaving it enabled.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="rounded-base border-2 border-border bg-main p-4">
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="h-8 w-1/3" />
@@ -223,6 +236,8 @@ export default function IAMRoleMappings() {
                 const selectedGroupId = selectedGroups[role.id] ?? "";
                 const currentMapping = mappingByRole[role.id];
                 const isUnchanged = currentMapping?.group_id === selectedGroupId;
+                const selectedGroup = groupOptions.find((group) => group.id === selectedGroupId);
+                const isPrivileged = selectedGroup?.slug === "sg_super_admin";
                 return (
                   <TableRow key={role.id}>
                     <TableCell>
@@ -249,6 +264,11 @@ export default function IAMRoleMappings() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {isPrivileged ? (
+                          <span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-[#97192c]">
+                            Break-glass access
+                          </span>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>

@@ -34,8 +34,9 @@ rollback() {
     exit 1
 }
 
-# 1. Pull latest code
-echo "--> Pulling latest code from prod..."
+# 1. Ensure working directory ownership & pull latest code
+echo "--> Fixing directory ownership and pulling latest code from prod..."
+sudo chown -R $(whoami):$(id -gn) "$APP_DIR"
 git -C "$APP_DIR" fetch origin prod
 git -C "$APP_DIR" reset --hard origin/prod
 
@@ -46,11 +47,16 @@ if [ "$PREV_COMMIT" = "$NEW_COMMIT" ]; then
     echo "--> No new code changes. Verifying dependencies and restarting..."
 fi
 
+# 1.5. Install monorepo JS dependencies
+echo "--> Installing monorepo Node/Bun dependencies..."
+sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" || rollback
+sudo chown -R deploy:deploy "$APP_DIR"
+
 # 2. Sync python dependencies
 echo "--> Syncing python dependencies..."
 uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
 
-# 3. Run database migrations
+# 3. Run database migrations & auto-sync missing tables
 echo "--> Running database migrations..."
 if [ -f "$APP_DIR/.env" ]; then
     echo "--> Loading environment variables from .env..."
@@ -67,9 +73,48 @@ fi
 export PATH="$API_DIR/.venv/bin:$PATH"
 (cd "$API_DIR" && alembic upgrade head) || rollback
 
-# 4. Restart service
+echo "--> Auto-syncing missing database table schemas..."
+(cd "$API_DIR" && PYTHONPATH=. "$API_DIR/.venv/bin/python" -c "
+import asyncio
+from app.database import get_engine
+from app.db.models import Base
+
+async def sync_db():
+    engine = get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print('--> Database schema metadata synced successfully.')
+
+asyncio.run(sync_db())
+") || rollback
+
+# 3.5 Pre-flight SMTP Credential Check
+echo "--> Verifying SMTP mail server credentials..."
+(cd "$API_DIR" && PYTHONPATH=. "$API_DIR/.venv/bin/python" -c "
+import os, smtplib
+host = os.getenv('SMTP_HOST', 'mail.gobitsnbytes.org')
+port = int(os.getenv('SMTP_PORT', '587'))
+user = os.getenv('SMTP_USER')
+password = os.getenv('SMTP_PASS')
+
+if user and password:
+    try:
+        s = smtplib.SMTP(host, port, timeout=10)
+        s.starttls()
+        s.login(user, password)
+        s.quit()
+        print(f'--> SMTP Pre-flight PASSED for {user}@{host}:{port}')
+    except Exception as e:
+        print(f'⚠️ WARNING: SMTP Pre-flight failed for {user}@{host}:{port} - Error: {e}')
+else:
+    print('--> SMTP credentials not specified in .env, skipping live auth test.')
+") || true
+
+# 4. Restart services
 echo "--> Restarting bnb-api systemd service..."
 sudo systemctl restart "$SERVICE_NAME" || rollback
+echo "--> Restarting bnb-bot systemd service..."
+sudo systemctl restart bnb-bot || rollback
 
 # 5. Health check loop
 echo "--> Performing health checks..."

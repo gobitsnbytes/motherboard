@@ -163,12 +163,15 @@ async def get_current_user(
         from app.db.models import User
         res = await db.execute(select(User).where(User.is_super_admin == True).limit(1))
         sys_user = res.scalar_one_or_none()
+        if not sys_user:
+            res = await db.execute(select(User).order_by(User.created_at).limit(1))
+            sys_user = res.scalar_one_or_none()
         if sys_user:
             user_uuid = sys_user.id
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No super admin user found to bind system context"
+                detail="No user found to bind system context"
             )
     else:
         try:

@@ -127,10 +127,42 @@ class PluginLoader:
                         return
 
             if manifest.router:
-                from fastapi import Depends
+                import copy as copy_module
+
+                from fastapi import APIRouter, Depends
+                from fastapi.routing import APIRoute
                 from app.dependencies import get_current_user
+
+                panel_perms = sorted({p.required_permission for p in manifest.ui_panels if p.required_permission})
+                default_perm = panel_perms[0] if len(panel_perms) == 1 else None
+                if len(panel_perms) > 1:
+                    logger.warning(
+                        f"Plugin {manifest.id} declares multiple distinct panel permissions "
+                        f"({', '.join(panel_perms)}); enforcing only explicit route-level permissions."
+                    )
+
+                # Mount a shallow clone of each route with enforcement deps baked in, so the
+                # plugin's own router object stays pristine and repeated loads never accumulate
+                # dependencies (FastAPI resolves included routers lazily at request time).
+                mount_router = APIRouter()
+                for src_route in manifest.router.routes:
+                    if isinstance(src_route, APIRoute):
+                        mounted_route = copy_module.copy(src_route)
+                        endpoint = getattr(mounted_route, "endpoint", None)
+                        route_perm = getattr(endpoint, "required_permission", None)
+                        if not (isinstance(route_perm, str) and route_perm):
+                            route_perm = default_perm
+                        mounted_route.dependencies = list(src_route.dependencies)
+                        if route_perm:
+                            mounted_route.dependencies.append(
+                                Depends(self._make_permission_dependency(manifest.id, route_perm))
+                            )
+                        mount_router.routes.append(mounted_route)
+                    else:
+                        mount_router.routes.append(src_route)
+
                 self.app.include_router(
-                    manifest.router,
+                    mount_router,
                     prefix=f"/api/plugins/{manifest.id}",
                     tags=[f"plugin:{manifest.id}"],
                     dependencies=[Depends(get_current_user)]
@@ -161,6 +193,15 @@ class PluginLoader:
                         logger.exception(f"Error executing on_unload for plugin {plugin_id}: {e}")
                         await session.rollback()
         self.loaded_plugins.clear()
+
+    def _make_permission_dependency(self, plugin_id: str, permission_key: str):
+        from app.dependencies import CurrentUserDep, DbSession
+        from app.iam.policy import require_permission
+
+        async def enforce_plugin_permission(db: DbSession, principal: CurrentUserDep) -> None:
+            await require_permission(db, principal, permission_key)
+
+        return enforce_plugin_permission
 
     def _make_audit_fn(self, plugin_id: str, session: AsyncSession):
         from app.iam.audit import write_audit_entry
