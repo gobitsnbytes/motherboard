@@ -94,9 +94,9 @@ export default function DashboardFinancePage() {
   const pendingRequests = requests.filter((r) => r.status === "pending");
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-[#141418] p-5 text-white shadow-dark">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-main p-5 text-main-foreground shadow-dark">
         <div>
           <div className="flex items-center gap-2">
             <Coins className="size-6 text-orange" />
@@ -104,7 +104,7 @@ export default function DashboardFinancePage() {
               Financial Operations &amp; Ledger
             </h1>
           </div>
-          <p className="mt-1 text-xs sm:text-sm text-zinc-300 font-base">
+          <p className="mt-1 text-xs sm:text-sm text-main-foreground/80 font-base">
             RazorpayX banking integration &amp; virtual ledger accounts for GOBITSNBYTES FOUNDATION.
           </p>
         </div>
@@ -112,7 +112,7 @@ export default function DashboardFinancePage() {
           <button
             type="button"
             onClick={fetchFinanceData}
-            className="flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs uppercase rounded-base border-2 border-border bg-[#181820] text-zinc-200 hover:text-white shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs uppercase rounded-base border-2 border-border bg-secondary-background text-foreground hover:bg-orange hover:text-black shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
           >
             <RefreshCw className={`size-3.5 mr-1 ${loading ? "animate-spin text-orange" : "text-orange"}`} />
             Refresh
@@ -121,17 +121,17 @@ export default function DashboardFinancePage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-base border-2 border-red-500 bg-red-950/80 p-4 text-xs font-mono font-bold text-red-200 shadow-light">
-          <AlertCircle className="size-5 shrink-0 text-red-400" />
+        <div className="flex items-center gap-3 rounded-base border-2 border-red-700 bg-red-50 p-4 text-xs font-mono font-bold text-red-900 shadow-light">
+          <AlertCircle className="size-5 shrink-0 text-red-700" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Quick Stats Grid */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Total Virtual Balance
             </CardTitle>
             <Coins className="size-4 text-orange" />
@@ -140,17 +140,17 @@ export default function DashboardFinancePage() {
             {loading ? (
               <Skeleton className="h-8 w-28" />
             ) : (
-              <div className="font-heading font-black text-2xl text-white">
+              <div className="font-heading font-black text-2xl text-foreground">
                 ₹{totalBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </div>
             )}
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">Across all active accounts</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-1">Across all active accounts</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Virtual Accounts
             </CardTitle>
             <CreditCard className="size-4 text-orange" />
@@ -159,19 +159,19 @@ export default function DashboardFinancePage() {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-white">
+              <div className="font-heading font-black text-2xl text-foreground">
                 {accounts.length}
               </div>
             )}
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">
+            <p className="text-[11px] font-mono text-muted-foreground mt-1">
               {accounts.filter((a) => a.is_active).length} active ledger nodes
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Pending Requests
             </CardTitle>
             <Clock className="size-4 text-amber-400" />
@@ -180,28 +180,28 @@ export default function DashboardFinancePage() {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-white">
+              <div className="font-heading font-black text-2xl text-foreground">
                 {pendingRequests.length}
               </div>
             )}
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">Awaiting dual authorization</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-1">Awaiting dual authorization</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Governance checks
             </CardTitle>
             <ShieldCheck className="size-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 mt-1">
-              <span className="border-2 border-emerald-800 bg-emerald-950 text-emerald-400 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base shadow-light">
+              <span className="border-2 border-emerald-700 bg-emerald-50 text-emerald-900 px-2 py-0.5 text-[10px] font-mono font-bold rounded-base shadow-light">
                 Policy configured
               </span>
             </div>
-            <p className="text-[11px] font-mono text-zinc-400 mt-2">No informal UPI routing configured</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-2">No informal UPI routing configured</p>
           </CardContent>
         </Card>
       </div>
@@ -209,13 +209,13 @@ export default function DashboardFinancePage() {
       {/* Responsive 2-Column Main Section */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Column: Virtual Accounts */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
+        <Card className="border-2 border-border bg-secondary-background shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-muted pb-3.5">
             <div className="flex items-center gap-2">
               <Building2 className="size-4 text-orange" />
-              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Virtual Accounts</CardTitle>
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">Virtual Accounts</CardTitle>
             </div>
-            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
+            <span className="border border-border bg-secondary-background text-muted-foreground font-mono text-[10px] px-2 py-0.5 rounded-base">
               RazorpayX Sync
             </span>
           </CardHeader>
@@ -237,11 +237,11 @@ export default function DashboardFinancePage() {
                 {accounts.map((acc) => (
                   <div
                     key={acc.id}
-                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#181820] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
+                    className="flex items-center justify-between rounded-base border-2 border-border bg-muted p-3.5 text-foreground transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
                   >
                     <div>
-                      <div className="font-heading font-black text-sm text-white uppercase">{acc.name}</div>
-                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                      <div className="font-heading font-black text-sm text-foreground uppercase">{acc.name}</div>
+                      <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
                         Acc: {acc.account_number}
                       </div>
                     </div>
@@ -261,13 +261,13 @@ export default function DashboardFinancePage() {
         </Card>
 
         {/* Right Column: Recent Money Requests & Payouts */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
+        <Card className="border-2 border-border bg-secondary-background shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-muted pb-3.5">
             <div className="flex items-center gap-2">
               <FileText className="size-4 text-orange" />
-              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Disbursement Requests</CardTitle>
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">Disbursement Requests</CardTitle>
             </div>
-            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
+            <span className="border border-border bg-secondary-background text-muted-foreground font-mono text-[10px] px-2 py-0.5 rounded-base">
               Dual Approval Required
             </span>
           </CardHeader>
@@ -289,16 +289,16 @@ export default function DashboardFinancePage() {
                 {requests.map((req) => (
                   <div
                     key={req.id}
-                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#181820] p-3.5 text-white transition-all shadow-light"
+                    className="flex items-center justify-between rounded-base border-2 border-border bg-muted p-3.5 text-foreground transition-all shadow-light"
                   >
                     <div>
-                      <div className="font-heading font-black text-sm text-white">{req.description}</div>
-                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                      <div className="font-heading font-black text-sm text-foreground">{req.description}</div>
+                      <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
                         Submitted {new Date(req.created_at).toLocaleDateString()}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-sm text-white">
+                      <div className="font-mono font-bold text-sm text-foreground">
                         ₹{req.amount_rupees.toLocaleString("en-IN")}
                       </div>
                       <span

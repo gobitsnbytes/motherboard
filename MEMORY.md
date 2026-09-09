@@ -295,3 +295,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S107 (2026-09-09)
 - Pushed `99aa20d` to `prod` and verified the live signature builder with the authenticated browser. The first wizard step renders the new branded progress/upload surface; no file was uploaded during RLVR, preserving production state while confirming the route and primary action are live.
+
+### S108 (2026-09-09)
+- Reworked the dashboard Finance workspace: branded command header, paper account/request cards, readable balance and governance metrics, light error state, and clearer account/request rows. No account, payout, or transaction behavior was changed. Full build/typecheck/diff checks pass before promotion.
