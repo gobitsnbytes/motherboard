@@ -355,3 +355,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 ### S125 (2026-09-09)
 - Normalized Overview command-center status chips, health panel, fork-health panel, empty/loading states, and invite input to semantic light tokens while preserving branded action controls and mutations. Web typecheck and diff review passed.
 - Pushed `87a6df8` to `prod` and verified Overview live: 17 members, 3 forks, 6 plugins, 19 Dyslexic companies, connected services available, background sync running, and three fork health scores at 100. No sync, fork creation, or invite action was triggered.
+
+### S126 (2026-09-09)
+- Ran the focused IAM backend regression gate: `test_iam_policy.py`, `test_iam_router.py`, and `test_iam_discord_mapping_ui.py` pass 13/13 under `uv run pytest`. No production data was changed.
