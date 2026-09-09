@@ -363,3 +363,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Established `0.85.5-beta` as the canonical Motherboard release identifier in `VERSION`, root/web/UI/bot package metadata, API PEP 440 metadata (`0.85.5b0`), API settings, OpenAPI, health, and finance info responses.
 - Replaced visible runtime `v0.2.0` labels with the shared web version constants and added `CHANGELOG.md` for the beta checkpoint. The release is intentionally beta; 1.0/full-release work remains ahead.
 - Checkpointed the Dyslexic CRM light-surface normalization separately in `2835b7d` and pushed it to `prod` before the release metadata work.
+
+### S128 (2026-09-09)
+- Created and pushed annotated tag `v0.85.5-beta` and published the GitHub prerelease “Motherboard 0.85.5 beta”.
+- CI/CD run `34372033833` passed backend tests and deployed to the VPS. Fresh authenticated production RLVR checks on Overview and Settings both loaded successfully and showed `MOTHERBOARD V0.85.5 BETA`; no mutating controls were exercised.
