@@ -262,3 +262,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S96 (2026-09-09)
 - Tightened the shared dashboard shell: the top bar now exposes the current workspace section/page, no longer presents the DYSLEXIC link as a fake live-status indicator, and reserves space for the mobile navigation trigger so controls do not collide. Typecheck and diff checks pass.
+
+### S97 (2026-09-09)
+- Removed the encoded SMTP credential and automatic `.env` mutation from the VPS deploy script. Production mail settings now come only from the server environment; deployment still performs a non-secret SMTP preflight when credentials are present. This closes a credential-exposure and configuration-drift path discovered while tracing the separate Vercel web deployment.
