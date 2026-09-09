@@ -235,6 +235,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Reconciled Meetings, FinanceSidebar, dashboard navigation, and IAM role-mapping typing/runtime issues introduced by the merge. The web typecheck is green and the focused IAM suites pass.
 - Preserved the `0.85.5-beta` version contract and existing CI promotion path. User-owned signature PDFs and local templates remain untracked and were not staged.
 - Authenticated production smoke checks confirmed the v0.85.5 beta shell and Finance route. Removed the duplicate legacy Meetings tab row found during that check.
+- Audited authenticated IAM in production: fixed role-mapping contrast on burgundy surfaces and added native role-name/ID filtering for the Discord mapping table. Web typecheck remains green.
 
 ### 2026-09-09 — Digital Onboarding Design
 

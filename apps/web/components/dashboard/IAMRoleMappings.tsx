@@ -48,6 +48,7 @@ export default function IAMRoleMappings() {
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [roleQuery, setRoleQuery] = useState("");
 
   const loadMappings = async () => {
     setLoading(true);
@@ -99,10 +100,12 @@ export default function IAMRoleMappings() {
     loadMappings();
   }, []);
 
-  const sortedRoles = useMemo(
-    () => [...roles].sort((a, b) => b.position - a.position),
-    [roles],
-  );
+  const sortedRoles = useMemo(() => {
+    const query = roleQuery.trim().toLowerCase();
+    return [...roles]
+      .filter((role) => !query || role.name.toLowerCase().includes(query) || role.id.includes(query))
+      .sort((a, b) => b.position - a.position);
+  }, [roleQuery, roles]);
 
   const mappingByRole = useMemo(() => mappings, [mappings]);
 
@@ -173,28 +176,28 @@ export default function IAMRoleMappings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-base border-2 border-border bg-main p-6">
+      <div className="flex flex-col gap-3 rounded-base border-2 border-border bg-burgundy p-6 text-white">
         <div>
-          <h2 className="text-xl font-heading font-bold text-foreground">Discord Role Mapping</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="text-xl font-heading font-bold text-white">Discord Role Mapping</h2>
+          <p className="text-sm text-white/80 mt-1">
             Bind Discord guild roles to internal operational groups. Save each mapping individually.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2 text-sm text-foreground/80">
+          <div className="flex flex-wrap gap-2 text-sm text-white/80">
             <span>{groups.length} groups</span>
             <span>{roles.length} Discord roles</span>
           </div>
-          <p className="max-w-sm text-right text-xs text-muted-foreground">
+          <p className="max-w-sm text-right text-xs text-white/70">
             Changes are saved one role at a time and recorded in the access audit trail.
           </p>
         </div>
       </div>
 
       {error ? (
-        <div className="flex flex-col gap-3 rounded-base border-2 border-red-500 bg-red-950/40 p-4 text-sm text-white" role="alert">
+        <div className="flex flex-col gap-3 rounded-base border-2 border-red-700 bg-red-50 p-4 text-sm text-red-950" role="alert">
           <p className="font-medium">Unable to load role mapping data.</p>
-          <p className="mt-2 text-foreground/80">{error}</p>
+          <p className="mt-2 text-red-900/80">{error}</p>
           <Button type="button" variant="neutral" size="sm" className="w-fit" onClick={() => window.location.reload()}>
             Try again
           </Button>
@@ -202,7 +205,7 @@ export default function IAMRoleMappings() {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-base border-2 border-green-600 bg-green-950/40 p-4 text-sm text-white" role="status" aria-live="polite">
+        <div className="rounded-base border-2 border-green-700 bg-green-50 p-4 text-sm text-green-950" role="status" aria-live="polite">
           {successMessage}
         </div>
       ) : null}
@@ -216,7 +219,7 @@ export default function IAMRoleMappings() {
         </div>
       ) : null}
 
-      <div className="rounded-base border-2 border-border bg-main p-4">
+      <div className="space-y-4 rounded-base border-2 border-border bg-secondary-background p-4">
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="h-8 w-1/3" />
@@ -225,7 +228,19 @@ export default function IAMRoleMappings() {
             <Skeleton className="h-10" />
           </div>
         ) : (
-          <Table>
+          <>
+            <label className="block max-w-md text-xs font-heading font-bold uppercase tracking-wide text-foreground" htmlFor="iam-role-search">
+              Search Discord roles
+            </label>
+            <input
+              id="iam-role-search"
+              type="search"
+              value={roleQuery}
+              onChange={(event) => setRoleQuery(event.target.value)}
+              placeholder="Search by role name or ID"
+              className="min-h-11 w-full max-w-md rounded-base border-2 border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange"
+            />
+            <Table>
             <caption className="sr-only">Discord roles mapped to Motherboard groups</caption>
             <TableHead>
               <TableRow>
@@ -236,7 +251,13 @@ export default function IAMRoleMappings() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedRoles.map((role) => {
+              {sortedRoles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                    No Discord roles match “{roleQuery}”.
+                  </TableCell>
+                </TableRow>
+              ) : sortedRoles.map((role) => {
                 const selectedGroupId = selectedGroups[role.id] ?? "";
                 const currentMapping = mappingByRole[role.id];
                 const isUnchanged = currentMapping?.group_id === selectedGroupId;
@@ -296,7 +317,8 @@ export default function IAMRoleMappings() {
                 );
               })}
             </TableBody>
-          </Table>
+            </Table>
+          </>
         )}
       </div>
     </div>
