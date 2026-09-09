@@ -223,7 +223,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
       className={`px-4 py-2 font-heading font-black border-2 transition-all text-xs uppercase tracking-wider rounded-base whitespace-nowrap ${
         active
           ? "bg-orange text-black border-black shadow-light translate-y-[-1px]"
-          : "bg-[#141418] border-border text-zinc-300 hover:bg-[#181820] hover:text-white"
+          : "bg-secondary-background border-border text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       {label}
@@ -242,7 +242,7 @@ function RecordingChip({ meeting }: { meeting: Meeting }) {
   if (!label) return null;
   const url = meeting.recording_url ?? null;
   return (
-    <div className="flex items-center gap-2 text-zinc-300 font-mono text-[11px] min-w-0">
+    <div className="flex items-center gap-2 text-muted-foreground font-mono text-[11px] min-w-0">
       <span
         className={`size-2 rounded-full shrink-0 ${status === "transcribed" ? "bg-emerald-400" : "bg-orange"}`}
         aria-hidden="true"
@@ -628,10 +628,10 @@ export default function MeetingsPage() {
         </div>
       ) : null}
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#141418] border-2 border-border p-5 rounded-base shadow-dark">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-main text-main-foreground border-2 border-border p-5 rounded-base shadow-dark">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-white flex items-center gap-3 uppercase">
+            <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-main-foreground flex items-center gap-3 uppercase">
               Meetings &amp; Scheduling
             </h1>
             <span className="text-xs font-mono font-bold bg-orange text-black border-2 border-black px-2.5 py-0.5 rounded-base shadow-light">
@@ -643,7 +643,7 @@ export default function MeetingsPage() {
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-zinc-300 font-base mt-1">
+          <p className="text-xs sm:text-sm text-main-foreground/80 font-base mt-1">
             Manage weekly availability, schedule internal syncs, and review AI-transcribed meeting briefs.
           </p>
         </div>
@@ -659,11 +659,11 @@ export default function MeetingsPage() {
       </div>
 
       {/* ⚡ Instant Meet Banner */}
-      <div className="border-2 border-border bg-[#181820] rounded-base p-4 shadow-light">
+      <div className="border-2 border-border bg-secondary-background rounded-base p-4 shadow-light">
         <div className="flex items-center gap-2 mb-3">
           <Zap className="size-4 text-orange shrink-0" />
-          <span className="text-xs sm:text-sm font-heading font-black text-white uppercase tracking-wider">Instant Voice Channel</span>
-          <span className="text-xs text-zinc-400 font-mono">— spin up temporary Discord VC with AI recording</span>
+          <span className="text-xs sm:text-sm font-heading font-black text-foreground uppercase tracking-wider">Instant Voice Channel</span>
+          <span className="text-xs text-muted-foreground font-mono">— spin up temporary Discord VC with AI recording</span>
         </div>
         {instantResult ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-emerald-950/80 border-2 border-emerald-800 rounded-base">
@@ -685,7 +685,7 @@ export default function MeetingsPage() {
               <button
                 type="button"
                 onClick={() => setInstantResult(null)}
-                className="text-xs font-mono font-bold px-3 py-1.5 border-2 border-border bg-[#141418] text-white rounded-base hover:bg-[#1f1f26] transition-colors"
+                className="text-xs font-mono font-bold px-3 py-1.5 border-2 border-border bg-secondary-background text-foreground rounded-base hover:bg-muted transition-colors"
               >
                 Dismiss
               </button>
@@ -699,12 +699,12 @@ export default function MeetingsPage() {
               value={instantTitle}
               onChange={(e) => setInstantTitle(e.target.value)}
               placeholder="Meeting topic (e.g. Fork Onboarding, Architecture Review…)"
-              className="flex-1 bg-black border-2 border-border p-2.5 rounded-base text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-orange"
+              className="flex-1 bg-secondary-background border-2 border-border p-2.5 rounded-base text-xs sm:text-sm text-foreground placeholder:text-muted-foreground font-mono focus:outline-none focus:border-orange"
             />
             <select
               value={instantScope}
               onChange={(e) => setInstantScope(e.target.value)}
-              className="bg-black border-2 border-border p-2.5 rounded-base text-xs text-white font-mono focus:outline-none focus:border-orange w-full sm:w-48 shrink-0"
+              className="bg-secondary-background border-2 border-border p-2.5 rounded-base text-xs text-foreground font-mono focus:outline-none focus:border-orange w-full sm:w-48 shrink-0"
             >
               <option value="open">Open (All contributors)</option>
               <option value="invite">Invite Only</option>
@@ -727,7 +727,7 @@ export default function MeetingsPage() {
 
       {/* Booking success banner */}
       {bookingSuccess && (
-        <div className="flex items-center gap-3 p-4 bg-emerald-950/80 border-2 border-emerald-800 text-emerald-200 text-xs font-mono font-bold rounded-base shadow-light">
+          <div className="flex items-center gap-3 p-4 bg-emerald-50 border-2 border-emerald-700 text-emerald-900 text-xs font-mono font-bold rounded-base shadow-light">
           <CheckCircle className="size-5 shrink-0 text-emerald-400" />
           Booking confirmed! Calendar invite dispatched and notification sent to all participants.
         </div>
@@ -755,15 +755,15 @@ export default function MeetingsPage() {
       {activeTab === "meetings" && (
         <div className="space-y-4">
           {/* Controls: Search and Status Filters */}
-          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-[#141418] border-2 border-border p-3 rounded-base shadow-light">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 bg-secondary-background border-2 border-border p-3 rounded-base shadow-light">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 size-4 text-zinc-500" />
+              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search meetings by title, agenda, or meet code…"
                 value={meetingSearch}
                 onChange={(e) => setMeetingSearch(e.target.value)}
-                className="w-full bg-black border-2 border-border pl-9 pr-3 py-1.5 rounded-base text-xs text-white font-mono focus:outline-none focus:border-orange"
+                className="w-full bg-secondary-background border-2 border-border pl-9 pr-3 py-1.5 rounded-base text-xs text-foreground placeholder:text-muted-foreground font-mono focus:outline-none focus:border-orange"
               />
             </div>
             <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
@@ -774,7 +774,7 @@ export default function MeetingsPage() {
                   className={`px-3 py-1.5 text-xs font-mono font-bold uppercase rounded-base border-2 border-border transition-colors ${
                     statusFilter === st
                       ? "bg-orange text-black border-black shadow-light"
-                      : "bg-black text-zinc-400 hover:text-white"
+                      : "bg-secondary-background text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   {st} {st === "scheduled" && scheduledCount > 0 ? `(${scheduledCount})` : st === "active" && activeCount > 0 ? `(${activeCount})` : ""}
@@ -784,21 +784,21 @@ export default function MeetingsPage() {
           </div>
 
           {loading ? (
-            <div className="border-4 border-border bg-neutral-900 p-12 text-center text-white font-bold rounded-base shadow-shadow">
+            <div className="border-4 border-border bg-secondary-background p-12 text-center text-foreground font-bold rounded-base shadow-shadow">
               <RefreshCw className="size-8 animate-spin motion-reduce:animate-none mx-auto mb-2 text-orange" />
               Loading your meetings schedule…
             </div>
           ) : error ? (
-            <div className="border-4 border-border bg-red-950 text-red-200 p-4 font-bold rounded-base flex items-center gap-3 shadow-shadow">
-              <AlertTriangle className="size-6 shrink-0 text-red-400" />
+            <div className="border-4 border-border bg-red-50 text-red-900 p-4 font-bold rounded-base flex items-center gap-3 shadow-shadow">
+              <AlertTriangle className="size-6 shrink-0 text-red-700" />
               <span className="flex-1">{error}</span>
-              <button onClick={fetchMeetings} className="px-3 py-1 bg-red-900 border border-border rounded text-xs font-bold">Retry</button>
+              <button onClick={fetchMeetings} className="px-3 py-1 bg-red-700 text-white border border-border rounded text-xs font-bold">Retry</button>
             </div>
           ) : filteredMeetings.length === 0 ? (
-            <div className="border-4 border-border bg-neutral-900 p-12 text-center rounded-base shadow-shadow">
-              <CalendarClock className="size-12 mx-auto mb-3 text-gray-600" />
-              <p className="text-white font-black text-lg">No meetings found</p>
-              <p className="text-xs text-gray-400 mt-1">
+            <div className="border-4 border-border bg-secondary-background p-12 text-center rounded-base shadow-shadow">
+              <CalendarClock className="size-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-foreground font-black text-lg">No meetings found</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 {statusFilter !== "all" || meetingSearch ? "Try adjusting your search query or status filter." : "Use Instant Voice Channel, Schedule, or Book a Sync to get started."}
               </p>
             </div>
@@ -808,28 +808,28 @@ export default function MeetingsPage() {
                 <div
                   key={meeting.id}
                   onClick={() => setSelectedMeeting(meeting)}
-                  className="border-4 border-border bg-dark p-5 rounded-base shadow-shadow cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_var(--border)] flex flex-col justify-between"
+                  className="border-4 border-border bg-secondary-background p-5 rounded-base shadow-shadow cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_var(--border)] flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex justify-between items-start gap-2 mb-2">
-                      <h2 className="text-base font-heading font-black text-white line-clamp-1">{meeting.title}</h2>
+                      <h2 className="text-base font-heading font-black text-foreground line-clamp-1">{meeting.title}</h2>
                       <span className={`text-[10px] font-black uppercase px-2 py-0.5 border-2 border-border rounded-full shrink-0 ${getStatusColor(meeting.status)}`}>
                         {meeting.status}
                       </span>
                     </div>
                     {meeting.description && (
-                      <p className="text-xs text-gray-400 line-clamp-2 mb-3">{meeting.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{meeting.description}</p>
                     )}
-                    <div className="space-y-1.5 bg-black/40 p-3 border-2 border-border rounded-base text-xs">
-                      <div className="flex items-center gap-2 text-gray-300">
+                    <div className="space-y-1.5 bg-muted p-3 border-2 border-border rounded-base text-xs">
+                      <div className="flex items-center gap-2 text-foreground">
                         <Clock className="size-3.5 text-orange shrink-0" />
                         <span>{formatTime(meeting.scheduled_time)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-300">
+                      <div className="flex items-center gap-2 text-foreground">
                         <MapPin className="size-3.5 text-orange shrink-0" />
                         <span className="truncate">{meeting.location_type === "discord_vc" ? "Discord Voice Channel" : meeting.location_details || "External Call"}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-300">
+                      <div className="flex items-center gap-2 text-foreground">
                         <Users className="size-3.5 text-orange shrink-0" />
                         <span>{meeting.attendees?.length || 1} participant(s)</span>
                       </div>
@@ -837,8 +837,8 @@ export default function MeetingsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t-2 border-neutral-800 flex justify-between items-center gap-2">
-                    <span className="text-[11px] text-gray-500 font-mono truncate">
+                  <div className="mt-4 pt-3 border-t-2 border-border flex justify-between items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground font-mono truncate">
                       {meeting.meet_code ? `code: ${meeting.meet_code}` : "no code"}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
