@@ -325,3 +325,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S117 (2026-09-09)
 - Pushed `db30466` to `prod` and verified Audit Log live in the authenticated browser: 50 total events, a 10-event recent window, and 50 filtered events rendered in the ledger. The visible dataset includes signature reminder events and Dyslexic activity; no mutating action was taken.
+
+### S118 (2026-09-09)
+- Reworked Profile and Settings to remove remaining dark-on-dark controls and status rows, using semantic light surfaces, readable form fields, and accessible success/error/status chips. Web typecheck and diff review passed.
+- Pushed `c56ab3a` to `prod` and verified both routes live with the authenticated browser. Profile fields and Chrono preferences load; Settings reports Discord connected, 15 IAM groups, 53 permissions, 17 role mappings, API available, and database healthy. No mutating controls were exercised.
