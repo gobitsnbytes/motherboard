@@ -11,7 +11,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
     <div className="motherboard-shell flex min-h-screen text-foreground font-base">
       <FinanceSidebar />
       <div className="flex min-w-0 flex-1 flex-col md:ml-64">
-        <header className="sticky top-0 z-20 flex min-h-16 shrink-0 items-center justify-between border-b-2 border-zinc-700 bg-[#111115] pl-16 pr-4 sm:pr-6 md:px-6">
+        <header className="sticky top-0 z-20 flex min-h-20 shrink-0 items-center justify-between border-b-2 border-zinc-700 bg-[#111115] pl-16 pr-4 sm:pr-6 md:px-8">
           <div className="flex items-center gap-3">
             <span className="border-2 border-orange bg-orange px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-black">
               Finance
@@ -25,7 +25,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
             <span className="hidden sm:inline">Internal ledger</span>
           </div>
         </header>
-        <main className="motherboard-canvas flex-1 overflow-auto p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="motherboard-canvas flex-1 overflow-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-10"><div className="mx-auto w-full max-w-[1480px]">{children}</div></main>
       </div>
     </div>
   );

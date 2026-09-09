@@ -587,7 +587,7 @@ export default function MeetingsPage() {
   const scheduledCount = meetings.filter((m) => m.status === "scheduled").length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="meetings-workspace max-w-7xl mx-auto space-y-6 p-0">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#141418] border-2 border-border p-5 rounded-base shadow-dark">
         <div>

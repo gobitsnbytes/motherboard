@@ -39,20 +39,28 @@ interface ActivePlugin {
   ui_panels: UiPanel[];
 }
 
-const navItems = [
-  { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
-  { label: "Setup Profile", href: "/dashboard/profile", icon: UserCheck },
-  { label: "Contract Assistant", href: "/dashboard/contract-assistant", icon: FileCheck },
-  { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
-  { label: "Forms", href: "/dashboard/forms", icon: ClipboardList },
-  { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
-  { label: "Dyslexic", href: "/dashboard/dyslexic", icon: Handshake },
-  { label: "Members", href: "/dashboard/members", icon: Users },
-  { label: "Forks", href: "/dashboard/forks", icon: GitBranch },
-  { label: "Finance", href: "/dashboard/finance", icon: Coins },
-  { label: "IAM", href: "/dashboard/iam", icon: Shield },
-  { label: "Audit Log", href: "/dashboard/audit", icon: ScrollText },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+const navGroups = [
+  { label: "Overview", items: [
+    { label: "Dashboard", href: "/dashboard/overview", icon: LayoutDashboard },
+    { label: "Profile", href: "/dashboard/profile", icon: UserCheck },
+  ] },
+  { label: "Work", items: [
+    { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
+    { label: "Forms", href: "/dashboard/forms", icon: ClipboardList },
+    { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
+    { label: "Contracts", href: "/dashboard/contract-assistant", icon: FileCheck },
+    { label: "Dyslexic CRM", href: "/dashboard/dyslexic", icon: Handshake },
+  ] },
+  { label: "Governance", items: [
+    { label: "Members", href: "/dashboard/members", icon: Users },
+    { label: "IAM", href: "/dashboard/iam", icon: Shield },
+    { label: "Audit log", href: "/dashboard/audit", icon: ScrollText },
+  ] },
+  { label: "Network", items: [
+    { label: "Forks", href: "/dashboard/forks", icon: GitBranch },
+    { label: "Finance", href: "/dashboard/finance", icon: Coins },
+    { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  ] },
 ] as const;
 
 function DynamicIcon({ name, className }: { name: string; className?: string }) {
@@ -83,25 +91,20 @@ function NavList({
 
   return (
     <nav aria-label="Primary navigation" className="flex flex-col gap-1">
-      {navItems.map((item) => {
-        const isActive =
-          pathname === item.href || pathname.startsWith(item.href + "/");
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`flex min-h-11 items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive
-                ? "border-2 border-orange bg-orange text-black shadow-light"
-                : "border-2 border-transparent text-zinc-300 hover:border-zinc-600 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <item.icon className="size-4 shrink-0" />
-            <span className="truncate">{item.label}</span>
-          </Link>
-        );
-      })}
+      {navGroups.map((group) => (
+        <div key={group.label} className="space-y-1">
+          <p className="px-3 text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-zinc-500">{group.label}</p>
+          {group.items.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link key={item.href} href={item.href} onClick={onNavigate} className={`flex min-h-11 items-center gap-3 rounded-base border-2 px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "border-orange bg-orange text-black shadow-light" : "border-transparent text-zinc-300 hover:border-zinc-600 hover:bg-white/5 hover:text-white"}`}>
+                <item.icon className="size-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      ))}
 
       {sidebarPanels.length > 0 && (
         <>
@@ -156,7 +159,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col md:border-r-2 md:border-zinc-700 md:bg-[#111115]">
+      <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-72 md:flex-col md:border-r-2 md:border-zinc-700 md:bg-[#111115]">
         <div className="flex items-center gap-3 border-b-2 border-zinc-700 px-4 py-4">
           <img
             src="https://gobitsnbytes.org/logo"
@@ -172,7 +175,7 @@ export default function Sidebar() {
             </span>
           </div>
         </div>
-        <div className="flex-1 overflow-auto p-3">
+        <div className="flex-1 overflow-auto p-4">
           <NavList plugins={plugins} />
         </div>
         <div className="border-t-2 border-zinc-700 p-3">

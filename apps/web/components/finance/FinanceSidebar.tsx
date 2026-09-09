@@ -74,7 +74,7 @@ export default function FinanceSidebar() {
       <aside className={`fixed inset-y-0 z-30 hidden flex-col border-r-2 border-zinc-700 bg-[#111115] md:flex ${collapsed ? "w-16" : "w-64"}`}>
         <div className="flex items-center gap-3 border-b-2 border-zinc-700 px-4 py-4">
           <Link href="/finance/dashboard" aria-label="Finance dashboard"><img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" className="h-7 w-auto shrink-0" /></Link>
-          {!collapsed && <span className="font-heading text-sm font-black tracking-wide text-white">Finance</span>}
+          {!collapsed && <div><span className="block font-heading text-sm font-black tracking-wide text-white">Finance</span><span className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">Internal ledger</span></div>}
         </div>
         {navigation()}
         <button type="button" onClick={() => setCollapsed((value) => !value)} className="m-3 min-h-11 border-2 border-zinc-600 px-3 text-sm text-zinc-300 transition-colors hover:border-orange hover:text-white" aria-label={collapsed ? "Expand finance navigation" : "Collapse finance navigation"}>{collapsed ? "→" : "Collapse"}</button>

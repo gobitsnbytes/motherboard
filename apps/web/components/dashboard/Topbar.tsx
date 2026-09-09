@@ -23,11 +23,11 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b-2 border-zinc-700 bg-[#111115] px-4 md:px-6">
+    <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between border-b-2 border-zinc-700 bg-[#111115] px-4 md:px-8">
       <div className="flex items-center gap-2.5">
         <Link
           href="/dashboard/dyslexic"
-          className="inline-flex min-h-10 items-center gap-2 rounded-base border-2 border-zinc-600 px-3 text-xs font-mono font-bold text-white transition-colors hover:border-orange hover:text-orange"
+          className="inline-flex min-h-11 items-center gap-2 rounded-base border-2 border-zinc-600 px-3 text-xs font-mono font-bold text-white transition-colors hover:border-orange hover:text-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
         >
           <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
           <span>DYSLEXIC</span>
@@ -86,7 +86,7 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
           onClick={() => {
             signOut({ callbackUrl: "/login", redirect: true });
           }}
-          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-base border-2 border-black bg-main px-3.5 text-xs font-heading font-black uppercase tracking-wider text-white shadow-light transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-base border-2 border-black bg-burgundy px-3.5 text-xs font-heading font-black uppercase tracking-wider text-white shadow-light transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
         >
           <LogOut className="size-3.5" />
           <span className="hidden sm:inline">Sign out</span>

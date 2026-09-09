@@ -143,8 +143,63 @@
   --border: 24 12% 9%;
   --input: 24 12% 9%;
   --ring: 351 71% 34%;
-  background: #d0cfce;
+  background: #eeeae4;
   color: #120f0a;
+}
+
+.motherboard-canvas > div {
+  min-width: 0;
+}
+
+.motherboard-canvas h1 {
+  letter-spacing: -0.03em;
+}
+
+.motherboard-canvas :is(input, textarea, select) {
+  background: #fff;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(button, a):focus-visible,
+.motherboard-shell :is(button, a):focus-visible {
+  outline: 2px solid #fc920d;
+  outline-offset: 3px;
+}
+
+/* Meetings is a high-density work surface: keep the data readable and the
+   hierarchy quiet even while older page classes are being phased out. */
+.meetings-workspace > :first-child {
+  border-color: #120f0a;
+  background: #fff;
+  color: #120f0a;
+  box-shadow: 4px 4px 0 #120f0a;
+}
+
+.meetings-workspace :is(.bg-\[\#141418\], .bg-\[\#181820\], .bg-neutral-900, .bg-dark) {
+  background: #fff;
+  color: #120f0a;
+}
+
+.meetings-workspace :is(.bg-black, .bg-black\/40, .bg-neutral-800, .bg-neutral-900\/50) {
+  background: #f4f1ec;
+  color: #120f0a;
+}
+
+.meetings-workspace :is(.text-white, .text-gray-300, .text-zinc-300, .text-gray-400) {
+  color: #413f3b;
+}
+
+.meetings-workspace :is(.text-gray-500, .text-zinc-500) {
+  color: #716f6c;
+}
+
+.meetings-workspace .text-orange {
+  color: #97192c;
+}
+
+.meetings-workspace :is(input, textarea, select) {
+  border-color: #120f0a;
+  box-shadow: none;
 }
 
 .motherboard-canvas [data-slot="card"] {
