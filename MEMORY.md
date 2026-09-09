@@ -220,3 +220,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S82 (2026-09-09)
 - Hardened IAM authorization semantics: expired memberships no longer resolve into groups, scoped grants cannot satisfy an unscoped check, and batch authorization now returns an independent result for each permission/resource pair. Added input constraints for permission, grant, and group identifiers. The API-key service identity fallback remains isolated until a real non-admin production service principal is configured.
+
+### S83 (2026-09-09)
+- Continued IAM hardening: permission/grant/group/membership/Discord-role mutations now validate referenced records, reject expired grants or memberships, and write audit entries for access changes. The service-identity fallback remains intentionally unmerged pending production configuration.

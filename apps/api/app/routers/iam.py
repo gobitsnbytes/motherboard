@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
@@ -8,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 import httpx
 
 from app.config import get_settings
-from app.db.models import Permission, Grant, Group, Membership, DiscordRoleMapping
+from app.db.models import Permission, Grant, Group, Membership, DiscordRoleMapping, User
 from app.dependencies import DbDep, CurrentUserDep
 from app.iam.policy import require_permission
 from app.iam.audit import write_audit_entry
@@ -77,6 +78,14 @@ async def register_permission(
         plugin_id=payload.plugin_id
     )
     db.add(permission)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="create_permission",
+        target_type="permission",
+        target_id=payload.key,
+        metadata={"key": payload.key, "plugin_id": payload.plugin_id},
+    )
     await db.commit()
     await db.refresh(permission)
     return permission
@@ -114,6 +123,24 @@ async def create_grant(
 ) -> GrantResponse:
     await require_permission(db, current_user, "iam.grants.write")
 
+    permission = await db.scalar(select(Permission).where(Permission.key == payload.permission_key))
+    if not permission:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Permission not found")
+
+    if payload.principal_type == "user":
+        principal = await db.scalar(select(User).where(User.id == payload.principal_id))
+        if not principal or not principal.is_active:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active user principal not found")
+    else:
+        principal = await db.scalar(select(Group).where(Group.id == payload.principal_id))
+        if not principal:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group principal not found")
+
+    if payload.expires_at and payload.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Grant expiry must be in the future")
+    if not current_user.is_super_admin:
+        await require_permission(db, current_user, payload.permission_key, payload.resource_scope)
+
     grant = Grant(
         principal_type=payload.principal_type,
         principal_id=payload.principal_id,
@@ -123,6 +150,20 @@ async def create_grant(
         expires_at=payload.expires_at
     )
     db.add(grant)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="create_grant",
+        target_type="grant",
+        target_id=str(payload.principal_id),
+        metadata={
+            "principal_type": payload.principal_type,
+            "principal_id": str(payload.principal_id),
+            "permission_key": payload.permission_key,
+            "resource_scope": payload.resource_scope,
+            "expires_at": payload.expires_at.isoformat() if payload.expires_at else None,
+        },
+    )
     await db.commit()
     await db.refresh(grant)
     return grant
@@ -196,6 +237,14 @@ async def create_group(
         description=payload.description
     )
     db.add(group)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="create_group",
+        target_type="group",
+        target_id=group_slug,
+        metadata={"name": payload.name, "slug": group_slug},
+    )
     try:
         await db.commit()
     except IntegrityError:
@@ -225,6 +274,14 @@ async def add_group_member(
 ) -> MembershipResponse:
     await require_permission(db, current_user, "iam.groups.write")
 
+    if not await db.scalar(select(Group.id).where(Group.id == group_id)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    user = await db.scalar(select(User).where(User.id == payload.user_id))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active user not found")
+    if payload.expires_at and payload.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Membership expiry must be in the future")
+
     membership = Membership(
         user_id=payload.user_id,
         group_id=group_id,
@@ -233,6 +290,19 @@ async def add_group_member(
         expires_at=payload.expires_at
     )
     db.add(membership)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="add_group_member",
+        target_type="membership",
+        target_id=f"{group_id}:{payload.user_id}",
+        metadata={
+            "group_id": str(group_id),
+            "user_id": str(payload.user_id),
+            "source": "manual",
+            "expires_at": payload.expires_at.isoformat() if payload.expires_at else None,
+        },
+    )
     try:
         await db.commit()
     except IntegrityError:
@@ -311,9 +381,20 @@ async def upsert_discord_mapping(
 ) -> DiscordRoleMappingResponse:
     await require_permission(db, current_user, "iam.role_mappings.write")
 
+    if not await db.scalar(select(Group.id).where(Group.id == payload.group_id)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
     stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.discord_role_id == payload.discord_role_id)
     res = await db.execute(stmt)
     mapping = res.scalar_one_or_none()
+    previous = None
+    if mapping:
+        previous = {
+            "group_id": str(mapping.group_id),
+            "discord_role_name": mapping.discord_role_name,
+            "sync_enabled": mapping.sync_enabled,
+            "priority": mapping.priority,
+        }
 
     if mapping:
         mapping.group_id = payload.group_id
@@ -329,6 +410,23 @@ async def upsert_discord_mapping(
             priority=payload.priority
         )
         db.add(mapping)
+
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="upsert_discord_role_mapping",
+        target_type="discord_role_mapping",
+        target_id=payload.discord_role_id,
+        metadata={
+            "before": previous,
+            "after": {
+                "group_id": str(payload.group_id),
+                "discord_role_name": payload.discord_role_name,
+                "sync_enabled": payload.sync_enabled,
+                "priority": payload.priority,
+            },
+        },
+    )
 
     await db.commit()
     await db.refresh(mapping)
@@ -382,4 +480,3 @@ async def get_iam_hierarchy(current_user: CurrentUserDep, db: DbDep) -> dict[str
         "total_mappings": len(mappings),
         "total_memberships": len(memberships),
     }
-
