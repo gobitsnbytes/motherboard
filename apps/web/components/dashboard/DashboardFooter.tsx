@@ -11,11 +11,13 @@ export default function DashboardFooter() {
         {/* Top Header Row */}
         <div className="flex flex-col gap-4 border-b-2 border-[#120f0a] pb-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <img
-              src="https://gobitsnbytes.org/logo"
-              alt="bits&bytes™ logo"
-              className="h-6 w-auto select-none"
-            />
+            <div className="grid h-12 w-12 shrink-0 place-items-center bg-[#120f0a] p-1">
+              <img
+                src="https://gobitsnbytes.org/logo"
+                alt="bits&bytes™ logo"
+                className="h-10 w-auto select-none"
+              />
+            </div>
             <div>
               <h2 className="font-heading text-sm font-black uppercase tracking-wider text-[#120f0a]">
                 GOBITSNBYTES FOUNDATION
