@@ -235,3 +235,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S87 (2026-09-09)
 - RLVR on live Finance found the daily dashboard presenting configured policy flags as legal/compliance verification, including a licence number. Renamed the surface to “Governance checks,” changed the status to “Policy configured,” removed the licence claim, and kept the no-real-money disclaimer and operational controls intact. Typecheck and diff checks pass.
+
+### S88 (2026-09-09)
+- RLVR on live Settings found more unverified operational/legal wording. Changed region to an operating-region label, removed the compliance claim, made Discord/API labels describe observed connectivity rather than inferred service state, and simplified the database label. Dark legacy cards remain a follow-up visual normalization target.

@@ -190,13 +190,13 @@ export function SettingsContent() {
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Region</span>
-              <span className="font-bold text-white">India (Section 8)</span>
+              <span className="font-bold text-white">India · operating region</span>
             </div>
 
             <div className="flex justify-between items-center py-1">
               <span className="text-zinc-400">Status</span>
               <span className="px-2 py-0.5 rounded-base text-[10px] font-bold border border-emerald-800 bg-emerald-950 text-emerald-400">
-                Active &amp; Compliant
+                Active
               </span>
             </div>
           </CardContent>
@@ -221,7 +221,7 @@ export function SettingsContent() {
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Bot Status</span>
               <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
-                {statusData.discord === "connected" ? "Online" : "Offline"}
+                {statusData.discord === "connected" ? "Connected" : "Unavailable"}
               </span>
             </div>
 
@@ -297,7 +297,7 @@ export function SettingsContent() {
         <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
           <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
             <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
-              System Telemetry
+              System status
             </CardTitle>
           </CardHeader>
 
@@ -317,14 +317,14 @@ export function SettingsContent() {
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">API Status</span>
               <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
-                {loading ? "..." : "Online"}
+                {loading ? "..." : statusData.database === "healthy" ? "Available" : "Unavailable"}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1">
               <span className="text-zinc-400">Database</span>
               <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
-                {loading ? "..." : statusData.database === "healthy" ? "Healthy (Postgres)" : "Degraded"}
+                {loading ? "..." : statusData.database === "healthy" ? "Healthy" : "Degraded"}
               </span>
             </div>
           </CardContent>
