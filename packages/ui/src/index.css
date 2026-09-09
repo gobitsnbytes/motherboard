@@ -304,6 +304,30 @@
   background: #f4f4f3;
 }
 
+/* The first generation routes use several dark utility names directly. Keep
+   their content readable while those components are being migrated to the
+   shared paper tokens. */
+.motherboard-canvas :is(.bg-dark, .bg-neutral-800, .bg-neutral-900, .bg-\[\#0d0d0d\], .bg-\[\#0d0d10\], .bg-\[\#111\]) {
+  background: #fff;
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-dark, .bg-neutral-800, .bg-neutral-900, .bg-\[\#0d0d0d\], .bg-\[\#0d0d10\], .bg-\[\#111\]) :is(.text-white, .text-gray-300, .text-zinc-300, .text-gray-400, .text-zinc-400) {
+  color: #413f3b;
+}
+
+.motherboard-canvas :is(.text-white, .text-gray-300, .text-zinc-300, .text-gray-400, .text-zinc-400, .text-gray-500, .text-zinc-500) {
+  color: #625b52;
+}
+
+.motherboard-canvas :is(.bg-burgundy, .bg-main, .bg-orange, .bg-red-700, .bg-red-800, .bg-\[\#97192c\], .bg-\[\#fc920d\]) :is(.text-white, .text-black, .text-foreground) {
+  color: #fff;
+}
+
+.motherboard-canvas :is(.bg-orange, .bg-\[\#fc920d\]) .text-black {
+  color: #120f0a;
+}
+
 /* Keep intentional brand actions legible after legacy text surfaces are normalized. */
 .motherboard-canvas [data-slot="card"] :is(button, a).bg-main,
 .motherboard-canvas [data-slot="card"] :is(button, a).bg-burgundy,

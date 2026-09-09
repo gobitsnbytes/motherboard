@@ -214,3 +214,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S80 (2026-09-09)
 - Reworked the public home and not-found surfaces to remove unverified “system online,” coordinate, and compliance claims. The home page now explains identity, coordination, and evidence using the shared burgundy/paper system, with a clear Discord access path and public-form path.
+
+### S81 (2026-09-09)
+- Extended the shared internal canvas normalization so older dark utility classes and muted white text resolve to the warm paper system. This reduces the split-brain look across legacy audit, finance, signatures, and CRM surfaces without changing the public routes or sidebar chrome.
