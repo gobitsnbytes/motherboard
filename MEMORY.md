@@ -351,3 +351,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 ### S124 (2026-09-09)
 - Normalized Chrono host cards and booking panel surfaces: host summaries, duration controls, calendar states, slot loading/error/empty states, and booking form fields now use semantic light tokens. Web typecheck and diff review passed.
 - Pushed `2efc38e` to `prod` and verified the authenticated booking flow without mutation: a host loads, duration controls render, past calendar dates are disabled, future dates are selectable, and the slot pane starts in its prompt state. No date, slot, or booking was submitted.
+
+### S125 (2026-09-09)
+- Normalized Overview command-center status chips, health panel, fork-health panel, empty/loading states, and invite input to semantic light tokens while preserving branded action controls and mutations. Web typecheck and diff review passed.
+- Pushed `87a6df8` to `prod` and verified Overview live: 17 members, 3 forks, 6 plugins, 19 Dyslexic companies, connected services available, background sync running, and three fork health scores at 100. No sync, fork creation, or invite action was triggered.
