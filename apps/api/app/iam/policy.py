@@ -37,7 +37,7 @@ async def can(
     if not matching_grants:
         return False
     if not resource_scope:
-        return True
+        return any(grant.resource_scope is None for grant in matching_grants)
     return any(
         grant.resource_scope is None or grant.resource_scope == resource_scope
         for grant in matching_grants

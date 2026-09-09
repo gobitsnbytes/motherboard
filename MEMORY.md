@@ -40,6 +40,12 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - Mixed API-key and internal-signature credentials are now rejected with a 400 instead of silently selecting the API-key path.
 - Verification: API-key authentication suite `7 passed`.
 
+### IAM Global-Scope Leak Fix
+
+- Fixed `can(permission, None)` so a city/resource-scoped grant cannot satisfy a global permission check; only an explicit unscoped grant can do that.
+- Added regression coverage for the scoped-grant-as-global case.
+- Verification: IAM policy suite `7 passed`.
+
 
 ## 1. Project Status
 

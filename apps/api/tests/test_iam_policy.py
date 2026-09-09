@@ -107,6 +107,7 @@ async def test_can_resource_scope(db_session: AsyncSession):
 
     assert await can(db_session, principal, "scoped.action", "project_a") is True
     assert await can(db_session, principal, "scoped.action", "project_b") is False
+    assert await can(db_session, principal, "scoped.action") is False
     assert await can(db_session, principal, "global.action", "project_c") is True
 
 @pytest.mark.asyncio
