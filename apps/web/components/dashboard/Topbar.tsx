@@ -4,6 +4,7 @@ import React from "react";
 import { LogOut, Bot, Terminal, UserCheck } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface TopbarProps {
   onToggleDebug?: () => void;
@@ -13,6 +14,23 @@ interface TopbarProps {
 export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps) {
   const { data: session } = useSession();
   const user = session?.user;
+  const pathname = usePathname();
+
+  const pageMeta = (() => {
+    if (pathname.includes("/meetings")) return { section: "Work", title: "Meetings" };
+    if (pathname.includes("/forms")) return { section: "Work", title: "Forms" };
+    if (pathname.includes("/signatures")) return { section: "Work", title: "Signatures" };
+    if (pathname.includes("/contract-assistant")) return { section: "Work", title: "Contracts" };
+    if (pathname.includes("/dyslexic")) return { section: "Work", title: "Dyslexic CRM" };
+    if (pathname.includes("/members")) return { section: "Governance", title: "Members" };
+    if (pathname.includes("/iam")) return { section: "Governance", title: "IAM" };
+    if (pathname.includes("/audit")) return { section: "Governance", title: "Audit log" };
+    if (pathname.includes("/forks")) return { section: "Network", title: "Forks" };
+    if (pathname.includes("/finance")) return { section: "Network", title: "Finance" };
+    if (pathname.includes("/settings")) return { section: "Network", title: "Settings" };
+    if (pathname.includes("/profile")) return { section: "Overview", title: "Profile" };
+    return { section: "Overview", title: "Dashboard" };
+  })();
 
   const displayName = user?.name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName
@@ -23,13 +41,22 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between border-b-2 border-black bg-[#f4f1ec] px-4 text-[#120f0a] md:px-8">
-      <div className="flex items-center gap-2.5">
+    <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between gap-4 border-b-2 border-black bg-[#f4f1ec] px-4 pl-16 text-[#120f0a] md:px-8">
+      <div className="flex min-w-0 items-center gap-4">
+        <div className="hidden min-w-0 sm:block">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-burgundy">
+            {pageMeta.section} / workspace
+          </p>
+          <p className="truncate font-heading text-lg font-black leading-tight text-[#120f0a]">
+            {pageMeta.title}
+          </p>
+        </div>
+
         <Link
           href="/dashboard/dyslexic"
-          className="inline-flex min-h-11 items-center gap-2 rounded-base border-2 border-[#120f0a] bg-white px-3 text-xs font-mono font-bold text-[#120f0a] transition-colors hover:border-burgundy hover:text-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-base border-2 border-[#120f0a] bg-white px-3 text-xs font-mono font-bold text-[#120f0a] transition-colors hover:border-burgundy hover:text-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
         >
-          <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="flex size-2 rounded-full bg-orange" />
           <span>DYSLEXIC</span>
         </Link>
 

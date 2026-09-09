@@ -259,3 +259,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S95 (2026-09-09)
 - Production verification completed for the IAM repair. The backend pipeline passed and deployed commit `7ee99d1`; API and web health endpoints return 200. Authenticated live IAM now shows `Executive Leadership` mapped to its intended `Executive Leadership` group, while only the explicit `admin` role remains mapped to Super Admin and is visibly marked break-glass. The new privileged-mapping review banner is live.
+
+### S96 (2026-09-09)
+- Tightened the shared dashboard shell: the top bar now exposes the current workspace section/page, no longer presents the DYSLEXIC link as a fake live-status indicator, and reserves space for the mobile navigation trigger so controls do not collide. Typecheck and diff checks pass.
