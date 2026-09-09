@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
@@ -77,6 +78,14 @@ async def register_permission(
         plugin_id=payload.plugin_id
     )
     db.add(permission)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="create_permission",
+        target_type="permission",
+        target_id=payload.key,
+        metadata={"key": payload.key, "plugin_id": payload.plugin_id},
+    )
     await db.commit()
     await db.refresh(permission)
     return permission
@@ -226,6 +235,14 @@ async def create_group(
         description=payload.description
     )
     db.add(group)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="create_group",
+        target_type="group",
+        target_id=group_slug,
+        metadata={"name": payload.name, "slug": group_slug},
+    )
     try:
         await db.commit()
     except IntegrityError:
@@ -255,6 +272,15 @@ async def add_group_member(
 ) -> MembershipResponse:
     await require_permission(db, current_user, "iam.groups.write")
 
+    group = await db.scalar(select(Group).where(Group.id == group_id))
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    user = await db.scalar(select(User).where(User.id == payload.user_id))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active user not found")
+    if payload.expires_at and payload.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Membership expiry must be in the future")
+
     membership = Membership(
         user_id=payload.user_id,
         group_id=group_id,
@@ -263,6 +289,19 @@ async def add_group_member(
         expires_at=payload.expires_at
     )
     db.add(membership)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="add_group_member",
+        target_type="membership",
+        target_id=f"{group_id}:{payload.user_id}",
+        metadata={
+            "group_id": str(group_id),
+            "user_id": str(payload.user_id),
+            "source": "manual",
+            "expires_at": payload.expires_at.isoformat() if payload.expires_at else None,
+        },
+    )
     try:
         await db.commit()
     except IntegrityError:
@@ -341,9 +380,21 @@ async def upsert_discord_mapping(
 ) -> DiscordRoleMappingResponse:
     await require_permission(db, current_user, "iam.role_mappings.write")
 
+    group = await db.scalar(select(Group).where(Group.id == payload.group_id))
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
     stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.discord_role_id == payload.discord_role_id)
     res = await db.execute(stmt)
     mapping = res.scalar_one_or_none()
+    previous = None
+    if mapping:
+        previous = {
+            "group_id": str(mapping.group_id),
+            "discord_role_name": mapping.discord_role_name,
+            "sync_enabled": mapping.sync_enabled,
+            "priority": mapping.priority,
+        }
 
     if mapping:
         mapping.group_id = payload.group_id
@@ -359,6 +410,23 @@ async def upsert_discord_mapping(
             priority=payload.priority
         )
         db.add(mapping)
+
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="upsert_discord_role_mapping",
+        target_type="discord_role_mapping",
+        target_id=payload.discord_role_id,
+        metadata={
+            "before": previous,
+            "after": {
+                "group_id": str(payload.group_id),
+                "discord_role_name": payload.discord_role_name,
+                "sync_enabled": payload.sync_enabled,
+                "priority": payload.priority,
+            },
+        },
+    )
 
     await db.commit()
     await db.refresh(mapping)

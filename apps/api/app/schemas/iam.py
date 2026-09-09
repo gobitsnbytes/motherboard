@@ -22,7 +22,7 @@ class PermissionResponse(BaseModel):
     created_at: datetime
 
 class PermissionCreate(BaseModel):
-    key: str
+    key: str = Field(min_length=1, max_length=150, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:-]*$")
     description: Optional[str] = None
     plugin_id: Optional[str] = None
 
@@ -61,8 +61,8 @@ class GroupResponse(BaseModel):
     updated_at: datetime
 
 class GroupCreate(BaseModel):
-    name: str
-    slug: Optional[str] = None
+    name: str = Field(min_length=1, max_length=100)
+    slug: Optional[str] = Field(default=None, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
     description: Optional[str] = None
 
 # Memberships

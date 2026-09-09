@@ -21,6 +21,14 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - Added regression coverage for expired memberships, invalid grant permissions, and service-auth isolation.
 - Verification: focused IAM/auth suite `17 passed`; full backend suite previously `100 passed` before the final service-identity tightening.
 
+### IAM Mutation Boundary Slice
+
+- Added strict permission and group input validation.
+- Added existence/active-state checks for grant principals, group membership targets, and Discord mapping groups.
+- Rejected membership expiry timestamps in the past.
+- Added audit entries for permission creation, group creation, membership creation, grant creation, and Discord mapping upserts.
+- Verification: focused IAM/auth suite `20 passed`; full backend suite `101 passed`.
+
 
 ## 1. Project Status
 
