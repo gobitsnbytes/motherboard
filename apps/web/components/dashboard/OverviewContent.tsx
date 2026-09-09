@@ -195,7 +195,7 @@ export function OverviewContent() {
         </CardContent>
       </Card>
 
-      {/* Activity & System Status */}
+      {/* Activity & connected services */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
@@ -207,7 +207,7 @@ export function OverviewContent() {
           <CardContent className="pt-4">
             <div className="space-y-2.5">
               {loading ? (
-                <div className="text-xs text-zinc-400 font-mono">Loading telemetry...</div>
+                <div className="text-xs text-zinc-400 font-mono">Loading activity...</div>
               ) : activity.length === 0 ? (
                 <div className="text-xs text-zinc-400 font-mono">No recent activity logged.</div>
               ) : (
@@ -227,37 +227,37 @@ export function OverviewContent() {
         <Card className="border-2 border-border bg-[#141418] shadow-light">
           <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
             <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
-              System Telemetry
+              Connected services
             </CardTitle>
           </CardHeader>
 
           <CardContent className="pt-4">
             <div className="space-y-3 font-mono text-xs">
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-zinc-300">FastAPI Engine</span>
+                <span className="text-zinc-300">Motherboard API</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.apiStatus === "ok" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
-                  {stats.apiStatus === "ok" ? "Online" : "Offline"}
+                  {stats.apiStatus === "ok" ? "Available" : "Unavailable"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-zinc-300">Neon Database</span>
+                <span className="text-zinc-300">Operational data</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.databaseStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
-                  {stats.databaseStatus === "healthy" ? "Healthy" : "Loading..."}
+                  {stats.databaseStatus === "healthy" ? "Available" : "Unknown"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-zinc-300">Discord Gateway</span>
+                <span className="text-zinc-300">Discord connection</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.discordStatus === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
-                  {stats.discordStatus === "connected" ? "Connected" : "Unconfigured"}
+                  {stats.discordStatus === "connected" ? "Connected" : "Not connected"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-zinc-300">Background Sync</span>
+                <span className="text-zinc-300">Background sync</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.syncStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
-                  {stats.syncStatus === "healthy" ? "Healthy" : "Standby"}
+                  {stats.syncStatus === "healthy" ? "Running" : "Standby"}
                 </span>
               </div>
             </div>

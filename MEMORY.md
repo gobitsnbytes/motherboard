@@ -223,3 +223,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S83 (2026-09-09)
 - Continued IAM hardening: permission/grant/group/membership/Discord-role mutations now validate referenced records, reject expired grants or memberships, and write audit entries for access changes. The service-identity fallback remains intentionally unmerged pending production configuration.
+
+### S84 (2026-09-09)
+- Local browser verification found stale Overview copy claiming specific infrastructure and statutory compliance. Replaced it with truthful connected-service labels and a restrained operational footer; removed fake telemetry/legal badges from the daily workspace surface.
