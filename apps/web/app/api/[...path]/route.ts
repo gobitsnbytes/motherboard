@@ -31,6 +31,7 @@ async function proxy(request: Request, context: RouteContext) {
   // Public routes (signing portal & verification engine) do not require Next.js session auth
   const isPublicRoute =
     (path[0] === "signatures" && (path[1] === "sign" || path[1] === "verify")) ||
+    (path[0] === "forms" && path[1] === "public") ||
     inboundPath === "/health";
 
   const session = await auth();
@@ -113,4 +114,3 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return proxy(request, context);
 }
-

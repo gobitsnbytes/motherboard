@@ -32,6 +32,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [voidRequestStatus, setVoidRequestStatus] = useState<string | null>(null);
 
   const [statusDetails, setStatusDetails] = useState<any>(null);
 
@@ -210,6 +211,14 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleVoidRequest = async () => {
+    const reason = window.prompt("Why would you like this agreement voided? This sends a request for review; it does not void the agreement immediately.");
+    if (!reason) return;
+    const res = await fetch(`/api/signatures/sign/${token}/void-requests`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) });
+    const payload = await res.json().catch(() => ({}));
+    setVoidRequestStatus(res.ok ? payload.message : payload.detail || "Could not send your void request.");
   };
 
   if (loading) {
@@ -730,6 +739,10 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
         >
           {submitting ? "Submitting Signature..." : "Complete & Finish Signing"}
         </button>
+        <button type="button" onClick={handleVoidRequest} className="w-full text-xs font-semibold text-muted-foreground underline underline-offset-4 hover:text-burgundy">
+          Request that this agreement be voided
+        </button>
+        {voidRequestStatus && <p role="status" className="text-center text-xs font-medium">{voidRequestStatus}</p>}
       </div>
     </div>
   );

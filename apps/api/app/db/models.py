@@ -1549,6 +1549,59 @@ class SignatureAuditLog(Base):
     request: Mapped["SignatureRequest"] = relationship("SignatureRequest", back_populates="audit_logs")
 
 
+# ---------------------------------------------------------------------------
+# Public forms
+# ---------------------------------------------------------------------------
+
+class PublicForm(Base):
+    """A versioned, staff-authored public form. Blocks remain JSON to keep the builder flexible."""
+    __tablename__ = "public_forms"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    slug: Mapped[str] = mapped_column(String(160), unique=True, index=True, nullable=False)
+    description_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blocks: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    submissions: Mapped[list["PublicFormSubmission"]] = relationship("PublicFormSubmission", back_populates="form", cascade="all, delete-orphan")
+
+
+class PublicFormSubmission(Base):
+    __tablename__ = "public_form_submissions"
+    __table_args__ = (UniqueConstraint("form_id", "idempotency_key", name="uq_form_submission_idempotency"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    form_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("public_forms.id", ondelete="CASCADE"), index=True, nullable=False)
+    answers: Mapped[dict] = mapped_column(JSON, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    terms_accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    form: Mapped["PublicForm"] = relationship("PublicForm", back_populates="submissions")
+    uploads: Mapped[list["PublicFormUpload"]] = relationship("PublicFormUpload", back_populates="submission", cascade="all, delete-orphan")
+
+
+class PublicFormUpload(Base):
+    __tablename__ = "public_form_uploads"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    submission_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("public_form_submissions.id", ondelete="CASCADE"), index=True, nullable=False)
+    field_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+    submission: Mapped["PublicFormSubmission"] = relationship("PublicFormSubmission", back_populates="uploads")
+
+
 class ContractAssistantContract(Base):
     """Internal Contract Assistant reviewed contracts."""
     __tablename__ = "ca_contracts"
