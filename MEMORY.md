@@ -256,3 +256,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S94 (2026-09-09)
 - Live IAM RLVR confirmed a canonical data mismatch: the seeded `Executive Leadership` Discord role was mapped to `sg_super_admin` instead of `sg_executive`. Added a narrowly scoped reversible Alembic migration that repairs only that role ID when the incorrect Super Admin target is present.
+
+### S95 (2026-09-09)
+- Production verification completed for the IAM repair. The backend pipeline passed and deployed commit `7ee99d1`; API and web health endpoints return 200. Authenticated live IAM now shows `Executive Leadership` mapped to its intended `Executive Leadership` group, while only the explicit `admin` role remains mapped to Super Admin and is visibly marked break-glass. The new privileged-mapping review banner is live.
