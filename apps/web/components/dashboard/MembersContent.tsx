@@ -44,7 +44,7 @@ export function MembersContent() {
     <div className="space-y-6">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input
           placeholder="Search registered members by name or email..."
           value={search}
@@ -92,7 +92,7 @@ export function MembersContent() {
                 <tr key={user.id} className="transition-colors hover:bg-[#f4f1eb]">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-8 items-center justify-center border border-border bg-[#17130f] text-xs font-bold text-white">
+                      <div className="flex size-8 items-center justify-center border border-border bg-main text-xs font-bold text-main-foreground">
                         {user.display_name?.charAt(0) || "?"}
                       </div>
 
@@ -103,7 +103,7 @@ export function MembersContent() {
                   <td className="px-4 py-3 text-stone-700">{user.email || "-"}</td>
 
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-base text-[10px] font-bold border ${user.is_active ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-base text-[10px] font-bold border ${user.is_active ? "bg-emerald-50 text-emerald-900 border-emerald-700" : "bg-red-50 text-red-900 border-red-700"}`}>
                       {user.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>

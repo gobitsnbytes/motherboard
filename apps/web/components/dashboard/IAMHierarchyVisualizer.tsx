@@ -78,12 +78,12 @@ export default function IAMHierarchyVisualizer() {
 
   if (loading) {
     return (
-      <div className="rounded-xl border-2 border-border/50 bg-[#111] p-6 space-y-4 animate-pulse">
-        <div className="h-6 w-48 bg-white/20 rounded" />
-        <div className="h-4 w-96 bg-white/10 rounded" />
+      <div className="rounded-base border-2 border-border bg-secondary-background p-6 space-y-4 animate-pulse">
+        <div className="h-6 w-48 bg-muted rounded" />
+        <div className="h-4 w-96 bg-muted rounded" />
         <div className="grid grid-cols-4 gap-4 pt-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-white/10 rounded-xl" />
+            <div key={i} className="h-28 bg-muted rounded-base" />
           ))}
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function IAMHierarchyVisualizer() {
   return (
     <div className="space-y-6">
       {/* Header & Sync Controls */}
-      <div className="rounded-xl border-2 border-border bg-[#111] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-base border-2 border-border bg-secondary-background p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-heading font-bold text-foreground">Verified role topology</h2>
@@ -144,12 +144,12 @@ export default function IAMHierarchyVisualizer() {
       ) : null}
 
       {/* Level Hierarchy Diagram */}
-      <div className="rounded-xl border-2 border-border bg-[#111] p-6 space-y-6">
+      <div className="rounded-base border-2 border-border bg-secondary-background p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <Layers className="size-4 text-amber-400" /> Organizational Hierarchy Tree
           </h3>
-          <span className="text-xs text-white/50">{data?.total_groups} Groups / {data?.total_mappings} Mapped Discord Roles</span>
+          <span className="text-xs text-muted-foreground">{data?.total_groups} Groups / {data?.total_mappings} Mapped Discord Roles</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
@@ -166,7 +166,7 @@ export default function IAMHierarchyVisualizer() {
                 key={lvl.level}
                 className={`rounded-xl border-2 p-4 space-y-3 transition-all ${lvl.color}`}
               >
-                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                <div className="flex justify-between items-center border-b border-border pb-2">
                   <span className="font-mono text-[10px] uppercase font-bold tracking-wider">{lvl.level}</span>
                   <Shield className="size-3.5" />
                 </div>
@@ -183,7 +183,7 @@ export default function IAMHierarchyVisualizer() {
                         className={`cursor-pointer rounded-lg border p-2.5 transition-all text-xs ${
                           selectedGroup?.id === g.id
                             ? "border-amber-400 bg-amber-400/20 text-foreground font-bold shadow-md"
-                            : "border-white/10 bg-black/40 text-white/80 hover:border-white/30"
+                            : "border-border bg-muted text-foreground hover:border-main"
                         }`}
                       >
                         <div className="flex justify-between items-center">
@@ -193,7 +193,7 @@ export default function IAMHierarchyVisualizer() {
                         {g.mapped_roles.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {g.mapped_roles.map((r) => (
-                              <span key={r.discord_role_id} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                <span key={r.discord_role_id} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-300">
                                 @{r.discord_role_name}
                               </span>
                             ))}
@@ -211,8 +211,8 @@ export default function IAMHierarchyVisualizer() {
 
       {/* Selected Group Permission & Discord Mapping Inspector */}
       {selectedGroup && (
-        <div className="rounded-xl border-2 border-border bg-[#111] p-6 space-y-4">
-          <div className="flex justify-between items-center border-b border-white/10 pb-4">
+        <div className="rounded-base border-2 border-border bg-secondary-background p-6 space-y-4">
+          <div className="flex justify-between items-center border-b border-border pb-4">
             <div>
               <h3 className="text-base font-heading font-bold text-foreground flex items-center gap-2">
                 <Lock className="size-4 text-emerald-400" />
@@ -228,7 +228,7 @@ export default function IAMHierarchyVisualizer() {
 
           <div className="grid md:grid-cols-2 gap-4 text-xs">
             {/* Discord Mappings */}
-            <div className="rounded-lg border border-white/10 bg-black/40 p-4 space-y-2">
+            <div className="rounded-base border border-border bg-muted p-4 space-y-2">
               <h4 className="font-heading font-bold text-amber-400 uppercase text-[10px] tracking-wider">
                 Linked Discord Roles
               </h4>
@@ -237,7 +237,7 @@ export default function IAMHierarchyVisualizer() {
               ) : (
                 <div className="space-y-1.5">
                   {selectedGroup.mapped_roles.map((m) => (
-                    <div key={m.discord_role_id} className="flex justify-between items-center py-1 border-b border-white/5 font-mono">
+                    <div key={m.discord_role_id} className="flex justify-between items-center py-1 border-b border-border font-mono">
                       <span>@{m.discord_role_name}</span>
                       <Badge variant={m.sync_enabled ? "success" : "neutral"} className="text-[9px]">
                         {m.sync_enabled ? "Auto-Sync On" : "Manual"}
@@ -249,11 +249,11 @@ export default function IAMHierarchyVisualizer() {
             </div>
 
             {/* Granted Scopes */}
-            <div className="rounded-lg border border-white/10 bg-black/40 p-4 space-y-2">
+            <div className="rounded-base border border-border bg-muted p-4 space-y-2">
               <h4 className="font-heading font-bold text-emerald-400 uppercase text-[10px] tracking-wider">
                 Verified group facts
               </h4>
-              <dl className="space-y-2 font-mono text-[11px] text-white/80">
+              <dl className="space-y-2 font-mono text-[11px] text-foreground/80">
                 <div className="flex items-center justify-between gap-3"><dt>Permission grants</dt><dd className="font-bold text-foreground">{selectedGroup.grants_count}</dd></div>
                 <div className="flex items-center justify-between gap-3"><dt>Members</dt><dd className="font-bold text-foreground">{selectedGroup.members_count}</dd></div>
                 <div className="flex items-center justify-between gap-3"><dt>Discord mappings</dt><dd className="font-bold text-foreground">{selectedGroup.mapped_roles.length}</dd></div>

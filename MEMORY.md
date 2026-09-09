@@ -313,3 +313,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S113 (2026-09-09)
 - Pushed `004f682` to `prod` and verified live IAM without changing mappings: 15 groups, 53 permissions, 17 Discord mappings, Executive Leadership mapped correctly, and only `admin` visibly marked as break-glass Super Admin. Role-mapping controls remain non-mutating during RLVR.
+
+### S114 (2026-09-09)
+- Finished the IAM visual pass below the summary: hierarchy loading/error states, role topology panels, selected-group inspector, and member directory avatar/status details now use warm paper surfaces and readable foregrounds. Authorization and mapping behavior remain unchanged. Full build/typecheck/diff checks pass.
