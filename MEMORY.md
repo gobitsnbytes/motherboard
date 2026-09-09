@@ -316,3 +316,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S114 (2026-09-09)
 - Finished the IAM visual pass below the summary: hierarchy loading/error states, role topology panels, selected-group inspector, and member directory avatar/status details now use warm paper surfaces and readable foregrounds. Authorization and mapping behavior remain unchanged. Full build/typecheck/diff checks pass.
+
+### S115 (2026-09-09)
+- Pushed `e24fa87` to `prod` and re-verified IAM live: hierarchy loads with 15 groups and 17 mapped Discord roles, the Super Admin scope inspector remains usable, and the privileged mapping warning remains present. No access state was changed.
