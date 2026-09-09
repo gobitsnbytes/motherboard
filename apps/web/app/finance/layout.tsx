@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="motherboard-shell flex min-h-screen text-foreground font-base">
+    <div className="motherboard-shell finance-shell flex min-h-screen text-foreground font-base">
       <FinanceSidebar />
       <div className="flex min-w-0 flex-1 flex-col md:ml-64">
         <header className="sticky top-0 z-20 flex min-h-20 shrink-0 items-center justify-between border-b-2 border-black bg-[#f4f1ec] pl-16 pr-4 text-[#120f0a] sm:pr-6 md:px-8">

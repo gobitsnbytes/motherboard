@@ -170,6 +170,34 @@
   animation: motherboard-enter 240ms ease-out both;
 }
 
+/* Finance is a product surface inside the same shell, not a second dark app. */
+.finance-shell .motherboard-canvas {
+  background: #f4f1ec;
+}
+
+.finance-shell .motherboard-canvas .bg-main {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas .bg-background {
+  background: #ffffff;
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas .bg-main :is(.text-white, .text-white\/75, .text-white\/85, .text-white\/90, .text-white\/60) {
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas .bg-background :is(.text-white, .text-white\/75, .text-white\/85, .text-white\/90, .text-white\/60) {
+  color: #120f0a;
+}
+
+.finance-shell .motherboard-canvas :is(input, textarea, select) {
+  background: #ffffff;
+  color: #120f0a;
+}
+
 @keyframes motherboard-enter {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }

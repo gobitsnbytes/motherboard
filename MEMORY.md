@@ -202,3 +202,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S76 (2026-09-09)
 - Corrected IAM hierarchy truthfulness: removed the unverified “2-Way Discord Sync Active” claim and hard-coded permission list, added API error/retry states, and now display only verified group counts and sync feedback.
+
+### S77 (2026-09-09)
+- Began normalizing all Finance routes into the shared warm document canvas. Finance panels and form fields now inherit paper surfaces and dark readable text instead of the legacy second dark theme, while burgundy/orange actions remain available for emphasis.
