@@ -208,3 +208,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S78 (2026-09-09)
 - Reworked the public login surface from a generic centered card into a responsive bits&bytes™ access composition: burgundy brand panel, warm paper auth panel, explicit identity/scope/audit framing, clearer copy, and logged invite-only access language.
+
+### S79 (2026-09-09)
+- Production verification after the login push exposed that `motherboard.gobitsnbytes.org` is still serving the previous web bundle. The repository has no Vercel project link or web deploy workflow; the Vercel CLI is unauthenticated and was stopped without entering credentials. Git `prod` remains authoritative for the code, but web deployment wiring must be connected before claiming browser verification of new UI.
