@@ -343,3 +343,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S122 (2026-09-09)
 - Verified the live Contract Rules auxiliary page without mutation: 58 active rules load, tag filters render, search is available, and the read-only legal playbook cards populate correctly.
+
+### S123 (2026-09-09)
+- Reworked Meetings availability rows and agenda calendar from dark legacy utilities to semantic light surfaces: enabled/disabled day states, time inputs, quick presets, loading skeletons, calendar navigation, cells, and status chips. Web typecheck and diff review passed.
+- Pushed `d312fbf` to `prod` and verified Meetings live: the 171-record suppression notice remains visible, two scheduled meetings load, and scheduling/availability/calendar controls render. No meeting or availability mutation was triggered.
