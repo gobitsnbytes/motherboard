@@ -130,6 +130,12 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     except Exception as legal_agent_err:
         logger.warning(f"Legal Agent scheduler startup skipped: {legal_agent_err}")
 
+    try:
+        from app.routers.forms import start_form_cleanup
+        await start_form_cleanup()
+    except Exception as form_cleanup_err:
+        logger.warning(f"Public form upload cleanup scheduler skipped: {form_cleanup_err}")
+
     logger.info("bnb-api is ready.")
     yield
 
@@ -145,6 +151,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         await stop_legal_agent_jobs()
     except Exception as legal_agent_stop_err:
         logger.warning(f"Legal Agent scheduler shutdown skipped: {legal_agent_stop_err}")
+
+    from app.routers.forms import stop_form_cleanup
+    await stop_form_cleanup()
 
     # Unload plugins and trigger their on_unload hooks BEFORE stopping event_bus
     if hasattr(application.state, "plugin_loader"):
@@ -182,7 +191,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic, cloud, signatures, contract_assistant
+    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic, cloud, signatures, contract_assistant, forms
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
@@ -199,6 +208,7 @@ def create_app() -> FastAPI:
     application.include_router(cloud.router)
     application.include_router(signatures.router)
     application.include_router(contract_assistant.router)
+    application.include_router(forms.router)
 
 
     return application

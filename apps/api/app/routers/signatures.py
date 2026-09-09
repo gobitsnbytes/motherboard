@@ -34,6 +34,7 @@ from app.schemas.signatures import (
     OTPRequestPayload,
     OTPVerifyRequest,
     OrgCountersignPayload,
+    PublicVoidRequest,
     RecipientCreate,
     RecipientResponse,
     SignSubmissionRequest,
@@ -681,7 +682,9 @@ async def seal_hardware_dsc_signature(
     db: DbSession = None,
     req: Request = None,
 ):
-    """Executes digital contract sealing using Hardware USB Token PKCS#7 signature."""
+    """Reserved until a validated PKCS#7/CAdES verifier is integrated."""
+    # Never label arbitrary client input as a legally meaningful DSC signature.
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Hardware DSC signing is disabled until verified PKCS#7/CAdES validation is available")
     stmt = (
         select(SignatureRecipient)
         .options(
@@ -759,7 +762,8 @@ async def seal_software_pfx_dsc_signature(
     db: DbSession = None,
     req: Request = None,
 ):
-    """Executes digital contract sealing using software .pfx / .p12 X.509 Digital Signature Certificate."""
+    """Reserved until the PFX key creates and verifies an embedded PDF signature."""
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="PFX DSC signing is disabled until it creates a verifiable PDF signature")
     stmt = (
         select(SignatureRecipient)
         .options(
@@ -1555,6 +1559,19 @@ async def void_signature_request(
     return {"status": "voided", "message": "Signature request officially voided. All execution links revoked."}
 
 
+@router.post("/sign/{token}/void-requests", status_code=status.HTTP_202_ACCEPTED)
+async def request_public_void(token: str, payload: PublicVoidRequest, req: Request, db: DbSession = None):
+    """Record a signatory's void request; authorized staff must approve the actual void."""
+    recipient = (await db.execute(select(SignatureRecipient).options(selectinload(SignatureRecipient.request)).where(SignatureRecipient.access_token == token))).scalar_one_or_none()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Invalid signature token")
+    if recipient.request.status in ("voided", "expired"):
+        raise HTTPException(status_code=400, detail=f"This contract has already been {recipient.request.status}")
+    await _log_audit_event(db, recipient.request_id, "void_requested", recipient.id, req.client.host if req.client else None, req.headers.get("user-agent"), f"Public void request from {recipient.email}: {payload.reason}")
+    await db.commit()
+    return {"status": "requested", "message": "Your request has been sent to the Foundation for review."}
+
+
 @router.get("/requests/{request_id}/export-void")
 async def export_voided_signature_copy(
     request_id: str,
@@ -1653,6 +1670,3 @@ async def delete_signature_request_permanently(
 
     await db.commit()
     return {"status": "deleted", "message": f"Signature request {request_id} permanently deleted."}
-
-
-

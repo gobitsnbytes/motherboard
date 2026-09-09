@@ -17,6 +17,7 @@ import {
   FileSignature,
   Coins,
   FileCheck,
+  ClipboardList,
   GitBranch,
   UserCheck,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const navItems = [
   { label: "Setup Profile", href: "/dashboard/profile", icon: UserCheck },
   { label: "Contract Assistant", href: "/dashboard/contract-assistant", icon: FileCheck },
   { label: "Signatures", href: "/dashboard/signatures", icon: FileSignature },
+  { label: "Forms", href: "/dashboard/forms", icon: ClipboardList },
   { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
   { label: "Dyslexic", href: "/dashboard/dyslexic", icon: Handshake },
   { label: "Members", href: "/dashboard/members", icon: Users },

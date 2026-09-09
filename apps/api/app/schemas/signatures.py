@@ -225,6 +225,9 @@ class OrgCountersignPayload(BaseModel):
     note: Optional[str] = Field(default=None, max_length=500)
 
 
+class PublicVoidRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=2_000)
+
+
 # Forward reference declared before SignatureAuditLogResponse; resolve now.
 SignatureRequestResponse.model_rebuild()
-
