@@ -179,23 +179,23 @@ export function SettingsContent() {
 
           <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Organization</span>
+              <span className="text-muted-foreground">Organization</span>
               <span className="font-bold text-foreground">bits&bytes™</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Legal Entity</span>
+              <span className="text-muted-foreground">Legal Entity</span>
               <span className="font-bold text-foreground">GOBITSNBYTES FOUNDATION</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Region</span>
+              <span className="text-muted-foreground">Region</span>
               <span className="font-bold text-foreground">India · operating region</span>
             </div>
 
             <div className="flex justify-between items-center py-1">
-              <span className="text-zinc-400">Status</span>
-              <span className="px-2 py-0.5 rounded-base text-[10px] font-bold border border-emerald-800 bg-emerald-950 text-emerald-400">
+              <span className="text-muted-foreground">Status</span>
+              <span className="px-2 py-0.5 rounded-base text-[10px] font-bold border border-emerald-600 bg-emerald-50 text-emerald-800">
                 Active
               </span>
             </div>
@@ -212,22 +212,22 @@ export function SettingsContent() {
 
           <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Guild Status</span>
-              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
+              <span className="text-muted-foreground">Guild Status</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-muted text-muted-foreground border-border"}`}>
                 {statusData.discord === "connected" ? "Connected" : statusData.discord === "unconfigured" ? "Unconfigured" : "Disconnected"}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Bot Status</span>
-              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+              <span className="text-muted-foreground">Bot Status</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.discord === "connected" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-red-50 text-red-800 border-red-600"}`}>
                 {statusData.discord === "connected" ? "Connected" : "Unavailable"}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Last Sync</span>
-              <span className="text-zinc-200">{loading ? "..." : formatRelativeTime(statusData.last_sync_at)}</span>
+              <span className="text-muted-foreground">Last Sync</span>
+              <span className="text-foreground">{loading ? "..." : formatRelativeTime(statusData.last_sync_at)}</span>
             </div>
 
             <button 
@@ -261,31 +261,31 @@ export function SettingsContent() {
 
           <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">IAM Groups</span>
+              <span className="text-muted-foreground">IAM Groups</span>
               <span className="font-bold text-foreground">{loading ? "--" : statusData.groups_count}</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Permissions</span>
+              <span className="text-muted-foreground">Permissions</span>
               <span className="font-bold text-foreground">{loading ? "--" : statusData.permissions_count}</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Role Mappings</span>
+              <span className="text-muted-foreground">Role Mappings</span>
               <span className="font-bold text-foreground">{loading ? "--" : statusData.role_mappings_count}</span>
             </div>
 
             <div className="flex gap-3 pt-2">
               <a 
                 href="/dashboard/iam"
-                className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-[#181820] text-zinc-200 border-2 border-border rounded-base shadow-light hover:bg-[#202028]"
+                className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-muted text-foreground border-2 border-border rounded-base shadow-light hover:bg-secondary-background"
               >
                 Open IAM
               </a>
 
               <a 
                 href="/dashboard/audit"
-                className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-[#181820] text-zinc-200 border-2 border-border rounded-base shadow-light hover:bg-[#202028]"
+                className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-muted text-foreground border-2 border-border rounded-base shadow-light hover:bg-secondary-background"
               >
                 Audit Log
               </a>
@@ -303,27 +303,27 @@ export function SettingsContent() {
 
           <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Version</span>
+              <span className="text-muted-foreground">Version</span>
               <span className="font-bold text-orange">v{loading ? "..." : statusData.version}</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">Environment</span>
-              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.environment.toLowerCase() === "production" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
+              <span className="text-muted-foreground">Environment</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.environment.toLowerCase() === "production" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-amber-50 text-amber-800 border-amber-600"}`}>
                 {loading ? "..." : statusData.environment.charAt(0).toUpperCase() + statusData.environment.slice(1)}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-zinc-400">API Status</span>
-              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+              <span className="text-muted-foreground">API Status</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-red-50 text-red-800 border-red-600"}`}>
                 {loading ? "..." : statusData.database === "healthy" ? "Available" : "Unavailable"}
               </span>
             </div>
 
             <div className="flex justify-between items-center py-1">
-              <span className="text-zinc-400">Database</span>
-              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
+              <span className="text-muted-foreground">Database</span>
+              <span className={`px-2 py-0.5 rounded-base text-[10px] font-bold border ${statusData.database === "healthy" ? "bg-emerald-50 text-emerald-800 border-emerald-600" : "bg-red-50 text-red-800 border-red-600"}`}>
                 {loading ? "..." : statusData.database === "healthy" ? "Healthy" : "Degraded"}
               </span>
             </div>
@@ -340,7 +340,7 @@ export function SettingsContent() {
         </CardHeader>
 
         <CardContent className="space-y-4 pt-4">
-          <p className="text-xs font-mono text-zinc-300">
+          <p className="text-xs font-mono text-muted-foreground">
             These actions require elevated Super Admin permissions and directly mutate caching or permission indexes.
           </p>
 
