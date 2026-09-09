@@ -178,3 +178,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S68 (2026-09-09)
 - Fixed the production IAM route so it actually renders the IAM directory alongside the hierarchy and Discord role mapper. Added functional group search, retryable load errors, skeleton loading, and an accessible table caption. Production web build remains green; checkpoint is ready to push.
+
+### S69 (2026-09-09)
+- Reset the redesign direction after review: the app was still visually fragmented despite the safe IAM checkpoint. Added a shared product design contract and began the real shell overhaul: burgundy control rail, warm document canvas, consistent topbar controls, stronger navigation hierarchy, and restrained page-entry motion. This is a broad UI pass and must be validated across routes before more backend work is pushed.

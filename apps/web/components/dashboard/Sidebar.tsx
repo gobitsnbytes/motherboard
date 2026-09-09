@@ -159,8 +159,8 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-72 md:flex-col md:border-r-2 md:border-zinc-700 md:bg-[#111115]">
-        <div className="flex items-center gap-3 border-b-2 border-zinc-700 px-4 py-4">
+      <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-72 md:flex-col md:border-r-2 md:border-black md:bg-burgundy">
+        <div className="flex items-center gap-3 border-b-2 border-black/40 px-5 py-5">
           <img
             src="https://gobitsnbytes.org/logo"
             alt="bits&bytes logo"
@@ -170,16 +170,16 @@ export default function Sidebar() {
             <span className="font-heading text-sm font-black tracking-wide text-white truncate">
               bits&bytes™
             </span>
-            <span className="font-mono text-[9px] text-zinc-400 uppercase tracking-widest">
+            <span className="font-mono text-[9px] text-white/65 uppercase tracking-widest">
               MOTHERBOARD
             </span>
           </div>
         </div>
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto px-3 py-5">
           <NavList plugins={plugins} />
         </div>
-        <div className="border-t-2 border-zinc-700 p-3">
-          <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-widest text-center">
+        <div className="border-t-2 border-black/40 p-4">
+          <p className="text-[10px] text-white/60 font-mono uppercase tracking-widest text-center">
             motherboard v0.2.0
           </p>
         </div>
@@ -189,7 +189,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-30 md:hidden flex items-center justify-center size-9 rounded-base border-2 border-border bg-[#121216] text-white shadow-light"
+        className="fixed top-3 left-3 z-30 md:hidden flex items-center justify-center size-11 rounded-base border-2 border-black bg-burgundy text-white shadow-light"
         aria-label="Open sidebar"
       >
         <Menu className="size-5" />
@@ -203,8 +203,8 @@ export default function Sidebar() {
             onClick={closeMobile}
             aria-hidden="true"
           />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r-2 border-zinc-700 bg-[#111115]">
-            <div className="flex items-center justify-between border-b-2 border-zinc-700 px-4 py-4">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r-2 border-black bg-burgundy">
+            <div className="flex items-center justify-between border-b-2 border-black/40 px-4 py-4">
               <div className="flex items-center gap-3">
                 <img
                   src="https://gobitsnbytes.org/logo"
@@ -218,7 +218,7 @@ export default function Sidebar() {
               <button
                 type="button"
                 onClick={closeMobile}
-                className="flex size-11 items-center justify-center rounded-base border-2 border-zinc-600 text-zinc-300 transition-colors hover:border-orange hover:text-white"
+                className="flex size-11 items-center justify-center rounded-base border-2 border-black/50 text-white transition-colors hover:border-orange hover:text-orange"
                 aria-label="Close sidebar"
               >
                 <X className="size-5" />

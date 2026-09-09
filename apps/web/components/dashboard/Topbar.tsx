@@ -23,11 +23,11 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between border-b-2 border-zinc-700 bg-[#111115] px-4 md:px-8">
+    <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between border-b-2 border-black bg-[#f4f1ec] px-4 text-[#120f0a] md:px-8">
       <div className="flex items-center gap-2.5">
         <Link
           href="/dashboard/dyslexic"
-          className="inline-flex min-h-11 items-center gap-2 rounded-base border-2 border-zinc-600 px-3 text-xs font-mono font-bold text-white transition-colors hover:border-orange hover:text-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          className="inline-flex min-h-11 items-center gap-2 rounded-base border-2 border-[#120f0a] bg-white px-3 text-xs font-mono font-bold text-[#120f0a] transition-colors hover:border-burgundy hover:text-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
         >
           <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
           <span>DYSLEXIC</span>
@@ -37,7 +37,7 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
         <button
           type="button"
           onClick={onToggleAgentOps}
-          className="hidden min-h-10 sm:inline-flex items-center gap-1.5 rounded-base border-2 border-zinc-600 px-3 text-xs font-mono font-bold text-purple-200 transition-colors hover:border-purple-400"
+          className="hidden min-h-10 sm:inline-flex items-center gap-1.5 rounded-base border-2 border-[#120f0a] bg-white px-3 text-xs font-mono font-bold text-[#120f0a] transition-colors hover:border-burgundy hover:text-burgundy"
         >
           <Bot className="size-3.5 text-purple-400" />
           <span>AI AGENTS</span>
@@ -48,7 +48,7 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
         <button
           type="button"
           onClick={onToggleDebug}
-          className="hidden min-h-10 md:inline-flex items-center gap-1.5 rounded-base border-2 border-zinc-600 px-3 text-xs font-mono font-bold text-amber-200 transition-colors hover:border-amber-400"
+          className="hidden min-h-10 md:inline-flex items-center gap-1.5 rounded-base border-2 border-[#120f0a] bg-white px-3 text-xs font-mono font-bold text-[#120f0a] transition-colors hover:border-burgundy hover:text-burgundy"
         >
           <Terminal className="size-3.5 text-amber-400" />
           <span>STATS / DEBUG</span>
@@ -59,10 +59,10 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
         {/* Avatar & Profile Setup Link */}
         <Link
           href="/dashboard/profile"
-          className="flex min-h-11 items-center gap-2.5 rounded-base px-1 transition-colors hover:bg-white/5 group"
+          className="flex min-h-11 items-center gap-2.5 rounded-base px-2 transition-colors hover:bg-black/5 group"
           title="Team Profile & Chrono v2 Setup"
         >
-          <div className="relative flex size-8 shrink-0 overflow-hidden rounded-base border-2 border-border group-hover:border-orange transition-all bg-black">
+          <div className="relative flex size-8 shrink-0 overflow-hidden rounded-base border-2 border-[#120f0a] group-hover:border-burgundy transition-all bg-[#120f0a]">
             {user?.image ? (
               <img
                 src={user.image}
@@ -70,12 +70,12 @@ export default function Topbar({ onToggleDebug, onToggleAgentOps }: TopbarProps)
                 className="aspect-square size-full object-cover"
               />
             ) : (
-              <div className="flex size-full items-center justify-center bg-black text-xs font-bold text-white">
+              <div className="flex size-full items-center justify-center bg-[#120f0a] text-xs font-bold text-white">
                 {initials}
               </div>
             )}
           </div>
-          <span className="hidden text-xs font-mono font-bold text-white sm:block group-hover:text-orange transition-colors">
+          <span className="hidden text-xs font-mono font-bold text-[#120f0a] sm:block group-hover:text-burgundy transition-colors">
             {displayName}
           </span>
         </Link>

@@ -128,7 +128,10 @@
 /* Motherboard's operational pages use a document canvas inside dark chrome.
    These scoped tokens keep public routes and embedded plugins independent. */
 .motherboard-shell {
-  background: #111115;
+  --shell-ink: #120f0a;
+  --shell-burgundy: #97192c;
+  --shell-orange: #fc920d;
+  background: var(--shell-ink);
 }
 
 .motherboard-canvas {
@@ -143,8 +146,37 @@
   --border: 24 12% 9%;
   --input: 24 12% 9%;
   --ring: 351 71% 34%;
-  background: #eeeae4;
+  background: #f4f1ec;
   color: #120f0a;
+}
+
+.motherboard-shell aside a {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.motherboard-shell aside a:hover {
+  border-color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.12);
+  color: #fff;
+}
+
+.motherboard-shell aside a.border-orange {
+  border-color: #120f0a;
+  background: #fc920d;
+  color: #120f0a;
+}
+
+.motherboard-canvas > div > * {
+  animation: motherboard-enter 240ms ease-out both;
+}
+
+@keyframes motherboard-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motherboard-canvas > div > * { animation: none; }
 }
 
 .motherboard-canvas > div {
