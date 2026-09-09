@@ -94,9 +94,9 @@ export default function DashboardForksPage() {
   const staleForks = forks.filter((f) => f.status === "stale");
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-[#141418] p-5 text-white shadow-dark">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-base border-2 border-border bg-main p-5 text-main-foreground shadow-dark">
         <div>
           <div className="flex items-center gap-2">
             <GitBranch className="size-6 text-orange" />
@@ -104,7 +104,7 @@ export default function DashboardForksPage() {
               Fork Chapter Network
             </h1>
           </div>
-          <p className="mt-1 text-xs sm:text-sm text-zinc-300 font-base">
+          <p className="mt-1 text-xs sm:text-sm text-main-foreground/80 font-base">
             Local chapter lifecycle, weekly `/pulse` tracking, 0-100 health scoring, and automated archiving.
           </p>
         </div>
@@ -112,7 +112,7 @@ export default function DashboardForksPage() {
           <button
             type="button"
             onClick={fetchForksData}
-            className="flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs uppercase rounded-base border-2 border-border bg-[#181820] text-zinc-200 hover:text-white shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs uppercase rounded-base border-2 border-border bg-secondary-background text-foreground hover:bg-orange hover:text-black shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
           >
             <RefreshCw className={`size-3.5 mr-1 ${loading ? "animate-spin text-orange" : "text-orange"}`} />
             Refresh Network
@@ -121,17 +121,17 @@ export default function DashboardForksPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 rounded-base border-2 border-red-500 bg-red-950/80 p-4 text-xs font-mono font-bold text-red-200 shadow-light">
-          <AlertTriangle className="size-5 shrink-0 text-red-400" />
+        <div className="flex items-center gap-3 rounded-base border-2 border-red-700 bg-red-50 p-4 text-xs font-mono font-bold text-red-900 shadow-light">
+          <AlertTriangle className="size-5 shrink-0 text-red-700" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Quick Stats Grid */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Total Fork Nodes
             </CardTitle>
             <GitBranch className="size-4 text-orange" />
@@ -140,17 +140,17 @@ export default function DashboardForksPage() {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-white">
+              <div className="font-heading font-black text-2xl text-foreground">
                 {forks.length}
               </div>
             )}
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">Recognized operating chapters</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-1">Recognized operating chapters</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Active Chapter Pulse
             </CardTitle>
             <Activity className="size-4 text-emerald-400" />
@@ -159,17 +159,17 @@ export default function DashboardForksPage() {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-white">
+              <div className="font-heading font-black text-2xl text-foreground">
                 {activeForks.length}
               </div>
             )}
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">Submitted `/pulse` &lt; 60 days</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-1">Submitted `/pulse` &lt; 60 days</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Stale Archival Alerts
             </CardTitle>
             <AlertTriangle className="size-4 text-amber-400" />
@@ -178,17 +178,17 @@ export default function DashboardForksPage() {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="font-heading font-black text-2xl text-white">
+              <div className="font-heading font-black text-2xl text-foreground">
                 {warningForks.length + staleForks.length}
               </div>
             )}
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">60-89d warning / 90d+ archive</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-1">60-89d warning / 90d+ archive</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
+        <Card className="border-2 border-border bg-secondary-background shadow-light">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+            <CardTitle className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
               Governance Model
             </CardTitle>
             <ShieldCheck className="size-4 text-orange" />
@@ -199,7 +199,7 @@ export default function DashboardForksPage() {
                 Teen-Led Required
               </span>
             </div>
-            <p className="text-[11px] font-mono text-zinc-400 mt-2">Upstream Board legal approval</p>
+            <p className="text-[11px] font-mono text-muted-foreground mt-2">Upstream Board legal approval</p>
           </CardContent>
         </Card>
       </div>
@@ -207,13 +207,13 @@ export default function DashboardForksPage() {
       {/* Responsive 2-Column Main Section */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Column: Active Chapters */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
+        <Card className="border-2 border-border bg-secondary-background shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-muted pb-3.5">
             <div className="flex items-center gap-2">
               <MapPin className="size-4 text-orange" />
-              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Active City Chapters</CardTitle>
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">Active City Chapters</CardTitle>
             </div>
-            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
+            <span className="border border-border bg-secondary-background text-muted-foreground font-mono text-[10px] px-2 py-0.5 rounded-base">
               Notion Registry Sync
             </span>
           </CardHeader>
@@ -235,16 +235,16 @@ export default function DashboardForksPage() {
                 {forks.map((fork) => (
                   <div
                     key={fork.id}
-                    className="flex items-center justify-between rounded-base border-2 border-border bg-[#181820] p-3.5 text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
+                    className="flex items-center justify-between rounded-base border-2 border-border bg-secondary-background p-3.5 text-foreground transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <MapPin className="size-4 text-orange" />
-                        <span className="font-heading font-black text-sm text-white uppercase">
+                        <span className="font-heading font-black text-sm text-foreground uppercase">
                           {fork.city_name}
                         </span>
                       </div>
-                      <div className="text-[11px] font-mono text-zinc-400 mt-1">
+                      <div className="text-[11px] font-mono text-muted-foreground mt-1">
                         Lead: {fork.lead_name || "Unassigned"} &bull; {fork.member_count ?? 1} builders
                       </div>
                     </div>
@@ -264,13 +264,13 @@ export default function DashboardForksPage() {
         </Card>
 
         {/* Right Column: Onboarding Pipeline */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-[#121216] pb-3.5">
+        <Card className="border-2 border-border bg-secondary-background shadow-dark rounded-base">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-border bg-muted pb-3.5">
             <div className="flex items-center gap-2">
               <Zap className="size-4 text-orange" />
-              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">Fork Onboarding Pipeline</CardTitle>
+              <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">Fork Onboarding Pipeline</CardTitle>
             </div>
-            <span className="border border-border bg-black text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-base">
+            <span className="border border-border bg-secondary-background text-muted-foreground font-mono text-[10px] px-2 py-0.5 rounded-base">
               Provisioning Engine
             </span>
           </CardHeader>
@@ -293,12 +293,12 @@ export default function DashboardForksPage() {
                   type="button"
                   key={fork.fork_id}
                   onClick={() => setSelectedForkId(fork.fork_id)}
-                  className="flex w-full flex-col gap-2 rounded-base border-2 border-border bg-[#181820] p-3.5 text-left text-white transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
+                  className="flex w-full flex-col gap-2 rounded-base border-2 border-border bg-secondary-background p-3.5 text-left text-foreground transition-all hover:translate-x-[2px] hover:translate-y-[2px] shadow-light"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <MapPin className="size-4 text-orange" />
-                      <span className="font-heading font-black text-sm text-white uppercase">
+                      <span className="font-heading font-black text-sm text-foreground uppercase">
                         {fork.city_name}
                       </span>
                     </div>
@@ -314,7 +314,7 @@ export default function DashboardForksPage() {
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 mt-1">
-                    <div className="text-[11px] font-mono text-zinc-400">
+                    <div className="text-[11px] font-mono text-muted-foreground">
                       <div className="flex items-center gap-1 mb-1">
                         <Activity className="size-3 text-orange" />
                         Health: 
@@ -323,14 +323,14 @@ export default function DashboardForksPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Users className="size-3 text-zinc-500" />
+                        <Users className="size-3 text-muted-foreground" />
                         Members: {fork.member_count} ({fork.track_leads_assigned_count} leads)
                       </div>
                     </div>
                     <div className="text-[11px] font-mono text-zinc-400 text-right flex flex-col justify-end">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1 text-muted-foreground">
                         <ShieldCheck className="size-3 text-emerald-400" />
-                        <span className="font-bold text-white">{fork.compliance_summary.passed_checks_count}/{fork.compliance_summary.total_checks_count}</span> checks passed
+                        <span className="font-bold text-foreground">{fork.compliance_summary.passed_checks_count}/{fork.compliance_summary.total_checks_count}</span> checks passed
                       </div>
                     </div>
                   </div>
