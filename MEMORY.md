@@ -367,3 +367,8 @@ Comprehensive read-only production audits (S62–S63) established the following 
 ### S128 (2026-09-09)
 - Created and pushed annotated tag `v0.85.5-beta` and published the GitHub prerelease “Motherboard 0.85.5 beta”.
 - CI/CD run `34372033833` passed backend tests and deployed to the VPS. Fresh authenticated production RLVR checks on Overview and Settings both loaded successfully and showed `MOTHERBOARD V0.85.5 BETA`; no mutating controls were exercised.
+
+### S129 (2026-09-09)
+- Continued the post-beta UI overhaul with semantic light/paper treatment for Dyslexic company detail panels, contact rows, editable fields, and dialogs in `9cf8309`.
+- Normalized shared Overview, IAM, and Profile loading skeletons to the same canvas tokens in `f804751`. Web typecheck and diff checks passed for both checkpoints; pushes were sent to `prod`.
+- Meetings remains the next high-hit surface for the ongoing overhaul; its existing availability/calendar components are already normalized, while the legacy monolith still needs a deliberate follow-up pass.
