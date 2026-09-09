@@ -89,14 +89,14 @@ export default function CompaniesContent() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search companies…"
-            className="w-full rounded-base border-2 border-border bg-[#111] py-2 pl-10 pr-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-main"
+            className="w-full rounded-base border-2 border-border bg-background py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-main"
           />
         </div>
 
         <select
           value={stage}
           onChange={(event) => setStage(event.target.value)}
-          className="rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-main"
+          className="rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-main"
         >
           <option value="">All stages</option>
           {Object.entries(STAGE_LABELS).map(([value, label]) => (
@@ -110,7 +110,7 @@ export default function CompaniesContent() {
       <div className="overflow-x-auto rounded-base border-2 border-border">
         <table className="w-full min-w-[720px]">
           <thead>
-            <tr className="border-b-2 border-border bg-[#111] text-left text-xs uppercase tracking-wider text-muted-foreground">
+            <tr className="border-b-2 border-border bg-muted text-left text-xs uppercase tracking-wider text-muted-foreground">
               <th className="px-4 py-3 font-heading">Company</th>
               <th className="px-4 py-3 font-heading">Stage</th>
               <th className="px-4 py-3 font-heading">Contacts</th>
@@ -184,12 +184,12 @@ export default function CompaniesContent() {
 
 function ResearchDot({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    pending: { label: "Queued", className: "text-white/40" },
+    pending: { label: "Queued", className: "text-muted-foreground" },
     running: { label: "Researching…", className: "text-orange animate-pulse" },
     complete: { label: "Ready", className: "text-green-400" },
     failed: { label: "Failed", className: "text-red-400" },
   };
-  const entry = config[status] ?? { label: "Queued", className: "text-white/40" };
+  const entry = config[status] ?? { label: "Queued", className: "text-muted-foreground" };
   return <span className={`text-xs ${entry.className}`}>{entry.label}</span>;
 }
 
@@ -240,7 +240,7 @@ function AddCompanyDialog({
 
       <form
         onSubmit={submit}
-        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-[#0d0d0d] p-5"
+        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-secondary-background p-5"
       >
         <h2 className="font-heading text-lg font-bold">Add a company</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -254,7 +254,7 @@ function AddCompanyDialog({
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Zomato"
-            className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-main"
+            className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-main"
           />
         </label>
 
@@ -264,7 +264,7 @@ function AddCompanyDialog({
             value={website}
             onChange={(event) => setWebsite(event.target.value)}
             placeholder="https://zomato.com"
-            className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-main"
+            className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-main"
           />
         </label>
 

@@ -98,7 +98,7 @@ export default function GenerateEmailDialog({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
       <div className="fixed inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative z-10 my-8 w-full max-w-2xl rounded-base border-2 border-border bg-[#0d0d0d] p-5">
+      <div className="relative z-10 my-8 w-full max-w-2xl rounded-base border-2 border-border bg-secondary-background p-5">
         <h2 className="font-heading text-lg font-bold">
           {kind === "initial" ? "Email" : "Follow up with"} {contact.name}
         </h2>
@@ -116,7 +116,7 @@ export default function GenerateEmailDialog({
                   value={tone}
                   onChange={(event) => setTone(event.target.value)}
                   placeholder="warm, formal, brief…"
-                  className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-main"
+                  className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-main"
                 />
               </label>
             </div>
@@ -128,7 +128,7 @@ export default function GenerateEmailDialog({
                 onChange={(event) => setExtra(event.target.value)}
                 rows={2}
                 placeholder="We're running a 500-person hackathon in March…"
-                className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-main"
+                className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-main"
               />
             </label>
 
@@ -160,7 +160,7 @@ export default function GenerateEmailDialog({
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
-                className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-main"
+                className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-main"
               />
             </label>
 
@@ -170,7 +170,7 @@ export default function GenerateEmailDialog({
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 rows={14}
-                className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 font-mono text-sm leading-relaxed text-white focus:outline-none focus:ring-2 focus:ring-main"
+                className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 font-mono text-sm leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-main"
               />
             </label>
             <p className="text-xs text-muted-foreground">

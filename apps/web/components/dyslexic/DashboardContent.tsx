@@ -125,13 +125,13 @@ export default function DashboardContent() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-base border-2 border-border bg-[#141418] p-5 shadow-dark">
-          <h2 className="mb-3 font-heading font-black text-xs uppercase tracking-wider text-white">
+        <section className="rounded-base border-2 border-border bg-secondary-background p-5 shadow-dark">
+          <h2 className="mb-3 font-heading font-black text-xs uppercase tracking-wider text-foreground">
             Your follow-ups
           </h2>
 
           {followUps.length === 0 ? (
-            <p className="py-6 text-center text-xs font-mono text-zinc-400">
+            <p className="py-6 text-center text-xs font-mono text-muted-foreground">
               {loading ? "Loading…" : "Nothing to chase right now."}
             </p>
           ) : (
@@ -142,17 +142,17 @@ export default function DashboardContent() {
                   className={`flex items-center justify-between gap-3 rounded-base border-2 px-3.5 py-2.5 shadow-light ${
                     item.is_overdue
                       ? "border-orange bg-orange/10"
-                      : "border-border bg-[#181820]"
+                      : "border-border bg-muted"
                   }`}
                 >
                   <div className="min-w-0">
                     <Link
                       href={`/dashboard/dyslexic/companies/${item.company_id}`}
-                      className="block truncate text-xs font-bold text-white hover:text-orange"
+                      className="block truncate text-xs font-bold text-foreground hover:text-orange"
                     >
                       {item.contact_name} &bull; {item.company_name}
                     </Link>
-                    <p className="text-[11px] font-mono text-zinc-400">
+                    <p className="text-[11px] font-mono text-muted-foreground">
                       {item.is_overdue ? "Overdue — due " : "Due "}
                       {formatRelative(item.due_at)}
                     </p>
@@ -170,9 +170,9 @@ export default function DashboardContent() {
           )}
         </section>
 
-        <section className="rounded-base border-2 border-border bg-[#141418] p-5 shadow-dark">
+        <section className="rounded-base border-2 border-border bg-secondary-background p-5 shadow-dark">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-heading font-black text-xs uppercase tracking-wider text-white">
+            <h2 className="font-heading font-black text-xs uppercase tracking-wider text-foreground">
               Top contributors
             </h2>
             <Link
@@ -184,7 +184,7 @@ export default function DashboardContent() {
           </div>
 
           {leaders.length === 0 ? (
-            <p className="py-6 text-center text-xs font-mono text-zinc-400">
+            <p className="py-6 text-center text-xs font-mono text-muted-foreground">
               {loading ? "Loading…" : "No contributions yet."}
             </p>
           ) : (
@@ -192,15 +192,15 @@ export default function DashboardContent() {
               {leaders.map((row, index) => (
                 <li
                   key={row.user_id}
-                  className="flex items-center gap-3 rounded-base border-2 border-border bg-[#181820] px-3.5 py-2.5 shadow-light"
+                  className="flex items-center gap-3 rounded-base border-2 border-border bg-muted px-3.5 py-2.5 shadow-light"
                 >
-                  <span className="w-5 text-center font-mono text-xs font-bold text-zinc-400">
+                  <span className="w-5 text-center font-mono text-xs font-bold text-muted-foreground">
                     {index + 1}
                   </span>
                   <Trophy
-                    className={`size-4 shrink-0 ${index === 0 ? "text-orange" : "text-zinc-600"}`}
+                    className={`size-4 shrink-0 ${index === 0 ? "text-orange" : "text-muted-foreground"}`}
                   />
-                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-white">{row.display_name}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-foreground">{row.display_name}</span>
                   <span className="font-mono text-xs font-bold text-orange">{row.score}</span>
                 </li>
               ))}
@@ -209,13 +209,13 @@ export default function DashboardContent() {
         </section>
       </div>
 
-      <section className="rounded-base border-2 border-border bg-[#141418] p-5 shadow-dark">
-        <h2 className="mb-3 font-heading font-black text-xs uppercase tracking-wider text-white">
+      <section className="rounded-base border-2 border-border bg-secondary-background p-5 shadow-dark">
+        <h2 className="mb-3 font-heading font-black text-xs uppercase tracking-wider text-foreground">
           Recent activity
         </h2>
 
         {activity.length === 0 ? (
-          <p className="py-6 text-center text-xs font-mono text-zinc-400">
+          <p className="py-6 text-center text-xs font-mono text-muted-foreground">
             {loading ? "Loading…" : "Nothing has happened yet."}
           </p>
         ) : (
@@ -227,11 +227,11 @@ export default function DashboardContent() {
               >
                 <Link
                   href={`/dashboard/dyslexic/companies/${event.company_id}`}
-                  className="min-w-0 flex-1 truncate text-zinc-200 hover:text-orange"
+                  className="min-w-0 flex-1 truncate text-foreground hover:text-orange"
                 >
                   {event.summary}
                 </Link>
-                <span className="shrink-0 text-[11px] text-zinc-400">
+                <span className="shrink-0 text-[11px] text-muted-foreground">
                   {formatRelative(event.created_at)}
                 </span>
               </li>
