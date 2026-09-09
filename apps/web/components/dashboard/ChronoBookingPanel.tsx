@@ -183,11 +183,11 @@ export default function ChronoBookingPanel({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="size-4" /> Back
         </button>
-        <div className="flex items-center gap-2 pl-2 border-l-2 border-neutral-800">
+        <div className="flex items-center gap-2 pl-2 border-l-2 border-border">
           {avatarUrl ? (
             <img src={avatarUrl} alt={host.username} className="w-7 h-7 rounded-full border border-border object-cover" />
           ) : (
@@ -196,7 +196,7 @@ export default function ChronoBookingPanel({
             </div>
           )}
           <div>
-            <p className="text-sm font-black text-white">{host.username}</p>
+            <p className="text-sm font-black text-foreground">{host.username}</p>
             {host.title && <p className="text-[10px] text-orange font-bold">{host.title}</p>}
           </div>
         </div>
@@ -204,7 +204,7 @@ export default function ChronoBookingPanel({
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Left: Calendar */}
-        <div className="border-2 border-border bg-dark rounded-base p-4 shadow-shadow">
+        <div className="border-2 border-border bg-secondary-background rounded-base p-4 shadow-shadow">
           {/* Duration */}
           <div className="flex items-center gap-2 mb-4">
             <Clock className="size-3.5 text-orange shrink-0" />
@@ -215,7 +215,7 @@ export default function ChronoBookingPanel({
                   type="button"
                   onClick={() => setDuration(d)}
                   className={`px-2 py-0.5 text-xs font-bold border border-border rounded transition-colors ${
-                    duration === d ? "bg-orange text-black" : "bg-neutral-800 text-gray-300 hover:bg-neutral-700"
+                    duration === d ? "bg-orange text-black" : "bg-muted text-muted-foreground hover:bg-background"
                   }`}
                 >
                   {d}m
@@ -226,13 +226,13 @@ export default function ChronoBookingPanel({
 
           {/* Month nav */}
           <div className="flex items-center justify-between mb-3">
-            <button type="button" onClick={prevMonth} aria-label={`Previous month (${MONTHS[(calMonth + 11) % 12]} ${calMonth === 0 ? calYear - 1 : calYear})`} className="p-1 border-2 border-transparent rounded-base text-gray-400 hover:text-orange hover:border-border transition-colors duration-150 motion-reduce:transition-none">
+            <button type="button" onClick={prevMonth} aria-label={`Previous month (${MONTHS[(calMonth + 11) % 12]} ${calMonth === 0 ? calYear - 1 : calYear})`} className="p-1 border-2 border-transparent rounded-base text-muted-foreground hover:text-orange hover:border-border transition-colors duration-150 motion-reduce:transition-none">
               <ChevronLeft className="size-4" />
             </button>
-            <span className="text-xs font-black text-white uppercase tracking-wider">
+            <span className="text-xs font-black text-foreground uppercase tracking-wider">
               {MONTHS[calMonth]} {calYear}
             </span>
-            <button type="button" onClick={nextMonth} aria-label={`Next month (${MONTHS[(calMonth + 1) % 12]} ${calMonth === 11 ? calYear + 1 : calYear})`} className="p-1 border-2 border-transparent rounded-base text-gray-400 hover:text-orange hover:border-border transition-colors duration-150 motion-reduce:transition-none">
+            <button type="button" onClick={nextMonth} aria-label={`Next month (${MONTHS[(calMonth + 1) % 12]} ${calMonth === 11 ? calYear + 1 : calYear})`} className="p-1 border-2 border-transparent rounded-base text-muted-foreground hover:text-orange hover:border-border transition-colors duration-150 motion-reduce:transition-none">
               <ChevronRight className="size-4" />
             </button>
           </div>
@@ -240,7 +240,7 @@ export default function ChronoBookingPanel({
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 mb-1">
             {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-              <div key={d} className="text-center text-[10px] font-black text-gray-600 uppercase py-1">{d}</div>
+              <div key={d} className="text-center text-[10px] font-black text-muted-foreground uppercase py-1">{d}</div>
             ))}
           </div>
 
@@ -262,10 +262,10 @@ export default function ChronoBookingPanel({
                     isSelected
                       ? "bg-orange text-black border border-border"
                       : isPast
-                      ? "text-gray-700 cursor-not-allowed"
+                      ? "text-muted-foreground/50 cursor-not-allowed"
                       : isToday
-                      ? "border border-orange text-white hover:bg-orange hover:text-black"
-                      : "text-gray-300 hover:bg-neutral-800"
+                      ? "border border-orange text-foreground hover:bg-orange hover:text-black"
+                      : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {d.getDate()}
@@ -276,20 +276,20 @@ export default function ChronoBookingPanel({
         </div>
 
         {/* Right: Slots or Booking Form */}
-        <div className="border-2 border-border bg-dark rounded-base p-4 shadow-shadow min-h-[280px]">
+        <div className="border-2 border-border bg-secondary-background rounded-base p-4 shadow-shadow min-h-[280px]">
           {step === "calendar" && (
             <>
               {!selectedDate && (
-                <div className="flex flex-col items-center justify-center h-full text-gray-600 text-sm text-center space-y-2 pt-8">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm text-center space-y-2 pt-8">
                   <Calendar className="size-8 opacity-30" />
                   <p className="font-bold">Pick a date to see available slots</p>
                 </div>
               )}
               {selectedDate && slotsLoading && (
-                <div className="text-gray-400 text-xs font-bold pt-2">Loading slots…</div>
+                <div className="text-muted-foreground text-xs font-bold pt-2">Loading slots…</div>
               )}
               {selectedDate && slotsError && (
-                <div className="text-red-400 text-xs font-bold pt-2">{slotsError}</div>
+                <div className="text-red-700 text-xs font-bold pt-2">{slotsError}</div>
               )}
               {selectedDate && !slotsLoading && !slotsError && (
                 <div className="space-y-2">
@@ -297,7 +297,7 @@ export default function ChronoBookingPanel({
                     {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                   </p>
                   {slots.length === 0 ? (
-                    <p className="text-xs text-gray-500 pt-2">No available slots for this day. Try another date.</p>
+                    <p className="text-xs text-muted-foreground pt-2">No available slots for this day. Try another date.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
                       {slots.map((slot) => (
@@ -305,7 +305,7 @@ export default function ChronoBookingPanel({
                           key={slot}
                           type="button"
                           onClick={() => handleSlotClick(slot)}
-                          className="py-2 text-xs font-bold border-2 border-border bg-neutral-800 text-white hover:bg-orange hover:text-black rounded transition-all"
+                          className="py-2 text-xs font-bold border-2 border-border bg-muted text-foreground hover:bg-orange hover:text-black rounded transition-all"
                         >
                           {formatSlot(slot)}
                         </button>
@@ -325,7 +325,7 @@ export default function ChronoBookingPanel({
                 <button
                   type="button"
                   onClick={() => setStep("calendar")}
-                  className="ml-auto text-gray-400 hover:text-white text-[10px] font-bold"
+                  className="ml-auto text-muted-foreground hover:text-foreground text-[10px] font-bold"
                 >
                   Change
                 </button>
@@ -338,7 +338,7 @@ export default function ChronoBookingPanel({
                   value={bookingTitle}
                   onChange={(e) => setBookingTitle(e.target.value)}
                   placeholder={`Sync with ${host.username}`}
-                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded text-xs text-white focus:outline-none focus:border-orange"
+                  className="w-full bg-background border-2 border-border p-2 rounded text-xs text-foreground focus:outline-none focus:border-orange"
                 />
               </div>
 
@@ -349,7 +349,7 @@ export default function ChronoBookingPanel({
                   onChange={(e) => setBookingNotes(e.target.value)}
                   placeholder="What do you want to discuss?"
                   rows={2}
-                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded text-xs text-white focus:outline-none focus:border-orange resize-none"
+                  className="w-full bg-background border-2 border-border p-2 rounded text-xs text-foreground focus:outline-none focus:border-orange resize-none"
                 />
               </div>
 
@@ -358,7 +358,7 @@ export default function ChronoBookingPanel({
                 <select
                   value={bookingScope}
                   onChange={(e) => setBookingScope(e.target.value)}
-                  className="w-full bg-neutral-800 border-2 border-border p-2 rounded text-xs text-white focus:outline-none focus:border-orange"
+                  className="w-full bg-background border-2 border-border p-2 rounded text-xs text-foreground focus:outline-none focus:border-orange"
                 >
                   <option value="invite">Invite Only</option>
                   <option value="open">Open (All contributors)</option>
@@ -367,14 +367,14 @@ export default function ChronoBookingPanel({
               </div>
 
               {submitError && (
-                <div className="text-xs text-red-400 font-bold">{submitError}</div>
+                <div className="text-xs text-red-700 font-bold">{submitError}</div>
               )}
 
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setStep("calendar")}
-                  className="flex-1 py-2 text-xs font-bold border-2 border-border bg-neutral-800 text-white rounded hover:bg-neutral-700 transition-colors"
+                  className="flex-1 py-2 text-xs font-bold border-2 border-border bg-muted text-foreground rounded hover:bg-background transition-colors"
                 >
                   Back
                 </button>
