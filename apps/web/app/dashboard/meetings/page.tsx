@@ -586,7 +586,20 @@ export default function MeetingsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [meetingSearch, setMeetingSearch] = useState<string>("");
 
-  const filteredMeetings = meetings.filter((m) => {
+  // Production data currently contains repeated meeting rows with the same
+  // identity, schedule, and room. Keep the operator view usable while the
+  // underlying records are audited; never delete or mutate records here.
+  const uniqueMeetings = Array.from(
+    new Map(
+      meetings.map((meeting) => [
+        [meeting.title, meeting.scheduled_time, meeting.meet_code, meeting.creator_id, meeting.status].join("|"),
+        meeting,
+      ])
+    ).values()
+  );
+  const duplicateMeetingCount = meetings.length - uniqueMeetings.length;
+
+  const filteredMeetings = uniqueMeetings.filter((m) => {
     const matchesStatus = statusFilter === "all" || m.status === statusFilter;
     const matchesSearch =
       !meetingSearch ||
@@ -596,8 +609,8 @@ export default function MeetingsPage() {
     return matchesStatus && matchesSearch;
   });
 
-  const activeCount = meetings.filter((m) => m.status === "active").length;
-  const scheduledCount = meetings.filter((m) => m.status === "scheduled").length;
+  const activeCount = uniqueMeetings.filter((m) => m.status === "active").length;
+  const scheduledCount = uniqueMeetings.filter((m) => m.status === "scheduled").length;
 
   return (
     <div className="meetings-workspace max-w-7xl mx-auto space-y-6 p-0">
@@ -607,6 +620,11 @@ export default function MeetingsPage() {
           className={`border-2 px-4 py-3 text-sm font-mono ${notice.kind === "success" ? "border-[#265d3a] bg-[#eaf5ed] text-[#173d24]" : "border-[#97192c] bg-[#fbecef] text-[#5b0f1a]"}`}
         >
           {notice.message}
+        </div>
+      ) : null}
+      {duplicateMeetingCount > 0 ? (
+        <div role="status" className="border-2 border-[#8a5a00] bg-[#fff5d6] px-4 py-3 text-sm font-mono text-[#5b3a00]">
+          {duplicateMeetingCount} repeated meeting record{duplicateMeetingCount === 1 ? " is" : "s are"} hidden from the operator list. The underlying records were left untouched for audit and cleanup.
         </div>
       ) : null}
       {/* Page Header */}
@@ -717,7 +735,7 @@ export default function MeetingsPage() {
 
       {/* Navigation Tabs */}
       <div className="flex gap-2 border-b-2 border-border pb-2 overflow-x-auto">
-        <TabButton label={`My Meetings (${meetings.length})`} active={activeTab === "meetings"} onClick={() => setActiveTab("meetings")} />
+        <TabButton label={`My Meetings (${uniqueMeetings.length})`} active={activeTab === "meetings"} onClick={() => setActiveTab("meetings")} />
         <TabButton label="Book a Sync" active={activeTab === "book"} onClick={() => setActiveTab("book")} />
         <TabButton label="My Availability" active={activeTab === "availability"} onClick={() => setActiveTab("availability")} />
         <TabButton label="Notification Preferences" active={activeTab === "notifications"} onClick={() => setActiveTab("notifications")} />
@@ -727,9 +745,9 @@ export default function MeetingsPage() {
       {/* ── Tab 5: Calendar ────────────────────────────────────────────────── */}
       {activeTab === "calendar" && (
         <MeetingsAgendaCalendar
-          meetings={meetings}
+          meetings={uniqueMeetings}
           loading={loading}
-          onSelectMeeting={(m) => setSelectedMeeting(meetings.find((x) => x.id === m.id) ?? null)}
+          onSelectMeeting={(m) => setSelectedMeeting(uniqueMeetings.find((x) => x.id === m.id) ?? null)}
         />
       )}
 

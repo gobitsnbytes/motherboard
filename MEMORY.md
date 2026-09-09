@@ -229,3 +229,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S85 (2026-09-09)
 - RLVR on live IAM exposed one remaining overclaim: the action said “2-Way Discord Sync” even though the surface triggers a role refresh. Renamed it to “Refresh Discord roles” so the control matches the verified behavior.
+
+### S86 (2026-09-09)
+- RLVR on live Meetings found repeated records flooding the operator view. Added non-destructive client-side deduplication by meeting identity/schedule/room, a visible warning with the duplicate count, and left source records untouched for a later data cleanup pass.
