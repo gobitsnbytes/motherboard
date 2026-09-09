@@ -175,7 +175,7 @@ export default function IAMRoleMappings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-base border-2 border-border bg-[#111] p-6">
+      <div className="flex flex-col gap-3 rounded-base border-2 border-border bg-main p-6">
         <div>
           <h2 className="text-xl font-heading font-bold text-foreground">Discord Role Mapping</h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -194,7 +194,7 @@ export default function IAMRoleMappings() {
       </div>
 
       {error ? (
-        <div className="rounded-base border-2 border-border bg-[#111] p-4 text-sm text-foreground">
+        <div className="rounded-base border-2 border-border bg-main p-4 text-sm text-foreground">
           <p className="font-medium text-main-foreground">Unable to load role mapping data.</p>
           <p className="mt-2 text-foreground/80">{error}</p>
           <Button type="button" size="sm" className="mt-3" onClick={loadMappings} disabled={loading}>
@@ -204,12 +204,12 @@ export default function IAMRoleMappings() {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-base border-2 border-border bg-[#111] p-4 text-sm text-foreground text-foreground/90">
+        <div className="rounded-base border-2 border-border bg-main p-4 text-sm text-foreground/90">
           {successMessage}
         </div>
       ) : null}
 
-      <div className="rounded-base border-2 border-border bg-[#111] p-4">
+      <div className="rounded-base border-2 border-border bg-main p-4">
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="h-8 w-1/3" />

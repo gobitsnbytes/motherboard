@@ -170,9 +170,9 @@ export function SettingsContent() {
       {/* Top Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Organization */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-main shadow-shadow rounded-base">
+          <CardHeader className="border-b-2 border-border bg-background py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">
               Organization Settings
             </CardTitle>
           </CardHeader>
@@ -180,17 +180,17 @@ export function SettingsContent() {
           <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Organization</span>
-              <span className="font-bold text-white">bits&bytes™</span>
+              <span className="font-bold text-foreground">bits&bytes™</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Legal Entity</span>
-              <span className="font-bold text-white">GOBITSNBYTES FOUNDATION</span>
+              <span className="font-bold text-foreground">GOBITSNBYTES FOUNDATION</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Region</span>
-              <span className="font-bold text-white">India · operating region</span>
+              <span className="font-bold text-foreground">India · operating region</span>
             </div>
 
             <div className="flex justify-between items-center py-1">
@@ -203,9 +203,9 @@ export function SettingsContent() {
         </Card>
 
         {/* Discord */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-main shadow-shadow rounded-base">
+          <CardHeader className="border-b-2 border-border bg-background py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">
               Discord Integration
             </CardTitle>
           </CardHeader>
@@ -252,9 +252,9 @@ export function SettingsContent() {
       {/* Middle Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Security */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-main shadow-shadow rounded-base">
+          <CardHeader className="border-b-2 border-border bg-background py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">
               Security &amp; Access
             </CardTitle>
           </CardHeader>
@@ -262,17 +262,17 @@ export function SettingsContent() {
           <CardContent className="space-y-3.5 pt-4 font-mono text-xs">
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">IAM Groups</span>
-              <span className="font-bold text-white">{loading ? "--" : statusData.groups_count}</span>
+              <span className="font-bold text-foreground">{loading ? "--" : statusData.groups_count}</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Permissions</span>
-              <span className="font-bold text-white">{loading ? "--" : statusData.permissions_count}</span>
+              <span className="font-bold text-foreground">{loading ? "--" : statusData.permissions_count}</span>
             </div>
 
             <div className="flex justify-between items-center py-1 border-b border-border/50">
               <span className="text-zinc-400">Role Mappings</span>
-              <span className="font-bold text-white">{loading ? "--" : statusData.role_mappings_count}</span>
+              <span className="font-bold text-foreground">{loading ? "--" : statusData.role_mappings_count}</span>
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -294,9 +294,9 @@ export function SettingsContent() {
         </Card>
 
         {/* System */}
-        <Card className="border-2 border-border bg-[#141418] shadow-dark rounded-base">
-          <CardHeader className="border-b-2 border-border bg-[#121216] py-3.5">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-main shadow-shadow rounded-base">
+          <CardHeader className="border-b-2 border-border bg-background py-3.5">
+            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-foreground">
               System status
             </CardTitle>
           </CardHeader>
@@ -332,7 +332,7 @@ export function SettingsContent() {
       </div>
 
       {/* Danger Zone */}
-      <Card className="border-2 border-red-500 bg-[#141418] shadow-dark rounded-base">
+      <Card className="border-2 border-red-500 bg-main shadow-shadow rounded-base">
         <CardHeader className="border-b-2 border-red-500 bg-red-950/40 py-3.5">
           <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-red-400">
             Danger Zone

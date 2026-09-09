@@ -238,3 +238,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S88 (2026-09-09)
 - RLVR on live Settings found more unverified operational/legal wording. Changed region to an operating-region label, removed the compliance claim, made Discord/API labels describe observed connectivity rather than inferred service state, and simplified the database label. Dark legacy cards remain a follow-up visual normalization target.
+
+### S89 (2026-09-09)
+- Continued the visual normalization pass in IAM role mappings and Settings: replaced legacy near-black panels with shared paper surfaces, corrected foreground contrast, and removed a duplicate text utility. Production IAM now shows the truthful “Refresh Discord roles” action; many Discord roles remain intentionally unmapped and require operator decisions rather than automatic assignment.
