@@ -241,3 +241,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S89 (2026-09-09)
 - Continued the visual normalization pass in IAM role mappings and Settings: replaced legacy near-black panels with shared paper surfaces, corrected foreground contrast, and removed a duplicate text utility. Production IAM now shows the truthful “Refresh Discord roles” action; many Discord roles remain intentionally unmapped and require operator decisions rather than automatic assignment.
+
+### S90 (2026-09-09)
+- Production verification caught one remaining Finance wording leak: the new Governance checks card still rendered the API status value “compliant.” Mapped that display to “configured” or “review” so the UI does not turn a policy configuration result into a legal claim.

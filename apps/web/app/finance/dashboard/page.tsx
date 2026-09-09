@@ -191,7 +191,7 @@ export default function FinanceDashboard() {
                     : "border-yellow-600 bg-yellow-500/15 text-yellow-400"
                 }`}
               >
-                {compliance.overall_status}
+                {compliance.overall_status === "compliant" ? "configured" : "review"}
               </span>
             )}
           </div>
