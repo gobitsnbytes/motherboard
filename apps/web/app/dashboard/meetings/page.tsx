@@ -362,10 +362,10 @@ export default function MeetingsPage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-heading font-black tracking-tight text-white">
+          <h1 className="text-3xl font-heading font-black tracking-tight text-foreground">
             MEETINGS & SCHEDULING
           </h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage availability, schedule calls, and access AI-generated meeting transcripts.
           </p>
         </div>
@@ -385,7 +385,7 @@ export default function MeetingsPage() {
           className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
             activeTab === "meetings"
               ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-              : "bg-[#222] text-white hover:bg-[#333]"
+              : "bg-secondary-background text-foreground hover:bg-muted"
           }`}
         >
           Meetings & Calendar
@@ -395,7 +395,7 @@ export default function MeetingsPage() {
           className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
             activeTab === "availability"
               ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-              : "bg-[#222] text-white hover:bg-[#333]"
+              : "bg-secondary-background text-foreground hover:bg-muted"
           }`}
         >
           My Availability
@@ -405,7 +405,7 @@ export default function MeetingsPage() {
           className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
             activeTab === "preferences"
               ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
-              : "bg-[#222] text-white hover:bg-[#333]"
+              : "bg-secondary-background text-foreground hover:bg-muted"
           }`}
         >
           Notification Preferences
@@ -416,16 +416,16 @@ export default function MeetingsPage() {
       {activeTab === "meetings" && (
         <div className="space-y-4">
           {loading ? (
-            <div className="border-4 border-black bg-neutral-900 p-8 text-center text-white font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
+            <div className="border-4 border-border bg-secondary-background p-8 text-center text-foreground font-bold rounded-base shadow-shadow">
               Loading meetings...
             </div>
           ) : error ? (
-            <div className="border-4 border-black bg-red-950 text-red-200 p-4 font-bold rounded-base shadow-[4px_4px_0px_0px_#000] flex items-center gap-3">
+            <div className="border-4 border-border bg-red-50 text-red-900 p-4 font-bold rounded-base shadow-shadow flex items-center gap-3">
               <AlertTriangle className="size-6 shrink-0" />
               <span>Error: {error}</span>
             </div>
           ) : meetings.length === 0 ? (
-            <div className="border-4 border-black bg-neutral-900 p-8 text-center text-gray-400 font-bold rounded-base shadow-[4px_4px_0px_0px_#000]">
+            <div className="border-4 border-border bg-secondary-background p-8 text-center text-muted-foreground font-bold rounded-base shadow-shadow">
               No meetings scheduled. Start by scheduling one!
             </div>
           ) : (
@@ -434,11 +434,11 @@ export default function MeetingsPage() {
                 <div
                   key={meeting.id}
                   onClick={() => setSelectedMeeting(meeting)}
-                  className="border-4 border-black bg-[#161412] hover:bg-[#1a1816] p-5 rounded-base shadow-[4px_4px_0px_0px_#000] cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between"
+                  className="border-4 border-border bg-background hover:bg-muted p-5 rounded-base shadow-shadow cursor-pointer transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-light flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex justify-between items-start gap-2">
-                      <h2 className="text-xl font-heading font-black text-white line-clamp-1">
+                      <h2 className="text-xl font-heading font-black text-foreground line-clamp-1">
                         {meeting.title}
                       </h2>
                       <span
@@ -450,16 +450,16 @@ export default function MeetingsPage() {
                       </span>
                     </div>
 
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                       {meeting.description || "No agenda description."}
                     </p>
 
                     <div className="mt-4 space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <div className="flex items-center gap-2 text-xs text-foreground">
                         <Clock className="size-4 text-[#ff7a1b]" />
                         <span>{formatTime(meeting.scheduled_time)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <div className="flex items-center gap-2 text-xs text-foreground">
                         <MapPin className="size-4 text-[#ff7a1b]" />
                         <span>
                           {meeting.location_type === "discord_vc"
@@ -467,17 +467,17 @@ export default function MeetingsPage() {
                             : meeting.location_details || "External location"}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <div className="flex items-center gap-2 text-xs text-foreground">
                         <Users className="size-4 text-[#ff7a1b]" />
                         <span>{meeting.attendees?.length || 1} attendee(s)</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t-2 border-neutral-800 flex justify-between items-center text-xs">
-                    <span className="text-gray-500 font-bold">Code: {meeting.meet_code || "N/A"}</span>
+                  <div className="mt-5 pt-3 border-t-2 border-border flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-bold">Code: {meeting.meet_code || "N/A"}</span>
                     {meeting.status === "completed" && (
-                      <span className="flex items-center gap-1 font-bold text-green-400">
+                      <span className="flex items-center gap-1 font-bold text-green-700">
                         <FileText className="size-4 shrink-0" />
                         AI Transcript Available
                       </span>
@@ -493,15 +493,15 @@ export default function MeetingsPage() {
       {activeTab === "availability" && (
         <form
           onSubmit={handleSaveAvailability}
-          className="border-4 border-black bg-[#161412] p-6 rounded-base shadow-[4px_4px_0px_0px_#000] space-y-4 max-w-2xl"
+          className="border-4 border-border bg-background p-6 rounded-base shadow-shadow space-y-4 max-w-2xl"
         >
-          <h2 className="text-2xl font-heading font-black text-white">MY AVAILABILITY</h2>
-          <p className="text-xs text-gray-400">
+          <h2 className="text-2xl font-heading font-black text-foreground">MY AVAILABILITY</h2>
+          <p className="text-xs text-muted-foreground">
             Define your timezone and custom calendar booking links.
           </p>
 
           {availSuccess && (
-            <div className="bg-green-950 text-green-200 border-2 border-green-800 p-3 rounded-base font-bold text-sm">
+            <div className="bg-green-50 text-green-800 border-2 border-green-700 p-3 rounded-base font-bold text-sm">
               ✔ Availability profile saved successfully!
             </div>
           )}
@@ -512,7 +512,7 @@ export default function MeetingsPage() {
               type="email"
               value={availEmail}
               onChange={(e) => setAvailEmail(e.target.value)}
-              className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+              className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
               placeholder="you@gobitsnbytes.org"
             />
           </div>
@@ -522,7 +522,7 @@ export default function MeetingsPage() {
             <select
               value={availTimezone}
               onChange={(e) => setAvailTimezone(e.target.value)}
-              className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+              className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
             >
               <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
               <option value="UTC">UTC</option>
@@ -537,7 +537,7 @@ export default function MeetingsPage() {
               type="text"
               value={availWeeklyHours}
               onChange={(e) => setAvailWeeklyHours(e.target.value)}
-              className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+              className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
               placeholder="e.g. Mon-Fri 14:00-18:00"
             />
           </div>
@@ -548,7 +548,7 @@ export default function MeetingsPage() {
               type="url"
               value={availBookingLink}
               onChange={(e) => setAvailBookingLink(e.target.value)}
-              className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+              className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
               placeholder="https://cal.gobitsnbytes.org/yourname"
             />
           </div>
@@ -560,7 +560,7 @@ export default function MeetingsPage() {
                 type="text"
                 value={availTitle}
                 onChange={(e) => setAvailTitle(e.target.value)}
-                className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+                className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
                 placeholder="e.g. Fork Organizer"
               />
             </div>
@@ -570,7 +570,7 @@ export default function MeetingsPage() {
                 type="text"
                 value={availDescription}
                 onChange={(e) => setAvailDescription(e.target.value)}
-                className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+                className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
                 placeholder="Short description for bookings"
               />
             </div>
@@ -590,15 +590,15 @@ export default function MeetingsPage() {
       {activeTab === "preferences" && (
         <form
           onSubmit={handleSavePreferences}
-          className="border-4 border-black bg-[#161412] p-6 rounded-base shadow-[4px_4px_0px_0px_#000] space-y-4 max-w-2xl"
+          className="border-4 border-border bg-background p-6 rounded-base shadow-shadow space-y-4 max-w-2xl"
         >
-          <h2 className="text-2xl font-heading font-black text-white">NOTIFICATION PREFERENCES</h2>
-          <p className="text-xs text-gray-400">
+          <h2 className="text-2xl font-heading font-black text-foreground">NOTIFICATION PREFERENCES</h2>
+          <p className="text-xs text-muted-foreground">
             Configure how you want to be notified about meeting invites and reminders.
           </p>
 
           {prefSuccess && (
-            <div className="bg-green-950 text-green-200 border-2 border-green-800 p-3 rounded-base font-bold text-sm">
+            <div className="bg-green-50 text-green-800 border-2 border-green-700 p-3 rounded-base font-bold text-sm">
               ✔ Notification preferences saved successfully!
             </div>
           )}
@@ -609,7 +609,7 @@ export default function MeetingsPage() {
               type="email"
               value={prefEmail}
               onChange={(e) => setPrefEmail(e.target.value)}
-              className="w-full bg-[#222] border-2 border-black p-2.5 rounded-base text-white focus:outline-none focus:border-[#ff7a1b]"
+              className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
               placeholder="you@example.com"
               required
             />
