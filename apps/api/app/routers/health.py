@@ -115,8 +115,7 @@ async def get_detailed_status(db: DbDep, current_user: OptionalUserDep = None) -
 
     import os
     env_name = os.environ.get("APP_ENV") or os.environ.get("NODE_ENV") or "development"
-    # Read version from config or standard constant
-    app_version = "0.1.1"
+    app_version = settings.app_version
 
     groups_count = 0
     permissions_count = 0
@@ -141,4 +140,3 @@ async def get_detailed_status(db: DbDep, current_user: OptionalUserDep = None) -
         "permissions_count": permissions_count,
         "role_mappings_count": role_mappings_count,
     }
-

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, Activity, Database, Shield, Cpu, Terminal, RefreshCw, Zap } from "lucide-react";
 import { Badge, Button } from "@bnb/ui";
 import { useSession } from "next-auth/react";
+import { APP_VERSION_LABEL } from "../../lib/version";
 
 interface CockpitDebuggerProps {
   isOpen: boolean;
@@ -135,7 +136,7 @@ export default function CockpitDebugger({ isOpen, onClose }: CockpitDebuggerProp
             </div>
             <div className="flex flex-col bg-black p-2 rounded-base border border-border">
               <span className="text-zinc-500 text-[10px]">App Version</span>
-              <span className="font-bold text-amber-400">v0.2.0-cockpit</span>
+              <span className="font-bold text-amber-400">{APP_VERSION_LABEL}-cockpit</span>
             </div>
           </div>
         </div>

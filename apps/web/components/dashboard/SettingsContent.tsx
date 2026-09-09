@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { APP_VERSION } from "../../lib/version";
 import {
   Card,
   CardContent,
@@ -52,7 +53,7 @@ export function SettingsContent() {
     discord: "loading",
     sync: "loading",
     last_sync_at: null,
-    version: "0.2.0",
+    version: APP_VERSION,
     environment: "development",
     groups_count: 0,
     permissions_count: 0,

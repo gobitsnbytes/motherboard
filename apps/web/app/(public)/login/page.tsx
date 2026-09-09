@@ -3,6 +3,7 @@
 import React, { Suspense, useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { APP_VERSION_LABEL } from "../../../lib/version";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -119,7 +120,7 @@ export default function LoginPage() {
           </div>
           <div className="relative z-10 flex items-end justify-between gap-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/60">
             <span>built for the network</span>
-            <span>v0.2.0</span>
+            <span>{APP_VERSION_LABEL}</span>
           </div>
           <div aria-hidden="true" className="absolute -bottom-24 -right-24 size-80 rounded-full border-[36px] border-orange/25" />
           <div aria-hidden="true" className="absolute right-20 top-24 size-3 rotate-45 bg-orange" />

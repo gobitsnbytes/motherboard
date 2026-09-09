@@ -173,7 +173,7 @@ def create_app() -> FastAPI:
 
     application = FastAPI(
         title="bnb-motherboard API",
-        version="0.1.1",
+        version=settings.app_version,
         description="Internal operations platform for the bits&bytes network.",
         lifespan=lifespan,
         openapi_url="/api/openapi.json",

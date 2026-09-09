@@ -22,6 +22,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import * as Lucide from "lucide-react";
+import { APP_VERSION_LABEL } from "../../lib/version";
 
 interface UiPanel {
   id: string;
@@ -180,7 +181,7 @@ export default function Sidebar() {
         </div>
         <div className="border-t-2 border-black/40 p-4">
           <p className="text-[10px] text-white/60 font-mono uppercase tracking-widest text-center">
-            motherboard v0.2.0
+            motherboard {APP_VERSION_LABEL}
           </p>
         </div>
       </aside>

@@ -1,6 +1,6 @@
 {
   "name": "@bnb/web",
-  "version": "0.2.0",
+  "version": "0.85.5-beta",
   "private": true,
   "scripts": {
     "dev": "next dev",

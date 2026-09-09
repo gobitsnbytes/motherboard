@@ -173,11 +173,11 @@ async def finance_health() -> dict:
 
 
 @router.get("/info")
-async def finance_info() -> dict:
+async def finance_info(settings: AppSettings) -> dict:
     """Provide descriptive metadata and current contact information for GOBITSNBYTES FOUNDATION finance tracking."""
     return {
         "name": "GOBITSNBYTES FOUNDATION Finance API",
-        "version": "0.2.0",
+        "version": settings.app_version,
         "description": (
             "Internal virtual finance ledger for the bits&bytes network. "
             "Handles virtual budgeting, expense tracking, reimbursements, and "

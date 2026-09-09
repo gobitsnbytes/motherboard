@@ -358,3 +358,8 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S126 (2026-09-09)
 - Ran the focused IAM backend regression gate: `test_iam_policy.py`, `test_iam_router.py`, and `test_iam_discord_mapping_ui.py` pass 13/13 under `uv run pytest`. No production data was changed.
+
+### S127 (2026-09-09)
+- Established `0.85.5-beta` as the canonical Motherboard release identifier in `VERSION`, root/web/UI/bot package metadata, API PEP 440 metadata (`0.85.5b0`), API settings, OpenAPI, health, and finance info responses.
+- Replaced visible runtime `v0.2.0` labels with the shared web version constants and added `CHANGELOG.md` for the beta checkpoint. The release is intentionally beta; 1.0/full-release work remains ahead.
+- Checkpointed the Dyslexic CRM light-surface normalization separately in `2835b7d` and pushed it to `prod` before the release metadata work.
