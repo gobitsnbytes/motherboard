@@ -533,3 +533,9 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
   - `bun run --cwd apps/web build` succeeded with exit code 0 across all 31 static and dynamic routes.
   - `uv run --directory apps/api pytest` succeeded with 100% test pass rate (**247 passed**).
 
+### Session S65 (2026-09-09) - App-wide document UI system
+
+- Replaced the internal app's dark-surface sprawl with a shared document canvas inside operational dark chrome. Dashboard, finance, and Dyslexic CRM now inherit the same responsive, keyboard-visible surface model; legacy cards and panels are normalized centrally rather than forked page by page.
+- Reworked shared shell, navigation, top bar, stat/empty states, finance navigation, login, and dashboard compliance footer. The mobile nav controls use 44px targets and global reduced-motion behavior is respected.
+- Used the official `Brand & Intellectual Property` guide as the final visual source: primary actions and focus use Burgundy `#97192c`, editorial accents use Orange `#fc920d`, and document/chrome neutrals use the approved `#120f0a` / `#d0cfce` range. Public brand naming and logo alternative text use `bits&bytes™`; legal entity text remains GOBITSNBYTES FOUNDATION only where appropriate.
+- Verification: `bun run typecheck` and `bun run build` complete successfully. The build still emits the existing Next/Auth Edge Runtime CompressionStream warnings from `jose`, but all 32 routes compile and generate.

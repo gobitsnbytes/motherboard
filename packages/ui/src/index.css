@@ -132,8 +132,8 @@
 }
 
 .motherboard-canvas {
-  --background: 38 26% 91%;
-  --foreground: 24 12% 9%;
+  --background: 0 1% 81%;
+  --foreground: 30 29% 6%;
   --card: 0 0% 100%;
   --card-foreground: 24 12% 9%;
   --popover: 0 0% 100%;
@@ -143,24 +143,24 @@
   --border: 24 12% 9%;
   --input: 24 12% 9%;
   --ring: 351 71% 34%;
-  background: #ebe8e1;
-  color: #17130f;
+  background: #d0cfce;
+  color: #120f0a;
 }
 
 .motherboard-canvas [data-slot="card"] {
-  border-color: #17130f;
+  border-color: #120f0a;
   background: #fff;
   box-shadow: none;
-  color: #17130f;
+  color: #120f0a;
 }
 
 .motherboard-canvas [data-slot="card"] [data-slot="card-header"] {
-  border-color: #17130f;
-  background: #f4f1eb;
+  border-color: #120f0a;
+  background: #f4f4f3;
 }
 
 .motherboard-canvas [data-slot="card"] :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300) {
-  color: #17130f;
+  color: #120f0a;
 }
 
 .motherboard-canvas [data-slot="card"] :is(.text-zinc-400, .text-zinc-500, .text-muted-foreground) {
@@ -169,6 +169,31 @@
 
 .motherboard-canvas [data-slot="card"] :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\], .bg-black) {
   background: #fff;
+}
+
+/* Older operational routes still use these first-generation surface classes
+   directly. Normalize them only inside the internal document canvas. */
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) {
+  background: #fff;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) :is(.text-white, .text-zinc-100, .text-zinc-200, .text-zinc-300) {
+  color: #120f0a;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) :is(.text-zinc-400, .text-zinc-500) {
+  color: #625b52;
+}
+
+.motherboard-canvas :is(.bg-\[\#141418\], .bg-\[\#121216\], .bg-\[\#181820\]) :is(.bg-black, .bg-\[\#181820\]) {
+  background: #f4f4f3;
+}
+
+/* Keep intentional brand actions legible after legacy text surfaces are normalized. */
+.motherboard-canvas [data-slot="card"] :is(button, a).bg-main,
+.motherboard-canvas [data-slot="card"] :is(button, a).bg-burgundy,
+.motherboard-canvas [data-slot="card"] [data-slot="button"].bg-main {
+  color: #fff;
 }
 
 .motherboard-canvas [data-slot="button"]:focus-visible,
