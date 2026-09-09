@@ -307,3 +307,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S111 (2026-09-09)
 - Pushed `098e69a` to `prod` and verified Contract Assistant live with the authenticated browser: 5 contracts loaded, 4 out for signature, 1 executed, OKF rules count rendered, and all three pipeline columns/links are functional. No contract upload or mutation was performed.
+
+### S112 (2026-09-09)
+- Reworked the IAM summary and group table to match the governance design: readable metric cards, light search/error states, paper table headers/rows, and stronger foreground hierarchy. IAM fetching, role-mapping controls, and authorization behavior are unchanged. Full build/typecheck/diff checks pass before promotion.
