@@ -37,7 +37,7 @@ interface DayRowProps {
 
 function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemoveSlot, onCopyToAll }: DayRowProps) {
   return (
-    <div className={`flex flex-col gap-2 p-3.5 border-2 border-border rounded-base transition-colors ${enabled ? "bg-[#181820] shadow-light" : "bg-[#121216]"}`}>
+    <div className={`flex flex-col gap-2 p-3.5 border-2 border-border rounded-base transition-colors ${enabled ? "bg-secondary-background shadow-light" : "bg-muted"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Toggle switch */}
@@ -45,7 +45,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             type="button"
             onClick={() => onToggle(day)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full border-2 border-border transition-colors ${
-              enabled ? "bg-orange" : "bg-neutral-800"
+              enabled ? "bg-orange" : "bg-muted-foreground"
             }`}
             aria-pressed={enabled}
             aria-label={`Toggle ${day}`}
@@ -56,7 +56,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
               }`}
             />
           </button>
-          <span className={`text-xs font-mono font-black uppercase tracking-widest w-8 ${enabled ? "text-white" : "text-zinc-500"}`}>
+          <span className={`text-xs font-mono font-black uppercase tracking-widest w-8 ${enabled ? "text-foreground" : "text-muted-foreground"}`}>
             {DAY_LABELS[day]}
           </span>
         </div>
@@ -66,7 +66,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
             type="button"
             onClick={() => onCopyToAll(day)}
             title="Copy these hours to all enabled days"
-            className="text-[10px] text-zinc-400 hover:text-orange font-mono font-bold uppercase tracking-wider transition-colors"
+            className="text-[10px] text-muted-foreground hover:text-orange font-mono font-bold uppercase tracking-wider transition-colors"
           >
             Copy to all
           </button>
@@ -81,14 +81,14 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
                 type="time"
                 value={slot.start}
                 onChange={(e) => onSlotChange(day, idx, "start", e.target.value)}
-                className="bg-black border-2 border-border rounded-base p-1 text-xs text-white font-mono focus:outline-none focus:border-orange w-28"
+                className="bg-background border-2 border-border rounded-base p-1 text-xs text-foreground font-mono focus:outline-none focus:border-orange w-28"
               />
-              <span className="text-zinc-400 text-xs font-bold">–</span>
+              <span className="text-muted-foreground text-xs font-bold">–</span>
               <input
                 type="time"
                 value={slot.end}
                 onChange={(e) => onSlotChange(day, idx, "end", e.target.value)}
-                className="bg-black border-2 border-border rounded-base p-1 text-xs text-white font-mono focus:outline-none focus:border-orange w-28"
+                className="bg-background border-2 border-border rounded-base p-1 text-xs text-foreground font-mono focus:outline-none focus:border-orange w-28"
               />
               {slots.length > 1 && (
                 <button
@@ -116,7 +116,7 @@ function DayRow({ day, enabled, slots, onToggle, onSlotChange, onAddSlot, onRemo
 
       {!enabled && (
         <div className="pl-12">
-          <span className="text-xs text-zinc-500 font-mono italic">Unavailable</span>
+          <span className="text-xs text-muted-foreground font-mono italic">Unavailable</span>
         </div>
       )}
     </div>
@@ -240,32 +240,32 @@ export default function AvailabilityGrid({ value, onChange }: AvailabilityGridPr
     <div className="space-y-3">
       {/* Presets */}
       <div className="flex flex-wrap gap-2">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest self-center">Quick:</span>
+        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest self-center">Quick:</span>
         <button
           type="button"
           onClick={() => setPreset(["monday", "tuesday", "wednesday", "thursday", "friday"])}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-muted text-foreground hover:bg-secondary-background rounded transition-colors"
         >
           Weekdays
         </button>
         <button
           type="button"
           onClick={() => setPreset(["saturday", "sunday"])}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-muted text-foreground hover:bg-secondary-background rounded transition-colors"
         >
           Weekend
         </button>
         <button
           type="button"
           onClick={() => setPreset([...DAYS])}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-white hover:bg-neutral-700 rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-muted text-foreground hover:bg-secondary-background rounded transition-colors"
         >
           All Days
         </button>
         <button
           type="button"
           onClick={() => { emit({}); }}
-          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-neutral-800 text-red-400 hover:bg-red-950 rounded transition-colors"
+          className="px-2.5 py-1 text-[10px] font-black uppercase border-2 border-border bg-muted text-red-700 hover:bg-red-50 rounded transition-colors"
         >
           Clear
         </button>

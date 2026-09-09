@@ -40,15 +40,15 @@ function dayKey(d: Date): string {
 function chipTone(status: string): string {
   switch (status) {
     case "active":
-      return "bg-green-500/20 text-green-300 border-green-500";
+      return "bg-emerald-50 text-emerald-800 border-emerald-600";
     case "scheduled":
       return "bg-orange/15 text-orange border-orange/60";
     case "completed":
-      return "bg-neutral-700/60 text-neutral-200 border-neutral-600";
+      return "bg-muted text-muted-foreground border-border";
     case "cancelled":
-      return "bg-red-500/10 text-red-300 border-red-800";
+      return "bg-red-50 text-red-800 border-red-600";
     default:
-      return "bg-neutral-800 text-neutral-300 border-neutral-700";
+      return "bg-muted text-muted-foreground border-border";
   }
 }
 
@@ -115,13 +115,13 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
 
   if (loading) {
     return (
-      <div className="border-4 border-border bg-dark rounded-base p-4 shadow-shadow" role="status" aria-label="Loading calendar">
-        <div className="h-6 w-48 bg-neutral-800 rounded-base animate-pulse motion-reduce:animate-none mb-4" />
+      <div className="border-4 border-border bg-secondary-background rounded-base p-4 shadow-shadow" role="status" aria-label="Loading calendar">
+        <div className="h-6 w-48 bg-muted rounded-base animate-pulse motion-reduce:animate-none mb-4" />
         <div className="grid grid-cols-7 gap-1 min-w-[640px]">
           {[...Array(35)].map((_, i) => (
             <div
               key={i}
-              className="min-h-[72px] sm:min-h-[96px] border-2 border-border rounded-base bg-neutral-900 animate-pulse motion-reduce:animate-none"
+              className="min-h-[72px] sm:min-h-[96px] border-2 border-border rounded-base bg-muted animate-pulse motion-reduce:animate-none"
             />
           ))}
         </div>
@@ -132,8 +132,8 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
   return (
     <div className="space-y-3">
       {/* Header: month navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-border bg-dark rounded-base px-4 py-3 shadow-shadow">
-        <h2 className="text-lg font-heading font-black text-white uppercase tracking-tight">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-border bg-secondary-background rounded-base px-4 py-3 shadow-shadow">
+        <h2 className="text-lg font-heading font-black text-foreground uppercase tracking-tight">
           {MONTHS[cursor.month]} {cursor.year}
         </h2>
         <div className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
             type="button"
             onClick={prevMonth}
             aria-label={`Previous month (${MONTHS[(cursor.month + 11) % 12]} ${cursor.month === 0 ? cursor.year - 1 : cursor.year})`}
-            className="p-1.5 border-2 border-border bg-neutral-800 text-white rounded-base hover:bg-neutral-700 transition-colors duration-150 motion-reduce:transition-none"
+            className="p-1.5 border-2 border-border bg-muted text-foreground rounded-base hover:bg-secondary-background transition-colors duration-150 motion-reduce:transition-none"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -157,7 +157,7 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
             type="button"
             onClick={nextMonth}
             aria-label={`Next month (${MONTHS[(cursor.month + 1) % 12]} ${cursor.month === 11 ? cursor.year + 1 : cursor.year})`}
-            className="p-1.5 border-2 border-border bg-neutral-800 text-white rounded-base hover:bg-neutral-700 transition-colors duration-150 motion-reduce:transition-none"
+            className="p-1.5 border-2 border-border bg-muted text-foreground rounded-base hover:bg-secondary-background transition-colors duration-150 motion-reduce:transition-none"
           >
             <ChevronRight className="size-4" />
           </button>
@@ -165,7 +165,7 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
       </div>
 
       {/* Grid wrapper: horizontal scroll guard on narrow screens */}
-      <div className="border-4 border-border bg-dark rounded-base p-3 shadow-shadow overflow-x-auto">
+      <div className="border-4 border-border bg-secondary-background rounded-base p-3 shadow-shadow overflow-x-auto">
         <div className="min-w-[640px]">
           {/* Weekday headers */}
           <div className="grid grid-cols-7 gap-1 mb-1" role="row">
@@ -193,9 +193,9 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
               const cellClasses = [
                 "relative flex flex-col gap-1 p-1.5 rounded-base border-2 transition-colors duration-150 motion-reduce:transition-none",
                 isToday ? "border-orange" : "border-border",
-                inMonth ? "bg-neutral-900/60" : "bg-transparent opacity-40",
+                inMonth ? "bg-background" : "bg-transparent opacity-40",
                 interactive
-                  ? "cursor-pointer hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+                  ? "cursor-pointer hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
                   : "",
               ]
                 .filter(Boolean)
@@ -227,8 +227,8 @@ export default function MeetingsAgendaCalendar({ meetings, loading, onSelectMeet
                       isToday
                         ? "inline-flex size-5 items-center justify-center self-start rounded-full bg-orange text-black"
                         : inMonth
-                        ? "text-white"
-                        : "text-gray-500"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {date.getDate()}
