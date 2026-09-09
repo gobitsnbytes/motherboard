@@ -199,3 +199,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S75 (2026-09-09)
 - Reworked Signatures mutation feedback to use inline success/error banners for counter-signing, invitation resend, voiding, and purge/export actions. Explicit confirmation remains for legally destructive operations.
+
+### S76 (2026-09-09)
+- Corrected IAM hierarchy truthfulness: removed the unverified “2-Way Discord Sync Active” claim and hard-coded permission list, added API error/retry states, and now display only verified group counts and sync feedback.

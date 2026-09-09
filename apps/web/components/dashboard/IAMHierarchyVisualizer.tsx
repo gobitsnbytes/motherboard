@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Shield, ShieldAlert, Users, GitBranch, ArrowRight, RefreshCw, CheckCircle2, Lock, Sparkles, Layers } from "lucide-react";
+import { Shield, ShieldAlert, Users, GitBranch, ArrowRight, RefreshCw, Lock, Sparkles, Layers } from "lucide-react";
 import { Badge, Button } from "@bnb/ui";
 
 interface IAMHierarchyGroup {
@@ -31,20 +31,22 @@ export default function IAMHierarchyVisualizer() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<IAMHierarchyGroup | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchHierarchy = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/iam/hierarchy");
-      if (res.ok) {
-        const hierarchyData = await res.json();
-        setData(hierarchyData);
-        if (hierarchyData.groups && hierarchyData.groups.length > 0) {
-          setSelectedGroup(hierarchyData.groups[0]);
-        }
+      if (!res.ok) throw new Error(`Unable to load IAM hierarchy (${res.status}).`);
+      const hierarchyData = await res.json();
+      setData(hierarchyData);
+      if (hierarchyData.groups && hierarchyData.groups.length > 0) {
+        setSelectedGroup(hierarchyData.groups[0]);
       }
     } catch (err) {
-      console.error("Failed to fetch IAM hierarchy:", err);
+      setError(err instanceof Error ? err.message : "Unable to load IAM hierarchy.");
     } finally {
       setLoading(false);
     }
@@ -56,18 +58,19 @@ export default function IAMHierarchyVisualizer() {
 
   const handleTriggerDiscordSync = async () => {
     setSyncing(true);
+    setError(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/sync/trigger", { method: "POST" });
       if (res.ok) {
-        alert("Two-way Discord role sync triggered!");
+        setNotice("Discord role sync started. Refreshing the verified hierarchy.");
         await fetchHierarchy();
       } else {
         const err = await res.json();
-        alert(`Failed to trigger sync: ${err.detail || res.statusText}`);
+        setError(`Discord sync failed: ${err.detail || res.statusText}`);
       }
     } catch (e) {
-      console.error(e);
-      alert("Error triggering sync.");
+      setError("Discord sync failed because the server could not be reached.");
     } finally {
       setSyncing(false);
     }
@@ -87,6 +90,20 @@ export default function IAMHierarchyVisualizer() {
     );
   }
 
+  if (error && !data) {
+    return (
+      <div className="border-2 border-[#97192c] bg-[#fbecef] p-5 text-[#5b0f1a]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-lg font-bold">IAM hierarchy unavailable</h2>
+            <p className="mt-1 text-sm">{error}</p>
+          </div>
+          <Button type="button" size="sm" onClick={fetchHierarchy}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
   const systemLevels = [
     { level: "Level 0", title: "Super Admin", color: "border-red-500/60 bg-red-500/10 text-red-400" },
     { level: "Level 1", title: "Executive Board", color: "border-amber-500/60 bg-amber-500/10 text-amber-400" },
@@ -100,13 +117,10 @@ export default function IAMHierarchyVisualizer() {
       <div className="rounded-xl border-2 border-border bg-[#111] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-heading font-bold text-foreground">Diagrammatic IAM Hierarchy</h2>
-            <Badge variant="success" className="text-[10px]">
-              2-Way Discord Sync Active
-            </Badge>
+            <h2 className="text-xl font-heading font-bold text-foreground">Verified role topology</h2>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Visual breakdown of role inheritance, system groups, and Discord guild role bindings.
+            Group membership, permission grants, and Discord bindings returned by the IAM service.
           </p>
         </div>
 
@@ -117,6 +131,17 @@ export default function IAMHierarchyVisualizer() {
           </Button>
         </div>
       </div>
+
+      {notice ? (
+        <div role="status" className="border-2 border-[#265d3a] bg-[#eaf5ed] px-4 py-3 text-sm font-mono text-[#173d24]">
+          {notice}
+        </div>
+      ) : null}
+      {error ? (
+        <div role="alert" className="border-2 border-[#97192c] bg-[#fbecef] px-4 py-3 text-sm font-mono text-[#5b0f1a]">
+          {error}
+        </div>
+      ) : null}
 
       {/* Level Hierarchy Diagram */}
       <div className="rounded-xl border-2 border-border bg-[#111] p-6 space-y-6">
@@ -226,14 +251,13 @@ export default function IAMHierarchyVisualizer() {
             {/* Granted Scopes */}
             <div className="rounded-lg border border-white/10 bg-black/40 p-4 space-y-2">
               <h4 className="font-heading font-bold text-emerald-400 uppercase text-[10px] tracking-wider">
-                Capabilities & Permissions Policy
+                Verified group facts
               </h4>
-              <ul className="space-y-1 font-mono text-[11px] text-white/80">
-                <li className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-emerald-400" /> iam.groups.read</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-emerald-400" /> provisioning.sync.trigger</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-emerald-400" /> forks.members.write</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-emerald-400" /> dyslexic.companies.read</li>
-              </ul>
+              <dl className="space-y-2 font-mono text-[11px] text-white/80">
+                <div className="flex items-center justify-between gap-3"><dt>Permission grants</dt><dd className="font-bold text-foreground">{selectedGroup.grants_count}</dd></div>
+                <div className="flex items-center justify-between gap-3"><dt>Members</dt><dd className="font-bold text-foreground">{selectedGroup.members_count}</dd></div>
+                <div className="flex items-center justify-between gap-3"><dt>Discord mappings</dt><dd className="font-bold text-foreground">{selectedGroup.mapped_roles.length}</dd></div>
+              </dl>
             </div>
           </div>
         </div>
