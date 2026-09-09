@@ -190,3 +190,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S72 (2026-09-09)
 - Aligned the separate Finance shell with the same product language: burgundy navigation rail, warm canvas header, shared focus/active-state treatment, and consistent mobile navigation controls.
+
+### S73 (2026-09-09)
+- Hardened the IAM Discord role mapping surface: removed internal implementation badges, clarified the audit behavior, extracted a reusable retryable loader, and added an in-page retry action for failed role/group/mapping fetches.

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@bnb/ui";
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@bnb/ui";
 
 interface DiscordRole {
   id: string;
@@ -49,13 +49,14 @@ export default function IAMRoleMappings() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadMappings = async () => {
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
 
     const headers = getHeaders();
-    Promise.all([
+    try {
+      const [groupsData, rolesData, mappingsData] = await Promise.all([
       fetch(`${API_BASE}/iam/groups`, { headers }).then(async (res) => {
         if (!res.ok) {
           throw new Error(`Could not load groups: ${res.status}`);
@@ -74,25 +75,28 @@ export default function IAMRoleMappings() {
         }
         return res.json();
       }),
-    ])
-      .then(([groupsData, rolesData, mappingsData]) => {
-        setGroups(groupsData ?? []);
-        setRoles(rolesData ?? []);
-        const mappingRecords: Record<string, DiscordRoleMapping> = {};
-        (mappingsData ?? []).forEach((mapping: DiscordRoleMapping) => {
-          mappingRecords[mapping.discord_role_id] = mapping;
-        });
-        setMappings(mappingRecords);
-        const selected: Record<string, string> = {};
-        (rolesData ?? []).forEach((role: DiscordRole) => {
-          selected[role.id] = mappingRecords[role.id]?.group_id ?? "";
-        });
-        setSelectedGroups(selected);
-      })
-      .catch((err) => {
-        setError(err.message ?? "Unable to load IAM role mappings.");
-      })
-      .finally(() => setLoading(false));
+      ]);
+      setGroups(groupsData ?? []);
+      setRoles(rolesData ?? []);
+      const mappingRecords: Record<string, DiscordRoleMapping> = {};
+      (mappingsData ?? []).forEach((mapping: DiscordRoleMapping) => {
+        mappingRecords[mapping.discord_role_id] = mapping;
+      });
+      setMappings(mappingRecords);
+      const selected: Record<string, string> = {};
+      (rolesData ?? []).forEach((role: DiscordRole) => {
+        selected[role.id] = mappingRecords[role.id]?.group_id ?? "";
+      });
+      setSelectedGroups(selected);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load IAM role mappings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMappings();
   }, []);
 
   const sortedRoles = useMemo(
@@ -183,10 +187,9 @@ export default function IAMRoleMappings() {
             <span>{groups.length} groups</span>
             <span>{roles.length} Discord roles</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-sm text-foreground/80">
-            <Badge variant="neutral">No optimistic updates</Badge>
-            <Badge variant="neutral">Blocking spinner on save</Badge>
-          </div>
+          <p className="max-w-sm text-right text-xs text-muted-foreground">
+            Changes are saved one role at a time and recorded in the access audit trail.
+          </p>
         </div>
       </div>
 
@@ -194,6 +197,9 @@ export default function IAMRoleMappings() {
         <div className="rounded-base border-2 border-border bg-[#111] p-4 text-sm text-foreground">
           <p className="font-medium text-main-foreground">Unable to load role mapping data.</p>
           <p className="mt-2 text-foreground/80">{error}</p>
+          <Button type="button" size="sm" className="mt-3" onClick={loadMappings} disabled={loading}>
+            {loading ? "Retrying…" : "Retry"}
+          </Button>
         </div>
       ) : null}
 
