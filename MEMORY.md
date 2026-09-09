@@ -235,3 +235,12 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Reconciled Meetings, FinanceSidebar, dashboard navigation, and IAM role-mapping typing/runtime issues introduced by the merge. The web typecheck is green and the focused IAM suites pass.
 - Preserved the `0.85.5-beta` version contract and existing CI promotion path. User-owned signature PDFs and local templates remain untracked and were not staged.
 - Authenticated production smoke checks confirmed the v0.85.5 beta shell and Finance route. Removed the duplicate legacy Meetings tab row found during that check.
+
+### 2026-09-09 — Digital Onboarding Design
+
+- Inspected the existing signature engine, signature router/schemas, public forms, fork onboarding checklist, email helper, and signing portal. The existing signature system is reusable, but onboarding needs a case-level orchestrator above child signature requests.
+- Inspected all six supplied DOCX templates as OOXML ZIPs. Their `goog_rdk_*` structured-document tags are generic wrappers rather than semantic fields; one parent-consent file contains sample personal data. A versioned per-template manifest is required.
+- Confirmed the current DOCX-to-PDF conversion rebuilds paragraph text and loses layout/control structure. Onboarding must use faithful DOCX rendering, targeted OOXML filling, and the existing PDF overlay/sealing engine.
+- User decisions: ship volunteer and fork onboarding together; signed PDF is canonical; original and filled DOCX files are evidence; review is assigned to an IAM-authorized reviewer with self-approval prevention; legal/director signing uses the authenticated dashboard with optional DSC; participant completion uses the web portal only; fork recognition requires two distinct directors.
+- Added and committed the design spec at `docs/superpowers/specs/2026-09-09-onboarding-design.md` in commit `8f10882`.
+- Current state: design is written and awaiting user review before implementation planning. Existing user changes in `MEMORY.md`, `apps/api/app/dependencies.py`, dashboard UI files, and untracked `templates/` were not staged by this work.
