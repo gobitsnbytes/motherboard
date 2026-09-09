@@ -128,6 +128,23 @@ async def test_api_key_auth_rejects_super_admin_service_identity(db_session: Asy
 
 
 @pytest.mark.asyncio
+async def test_api_key_auth_rejects_inactive_service_identity(db_session: AsyncSession, monkeypatch):
+    service_user = User(display_name="Disabled Service", is_active=False)
+    db_session.add(service_user)
+    await db_session.commit()
+    monkeypatch.setenv("API_SERVICE_USER_ID", str(service_user.id))
+    get_settings.cache_clear()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get(
+            "/api/meetings/",
+            headers={"X-API-Key": get_settings().api_internal_secret},
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "API service identity is inactive"
+
+
+@pytest.mark.asyncio
 async def test_api_key_auth_missing(db_session: AsyncSession):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
