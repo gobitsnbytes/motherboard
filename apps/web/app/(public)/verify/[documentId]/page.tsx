@@ -21,6 +21,12 @@ interface VerifyPageProps {
   params: Promise<{ documentId: string }>;
 }
 
+function maskEmail(email: string | undefined): string {
+  if (!email || !email.includes("@")) return "Verified signatory";
+  const [local = "", domain = ""] = email.split("@");
+  return `${local.slice(0, 1)}${"*".repeat(Math.max(2, local.length - 1))}@${domain}`;
+}
+
 export default function DocumentVerificationPage({ params }: VerifyPageProps) {
   const { documentId } = use(params);
 
@@ -286,7 +292,7 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
                     {isVoided && r.status !== "signed" ? "REVOKED" : r.status}
                   </span>
                 </div>
-                <div className="text-[11px] text-muted-foreground font-mono">{r.email}</div>
+                <div className="text-[11px] text-muted-foreground font-mono">{maskEmail(r.email)}</div>
                 {r.signed_at && (
                   <div className="text-[10px] text-green-800 font-medium">
                     Signed: {new Date(r.signed_at).toUTCString()}
@@ -370,9 +376,7 @@ export default function DocumentVerificationPage({ params }: VerifyPageProps) {
                     </span>
                   </div>
                   <div className="mt-1 text-foreground font-medium leading-relaxed">{log.details}</div>
-                  {log.ip_address && (
-                    <div className="mt-1 text-[10px] text-muted-foreground font-mono">IP: {log.ip_address}</div>
-                  )}
+                  <div className="mt-1 text-[10px] text-muted-foreground font-mono">Network details retained in the private audit record</div>
                 </div>
               </div>
             ))}

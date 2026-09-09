@@ -244,3 +244,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S90 (2026-09-09)
 - Production verification caught one remaining Finance wording leak: the new Governance checks card still rendered the API status value “compliant.” Mapped that display to “configured” or “review” so the UI does not turn a policy configuration result into a legal claim.
+
+### S91 (2026-09-09)
+- RLVR on a public certificate exposed signatory email addresses and IP addresses in the public audit trail. Masked emails and replaced public IP output with a private-record notice; the underlying audit data remains available to authorized internal systems.
