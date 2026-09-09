@@ -215,3 +215,12 @@ plugins/     — First- and third-party plugins (includes sample_plugin workspac
 - **Gemini Transcription Fallback (`apps/api/app/routers/meetings.py`)**: Implemented a model fallback mechanism. If generating the transcription with the primary model fails (e.g. 503 unavailability on `gemini-3.5-flash`), the system automatically falls back to `gemini-2.5-flash` to ensure 100% successful meeting briefs.
 - **Calendar & Meetings Programmatic API Key Auth (`apps/api/app/dependencies.py`)**: Implemented a secure, API key-authorized fallback (supporting `X-API-Key` and `Authorization: Bearer <API_KEY>`) to `get_current_user` in the FastAPI backend (`motherboard.gobitsnbytes.org`). This enables external calendars, Cal.com scripts, and bots to query and modify scheduled meetings and user availability host lists without browser NextAuth sessions.
 - **Verification**: Verified that all 210 bot tests and 97 python backend tests pass 100% green. Tested the fallback directly on the VPS via python request calls, verifying successful 200 OK responses on the meetings index. Restarted all services.
+
+### 2026-09-09 — IAM + Control Room Overhaul Phase
+
+- Read the brand guideline and established `PRODUCT.md` / `DESIGN.md` as the working product and visual contract: warm editorial surfaces, burgundy control-room rail, orange signal color, crisp borders, explicit city/global scope, keyboard-first and WCAG AA behavior.
+- Reworked IAM around explainable, city-scoped access: active/non-expired principal resolution, fail-closed service identity, mixed-credential rejection, grant validation, mutation audit entries, and scope-preserving `batch_can` behavior. Focused IAM/auth suites and the full API suite pass (`103 passed`).
+- Rebuilt the IAM overview UI with effective access, scope explanation, group search, loading/error states, and safer Discord mapping feedback.
+- Reworked the dashboard shell across overview, meetings, members, finance, IAM, audit, and settings with a consistent branded control-room frame while preserving dark high-density workflows where they are intentional.
+- Repaired the workspace install state with `bun install --frozen-lockfile`; the full production web build now passes. Web typecheck passes.
+- Smoke-tested all main routes locally. Unauthenticated requests correctly land on local `/login`; `/api/auth/session` returns 200 when the local runtime is started with the configured secret. Production deployment and Discord RLVR testing remain intentionally deferred until the broader overhaul is complete.

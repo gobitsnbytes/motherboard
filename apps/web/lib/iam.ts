@@ -33,3 +33,13 @@ export async function getDiscordMappings() {
 
   return response.json();
 }
+
+export async function getIamMe() {
+  const response = await fetch("/api/iam/me", { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error(`Unable to load your access (${response.status})`);
+  }
+
+  return response.json();
+}

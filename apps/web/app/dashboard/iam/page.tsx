@@ -1,5 +1,6 @@
 
 import IAMRoleMappings from "../../../components/dashboard/IAMRoleMappings";
+import { IAMContent } from "../../../components/dashboard/IAMContent";
 
 export const metadata = {
   title: "IAM — bits&bytes Motherboard",
@@ -14,11 +15,15 @@ export default function IAMPage() {
         </h1>
 
         <p className="text-sm text-muted-foreground font-base mt-1">
-          Configure Discord role mappings for internal groups and sync provisioning behavior. 
+          Review effective access, city scope, groups, and Discord provisioning inputs.
         </p>
        </div> 
       
-      <IAMRoleMappings />
+      <IAMContent />
+
+      <div className="border-t-2 border-border pt-8">
+        <IAMRoleMappings />
+      </div>
     </div>
   );
 }

@@ -81,8 +81,8 @@ function NavList({
             onClick={onNavigate}
             className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
               isActive
-                ? "bg-main text-main-foreground border-2 border-border shadow-light translate-x-[2px] translate-y-[2px]"
-                : "text-foreground hover:bg-main/10 hover:text-foreground border-2 border-transparent"
+                ? "bg-[#97192c] text-white border-2 border-[#fc920d] shadow-[2px_2px_0_#120f0a] translate-x-[2px] translate-y-[2px]"
+                : "text-white/75 hover:bg-white/10 hover:text-white border-2 border-transparent"
             }`}
           >
             <item.icon className="size-4 shrink-0" />
@@ -106,8 +106,8 @@ function NavList({
                 onClick={onNavigate}
                 className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
                   isActive
-                    ? "bg-main text-main-foreground border-2 border-border shadow-light translate-x-[2px] translate-y-[2px]"
-                    : "text-foreground hover:bg-main/10 hover:text-foreground border-2 border-transparent"
+                      ? "bg-[#97192c] text-white border-2 border-[#fc920d] shadow-[2px_2px_0_#120f0a] translate-x-[2px] translate-y-[2px]"
+                      : "text-white/75 hover:bg-white/10 hover:text-white border-2 border-transparent"
                 }`}
               >
                 <DynamicIcon name={panel.icon} className="size-4 shrink-0" />
@@ -144,26 +144,26 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:border-r-2 md:border-border md:bg-[#0d0d0d]">
-        <div className="flex items-center gap-3 border-b-2 border-border px-4 py-3">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:border-r-2 md:border-[#5b0f1a] md:bg-[#3c0a12]">
+        <div className="flex items-center gap-3 border-b-2 border-[#97192c] px-5 py-5">
           <img
             src="https://gobitsnbytes.org/logo"
             alt="bits&bytes logo"
             className="h-7 w-auto select-none"
           />
-          <span className="font-heading font-bold text-sm tracking-wider text-foreground truncate">
-            bits&bytes
+          <span className="font-heading text-sm font-black uppercase tracking-[0.12em] text-white truncate">
+            motherboard
           </span>
         </div>
         <div className="flex-1 overflow-auto p-3">
-          <p className="mb-2 px-3 text-[10px] uppercase tracking-widest text-muted-foreground font-heading">
-            Navigation
+          <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#fc920d] font-heading">
+            Control room
           </p>
           <NavList plugins={plugins} />
         </div>
         <div className="border-t-2 border-border p-3">
-          <p className="text-[10px] text-muted-foreground font-heading uppercase tracking-widest text-center">
-            motherboard v0.1.1
+          <p className="text-[10px] text-white/45 font-heading uppercase tracking-[0.18em] text-center">
+            bits&bytes · v0.1.1
           </p>
         </div>
       </aside>
@@ -172,7 +172,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-30 md:hidden flex items-center justify-center size-9 rounded-base border-2 border-border bg-[#111] text-foreground"
+          className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-base border-2 border-[#97192c] bg-[#3c0a12] text-white md:hidden"
         aria-label="Open sidebar"
       >
         <Menu className="size-5" />
@@ -186,7 +186,7 @@ export default function Sidebar() {
             onClick={closeMobile}
             aria-hidden="true"
           />
-          <aside className="fixed inset-y-0 left-0 w-72 bg-[#0d0d0d] border-r-2 border-border flex flex-col z-50">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r-2 border-[#97192c] bg-[#3c0a12]">
             <div className="flex items-center justify-between border-b-2 border-border px-4 py-3">
               <div className="flex items-center gap-3">
                 <img
@@ -208,8 +208,8 @@ export default function Sidebar() {
               </button>
             </div>
             <div className="flex-1 overflow-auto p-3">
-              <p className="mb-2 px-3 text-[10px] uppercase tracking-widest text-muted-foreground font-heading">
-                Navigation
+              <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#fc920d] font-heading">
+                Control room
               </p>
               <NavList plugins={plugins} onNavigate={closeMobile} />
             </div>

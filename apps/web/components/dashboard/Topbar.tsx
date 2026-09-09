@@ -17,7 +17,11 @@ export default function Topbar() {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-end border-b-2 border-border bg-[#111] px-4 md:px-6">
+    <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between border-b-2 border-[#5b0f1a] bg-[#3c0a12] px-4 text-white md:px-8">
+      <div>
+        <p className="font-heading text-[10px] font-bold uppercase tracking-[0.2em] text-[#fc920d]">bits&bytes™</p>
+        <p className="mt-0.5 text-xs text-white/60">Operations network · 30 city forks</p>
+      </div>
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <div className="relative flex size-8 shrink-0 overflow-hidden rounded-full border-2 border-border">
@@ -33,7 +37,7 @@ export default function Topbar() {
             </div>
           )}
         </div>
-        <span className="hidden text-sm font-medium text-foreground sm:block">
+        <span className="hidden text-sm font-semibold text-white sm:block">
           {displayName}
         </span>
         <button
@@ -41,7 +45,7 @@ export default function Topbar() {
           onClick={() => {
             signOut({ callbackUrl: "/login" });
           }}
-          className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-border bg-main px-3 py-1.5 text-xs font-medium text-main-foreground transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none shadow-shadow"
+          className="inline-flex items-center justify-center gap-1.5 rounded-base border-2 border-[#fc920d] bg-[#fc920d] px-3 py-1.5 text-xs font-bold text-[#120f0a] shadow-[2px_2px_0_#120f0a] transition-transform hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none"
         >
           <LogOut className="size-3.5" />
           <span className="hidden sm:inline">Sign out</span>

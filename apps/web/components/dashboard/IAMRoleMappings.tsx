@@ -112,13 +112,6 @@ export default function IAMRoleMappings() {
     [groups],
   );
 
-  const getRowStatus = (roleId: string) => {
-    if (savingRoleId === roleId) {
-      return "Saving...";
-    }
-    return null;
-  };
-
   const handleGroupChange = (roleId: string, groupId: string) => {
     setSelectedGroups((current) => ({ ...current, [roleId]: groupId }));
     setSuccessMessage(null);
@@ -191,14 +184,17 @@ export default function IAMRoleMappings() {
       </div>
 
       {error ? (
-        <div className="rounded-base border-2 border-border bg-[#111] p-4 text-sm text-foreground">
-          <p className="font-medium text-main-foreground">Unable to load role mapping data.</p>
+        <div className="flex flex-col gap-3 rounded-base border-2 border-red-500 bg-red-950/40 p-4 text-sm text-white" role="alert">
+          <p className="font-medium">Unable to load role mapping data.</p>
           <p className="mt-2 text-foreground/80">{error}</p>
+          <Button type="button" variant="neutral" size="sm" className="w-fit" onClick={() => window.location.reload()}>
+            Try again
+          </Button>
         </div>
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-base border-2 border-border bg-[#111] p-4 text-sm text-foreground text-foreground/90">
+        <div className="rounded-base border-2 border-green-600 bg-green-950/40 p-4 text-sm text-white" role="status" aria-live="polite">
           {successMessage}
         </div>
       ) : null}
@@ -213,6 +209,7 @@ export default function IAMRoleMappings() {
           </div>
         ) : (
           <Table>
+            <caption className="sr-only">Discord roles mapped to Motherboard groups</caption>
             <TableHead>
               <TableRow>
                 <TableHeader>Discord Role</TableHeader>
