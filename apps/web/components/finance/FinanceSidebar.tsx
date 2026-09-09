@@ -70,120 +70,13 @@ export default function FinanceSidebar() {
   </nav>;
 
   return (
-    <aside
-      style={{
-        width: collapsed ? "64px" : "220px",
-        transition: "width 220ms cubic-bezier(0.4,0,0.2,1)",
-        background: "#3c0a12",
-        borderRight: "2px solid #5b0f1a",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-        position: "relative",
-        zIndex: 10,
-      }}
-    >
-      {/* Logo area */}
-      <div style={{ padding: "20px 16px 16px", borderBottom: "2px solid #97192c" }}>
-        <Link href="/finance/dashboard" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-          <img src="https://gobitsnbytes.org/logo" alt="bits&bytes™ logo" style={{ width: "28px", height: "auto", flexShrink: 0 }} />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.15 }}
-                style={{ fontFamily: "Inter, sans-serif", fontWeight: 800, fontSize: "13px", color: "#ffffff", letterSpacing: "0.12em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden" }}
-              >
-                Finance
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
-      </div>
-
-      {/* Navigation */}
-      <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-        {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "9px 10px",
-                borderRadius: "4px",
-                border: active ? "2px solid #fc920d" : "2px solid transparent",
-                background: active ? "#97192c" : "transparent",
-                color: active ? "#ffffff" : "rgba(255,255,255,0.7)",
-                textDecoration: "none",
-                fontFamily: "Inter, sans-serif",
-                fontWeight: active ? 700 : 500,
-                fontSize: "13px",
-                letterSpacing: "0.02em",
-                boxShadow: active ? "3px 3px 0 0 rgba(252,146,13,0.3)" : "none",
-                transition: "all 150ms ease",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              }}
-            >
-              <span style={{ flexShrink: 0 }}>{item.icon}</span>
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: "auto" }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.12 }}
-                    style={{ overflow: "hidden" }}
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        style={{
-          margin: "12px 10px",
-          padding: "8px",
-          background: "transparent",
-          border: "2px solid rgba(255,255,255,0.2)",
-          borderRadius: "4px",
-          color: "rgba(255,255,255,0.6)",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "border-color 150ms, color 150ms",
-        }}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          {collapsed
-            ? <><polyline points="9 18 15 12 9 6" /></>
-            : <><polyline points="15 18 9 12 15 6" /></>}
-        </svg>
-      </button>
-
-      {/* Bottom label */}
-      {!collapsed && (
-        <div style={{ padding: "10px 16px 14px", borderTop: "2px solid #1e1e1e" }}>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: "0.15em" }}>
-            GOBITSNBYTES FOUNDATION
-          </div>
-          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "9px", color: "rgba(255,255,255,0.35)", marginTop: "2px" }}>
-            Powered by RazorpayX
-          </div>
+    <>
+      <aside className={`hidden shrink-0 flex-col bg-burgundy text-white transition-[width] duration-200 md:flex ${collapsed ? "w-16" : "w-56"}`}>
+        <div className="border-b-2 border-black/30 px-4 py-5">
+          <Link href="/finance/dashboard" className="flex items-center gap-3 font-heading text-sm font-black uppercase tracking-[0.12em]">
+            <span className="grid size-8 shrink-0 place-items-center border-2 border-black bg-orange text-black">$</span>
+            {!collapsed && <span>Finance</span>}
+          </Link>
         </div>
         {navigation()}
         <button type="button" onClick={() => setCollapsed((value) => !value)} className="m-3 min-h-11 border-2 border-black/50 px-3 text-sm text-white transition-colors hover:border-orange hover:text-orange" aria-label={collapsed ? "Expand finance navigation" : "Collapse finance navigation"}>{collapsed ? "→" : "Collapse"}</button>

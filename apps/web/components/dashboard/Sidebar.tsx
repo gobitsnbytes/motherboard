@@ -64,6 +64,17 @@ const navGroups = [
   ] },
 ] as const;
 
+type SidebarNavItem = {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+const navItems: SidebarNavItem[] = navGroups.reduce<SidebarNavItem[]>(
+  (items, group) => items.concat([...group.items] as SidebarNavItem[]),
+  [],
+);
+
 function DynamicIcon({ name, className }: { name: string; className?: string }) {
   const icons = Lucide as unknown as Record<string, React.ComponentType<{ className?: string }> | undefined>;
   const IconComponent = icons[name] ?? Puzzle;
@@ -184,7 +195,7 @@ export default function Sidebar() {
         </div>
         <div className="border-t-2 border-border p-3">
           <p className="text-[10px] text-white/45 font-heading uppercase tracking-[0.18em] text-center">
-            bits&bytes · v0.1.1
+            bits&bytes · {APP_VERSION_LABEL}
           </p>
         </div>
       </aside>

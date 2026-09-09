@@ -207,3 +207,16 @@ async def get_current_user(
 
 
 CurrentUserDep = Annotated[ResolvedPrincipal, Depends(get_current_user)]
+
+
+async def get_optional_user(
+    request: Request,
+    db: DbSession,
+) -> ResolvedPrincipal | None:
+    try:
+        return await get_current_user(request, db)
+    except HTTPException:
+        return None
+
+
+OptionalUserDep = Annotated[ResolvedPrincipal | None, Depends(get_optional_user)]

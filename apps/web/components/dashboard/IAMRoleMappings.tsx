@@ -117,6 +117,10 @@ export default function IAMRoleMappings() {
     [groups],
   );
 
+  const privilegedMappingCount = Object.values(mappings).filter(
+    (mapping) => groups.find((group) => group.id === mapping.group_id)?.slug === "sg_super_admin",
+  ).length;
+
   const handleGroupChange = (roleId: string, groupId: string) => {
     setSelectedGroups((current) => ({ ...current, [roleId]: groupId }));
     setSuccessMessage(null);

@@ -671,9 +671,9 @@ export default function MeetingsPage() {
           My Availability
         </button>
         <button
-          onClick={() => setActiveTab("preferences")}
+          onClick={() => setActiveTab("notifications")}
           className={`px-4 py-2.5 font-bold border-2 border-black rounded-t-base transition-all ${
-            activeTab === "preferences"
+            activeTab === "notifications"
               ? "bg-[#ff7a1b] text-black shadow-[2px_2px_0px_0px_#000] translate-y-[-2px]"
               : "bg-secondary-background text-foreground hover:bg-muted"
           }`}
@@ -767,7 +767,7 @@ export default function MeetingsPage() {
                         {meeting.title}
                       </h2>
                       <span
-                        className={`text-xs font-black uppercase px-2.5 py-1 border-2 border-black rounded-full ${getStatusBadgeColor(
+                        className={`text-xs font-black uppercase px-2.5 py-1 border-2 border-black rounded-full ${getStatusColor(
                           meeting.status
                         )}`}
                       >
@@ -901,7 +901,7 @@ export default function MeetingsPage() {
             <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Weekly Availability (JSON format or hours description)</label>
             <input
               type="text"
-              value={availWeeklyHours}
+                value={availWeeklyHours ?? ""}
               onChange={(e) => setAvailWeeklyHours(e.target.value)}
               className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
               placeholder="e.g. Mon-Fri 14:00-18:00"
@@ -934,7 +934,7 @@ export default function MeetingsPage() {
               <label className="block text-xs font-bold text-[#ff7a1b] uppercase">Brief Bio/Description</label>
               <input
                 type="text"
-                value={availDescription}
+                value={availDescription ?? ""}
                 onChange={(e) => setAvailDescription(e.target.value)}
                 className="w-full bg-background border-2 border-border p-2.5 rounded-base text-foreground focus:outline-none focus:border-orange"
                 placeholder="Short description for bookings"
@@ -944,7 +944,7 @@ export default function MeetingsPage() {
         </form>
       )}
 
-      {activeTab === "preferences" && (
+      {activeTab === "notifications" && (
         <form
           onSubmit={handleSavePreferences}
           className="border-4 border-border bg-background p-6 rounded-base shadow-shadow space-y-4 max-w-2xl"
@@ -1008,8 +1008,6 @@ export default function MeetingsPage() {
                 <Save className="size-4 shrink-0" />
                 {prefLoading ? "Saving Preferences…" : "Save Notification Preferences"}
               </button>
-            </div>
-
             <div className="lg:col-span-5 border-4 border-border bg-black/40 rounded-base p-5 shadow-shadow space-y-4">
               <span className="text-xs font-black text-orange uppercase tracking-wider block border-b border-neutral-800 pb-2">
                 Automated Integrations
@@ -1029,7 +1027,6 @@ export default function MeetingsPage() {
                 </div>
               </div>
             </div>
-          </div>
         </form>
       )}
 

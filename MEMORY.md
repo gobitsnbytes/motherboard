@@ -228,3 +228,9 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Smoke-tested all main routes locally. Unauthenticated requests correctly land on local `/login`; `/api/auth/session` returns 200 when the local runtime is started with the configured secret. Production deployment and Discord RLVR testing remain intentionally deferred until the broader overhaul is complete.
 - Continued the shell pass through Finance: unified the portal frame with the burgundy rail and warm workspace, and corrected finance page titles/subtitles for readable contrast on the new surface. Typecheck and `git diff --check` remain clean.
 - Reworked Members and Audit into operator-grade surfaces: typed records, explicit retryable errors, skeleton loading, honest empty states, branded summaries, and accessible table captions. This slice is ready for its own review/build/deploy checkpoint.
+
+### 2026-09-09 — Production Checkpoint Reconciliation
+
+- Merged the current IAM/auth hardening line with the production UI/release checkpoint in merge commit `ba2b144` without force-pushing or dropping either line of work.
+- Reconciled Meetings, FinanceSidebar, dashboard navigation, and IAM role-mapping typing/runtime issues introduced by the merge. The web typecheck is green and the focused IAM suites pass.
+- Preserved the `0.85.5-beta` version contract and existing CI promotion path. User-owned signature PDFs and local templates remain untracked and were not staged.
