@@ -97,7 +97,7 @@ export default function CompanyDetailContent({ companyId }: { companyId: string 
                 });
                 load();
               }}
-              className="rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-main"
+              className="rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-main"
             >
               {Object.entries(STAGE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -115,7 +115,7 @@ export default function CompanyDetailContent({ companyId }: { companyId: string 
         <div className="flex flex-col gap-6">
           <ResearchPanel company={company} onRefresh={load} />
 
-          <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
+          <section className="rounded-base border-2 border-border bg-background p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-heading text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 Contacts
@@ -123,7 +123,7 @@ export default function CompanyDetailContent({ companyId }: { companyId: string 
               <button
                 type="button"
                 onClick={() => setShowAddContact(true)}
-                className="flex items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5"
+                className="flex items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
               >
                 <UserPlus className="size-3" />
                 Add contact
@@ -149,7 +149,7 @@ export default function CompanyDetailContent({ companyId }: { companyId: string 
           </section>
         </div>
 
-        <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
+        <section className="rounded-base border-2 border-border bg-background p-4">
           <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-widest text-muted-foreground">
             Timeline
           </h2>
@@ -225,7 +225,7 @@ function ContactRow({
     new Date(contact.claim_expires_at) > new Date();
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-base border-2 border-border bg-[#111] px-3 py-2">
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-base border-2 border-border bg-background px-3 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">
           {contact.name}
@@ -239,7 +239,7 @@ function ContactRow({
         <p className="truncate text-xs text-muted-foreground">
           {contact.email ?? "no email"}
           {contact.contacted_at && (
-            <span className="ml-2 text-green-400">
+            <span className="ml-2 text-green-700">
               Contacted by {contact.contacted_by_name} · {formatDate(contact.contacted_at)}
             </span>
           )}
@@ -257,14 +257,14 @@ function ContactRow({
             <button
               type="button"
               onClick={onRecordOutcome}
-              className="rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5"
+              className="rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
             >
               Record outcome
             </button>
             <button
               type="button"
               onClick={() => onDraft("follow_up")}
-              className="flex items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5"
+              className="flex items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
             >
               <Mail className="size-3" />
               Follow up
@@ -339,7 +339,7 @@ function AddContactDialog({
 
       <form
         onSubmit={submit}
-        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-[#0d0d0d] p-5"
+        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-background p-5"
       >
         <h2 className="font-heading text-lg font-bold">Add a contact</h2>
 
@@ -360,7 +360,7 @@ function AddContactDialog({
                 setForm((current) => ({ ...current, [field.key]: event.target.value }))
               }
               placeholder={field.placeholder}
-              className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-main"
+              className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-main"
             />
           </label>
         ))}
@@ -371,7 +371,7 @@ function AddContactDialog({
           </div>
         )}
         {error && (
-          <div className="mt-3 rounded-base border-2 border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          <div className="mt-3 rounded-base border-2 border-red-700/40 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -380,7 +380,7 @@ function AddContactDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5"
+            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-muted"
           >
             Cancel
           </button>
@@ -440,7 +440,7 @@ function OutcomeDialog({
 
       <form
         onSubmit={submit}
-        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-[#0d0d0d] p-5"
+        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-background p-5"
       >
         <h2 className="font-heading text-lg font-bold">What happened?</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -455,7 +455,7 @@ function OutcomeDialog({
               className={`flex cursor-pointer items-center gap-3 rounded-base border-2 px-3 py-2 text-sm ${
                 outcome === value
                   ? "border-main bg-main/10"
-                  : "border-border hover:bg-white/5"
+                  : "border-border hover:bg-muted"
               }`}
             >
               <input
@@ -477,12 +477,12 @@ function OutcomeDialog({
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={2}
-            className="mt-1 w-full rounded-base border-2 border-border bg-[#111] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-main"
+            className="mt-1 w-full rounded-base border-2 border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-main"
           />
         </label>
 
         {error && (
-          <div className="mt-3 rounded-base border-2 border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          <div className="mt-3 rounded-base border-2 border-red-700/40 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -491,7 +491,7 @@ function OutcomeDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5"
+            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-muted"
           >
             Cancel
           </button>
