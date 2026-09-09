@@ -44,6 +44,8 @@ The repository already contains the pieces this workflow should reuse:
 
 The current DOCX conversion in `signature_engine.py` rebuilds a document from paragraph text. It does not preserve the supplied template layout, tables, or form structure, so onboarding must use a faithful DOCX renderer instead.
 
+The API runtime will provision headless LibreOffice and expose its absolute binary path through the document-rendering configuration. The container will include the Writer component and the fonts needed by the retained templates. Local QA will use the same renderer contract rather than relying on Windows-only Word automation.
+
 The supplied DOCX files contain generic Google-generated `goog_rdk_*` structured-document tags. Those tags do not identify fields. A runtime guesser would be unsafe, so each retained template needs a versioned field manifest based on its raw OOXML and stable text anchors.
 
 ## Architecture
@@ -236,7 +238,7 @@ The fill pipeline is:
 5. Create web fields and signatures from the manifest and `SignatureField` records.
 6. Seal the PDF with `embed_signatures_and_seal` and store its final hash.
 
-The current paragraph-text rebuild is not used for these packets. The first implementation must also resolve the bundled LibreOffice path explicitly; the initial read-only renderer check found that `soffice.exe` was not on the shell PATH.
+The current paragraph-text rebuild is not used for these packets. The first implementation must resolve the configured LibreOffice path explicitly and fail closed when it is unavailable. The initial read-only renderer check found that `soffice.exe` was not on the workstation PATH, and the current API Dockerfile does not install a DOCX renderer.
 
 The portal is the only interactive completion surface. The final PDF does not retain editable controls. A downloaded source DOCX is evidence, not a second signing surface.
 
