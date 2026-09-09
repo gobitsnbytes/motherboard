@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
     session_secret: str = Field(validation_alias="SESSION_SECRET")
     api_internal_secret: str = Field(validation_alias="API_INTERNAL_SECRET")
+    api_service_user_id: str | None = Field(default=None, validation_alias="API_SERVICE_USER_ID")
     nextauth_secret: str = Field(validation_alias="NEXTAUTH_SECRET")
     nextauth_url: str = Field(default="http://localhost:3000", validation_alias="NEXTAUTH_URL")
     api_url: str = Field(default="http://localhost:8000", validation_alias="API_URL")

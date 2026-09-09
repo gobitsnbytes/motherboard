@@ -47,6 +47,26 @@ async def test_can_group_grant(db_session: AsyncSession):
 
     assert await can(db_session, principal, "group.action") is True
 
+
+@pytest.mark.asyncio
+async def test_expired_membership_does_not_resolve_group(db_session: AsyncSession):
+    from app.db.models import Group, Membership, User
+    from app.iam.principal import resolve_principal
+
+    user = User(display_name="Expired Member")
+    group = Group(name="Expired Group", slug="expired-group")
+    db_session.add_all([user, group])
+    await db_session.commit()
+    db_session.add(Membership(
+        user_id=user.id,
+        group_id=group.id,
+        expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    ))
+    await db_session.commit()
+
+    principal = await resolve_principal(db_session, user.id)
+    assert principal.group_ids == []
+
 @pytest.mark.asyncio
 async def test_can_expired_grant(db_session: AsyncSession):
     user_id = uuid.uuid4()

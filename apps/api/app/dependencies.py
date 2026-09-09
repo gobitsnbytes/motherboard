@@ -76,15 +76,30 @@ async def get_current_user(
         if hmac.compare_digest(api_key, expected_api_key):
             from sqlalchemy import select
             from app.db.models import User
-            res = await db.execute(select(User).where(User.is_super_admin == True).limit(1))
-            sys_user = res.scalar_one_or_none()
-            if sys_user:
-                return await resolve_principal(db, sys_user.id)
-            else:
+            if not settings.api_service_user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="API service identity is not configured",
+                )
+            try:
+                service_user_id = uuid.UUID(settings.api_service_user_id)
+            except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="No super admin user found to bind system context"
+                    detail="API service identity is invalid",
+                ) from exc
+            service_user = await db.scalar(select(User).where(User.id == service_user_id))
+            if not service_user:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Configured API service identity does not exist",
                 )
+            if service_user.is_super_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="API service identity cannot be a super-admin",
+                )
+            return await resolve_principal(db, service_user.id)
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -173,4 +188,3 @@ async def get_current_user(
 
 
 CurrentUserDep = Annotated[ResolvedPrincipal, Depends(get_current_user)]
-

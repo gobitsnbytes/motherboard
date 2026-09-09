@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.main import app
 from app.database import get_session
 from app.config import get_settings
-from app.db.models import User
+from app.db.models import Grant, Permission, User
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +18,19 @@ def override_db(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_api_key_auth_header_success(db_session: AsyncSession, super_admin: User):
+async def test_api_key_auth_header_success(db_session: AsyncSession, monkeypatch):
+    service_user = User(display_name="Meeting Service")
+    permission = Permission(key="meetings.read")
+    db_session.add_all([service_user, permission])
+    await db_session.commit()
+    db_session.add(Grant(
+        principal_type="user",
+        principal_id=service_user.id,
+        permission_key=permission.key,
+    ))
+    await db_session.commit()
+    monkeypatch.setenv("API_SERVICE_USER_ID", str(service_user.id))
+    get_settings.cache_clear()
     settings = get_settings()
     api_key = settings.api_internal_secret
 
@@ -35,7 +47,19 @@ async def test_api_key_auth_header_success(db_session: AsyncSession, super_admin
 
 
 @pytest.mark.asyncio
-async def test_api_key_auth_bearer_success(db_session: AsyncSession, super_admin: User):
+async def test_api_key_auth_bearer_success(db_session: AsyncSession, monkeypatch):
+    service_user = User(display_name="Meeting Service")
+    permission = Permission(key="meetings.read")
+    db_session.add_all([service_user, permission])
+    await db_session.commit()
+    db_session.add(Grant(
+        principal_type="user",
+        principal_id=service_user.id,
+        permission_key=permission.key,
+    ))
+    await db_session.commit()
+    monkeypatch.setenv("API_SERVICE_USER_ID", str(service_user.id))
+    get_settings.cache_clear()
     settings = get_settings()
     api_key = settings.api_internal_secret
 
@@ -60,6 +84,32 @@ async def test_api_key_auth_invalid(db_session: AsyncSession):
         )
         assert response.status_code == 401
         assert response.json()["detail"] == "Invalid API Key"
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_requires_explicit_service_identity(db_session: AsyncSession):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get(
+            "/api/meetings/",
+            headers={"X-API-Key": get_settings().api_internal_secret},
+        )
+        assert response.status_code == 503
+        assert response.json()["detail"] == "API service identity is not configured"
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_rejects_super_admin_service_identity(db_session: AsyncSession, super_admin: User, monkeypatch):
+    monkeypatch.setenv("API_SERVICE_USER_ID", str(super_admin.id))
+    get_settings.cache_clear()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.get(
+            "/api/meetings/",
+            headers={"X-API-Key": get_settings().api_internal_secret},
+        )
+        assert response.status_code == 500
+        assert response.json()["detail"] == "API service identity cannot be a super-admin"
 
 
 @pytest.mark.asyncio

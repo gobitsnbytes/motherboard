@@ -108,3 +108,21 @@ async def test_upsert_discord_mapping_priority(db_session: AsyncSession):
         res = await db_session.execute(stmt)
         record = res.scalar_one()
         assert record.priority == 99
+
+
+@pytest.mark.asyncio
+async def test_create_grant_rejects_unknown_permission(db_session: AsyncSession):
+    user = User(display_name="Admin User", is_super_admin=True)
+    target = User(display_name="Target User")
+    db_session.add_all([user, target])
+    await db_session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await request_as(ac, user.id, "POST", "/api/iam/grants", json={
+            "principal_type": "user",
+            "principal_id": str(target.id),
+            "permission_key": "does.not.exist",
+        })
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Permission not found"

@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 import httpx
 
 from app.config import get_settings
-from app.db.models import Permission, Grant, Group, Membership, DiscordRoleMapping
+from app.db.models import Permission, Grant, Group, Membership, DiscordRoleMapping, User
 from app.dependencies import DbDep, CurrentUserDep
 from app.iam.policy import require_permission
 from app.iam.audit import write_audit_entry
@@ -114,6 +114,22 @@ async def create_grant(
 ) -> GrantResponse:
     await require_permission(db, current_user, "iam.grants.write")
 
+    permission = await db.scalar(select(Permission).where(Permission.key == payload.permission_key))
+    if not permission:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Permission not found")
+
+    if payload.principal_type == "user":
+        principal = await db.scalar(select(User).where(User.id == payload.principal_id))
+        if not principal or not principal.is_active:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active user principal not found")
+    else:
+        principal = await db.scalar(select(Group).where(Group.id == payload.principal_id))
+        if not principal:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group principal not found")
+
+    if not current_user.is_super_admin:
+        await require_permission(db, current_user, payload.permission_key, payload.resource_scope)
+
     grant = Grant(
         principal_type=payload.principal_type,
         principal_id=payload.principal_id,
@@ -123,6 +139,20 @@ async def create_grant(
         expires_at=payload.expires_at
     )
     db.add(grant)
+    await write_audit_entry(
+        db=db,
+        actor_id=current_user.user_id,
+        action="create_grant",
+        target_type="grant",
+        target_id=str(payload.principal_id),
+        metadata={
+            "principal_type": payload.principal_type,
+            "principal_id": str(payload.principal_id),
+            "permission_key": payload.permission_key,
+            "resource_scope": payload.resource_scope,
+            "expires_at": payload.expires_at.isoformat() if payload.expires_at else None,
+        },
+    )
     await db.commit()
     await db.refresh(grant)
     return grant

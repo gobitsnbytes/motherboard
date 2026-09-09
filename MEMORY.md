@@ -12,6 +12,15 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 - Working authorization assumption: city/fork-scoped RBAC, aligned with `docs/techspec.md` scopes such as `fork:{city}` and `fork:{city}:{track}`. Users may belong to multiple cities; explicit HQ/executive roles may be global.
 - Proposed IAM contract: one canonical `/api/iam` surface, active/non-expired principal resolution, explicit global vs scoped permissions, break-glass super-admin only, transactional audit for every mutation, and Discord sync that preserves manual memberships.
 
+### IAM Foundation Slice
+
+- Filtered expired memberships out of principal resolution.
+- Constrained grant principal types and permission-key shape at the Pydantic boundary.
+- Added grant reference validation and creation audit entries.
+- Replaced API-key binding to the first super-admin with an explicit `API_SERVICE_USER_ID`; missing, invalid, nonexistent, or super-admin service identities fail closed.
+- Added regression coverage for expired memberships, invalid grant permissions, and service-auth isolation.
+- Verification: focused IAM/auth suite `17 passed`; full backend suite previously `100 passed` before the final service-identity tightening.
+
 
 ## 1. Project Status
 
