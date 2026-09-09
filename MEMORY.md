@@ -265,3 +265,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S97 (2026-09-09)
 - Removed the encoded SMTP credential and automatic `.env` mutation from the VPS deploy script. Production mail settings now come only from the server environment; deployment still performs a non-secret SMTP preflight when credentials are present. This closes a credential-exposure and configuration-drift path discovered while tracing the separate Vercel web deployment.
+
+### S98 (2026-09-09)
+- Continued the visual overhaul on the live Overview command center: replaced legacy near-black content cards, headers, list rows, action controls, and dialogs with the warm paper, burgundy, and orange brand system. Data loading, sync, fork creation, invitation, and navigation behavior are unchanged. Local typecheck/build passed before deployment preparation.

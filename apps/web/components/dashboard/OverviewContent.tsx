@@ -184,7 +184,7 @@ export function OverviewContent() {
       </div>
 
       {/* Welcome Banner */}
-      <Card className="border-2 border-border bg-[#141418] shadow-light">
+      <Card className="border-2 border-border bg-burgundy text-white shadow-light">
         <CardContent className="py-5">
           <h2 className="text-xl font-heading font-black text-white uppercase tracking-tight">
             Welcome to Motherboard
@@ -197,9 +197,9 @@ export function OverviewContent() {
 
       {/* Activity & connected services */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-2 border-border bg-[#141418] shadow-light">
-          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="lg:col-span-2 border-2 border-border bg-background shadow-light">
+          <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+            <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
               Recent Activity
             </CardTitle>
           </CardHeader>
@@ -212,9 +212,9 @@ export function OverviewContent() {
                 <div className="text-xs text-zinc-400 font-mono">No recent activity logged.</div>
               ) : (
                 activity.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-2.5 rounded-base border border-border bg-[#181820] text-xs">
-                    <span className="font-mono text-zinc-200">{item.action}</span>
-                    <span className="text-[11px] font-mono text-zinc-400">
+                    <div key={index} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5 text-xs">
+                    <span className="font-mono text-foreground">{item.action}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
                       {new Date(item.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -224,9 +224,9 @@ export function OverviewContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
-          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-background shadow-light">
+          <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+            <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
               Connected services
             </CardTitle>
           </CardHeader>
@@ -234,28 +234,28 @@ export function OverviewContent() {
           <CardContent className="pt-4">
             <div className="space-y-3 font-mono text-xs">
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-zinc-300">Motherboard API</span>
+                <span className="text-foreground">Motherboard API</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.apiStatus === "ok" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-red-950 text-red-400 border-red-800"}`}>
                   {stats.apiStatus === "ok" ? "Available" : "Unavailable"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-zinc-300">Operational data</span>
+                <span className="text-foreground">Operational data</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.databaseStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
                   {stats.databaseStatus === "healthy" ? "Available" : "Unknown"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-zinc-300">Discord connection</span>
+                <span className="text-foreground">Discord connection</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.discordStatus === "connected" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
                   {stats.discordStatus === "connected" ? "Connected" : "Not connected"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-zinc-300">Background sync</span>
+                <span className="text-foreground">Background sync</span>
                 <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${stats.syncStatus === "healthy" ? "bg-emerald-950 text-emerald-400 border-emerald-800" : "bg-amber-950 text-amber-400 border-amber-800"}`}>
                   {stats.syncStatus === "healthy" ? "Running" : "Standby"}
                 </span>
@@ -267,9 +267,9 @@ export function OverviewContent() {
 
       {/* Action Items & Fork Health */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-2 border-border bg-[#141418] shadow-light">
-          <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
-            <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+        <Card className="border-2 border-border bg-background shadow-light">
+          <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+            <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
               My Open Action Items
             </CardTitle>
           </CardHeader>
@@ -283,14 +283,14 @@ export function OverviewContent() {
                   <Link
                     key={item.id}
                     href="/dashboard/meetings"
-                    className="flex justify-between items-center gap-4 rounded-base border border-border bg-[#181820] p-2.5 transition-colors hover:bg-white/5"
+                    className="flex items-center justify-between gap-4 rounded-base border border-border bg-secondary-background p-2.5 transition-colors hover:bg-orange/10"
                   >
-                    <span className="text-xs font-mono text-zinc-200 truncate">{item.task}</span>
+                    <span className="truncate font-mono text-xs text-foreground">{item.task}</span>
                     <span className="flex items-center gap-2 shrink-0">
                       {item.deadline ? (
-                        <span className="text-[10px] font-mono text-zinc-400">{item.deadline}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">{item.deadline}</span>
                       ) : null}
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 border border-border bg-black text-amber-400 rounded-base">
+                      <span className="rounded-base border border-orange/50 bg-orange/15 px-2 py-0.5 font-mono text-[10px] font-bold text-burgundy">
                         {item.status}
                       </span>
                     </span>
@@ -329,8 +329,8 @@ export function OverviewContent() {
                   const isWarning = score >= 50 && score < 70;
 
                   return (
-                    <div key={fork.id} className="flex justify-between items-center p-2.5 rounded-base border border-border bg-[#181820]">
-                      <span className="font-bold text-zinc-200">{fork.city_name || fork.name}</span>
+                    <div key={fork.id} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5">
+                      <span className="font-bold text-foreground">{fork.city_name || fork.name}</span>
                       <span className={`px-2 py-0.5 rounded-base border text-[10px] font-bold ${isHealthy ? "bg-emerald-950 text-emerald-400 border-emerald-800" : isWarning ? "bg-amber-950 text-amber-400 border-amber-800" : "bg-red-950 text-red-400 border-red-800"}`}>
                         {score}/100
                       </span>
@@ -344,9 +344,9 @@ export function OverviewContent() {
       </div>
 
       {/* Quick Actions Card */}
-      <Card className="border-2 border-border bg-[#141418] shadow-light">
-        <CardHeader className="border-b-2 border-border pb-3 bg-[#121216]">
-          <CardTitle className="font-heading font-black text-sm uppercase tracking-wider text-white">
+      <Card className="border-2 border-border bg-background shadow-light">
+        <CardHeader className="border-b-2 border-border bg-secondary-background pb-3">
+          <CardTitle className="font-heading text-sm font-black uppercase tracking-wider text-foreground">
             Quick Actions
           </CardTitle>
         </CardHeader>
@@ -357,34 +357,34 @@ export function OverviewContent() {
               <DialogTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-main text-white rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+                  className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-burgundy px-4 py-2.5 font-heading text-xs font-black uppercase tracking-wider text-white shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
                 >
                   <Plus className="size-4" />
                   Create Fork
                 </button>
               </DialogTrigger>
-              <DialogContent className="border-2 border-border bg-[#141418] text-white">
+              <DialogContent className="border-2 border-border bg-background text-foreground">
                 <DialogHeader>
-                  <DialogTitle className="font-heading font-black text-lg uppercase tracking-tight text-white">
+                  <DialogTitle className="font-heading text-lg font-black uppercase tracking-tight text-foreground">
                     Create New City Chapter Fork
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreateFork} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="slug" className="font-mono text-xs text-zinc-300">Slug *</Label>
-                    <Input id="slug" required value={forkForm.slug} onChange={(e) => setForkForm(prev => ({...prev, slug: e.target.value}))} placeholder="e.g. blr" className="border-2 border-border bg-black text-white font-mono" />
+                    <Label htmlFor="slug" className="font-mono text-xs text-muted-foreground">Slug *</Label>
+                    <Input id="slug" required value={forkForm.slug} onChange={(e) => setForkForm(prev => ({...prev, slug: e.target.value}))} placeholder="e.g. blr" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="city_name" className="font-mono text-xs text-zinc-300">City Name *</Label>
-                    <Input id="city_name" required value={forkForm.city_name} onChange={(e) => setForkForm(prev => ({...prev, city_name: e.target.value}))} placeholder="e.g. Bangalore" className="border-2 border-border bg-black text-white font-mono" />
+                    <Label htmlFor="city_name" className="font-mono text-xs text-muted-foreground">City Name *</Label>
+                    <Input id="city_name" required value={forkForm.city_name} onChange={(e) => setForkForm(prev => ({...prev, city_name: e.target.value}))} placeholder="e.g. Bangalore" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="discord_city_role_id" className="font-mono text-xs text-zinc-300">Discord City Role ID (optional)</Label>
-                    <Input id="discord_city_role_id" value={forkForm.discord_city_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_city_role_id: e.target.value}))} placeholder="e.g. 1234567890" className="border-2 border-border bg-black text-white font-mono" />
+                    <Label htmlFor="discord_city_role_id" className="font-mono text-xs text-muted-foreground">Discord City Role ID (optional)</Label>
+                    <Input id="discord_city_role_id" value={forkForm.discord_city_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_city_role_id: e.target.value}))} placeholder="e.g. 1234567890" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="discord_contributor_role_id" className="font-mono text-xs text-zinc-300">Discord Contributor Role ID (optional)</Label>
-                    <Input id="discord_contributor_role_id" value={forkForm.discord_contributor_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_contributor_role_id: e.target.value}))} placeholder="e.g. 0987654321" className="border-2 border-border bg-black text-white font-mono" />
+                    <Label htmlFor="discord_contributor_role_id" className="font-mono text-xs text-muted-foreground">Discord Contributor Role ID (optional)</Label>
+                    <Input id="discord_contributor_role_id" value={forkForm.discord_contributor_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_contributor_role_id: e.target.value}))} placeholder="e.g. 0987654321" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
                   </div>
                   <button type="submit" className="w-full py-3 bg-orange text-black font-heading font-black text-xs uppercase tracking-wider rounded-base border-2 border-black shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50" disabled={creatingFork}>
                     {creatingFork ? <Loader2 className="mx-auto size-4 animate-spin" /> : "Create Chapter"}
@@ -397,7 +397,7 @@ export function OverviewContent() {
               type="button"
               onClick={handleRunSync}
               disabled={syncing}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 font-heading font-black text-xs uppercase tracking-wider border-2 border-border bg-[#181820] text-white rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-secondary-background px-4 py-2.5 font-heading text-xs font-black uppercase tracking-wider text-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
             >
               {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4 text-orange" />}
               {syncing ? "Syncing..." : "Trigger Discord Sync"}
@@ -413,9 +413,9 @@ export function OverviewContent() {
                   Invite Contributor
                 </button>
               </DialogTrigger>
-              <DialogContent className="border-2 border-border bg-[#141418] text-white">
+              <DialogContent className="border-2 border-border bg-background text-foreground">
                 <DialogHeader>
-                  <DialogTitle className="font-heading font-black text-lg uppercase tracking-tight text-white">
+                  <DialogTitle className="font-heading text-lg font-black uppercase tracking-tight text-foreground">
                     Invite Member
                   </DialogTitle>
                 </DialogHeader>
