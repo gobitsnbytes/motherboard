@@ -4,6 +4,15 @@ Persistent log of tasks, decisions, and workspace status. Every agent invocation
 
 ---
 
+## 2026-09-09 — IAM Overhaul Discovery
+
+- User identified IAM as the first critical area for the 100-person / 30-city rollout.
+- Focused IAM tests currently pass (`12 passed`), but coverage misses production risks.
+- Confirmed concrete issues: expired memberships are not filtered by principal resolution; API-key fallback binds requests to the first super-admin; grant payloads lack strict principal/permission validation; `batch_can` has ambiguous per-key semantics; several IAM mutations lack audit writes; group management is duplicated under `/api/iam/*` and `/api/groups/*`.
+- Working authorization assumption: city/fork-scoped RBAC, aligned with `docs/techspec.md` scopes such as `fork:{city}` and `fork:{city}:{track}`. Users may belong to multiple cities; explicit HQ/executive roles may be global.
+- Proposed IAM contract: one canonical `/api/iam` surface, active/non-expired principal resolution, explicit global vs scoped permissions, break-glass super-admin only, transactional audit for every mutation, and Discord sync that preserves manual memberships.
+
+
 ## 1. Project Status
 
 - **Current Phase:** Completed All Phases ✅
