@@ -276,6 +276,7 @@ export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   // Modals
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
@@ -394,6 +395,7 @@ export default function MeetingsPage() {
     try {
       setInstantLoading(true);
       setInstantResult(null);
+      setNotice(null);
       const payload = {
         title: instantTitle.trim(),
         description: "Instant meeting",
@@ -415,9 +417,10 @@ export default function MeetingsPage() {
       if (!res.ok) { const b = await res.json(); throw new Error(b.detail ?? "Failed to create meeting"); }
       const data: Meeting = await res.json();
       setInstantResult({ meet_code: data.meet_code ?? "", id: data.id });
+      setNotice({ kind: "success", message: "Instant meeting created. The meeting is ready for attendees." });
       fetchMeetings();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to create instant meeting");
+      setNotice({ kind: "error", message: err instanceof Error ? err.message : "Failed to create instant meeting" });
     } finally {
       setInstantLoading(false);
     }
@@ -428,6 +431,7 @@ export default function MeetingsPage() {
     if (!discordId) return;
     try {
       setScheduleLoading(true);
+      setNotice(null);
       const scheduledTimeMs = new Date(`${scheduleDate}T${scheduleTime}:00`).getTime();
       if (isNaN(scheduledTimeMs)) throw new Error("Invalid date or time");
 
@@ -457,11 +461,12 @@ export default function MeetingsPage() {
       });
       if (!res.ok) { const b = await res.json(); throw new Error(b.detail ?? "Failed to schedule meeting"); }
       setShowScheduleModal(false);
+      setNotice({ kind: "success", message: "Meeting scheduled and invitations queued." });
       setScheduleTitle(""); setScheduleDesc(""); setScheduleDate(""); setScheduleTime("");
       setScheduleLocationDetails(""); setScheduleInvitees(""); setScheduleEmails(""); setScheduleNotes("");
       fetchMeetings();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to schedule meeting");
+      setNotice({ kind: "error", message: err instanceof Error ? err.message : "Failed to schedule meeting" });
     } finally {
       setScheduleLoading(false);
     }
@@ -473,6 +478,7 @@ export default function MeetingsPage() {
     try {
       setAvailLoading(true);
       setAvailSuccess(false);
+      setNotice(null);
       const res = await fetch("/api/meetings/availability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -492,8 +498,9 @@ export default function MeetingsPage() {
       });
       if (!res.ok) throw new Error("Failed to save availability");
       setAvailSuccess(true);
+      setNotice({ kind: "success", message: "Availability saved." });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to save availability");
+      setNotice({ kind: "error", message: err instanceof Error ? err.message : "Failed to save availability" });
     } finally {
       setAvailLoading(false);
     }
@@ -505,6 +512,7 @@ export default function MeetingsPage() {
     try {
       setPrefLoading(true);
       setPrefSuccess(false);
+      setNotice(null);
       const res = await fetch("/api/meetings/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -518,8 +526,9 @@ export default function MeetingsPage() {
       });
       if (!res.ok) throw new Error("Failed to save preferences");
       setPrefSuccess(true);
+      setNotice({ kind: "success", message: "Notification preferences saved." });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to save preferences");
+      setNotice({ kind: "error", message: err instanceof Error ? err.message : "Failed to save preferences" });
     } finally {
       setPrefLoading(false);
     }
@@ -528,12 +537,14 @@ export default function MeetingsPage() {
   const handleCancelMeeting = async (meetingId: string) => {
     if (!confirm("Cancel this meeting? All attendees will be notified.")) return;
     try {
+      setNotice(null);
       const res = await fetch(`/api/meetings/${meetingId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to cancel meeting");
       setSelectedMeeting(null);
+      setNotice({ kind: "success", message: "Meeting cancelled. Attendees will be notified." });
       fetchMeetings();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to cancel meeting");
+      setNotice({ kind: "error", message: err instanceof Error ? err.message : "Failed to cancel meeting" });
     }
   };
 
@@ -542,6 +553,7 @@ export default function MeetingsPage() {
     if (!showRescheduleModal) return;
     try {
       setReschedLoading(true);
+      setNotice(null);
       const newTime = new Date(`${reschedDate}T${reschedTime}:00`).getTime();
       if (isNaN(newTime)) throw new Error("Invalid date or time");
       const res = await fetch(`/api/meetings/${showRescheduleModal.id}`, {
@@ -551,10 +563,11 @@ export default function MeetingsPage() {
       });
       if (!res.ok) { const b = await res.json(); throw new Error(b.detail ?? "Failed to reschedule"); }
       setShowRescheduleModal(null);
+      setNotice({ kind: "success", message: "Meeting rescheduled." });
       setReschedDate(""); setReschedTime(""); setReschedReason("");
       fetchMeetings();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to reschedule meeting");
+      setNotice({ kind: "error", message: err instanceof Error ? err.message : "Failed to reschedule meeting" });
     } finally {
       setReschedLoading(false);
     }
@@ -588,6 +601,14 @@ export default function MeetingsPage() {
 
   return (
     <div className="meetings-workspace max-w-7xl mx-auto space-y-6 p-0">
+      {notice ? (
+        <div
+          role="status"
+          className={`border-2 px-4 py-3 text-sm font-mono ${notice.kind === "success" ? "border-[#265d3a] bg-[#eaf5ed] text-[#173d24]" : "border-[#97192c] bg-[#fbecef] text-[#5b0f1a]"}`}
+        >
+          {notice.message}
+        </div>
+      ) : null}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#141418] border-2 border-border p-5 rounded-base shadow-dark">
         <div>

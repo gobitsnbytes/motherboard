@@ -193,3 +193,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S73 (2026-09-09)
 - Hardened the IAM Discord role mapping surface: removed internal implementation badges, clarified the audit behavior, extracted a reusable retryable loader, and added an in-page retry action for failed role/group/mapping fetches.
+
+### S74 (2026-09-09)
+- Reworked Meetings mutation feedback to use a shared inline notice for instant meetings, scheduling, availability, notification preferences, cancellation, and rescheduling. Browser alerts remain only for explicit cancellation confirmation.
