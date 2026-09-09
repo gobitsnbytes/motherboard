@@ -310,3 +310,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S112 (2026-09-09)
 - Reworked the IAM summary and group table to match the governance design: readable metric cards, light search/error states, paper table headers/rows, and stronger foreground hierarchy. IAM fetching, role-mapping controls, and authorization behavior are unchanged. Full build/typecheck/diff checks pass before promotion.
+
+### S113 (2026-09-09)
+- Pushed `004f682` to `prod` and verified live IAM without changing mappings: 15 groups, 53 permissions, 17 Discord mappings, Executive Leadership mapped correctly, and only `admin` visibly marked as break-glass Super Admin. Role-mapping controls remain non-mutating during RLVR.
