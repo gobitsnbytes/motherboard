@@ -289,3 +289,6 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### S105 (2026-09-09)
 - Pushed `aacc394` to `prod` and verified the live Meetings workspace with the authenticated browser: duplicate-record notice is visible (171 hidden records), 2 scheduled meetings load, and the Book a Sync tab opens with its real empty/availability state. Main meeting navigation remains functional.
+
+### S106 (2026-09-09)
+- Reworked the signature-request builder across all four steps: branded wizard header/progress, paper upload/signatory/review surfaces, readable form controls, and clearer destructive/back actions. Upload, recipient, field placement, and dispatch behavior are unchanged. Full build/typecheck/diff checks pass before promotion.
