@@ -24,5 +24,8 @@ class FormSubmissionCreate(BaseModel):
 
 class FormSubmissionResponse(BaseModel):
     id: str
+    form_id: str
     created_at: datetime
     answers: dict[str, Any]
+    labels: dict[str, str] = Field(default_factory=dict)
+    uploads: list[dict[str, Any]] = Field(default_factory=list)

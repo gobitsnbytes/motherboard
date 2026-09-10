@@ -5,8 +5,10 @@ import re
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 from app.database import get_sessionmaker
 
 from app.db.models import PublicForm, PublicFormSubmission, PublicFormUpload
@@ -59,6 +61,39 @@ def _public_form(form: PublicForm) -> dict:
     return {"title": form.title, "slug": form.slug, "description_markdown": form.description_markdown, "blocks": form.blocks}
 
 
+def _form_fields(form: PublicForm) -> dict[str, dict]:
+    """Return answerable blocks keyed by ID, ignoring presentational blocks."""
+    return {
+        block.get("id"): block
+        for block in form.blocks
+        if isinstance(block, dict)
+        and isinstance(block.get("id"), str)
+        and block.get("type") not in {"heading", "paragraph", "divider", "consent"}
+    }
+
+
+def _validate_submission(form: PublicForm, answers: dict) -> None:
+    fields = _form_fields(form)
+    unknown = set(answers) - set(fields)
+    if unknown:
+        raise HTTPException(status_code=422, detail="This response contains questions that are not part of the form")
+    for field_id, block in fields.items():
+        answer = answers.get(field_id)
+        missing = answer is None or answer == "" or answer == []
+        if block.get("required") and block.get("type") != "file" and missing:
+            raise HTTPException(status_code=422, detail=f"Please complete: {block.get('label', 'required question')}")
+        if block.get("type") in {"choice", "select"} and answer not in (None, "") and answer not in block.get("options", []):
+            raise HTTPException(status_code=422, detail=f"Choose a listed option for: {block.get('label', 'question')}")
+        if block.get("type") == "multichoice" and answer not in (None, ""):
+            if not isinstance(answer, list) or any(value not in block.get("options", []) for value in answer):
+                raise HTTPException(status_code=422, detail=f"Choose listed options for: {block.get('label', 'question')}")
+
+
+def _answer_labels(form: PublicForm, answers: dict) -> dict[str, str]:
+    fields = _form_fields(form)
+    return {field_id: fields.get(field_id, {}).get("label", "Question removed") for field_id in answers}
+
+
 @router.get("", response_model=list[dict])
 async def list_forms(db: DbSession, current_user: ResolvedPrincipal = Depends(get_current_user)):
     statement = select(PublicForm).order_by(PublicForm.updated_at.desc())
@@ -108,8 +143,8 @@ async def list_submissions(form_id: uuid.UUID, db: DbSession, current_user: Reso
     form = (await db.execute(statement)).scalar_one_or_none()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
-    rows = (await db.execute(select(PublicFormSubmission).where(PublicFormSubmission.form_id == form_id).order_by(PublicFormSubmission.created_at.desc()))).scalars().all()
-    return [FormSubmissionResponse(id=str(row.id), created_at=row.created_at, answers=row.answers) for row in rows]
+    rows = (await db.execute(select(PublicFormSubmission).options(selectinload(PublicFormSubmission.uploads)).where(PublicFormSubmission.form_id == form_id).order_by(PublicFormSubmission.created_at.desc()))).scalars().all()
+    return [FormSubmissionResponse(id=str(row.id), form_id=str(form.id), created_at=row.created_at, answers=row.answers, labels=_answer_labels(form, row.answers), uploads=[{"id": str(upload.id), "field_id": upload.field_id, "name": upload.original_name, "content_type": upload.content_type, "size_bytes": upload.size_bytes} for upload in row.uploads]) for row in rows]
 
 
 @router.get("/public/{slug}")
@@ -127,6 +162,7 @@ async def submit_public_form(slug: str, payload: FormSubmissionCreate, request: 
     form = (await db.execute(select(PublicForm).where(PublicForm.slug == slug, PublicForm.is_published.is_(True)))).scalar_one_or_none()
     if not form:
         raise HTTPException(status_code=404, detail="This form is not available")
+    _validate_submission(form, payload.answers)
     submission = PublicFormSubmission(form_id=form.id, answers=payload.answers, idempotency_key=payload.idempotency_key, terms_accepted_at=datetime.now(timezone.utc), ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     db.add(submission)
     try:
@@ -145,6 +181,10 @@ async def upload_public_form_file(submission_id: uuid.UUID, field_id: str, file:
     submission = (await db.execute(select(PublicFormSubmission).where(PublicFormSubmission.id == submission_id))).scalar_one_or_none()
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
+    form = (await db.execute(select(PublicForm).where(PublicForm.id == submission.form_id))).scalar_one()
+    field = _form_fields(form).get(field_id)
+    if not field or field.get("type") != "file":
+        raise HTTPException(status_code=422, detail="This upload does not match a file question")
     count = (await db.execute(select(PublicFormUpload).where(PublicFormUpload.submission_id == submission_id))).scalars().all()
     if len(count) >= MAX_FILES_PER_SUBMISSION:
         raise HTTPException(status_code=422, detail="A submission may contain at most five files")
@@ -162,3 +202,17 @@ async def upload_public_form_file(submission_id: uuid.UUID, field_id: str, file:
     db.add(upload)
     await db.commit()
     return {"id": str(upload.id), "name": safe_name, "expires_at": upload.expires_at}
+
+
+@router.get("/{form_id}/submissions/{submission_id}/uploads/{upload_id}")
+async def download_form_upload(form_id: uuid.UUID, submission_id: uuid.UUID, upload_id: uuid.UUID, db: DbSession, current_user: ResolvedPrincipal = Depends(get_current_user)):
+    statement = select(PublicForm).where(PublicForm.id == form_id)
+    if not current_user.is_super_admin:
+        statement = statement.where(PublicForm.created_by == current_user.user_id)
+    form = (await db.execute(statement)).scalar_one_or_none()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    upload = (await db.execute(select(PublicFormUpload).join(PublicFormSubmission).where(PublicFormUpload.id == upload_id, PublicFormUpload.submission_id == submission_id, PublicFormSubmission.form_id == form.id))).scalar_one_or_none()
+    if not upload or not os.path.isfile(upload.storage_path):
+        raise HTTPException(status_code=404, detail="Upload not found or expired")
+    return FileResponse(upload.storage_path, media_type=upload.content_type or "application/octet-stream", filename=upload.original_name)
