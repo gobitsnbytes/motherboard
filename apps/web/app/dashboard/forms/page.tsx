@@ -2,44 +2,925 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronLeft, Eye, FileText, GripVertical, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  Copy,
+  Download,
+  Eye,
+  FileText,
+  GripVertical,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 
-type BlockType = "heading" | "paragraph" | "text" | "textarea" | "email" | "choice" | "multichoice" | "select" | "file" | "divider" | "consent";
-type Block = { id: string; type: BlockType; label: string; description?: string; required?: boolean; options?: string[] };
-type FormRecord = { id: string; title: string; slug: string; description_markdown?: string; blocks: Block[]; is_published: boolean };
-type Submission = { id: string; created_at: string; answers: Record<string, unknown> };
+type BlockType =
+  | "heading"
+  | "paragraph"
+  | "text"
+  | "textarea"
+  | "email"
+  | "phone"
+  | "number"
+  | "date"
+  | "url"
+  | "choice"
+  | "multichoice"
+  | "select"
+  | "file"
+  | "divider"
+  | "consent";
+type Block = {
+  id: string;
+  type: BlockType;
+  label: string;
+  description?: string;
+  required?: boolean;
+  options?: string[];
+};
+type FormRecord = {
+  id: string;
+  title: string;
+  slug: string;
+  description_markdown?: string;
+  blocks: Block[];
+  is_published: boolean;
+};
+type Submission = {
+  id: string;
+  created_at: string;
+  answers: Record<string, unknown>;
+  labels: Record<string, string>;
+  uploads: Array<{
+    id: string;
+    field_id: string;
+    name: string;
+    content_type?: string;
+    size_bytes: number;
+  }>;
+};
 
-const fields = new Set<BlockType>(["text", "textarea", "email", "choice", "multichoice", "select", "file", "consent"]);
+const fields = new Set<BlockType>([
+  "text",
+  "textarea",
+  "email",
+  "phone",
+  "number",
+  "date",
+  "url",
+  "choice",
+  "multichoice",
+  "select",
+  "file",
+  "consent",
+]);
 const menu: { type: BlockType; label: string; hint: string }[] = [
-  { type: "heading", label: "Heading", hint: "Section title" }, { type: "paragraph", label: "Paragraph", hint: "Helpful copy" },
-  { type: "text", label: "Short answer", hint: "One-line response" }, { type: "textarea", label: "Long answer", hint: "Free-form response" }, { type: "email", label: "Email", hint: "Validated email" },
-  { type: "choice", label: "Multiple choice", hint: "Choose one" }, { type: "multichoice", label: "Checkboxes", hint: "Choose many" }, { type: "select", label: "Dropdown", hint: "Choose from a list" }, { type: "file", label: "File upload", hint: "Supporting documents" },
-  { type: "divider", label: "Divider", hint: "Separate sections" }, { type: "consent", label: "Consent", hint: "Required agreement" },
+  { type: "heading", label: "Heading", hint: "Section title" },
+  { type: "paragraph", label: "Paragraph", hint: "Helpful copy" },
+  { type: "text", label: "Short answer", hint: "One-line response" },
+  { type: "textarea", label: "Long answer", hint: "Free-form response" },
+  { type: "email", label: "Email", hint: "Validated email" },
+  { type: "phone", label: "Phone", hint: "Telephone number" },
+  { type: "number", label: "Number", hint: "Numeric response" },
+  { type: "date", label: "Date", hint: "Calendar date" },
+  { type: "url", label: "Website", hint: "A web address" },
+  { type: "choice", label: "Multiple choice", hint: "Choose one" },
+  { type: "multichoice", label: "Checkboxes", hint: "Choose many" },
+  { type: "select", label: "Dropdown", hint: "Choose from a list" },
+  { type: "file", label: "File upload", hint: "Supporting documents" },
+  { type: "divider", label: "Divider", hint: "Separate sections" },
+  { type: "consent", label: "Consent", hint: "Required agreement" },
 ];
-const makeBlock = (type: BlockType): Block => ({ id: crypto.randomUUID(), type, label: type === "heading" ? "New section" : type === "paragraph" ? "Add helpful context for this part of the form." : type === "divider" ? "" : type === "consent" ? "I agree to the applicable bits&bytes™ terms and privacy practices." : "What would you like to ask?", required: type === "consent", options: type === "choice" || type === "multichoice" || type === "select" ? ["Option 1", "Option 2"] : undefined });
+const makeBlock = (type: BlockType): Block => ({
+  id: crypto.randomUUID(),
+  type,
+  label:
+    type === "heading"
+      ? "New section"
+      : type === "paragraph"
+        ? "Add helpful context for this part of the form."
+        : type === "divider"
+          ? ""
+          : type === "consent"
+            ? "I agree to the applicable bits&bytes™ terms and privacy practices."
+            : "What would you like to ask?",
+  required: type === "consent",
+  options:
+    type === "choice" || type === "multichoice" || type === "select"
+      ? ["Option 1", "Option 2"]
+      : undefined,
+});
+const starterForms: Array<{
+  label: string;
+  title: string;
+  slug: string;
+  description: string;
+  blocks: BlockType[];
+}> = [
+  {
+    label: "Registration",
+    title: "Event registration",
+    slug: "event-registration",
+    description: "Tell us who you are and how to reach you.",
+    blocks: ["heading", "text", "email", "phone", "choice", "consent"],
+  },
+  {
+    label: "Feedback",
+    title: "Feedback",
+    slug: "feedback",
+    description: "Your candid feedback helps us improve.",
+    blocks: ["choice", "textarea", "consent"],
+  },
+  {
+    label: "File intake",
+    title: "Document intake",
+    slug: "document-intake",
+    description: "Share the details and supporting files we need.",
+    blocks: ["text", "email", "file", "textarea", "consent"],
+  },
+];
 
 export default function FormsPage() {
-  const [forms, setForms] = useState<FormRecord[]>([]), [active, setActive] = useState<FormRecord | null>(null), [selectedId, setSelectedId] = useState<string | null>(null), [menuAt, setMenuAt] = useState<number | null>(null), [view, setView] = useState<"edit" | "responses">("edit"), [submissions, setSubmissions] = useState<Submission[]>([]), [saving, setSaving] = useState(false), [state, setState] = useState<"saved" | "unsaved" | "error">("saved"), [error, setError] = useState("");
-  const refresh = () => fetch("/api/forms").then((r) => r.ok ? r.json() : []).then(setForms);
-  useEffect(() => { refresh(); }, []);
-  const selected = active?.blocks.find((block) => block.id === selectedId) ?? null;
-  const update = (patch: Partial<FormRecord>) => { setActive((form) => form ? { ...form, ...patch } : form); setState("unsaved"); };
-  const updateBlock = (id: string, patch: Partial<Block>) => update({ blocks: active!.blocks.map((block) => block.id === id ? { ...block, ...patch } : block) });
-  const create = () => { setActive({ id: "", title: "Untitled form", slug: "untitled-form", description_markdown: "", blocks: [], is_published: false }); setSelectedId(null); setView("edit"); setState("unsaved"); };
-  const insert = (type: BlockType) => { if (!active) return; const blocks = [...active.blocks], block = makeBlock(type); blocks.splice(menuAt ?? blocks.length, 0, block); update({ blocks }); setSelectedId(block.id); setMenuAt(null); };
-  const remove = (id: string) => { update({ blocks: active!.blocks.filter((block) => block.id !== id) }); if (selectedId === id) setSelectedId(null); };
-  const valid = useMemo(() => !!active?.title.trim() && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(active.slug) && active.blocks.every((block) => !fields.has(block.type) || !!block.label.trim()) && active.blocks.every((block) => (block.type !== "choice" && block.type !== "multichoice" && block.type !== "select") || !!block.options?.some((option) => option.trim())), [active]);
-  async function save(event?: FormEvent, publish?: boolean) { event?.preventDefault(); if (!active || !valid) return setError("Add a title, valid slug, prompts, and an option for every choice block."); setSaving(true); setError(""); const response = await fetch(active.id ? `/api/forms/${active.id}` : "/api/forms", { method: active.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...active, is_published: publish ?? active.is_published }) }); const payload = await response.json(); setSaving(false); if (!response.ok) { setState("error"); return setError(payload.detail || "Your changes could not be saved."); } setActive(payload); setState("saved"); refresh(); }
-  async function responses() { if (!active?.id) return; setView("responses"); const response = await fetch(`/api/forms/${active.id}/submissions`); setSubmissions(response.ok ? await response.json() : []); }
+  const [forms, setForms] = useState<FormRecord[]>([]),
+    [active, setActive] = useState<FormRecord | null>(null),
+    [selectedId, setSelectedId] = useState<string | null>(null),
+    [menuAt, setMenuAt] = useState<number | null>(null),
+    [view, setView] = useState<"edit" | "responses">("edit"),
+    [submissions, setSubmissions] = useState<Submission[]>([]),
+    [saving, setSaving] = useState(false),
+    [state, setState] = useState<"saved" | "unsaved" | "error">("saved"),
+    [error, setError] = useState("");
+  const refresh = () =>
+    fetch("/api/forms")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setForms);
+  useEffect(() => {
+    refresh();
+  }, []);
+  const selected =
+    active?.blocks.find((block) => block.id === selectedId) ?? null;
+  const update = (patch: Partial<FormRecord>) => {
+    setActive((form) => (form ? { ...form, ...patch } : form));
+    setState("unsaved");
+  };
+  const updateBlock = (id: string, patch: Partial<Block>) =>
+    update({
+      blocks: active!.blocks.map((block) =>
+        block.id === id ? { ...block, ...patch } : block,
+      ),
+    });
+  const create = (starter?: (typeof starterForms)[number]) => {
+    const blocks = starter ? starter.blocks.map(makeBlock) : [];
+    const fieldBlocks = blocks.filter(
+      (block) => fields.has(block.type) && block.type !== "consent",
+    );
+    if (starter?.label === "Registration") {
+      if (fieldBlocks[0]) fieldBlocks[0].label = "Full name";
+      if (fieldBlocks[1]) fieldBlocks[1].label = "Email address";
+      if (fieldBlocks[2]) fieldBlocks[2].label = "Phone number";
+      if (fieldBlocks[3]) {
+        fieldBlocks[3].label = "Which session are you joining?";
+        fieldBlocks[3].options = ["Morning", "Afternoon", "Both"];
+      }
+    }
+    setActive({
+      id: "",
+      title: starter?.title || "Untitled form",
+      slug: starter?.slug || "untitled-form",
+      description_markdown: starter?.description || "",
+      blocks,
+      is_published: false,
+    });
+    setSelectedId(null);
+    setView("edit");
+    setState("unsaved");
+  };
+  const insert = (type: BlockType) => {
+    if (!active) return;
+    const blocks = [...active.blocks],
+      block = makeBlock(type);
+    blocks.splice(menuAt ?? blocks.length, 0, block);
+    update({ blocks });
+    setSelectedId(block.id);
+    setMenuAt(null);
+  };
+  const remove = (id: string) => {
+    update({ blocks: active!.blocks.filter((block) => block.id !== id) });
+    if (selectedId === id) setSelectedId(null);
+  };
+  const move = (id: string, direction: -1 | 1) => {
+    if (!active) return;
+    const index = active.blocks.findIndex((block) => block.id === id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= active.blocks.length) return;
+    const blocks = [...active.blocks];
+    const current = blocks[index];
+    const next = blocks[target];
+    if (!current || !next) return;
+    blocks[index] = next;
+    blocks[target] = current;
+    update({ blocks });
+  };
+  const duplicate = (id: string) => {
+    if (!active) return;
+    const index = active.blocks.findIndex((block) => block.id === id);
+    const original = active.blocks[index];
+    if (!original) return;
+    const copy = {
+      ...original,
+      id: crypto.randomUUID(),
+      label: `${original.label} (copy)`,
+      options: original.options ? [...original.options] : undefined,
+    };
+    const blocks = [...active.blocks];
+    blocks.splice(index + 1, 0, copy);
+    update({ blocks });
+    setSelectedId(copy.id);
+  };
+  const valid = useMemo(
+    () =>
+      !!active?.title.trim() &&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(active.slug) &&
+      active.blocks.every(
+        (block) => !fields.has(block.type) || !!block.label.trim(),
+      ) &&
+      active.blocks.every(
+        (block) =>
+          (block.type !== "choice" &&
+            block.type !== "multichoice" &&
+            block.type !== "select") ||
+          !!block.options?.some((option) => option.trim()),
+      ),
+    [active],
+  );
+  async function save(event?: FormEvent, publish?: boolean) {
+    event?.preventDefault();
+    if (!active || !valid)
+      return setError(
+        "Add a title, valid slug, prompts, and an option for every choice block.",
+      );
+    setSaving(true);
+    setError("");
+    const response = await fetch(
+      active.id ? `/api/forms/${active.id}` : "/api/forms",
+      {
+        method: active.id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...active,
+          is_published: publish ?? active.is_published,
+        }),
+      },
+    );
+    const payload = await response.json();
+    setSaving(false);
+    if (!response.ok) {
+      setState("error");
+      return setError(payload.detail || "Your changes could not be saved.");
+    }
+    setActive(payload);
+    setState("saved");
+    refresh();
+  }
+  async function responses() {
+    if (!active?.id) return;
+    setView("responses");
+    const response = await fetch(`/api/forms/${active.id}/submissions`);
+    setSubmissions(response.ok ? await response.json() : []);
+  }
 
-  if (!active) return <main className="mx-auto max-w-5xl p-4 sm:p-8"><header className="flex flex-wrap items-end justify-between gap-5 border-b-2 border-border pb-7"><div><p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-orange">Forms</p><h1 className="mt-2 font-heading text-4xl font-black tracking-tight">A form is a page.</h1><p className="mt-2 max-w-xl text-muted-foreground">Write the experience people will complete. Add questions only where they belong.</p></div><button onClick={create} className="inline-flex min-h-11 items-center gap-2 border-2 border-black bg-orange px-4 font-semibold text-black shadow-light active:translate-x-1 active:translate-y-1 active:shadow-none"><Plus size={18}/> New form</button></header><section className="mt-8 grid gap-3 sm:grid-cols-2">{forms.map((form) => <button key={form.id} onClick={() => { setActive(form); setState("saved"); }} className="min-h-36 border-2 border-border bg-secondary-background p-5 text-left shadow-light hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-orange active:translate-x-1 active:translate-y-1 active:shadow-none"><p className="font-semibold text-foreground">{form.title}</p><p className="mt-3 font-mono text-xs text-muted-foreground">/form/{form.slug}</p><p className="mt-1 text-xs text-muted-foreground">{form.blocks.length} blocks · {form.is_published ? "Published" : "Draft"}</p></button>)}</section>{forms.length === 0 && <div className="mt-10 border-2 border-dashed border-border p-10 text-center"><FileText className="mx-auto text-orange"/><p className="mt-3 font-semibold">Start with a title, then write the page.</p></div>}</main>;
+  if (!active)
+    return (
+      <main className="mx-auto max-w-5xl p-4 sm:p-8">
+        <header className="flex flex-wrap items-end justify-between gap-5 border-b-2 border-border pb-7">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-orange">
+              Forms
+            </p>
+            <h1 className="mt-2 font-heading text-4xl font-black tracking-tight">
+              Build a form people can finish.
+            </h1>
+            <p className="mt-2 max-w-xl text-muted-foreground">
+              Use a starter when it fits, then tune each question, its guidance,
+              and its requirements.
+            </p>
+          </div>
+          <button
+            onClick={() => create()}
+            className="inline-flex min-h-11 items-center gap-2 border-2 border-black bg-orange px-4 font-semibold text-black shadow-light active:translate-x-1 active:translate-y-1 active:shadow-none"
+          >
+            <Plus size={18} /> Blank form
+          </button>
+        </header>
+        <section className="mt-7">
+          <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+            Start from a useful shape
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {starterForms.map((starter) => (
+              <button
+                key={starter.label}
+                onClick={() => create(starter)}
+                className="min-h-28 border-2 border-border bg-[#f7f4ef] p-4 text-left shadow-light hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-orange active:translate-x-1 active:translate-y-1 active:shadow-none"
+              >
+                <p className="font-semibold">{starter.label}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {starter.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className="mt-9 grid gap-3 sm:grid-cols-2">
+          {forms.map((form) => (
+            <button
+              key={form.id}
+              onClick={() => {
+                setActive(form);
+                setState("saved");
+              }}
+              className="min-h-36 border-2 border-border bg-secondary-background p-5 text-left shadow-light hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-orange active:translate-x-1 active:translate-y-1 active:shadow-none"
+            >
+              <p className="font-semibold text-foreground">{form.title}</p>
+              <p className="mt-3 font-mono text-xs text-muted-foreground">
+                /form/{form.slug}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {form.blocks.length} blocks ·{" "}
+                {form.is_published ? "Published" : "Draft"}
+              </p>
+            </button>
+          ))}
+        </section>
+        {forms.length === 0 && (
+          <div className="mt-10 border-2 border-dashed border-border p-10 text-center">
+            <FileText className="mx-auto text-orange" />
+            <p className="mt-3 font-semibold">
+              Choose a starter or start from a blank form.
+            </p>
+          </div>
+        )}
+      </main>
+    );
 
-  return <main className="min-h-[calc(100vh-6rem)] bg-background"><header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b-2 border-border bg-background px-4 py-3 sm:px-7"><button type="button" onClick={() => setActive(null)} className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft size={17}/> Forms</button><span className="min-w-0 flex-1 truncate text-sm font-semibold">{active.title || "Untitled form"}</span><span className={`text-xs ${state === "error" ? "text-red-700" : state === "unsaved" ? "text-orange" : "text-muted-foreground"}`}>{saving ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? "Could not save" : "Unsaved changes"}</span><button type="button" onClick={responses} disabled={!active.id} className="min-h-10 px-3 text-sm font-medium disabled:opacity-40">Responses</button>{active.id && <Link href={`/form/${active.slug}`} target="_blank" className="inline-flex min-h-10 items-center gap-2 border-2 border-border px-3 text-sm font-medium hover:border-foreground"><Eye size={16}/> Preview</Link>}<button type="button" disabled={saving} onClick={() => save(undefined, !active.is_published)} className={`min-h-10 border-2 border-black px-4 text-sm font-semibold shadow-light active:translate-x-1 active:translate-y-1 active:shadow-none ${active.is_published ? "bg-white text-black" : "bg-main text-white"}`}>{active.is_published ? "Unpublish" : "Publish"}</button></header>
-  {view === "responses" ? <Responses submissions={submissions} back={() => setView("edit")}/> : <div className="mx-auto grid max-w-[1500px] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]"><form onSubmit={save} className="min-w-0 bg-[#ebe8e1] px-4 py-8 text-[#17130f] sm:px-10 sm:py-14"><article className="mx-auto max-w-3xl"><input value={active.title} onChange={(e) => update({ title: e.target.value })} placeholder="Untitled form" aria-label="Form title" className="w-full bg-transparent font-heading text-4xl font-black tracking-tight outline-none placeholder:text-stone-400 sm:text-5xl"/><textarea value={active.description_markdown || ""} onChange={(e) => update({ description_markdown: e.target.value })} placeholder="Write an introduction. Markdown is supported." aria-label="Form introduction" className="mt-5 min-h-24 w-full resize-none bg-transparent font-base text-base leading-7 outline-none placeholder:text-stone-500"/><label className="mt-4 block font-mono text-xs text-stone-600">motherboard.gobitsnbytes.org/form/<input value={active.slug} onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })} className="ml-1 border-b border-stone-400 bg-transparent px-1 outline-none focus:border-[#97192c]"/></label><div className="my-10 border-t-2 border-[#17130f]"/>
-  {active.blocks.map((block, index) => <BlockEditor key={block.id} block={block} selected={selectedId === block.id} onSelect={() => setSelectedId(block.id)} onUpdate={updateBlock} onRemove={remove} onInsert={() => setMenuAt(index + 1)}/>) }<div className="relative mt-5"><button type="button" onClick={() => setMenuAt(active.blocks.length)} className="inline-flex min-h-11 items-center gap-2 text-sm text-stone-600 hover:text-[#97192c]"><Plus size={17}/> Add a block <span className="font-mono text-xs">or type /</span></button>{menuAt !== null && <BlockMenu choose={insert} close={() => setMenuAt(null)}/>}</div><button type="submit" className="mt-10 inline-flex min-h-11 items-center gap-2 border-2 border-[#17130f] bg-[#17130f] px-4 text-sm font-semibold text-white shadow-[4px_4px_0_#97192c] active:translate-x-1 active:translate-y-1 active:shadow-none"><Check size={16}/> Save changes</button>{error && <p role="alert" className="mt-3 text-sm text-red-800">{error}</p>}</article></form><Inspector block={selected} update={updateBlock} remove={remove}/></div>}</main>;
+  return (
+    <main className="min-h-[calc(100vh-6rem)] bg-background">
+      <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b-2 border-border bg-background px-4 py-3 sm:px-7">
+        <button
+          type="button"
+          onClick={() => setActive(null)}
+          className="inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft size={17} /> Forms
+        </button>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+          {active.title || "Untitled form"}
+        </span>
+        <span
+          className={`text-xs ${state === "error" ? "text-red-700" : state === "unsaved" ? "text-orange" : "text-muted-foreground"}`}
+        >
+          {saving
+            ? "Saving…"
+            : state === "saved"
+              ? "Saved"
+              : state === "error"
+                ? "Could not save"
+                : "Unsaved changes"}
+        </span>
+        <button
+          type="button"
+          onClick={responses}
+          disabled={!active.id}
+          className="min-h-10 px-3 text-sm font-medium disabled:opacity-40"
+        >
+          Responses
+        </button>
+        {active.id && (
+          <Link
+            href={`/form/${active.slug}`}
+            target="_blank"
+            className="inline-flex min-h-10 items-center gap-2 border-2 border-border px-3 text-sm font-medium hover:border-foreground"
+          >
+            <Eye size={16} /> Preview
+          </Link>
+        )}
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => save(undefined, !active.is_published)}
+          className={`min-h-10 border-2 border-black px-4 text-sm font-semibold shadow-light active:translate-x-1 active:translate-y-1 active:shadow-none ${active.is_published ? "bg-white text-black" : "bg-main text-white"}`}
+        >
+          {active.is_published ? "Unpublish" : "Publish"}
+        </button>
+      </header>
+      {view === "responses" ? (
+        <Responses
+          formId={active.id}
+          submissions={submissions}
+          back={() => setView("edit")}
+        />
+      ) : (
+        <div className="mx-auto grid max-w-[1500px] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <form
+            onSubmit={save}
+            className="min-w-0 bg-[#ebe8e1] px-4 py-8 text-[#17130f] sm:px-10 sm:py-14"
+          >
+            <article className="mx-auto max-w-3xl">
+              <input
+                value={active.title}
+                onChange={(e) => update({ title: e.target.value })}
+                placeholder="Untitled form"
+                aria-label="Form title"
+                className="w-full bg-transparent font-heading text-4xl font-black tracking-tight outline-none placeholder:text-stone-400 sm:text-5xl"
+              />
+              <textarea
+                value={active.description_markdown || ""}
+                onChange={(e) =>
+                  update({ description_markdown: e.target.value })
+                }
+                placeholder="Write an introduction. Markdown is supported."
+                aria-label="Form introduction"
+                className="mt-5 min-h-24 w-full resize-none bg-transparent font-base text-base leading-7 outline-none placeholder:text-stone-500"
+              />
+              <label className="mt-4 block font-mono text-xs text-stone-600">
+                motherboard.gobitsnbytes.org/form/
+                <input
+                  value={active.slug}
+                  onChange={(e) =>
+                    update({
+                      slug: e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, "-"),
+                    })
+                  }
+                  className="ml-1 border-b border-stone-400 bg-transparent px-1 outline-none focus:border-[#97192c]"
+                />
+              </label>
+              <div className="my-10 border-t-2 border-[#17130f]" />
+              {active.blocks.map((block, index) => (
+                <BlockEditor
+                  key={block.id}
+                  block={block}
+                  selected={selectedId === block.id}
+                  onSelect={() => setSelectedId(block.id)}
+                  onUpdate={updateBlock}
+                  onRemove={remove}
+                  onInsert={() => setMenuAt(index + 1)}
+                  onMove={move}
+                  onDuplicate={duplicate}
+                  isFirst={index === 0}
+                  isLast={index === active.blocks.length - 1}
+                />
+              ))}
+              <div className="relative mt-5">
+                <button
+                  type="button"
+                  onClick={() => setMenuAt(active.blocks.length)}
+                  className="inline-flex min-h-11 items-center gap-2 text-sm text-stone-600 hover:text-[#97192c]"
+                >
+                  <Plus size={17} /> Add a block{" "}
+                  <span className="font-mono text-xs">or type /</span>
+                </button>
+                {menuAt !== null && (
+                  <BlockMenu choose={insert} close={() => setMenuAt(null)} />
+                )}
+              </div>
+              <button
+                type="submit"
+                className="mt-10 inline-flex min-h-11 items-center gap-2 border-2 border-[#17130f] bg-[#17130f] px-4 text-sm font-semibold text-white shadow-[4px_4px_0_#97192c] active:translate-x-1 active:translate-y-1 active:shadow-none"
+              >
+                <Check size={16} /> Save changes
+              </button>
+              {error && (
+                <p role="alert" className="mt-3 text-sm text-red-800">
+                  {error}
+                </p>
+              )}
+            </article>
+          </form>
+          <Inspector block={selected} update={updateBlock} remove={remove} />
+        </div>
+      )}
+    </main>
+  );
 }
 
-function BlockEditor({ block, selected, onSelect, onUpdate, onRemove, onInsert }: { block: Block; selected: boolean; onSelect: () => void; onUpdate: (id: string, patch: Partial<Block>) => void; onRemove: (id: string) => void; onInsert: () => void }) { return <div className={`group relative -mx-3 rounded-base px-3 py-3 ${selected ? "bg-white ring-2 ring-[#97192c]" : "hover:bg-white/60"}`} onClick={onSelect}><div className="absolute -left-8 top-5 hidden items-center gap-1 lg:group-hover:flex"><GripVertical size={16} className="text-stone-400"/><button type="button" aria-label="Insert block" onClick={(event) => { event.stopPropagation(); onInsert(); }} className="grid size-6 place-items-center text-stone-500 hover:text-[#97192c]"><Plus size={16}/></button></div>{block.type === "divider" ? <hr className="border-t-2 border-[#17130f]"/> : block.type === "heading" ? <input value={block.label} onChange={(e) => onUpdate(block.id, { label: e.target.value })} className="w-full bg-transparent font-heading text-2xl font-bold outline-none"/> : block.type === "paragraph" ? <textarea value={block.label} onChange={(e) => onUpdate(block.id, { label: e.target.value })} className="min-h-16 w-full resize-none bg-transparent font-base leading-7 outline-none"/> : <><input value={block.label} onChange={(e) => onUpdate(block.id, { label: e.target.value })} onKeyDown={(e) => { if (e.key === "/" && e.currentTarget.value === "") { e.preventDefault(); onInsert(); } }} aria-label="Question prompt" className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-stone-400" placeholder="What would you like to ask?"/>{block.description !== undefined && <input value={block.description} onChange={(e) => onUpdate(block.id, { description: e.target.value })} placeholder="Add a helpful note" className="mt-2 w-full bg-transparent text-sm text-stone-600 outline-none"/>}{(block.type === "choice" || block.type === "multichoice" || block.type === "select") && <div className="mt-3 space-y-2">{block.options?.map((option, i) => <div key={`${block.id}-${i}`} className="flex items-center gap-2"><span className="text-stone-400">{block.type === "choice" ? "○" : block.type === "multichoice" ? "□" : "⌄"}</span><input value={option} onChange={(e) => onUpdate(block.id, { options: block.options!.map((value, index) => index === i ? e.target.value : value) })} className="flex-1 border-b border-stone-300 bg-transparent py-1 outline-none focus:border-[#97192c]"/><button type="button" aria-label="Remove option" onClick={() => onUpdate(block.id, { options: block.options!.filter((_, index) => index !== i) })} className="text-stone-400 hover:text-red-700">×</button></div>)}<button type="button" onClick={() => onUpdate(block.id, { options: [...(block.options || []), `Option ${(block.options?.length || 0) + 1}`] })} className="text-sm text-stone-600 underline underline-offset-4">Add option</button></div>}{block.type === "file" && <p className="mt-3 text-sm text-stone-600">PDF, JPG, PNG, or DOCX · 2 MB each · deleted after 30 days</p>}{block.type === "consent" && <p className="mt-3 text-sm text-stone-600">This acknowledgement is always required.</p>}</>}{selected && <button type="button" onClick={() => onRemove(block.id)} className="absolute right-3 top-3 grid size-9 place-items-center text-stone-400 hover:text-red-700" aria-label="Delete block"><Trash2 size={16}/></button>}</div>; }
-function BlockMenu({ choose, close }: { choose: (type: BlockType) => void; close: () => void }) { return <div className="absolute z-10 mt-2 w-72 border-2 border-[#17130f] bg-white p-2 shadow-[5px_5px_0_#17130f]"><div className="flex items-center justify-between px-2 py-1"><span className="text-xs font-semibold text-stone-500">Add a block</span><button type="button" onClick={close} className="text-stone-500">×</button></div>{menu.map((item) => <button key={item.type} type="button" onClick={() => choose(item.type)} className="flex w-full items-center justify-between px-2 py-2 text-left hover:bg-stone-100"><span className="text-sm font-medium">{item.label}</span><span className="text-xs text-stone-500">{item.hint}</span></button>)}</div>; }
-function Inspector({ block, update, remove }: { block: Block | null; update: (id: string, patch: Partial<Block>) => void; remove: (id: string) => void }) { return <aside className="border-t-2 border-border bg-secondary-background p-5 text-foreground lg:border-l-2 lg:border-t-0">{!block ? <div className="pt-8 text-sm leading-6 text-muted-foreground"><p className="font-semibold text-foreground">This is your writing space.</p><p className="mt-2">Select a question to edit its settings. Use the + control or slash menu to add blocks without breaking your flow.</p></div> : <div><p className="font-mono text-xs font-bold uppercase tracking-widest text-orange">Block settings</p><h2 className="mt-2 font-semibold">{menu.find((item) => item.type === block.type)?.label}</h2>{fields.has(block.type) && <><label className="mt-6 flex items-center justify-between gap-3 text-sm"><span>Required</span><input type="checkbox" checked={!!block.required} disabled={block.type === "consent"} onChange={(e) => update(block.id, { required: e.target.checked })} className="size-4 accent-[#97192c]"/></label><label className="mt-5 block text-sm">Help text<input value={block.description || ""} onChange={(e) => update(block.id, { description: e.target.value })} placeholder="Optional guidance" className="mt-2 min-h-11 w-full border-2 border-border bg-background p-2 text-sm outline-none focus:border-orange"/></label></>}<button type="button" onClick={() => remove(block.id)} className="mt-8 inline-flex min-h-10 items-center gap-2 text-sm text-red-700 hover:text-red-900"><Trash2 size={16}/> Delete block</button></div>}</aside>; }
-function Responses({ submissions, back }: { submissions: Submission[]; back: () => void }) { return <section className="mx-auto max-w-4xl p-5 sm:p-10"><div className="flex items-center justify-between"><div><p className="text-sm text-orange">Responses</p><h1 className="mt-1 text-2xl font-semibold">{submissions.length} received</h1></div><button type="button" onClick={back} className="min-h-10 border-2 border-border px-3 text-sm">Back to editor</button></div><div className="mt-7 space-y-3">{submissions.map((submission) => <details key={submission.id} className="border-2 border-border bg-secondary-background p-4"><summary className="cursor-pointer text-sm font-medium">{new Date(submission.created_at).toLocaleString()}</summary><pre className="mt-4 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">{JSON.stringify(submission.answers, null, 2)}</pre></details>)}{submissions.length === 0 && <p className="border-2 border-dashed border-border p-10 text-center text-muted-foreground">Responses will appear here after you publish and share the form.</p>}</div></section>; }
+function BlockEditor({
+  block,
+  selected,
+  onSelect,
+  onUpdate,
+  onRemove,
+  onInsert,
+  onMove,
+  onDuplicate,
+  isFirst,
+  isLast,
+}: {
+  block: Block;
+  selected: boolean;
+  onSelect: () => void;
+  onUpdate: (id: string, patch: Partial<Block>) => void;
+  onRemove: (id: string) => void;
+  onInsert: () => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+  onDuplicate: (id: string) => void;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
+  const inputType =
+    block.type === "phone"
+      ? "tel"
+      : block.type === "number"
+        ? "number"
+        : block.type === "date"
+          ? "date"
+          : block.type === "url"
+            ? "url"
+            : "text";
+  return (
+    <div
+      className={`group relative -mx-3 rounded-base px-3 py-3 ${selected ? "bg-white ring-2 ring-[#97192c]" : "hover:bg-white/60"}`}
+      onClick={onSelect}
+    >
+      <div className="absolute -left-8 top-5 hidden items-center gap-1 lg:group-hover:flex">
+        <GripVertical size={16} className="text-stone-400" />
+        <button
+          type="button"
+          aria-label="Insert block"
+          onClick={(event) => {
+            event.stopPropagation();
+            onInsert();
+          }}
+          className="grid size-6 place-items-center text-stone-500 hover:text-[#97192c]"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+      {block.type === "divider" ? (
+        <hr className="border-t-2 border-[#17130f]" />
+      ) : block.type === "heading" ? (
+        <input
+          value={block.label}
+          onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+          className="w-full bg-transparent font-heading text-2xl font-bold outline-none"
+        />
+      ) : block.type === "paragraph" ? (
+        <textarea
+          value={block.label}
+          onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+          className="min-h-16 w-full resize-none bg-transparent font-base leading-7 outline-none"
+        />
+      ) : (
+        <>
+          <input
+            value={block.label}
+            onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "/" && e.currentTarget.value === "") {
+                e.preventDefault();
+                onInsert();
+              }
+            }}
+            aria-label="Question prompt"
+            className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-stone-400"
+            placeholder="What would you like to ask?"
+          />
+          {block.description !== undefined && (
+            <input
+              value={block.description}
+              onChange={(e) =>
+                onUpdate(block.id, { description: e.target.value })
+              }
+              placeholder="Add a helpful note"
+              className="mt-2 w-full bg-transparent text-sm text-stone-600 outline-none"
+            />
+          )}
+          {(block.type === "choice" ||
+            block.type === "multichoice" ||
+            block.type === "select") && (
+            <div className="mt-3 space-y-2">
+              {block.options?.map((option, i) => (
+                <div
+                  key={`${block.id}-${i}`}
+                  className="flex items-center gap-2"
+                >
+                  <span className="text-stone-400">
+                    {block.type === "choice"
+                      ? "○"
+                      : block.type === "multichoice"
+                        ? "□"
+                        : "⌄"}
+                  </span>
+                  <input
+                    value={option}
+                    onChange={(e) =>
+                      onUpdate(block.id, {
+                        options: block.options!.map((value, index) =>
+                          index === i ? e.target.value : value,
+                        ),
+                      })
+                    }
+                    className="flex-1 border-b border-stone-300 bg-transparent py-1 outline-none focus:border-[#97192c]"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove option"
+                    onClick={() =>
+                      onUpdate(block.id, {
+                        options: block.options!.filter(
+                          (_, index) => index !== i,
+                        ),
+                      })
+                    }
+                    className="text-stone-400 hover:text-red-700"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdate(block.id, {
+                    options: [
+                      ...(block.options || []),
+                      `Option ${(block.options?.length || 0) + 1}`,
+                    ],
+                  })
+                }
+                className="text-sm text-stone-600 underline underline-offset-4"
+              >
+                Add option
+              </button>
+            </div>
+          )}
+          {["phone", "number", "date", "url"].includes(block.type) && (
+            <input
+              disabled
+              type={inputType}
+              placeholder={`Respondents enter a ${block.type === "url" ? "web address" : block.type}`}
+              className="mt-3 min-h-10 w-full border-2 border-stone-300 bg-stone-50 px-3 text-sm text-stone-500"
+            />
+          )}
+          {block.type === "file" && (
+            <p className="mt-3 text-sm text-stone-600">
+              PDF, JPG, PNG, or DOCX · 2 MB each · deleted after 30 days
+            </p>
+          )}
+          {block.type === "consent" && (
+            <p className="mt-3 text-sm text-stone-600">
+              This acknowledgement is always required.
+            </p>
+          )}
+        </>
+      )}
+      {selected && (
+        <div className="absolute right-3 top-3 flex gap-1">
+          <button
+            type="button"
+            disabled={isFirst}
+            onClick={() => onMove(block.id, -1)}
+            className="grid size-8 place-items-center text-stone-500 disabled:opacity-30"
+            aria-label="Move question up"
+          >
+            <ArrowUp size={15} />
+          </button>
+          <button
+            type="button"
+            disabled={isLast}
+            onClick={() => onMove(block.id, 1)}
+            className="grid size-8 place-items-center text-stone-500 disabled:opacity-30"
+            aria-label="Move question down"
+          >
+            <ArrowDown size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicate(block.id)}
+            className="grid size-8 place-items-center text-stone-500 hover:text-[#97192c]"
+            aria-label="Duplicate block"
+          >
+            <Copy size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(block.id)}
+            className="grid size-8 place-items-center text-stone-400 hover:text-red-700"
+            aria-label="Delete block"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+function BlockMenu({
+  choose,
+  close,
+}: {
+  choose: (type: BlockType) => void;
+  close: () => void;
+}) {
+  return (
+    <div className="absolute z-10 mt-2 w-72 border-2 border-[#17130f] bg-white p-2 shadow-[5px_5px_0_#17130f]">
+      <div className="flex items-center justify-between px-2 py-1">
+        <span className="text-xs font-semibold text-stone-500">
+          Add a block
+        </span>
+        <button type="button" onClick={close} className="text-stone-500">
+          ×
+        </button>
+      </div>
+      {menu.map((item) => (
+        <button
+          key={item.type}
+          type="button"
+          onClick={() => choose(item.type)}
+          className="flex w-full items-center justify-between px-2 py-2 text-left hover:bg-stone-100"
+        >
+          <span className="text-sm font-medium">{item.label}</span>
+          <span className="text-xs text-stone-500">{item.hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+function Inspector({
+  block,
+  update,
+  remove,
+}: {
+  block: Block | null;
+  update: (id: string, patch: Partial<Block>) => void;
+  remove: (id: string) => void;
+}) {
+  return (
+    <aside className="border-t-2 border-border bg-secondary-background p-5 text-foreground lg:border-l-2 lg:border-t-0">
+      {!block ? (
+        <div className="pt-8 text-sm leading-6 text-muted-foreground">
+          <p className="font-semibold text-foreground">
+            This is your writing space.
+          </p>
+          <p className="mt-2">
+            Select a question to edit its settings. Use the + control or slash
+            menu to add blocks without breaking your flow.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-orange">
+            Block settings
+          </p>
+          <h2 className="mt-2 font-semibold">
+            {menu.find((item) => item.type === block.type)?.label}
+          </h2>
+          {fields.has(block.type) && (
+            <>
+              <label className="mt-6 flex items-center justify-between gap-3 text-sm">
+                <span>Required</span>
+                <input
+                  type="checkbox"
+                  checked={!!block.required}
+                  disabled={block.type === "consent"}
+                  onChange={(e) =>
+                    update(block.id, { required: e.target.checked })
+                  }
+                  className="size-4 accent-[#97192c]"
+                />
+              </label>
+              <label className="mt-5 block text-sm">
+                Help text
+                <input
+                  value={block.description || ""}
+                  onChange={(e) =>
+                    update(block.id, { description: e.target.value })
+                  }
+                  placeholder="Optional guidance"
+                  className="mt-2 min-h-11 w-full border-2 border-border bg-background p-2 text-sm outline-none focus:border-orange"
+                />
+              </label>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => remove(block.id)}
+            className="mt-8 inline-flex min-h-10 items-center gap-2 text-sm text-red-700 hover:text-red-900"
+          >
+            <Trash2 size={16} /> Delete block
+          </button>
+        </div>
+      )}
+    </aside>
+  );
+}
+function Responses({
+  formId,
+  submissions,
+  back,
+}: {
+  formId: string;
+  submissions: Submission[];
+  back: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const visible = submissions.filter((submission) =>
+    JSON.stringify(submission.answers)
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  return (
+    <section className="mx-auto max-w-5xl p-5 sm:p-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-orange">
+            Responses
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold">
+            {submissions.length} received
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Read every answer in context and open the supporting files without
+            leaving the review.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={back}
+          className="min-h-10 border-2 border-border px-3 text-sm"
+        >
+          Back to editor
+        </button>
+      </div>
+      <label className="mt-6 flex min-h-11 max-w-md items-center gap-2 border-2 border-border bg-white px-3">
+        <Search size={16} className="text-muted-foreground" />
+        <span className="sr-only">Search responses</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search answers"
+          className="w-full bg-transparent text-sm outline-none"
+        />
+      </label>
+      <div className="mt-5 space-y-3">
+        {visible.map((submission, index) => (
+          <article
+            key={submission.id}
+            className="border-2 border-border bg-secondary-background p-5 shadow-light"
+          >
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-border pb-3">
+              <p className="font-semibold">
+                Response {submissions.length - index}
+              </p>
+              <time className="font-mono text-xs text-muted-foreground">
+                {new Date(submission.created_at).toLocaleString()}
+              </time>
+            </header>
+            <dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              {Object.entries(submission.answers).map(([fieldId, answer]) => (
+                <div key={fieldId}>
+                  <dt className="font-mono text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {submission.labels[fieldId] || "Question removed"}
+                  </dt>
+                  <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                    {Array.isArray(answer) ? answer.join(", ") : String(answer)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {submission.uploads.length > 0 && (
+              <div className="mt-5 border-t-2 border-border pt-4">
+                <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Supporting files
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {submission.uploads.map((upload) => (
+                    <a
+                      key={upload.id}
+                      href={`/api/forms/${formId}/submissions/${submission.id}/uploads/${upload.id}`}
+                      className="inline-flex min-h-10 items-center gap-2 border-2 border-border bg-white px-3 text-sm font-medium hover:bg-[#f7f4ef]"
+                    >
+                      <Download size={15} />
+                      {upload.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </article>
+        ))}
+        {visible.length === 0 && (
+          <p className="border-2 border-dashed border-border p-10 text-center text-muted-foreground">
+            {submissions.length
+              ? "No responses match that search."
+              : "Responses will appear here after you publish and share the form."}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
