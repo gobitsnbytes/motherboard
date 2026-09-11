@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 type BlockType =
   | "heading"
@@ -39,7 +39,7 @@ const allowed = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-function submissionAttemptStorageKey(
+function submissionAttemptFingerprint(
   slug: string,
   answers: Record<string, string | string[]>,
   terms: boolean,
@@ -51,10 +51,13 @@ function submissionAttemptStorageKey(
       fieldId,
       fieldFiles.map((file) => [file.name, file.size, file.lastModified]),
     ]);
-  return `public-form-attempt:${slug}:${JSON.stringify({ answers, terms, selectedFiles })}`;
+  return JSON.stringify({ slug, answers, terms, selectedFiles });
 }
 
 export function PublicFormClient({ slug }: { slug: string }) {
+  const submissionAttempt = useRef<{ fingerprint: string; key: string } | null>(
+    null,
+  );
   const [form, setForm] = useState<FormData | null>(null),
     [answers, setAnswers] = useState<Record<string, string | string[]>>({}),
     [files, setFiles] = useState<Record<string, File[]>>({}),
@@ -90,10 +93,12 @@ export function PublicFormClient({ slug }: { slug: string }) {
       )
     )
       return setStatus("Upload PDF, JPG, PNG, or DOCX files under 2 MB.");
-    const storageKey = submissionAttemptStorageKey(slug, answers, terms, files);
+    const fingerprint = submissionAttemptFingerprint(slug, answers, terms, files);
     const idempotencyKey =
-      sessionStorage.getItem(storageKey) || crypto.randomUUID();
-    sessionStorage.setItem(storageKey, idempotencyKey);
+      submissionAttempt.current?.fingerprint === fingerprint
+        ? submissionAttempt.current.key
+        : crypto.randomUUID();
+    submissionAttempt.current = { fingerprint, key: idempotencyKey };
     setSubmitting(true);
     setStatus("Submitting…");
     try {
@@ -130,7 +135,7 @@ export function PublicFormClient({ slug }: { slug: string }) {
             return;
           }
         }
-      sessionStorage.removeItem(storageKey);
+      submissionAttempt.current = null;
       setStatus("Thanks — your response has been received.");
     } catch {
       setStatus("We could not confirm your response. Please try again.");
