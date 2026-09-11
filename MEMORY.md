@@ -258,3 +258,9 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Added focused service and router tests. `test_onboarding_documents.py` and `test_onboarding_router.py` pass; web typecheck passes. Existing IAM/fork suites remain green. Renderer QA remains a container step because LibreOffice is not installed on this Windows workspace.
 - The local `bunx skills find` command remains unavailable because its temporary package cannot import `yaml`; checked-in FastAPI/frontend/security/deployment skill documents were used instead.
 - Full backend suite result: 256 passed, 1 pre-existing failure in `test_smtp_email.py` because the repository `.env` overrides the test fixture's `smtp_from` with `hello@gobitsnbytes.org`; onboarding-focused tests and the web typecheck pass.
+
+### 2026-09-12 — Public Forms Reliability
+
+- Fixed public form retries so one in-flight submission attempt reuses its idempotency key; duplicate submissions return the original submission with HTTP 200 instead of creating a second response. The key remains in memory only and is cleared after confirmed success.
+- Refined the dashboard response view with accurate singular/plural counts, a latest-response timestamp, and accessible filtered-result feedback.
+- Production cleanup for `techfest-30th-organising-team` removed seven later exact-answer duplicates, retaining the earliest copy of each response. The form now has ten responses with ten distinct answer payloads; none of the deleted records had uploads.
