@@ -1,6 +1,6 @@
 {
   "name": "@bnb/bot",
-  "version": "0.85.5-beta",
+  "version": "0.86.0-beta.1",
   "description": "BnB Bot — The internal operations layer for the Bits&Bytes Discord server.",
   "main": "index.js",
   "scripts": {

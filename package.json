@@ -1,6 +1,6 @@
 {
   "name": "bnb-motherboard",
-  "version": "0.85.5-beta",
+  "version": "0.86.0-beta.1",
   "private": true,
   "packageManager": "bun@1.3.11",
   "workspaces": [
@@ -13,7 +13,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "check:version": "node tools/check-version.mjs"
   },
   "devDependencies": {
     "@types/bun": "latest",

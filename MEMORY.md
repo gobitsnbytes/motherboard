@@ -261,6 +261,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ### 2026-09-12 — Public Forms Reliability
 
-- Fixed public form retries so one in-flight submission attempt reuses its idempotency key; duplicate submissions return the original submission with HTTP 200 instead of creating a second response. The key remains in memory only and is cleared after confirmed success.
+- Fixed public form retries so the same browser-session attempt reuses its idempotency key; duplicate submissions return the original submission with HTTP 200 instead of creating a second response. The browser stores only a SHA-256 fingerprint and opaque key, then clears it after confirmed success.
 - Refined the dashboard response view with accurate singular/plural counts, a latest-response timestamp, and accessible filtered-result feedback.
 - Production cleanup for `techfest-30th-organising-team` removed seven later exact-answer duplicates, retaining the earliest copy of each response. The form now has ten responses with ten distinct answer payloads; none of the deleted records had uploads.
+- Released the branch metadata as `0.86.0-beta.1` / `0.86.0b1`, synchronized package, web, and API identifiers, and added `bun run check:version` to detect version drift.

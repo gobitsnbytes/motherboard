@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.86.0 beta 1 — 2026-09-12
+
+- Added the public form builder and public response intake workflow.
+- Made form submission retries idempotent and cleaned up duplicate TechFest responses.
+- Improved response review with accurate counts, latest-response context, and accessible filter feedback.
+
 ## 0.85.5 beta — 2026-09-09
 
 This is the first explicitly versioned beta release of Motherboard.
