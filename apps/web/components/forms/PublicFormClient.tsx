@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type BlockType =
   | "heading"
@@ -39,7 +39,7 @@ const allowed = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-function submissionAttemptFingerprint(
+async function submissionAttemptStorageKey(
   slug: string,
   answers: Record<string, string | string[]>,
   terms: boolean,
@@ -51,13 +51,18 @@ function submissionAttemptFingerprint(
       fieldId,
       fieldFiles.map((file) => [file.name, file.size, file.lastModified]),
     ]);
-  return JSON.stringify({ slug, answers, terms, selectedFiles });
+  const value = JSON.stringify({ slug, answers, terms, selectedFiles });
+  const hash = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  const fingerprint = Array.from(new Uint8Array(hash), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `public-form-attempt:${slug}:${fingerprint}`;
 }
 
 export function PublicFormClient({ slug }: { slug: string }) {
-  const submissionAttempt = useRef<{ fingerprint: string; key: string } | null>(
-    null,
-  );
   const [form, setForm] = useState<FormData | null>(null),
     [answers, setAnswers] = useState<Record<string, string | string[]>>({}),
     [files, setFiles] = useState<Record<string, File[]>>({}),
@@ -93,15 +98,18 @@ export function PublicFormClient({ slug }: { slug: string }) {
       )
     )
       return setStatus("Upload PDF, JPG, PNG, or DOCX files under 2 MB.");
-    const fingerprint = submissionAttemptFingerprint(slug, answers, terms, files);
-    const idempotencyKey =
-      submissionAttempt.current?.fingerprint === fingerprint
-        ? submissionAttempt.current.key
-        : crypto.randomUUID();
-    submissionAttempt.current = { fingerprint, key: idempotencyKey };
     setSubmitting(true);
     setStatus("Submitting…");
     try {
+      const storageKey = await submissionAttemptStorageKey(
+        slug,
+        answers,
+        terms,
+        files,
+      );
+      const idempotencyKey =
+        sessionStorage.getItem(storageKey) || crypto.randomUUID();
+      sessionStorage.setItem(storageKey, idempotencyKey);
       const response = await fetch(`/api/forms/public/${slug}/submissions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,7 +143,7 @@ export function PublicFormClient({ slug }: { slug: string }) {
             return;
           }
         }
-      submissionAttempt.current = null;
+      sessionStorage.removeItem(storageKey);
       setStatus("Thanks — your response has been received.");
     } catch {
       setStatus("We could not confirm your response. Please try again.");
