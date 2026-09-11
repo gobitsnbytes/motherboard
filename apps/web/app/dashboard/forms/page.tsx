@@ -833,6 +833,7 @@ function Responses({
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
+  const newestResponse = submissions[0]?.created_at;
   return (
     <section className="mx-auto max-w-5xl p-5 sm:p-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -841,11 +842,12 @@ function Responses({
             Responses
           </p>
           <h1 className="mt-1 text-2xl font-semibold">
-            {submissions.length} received
+            {submissions.length} {submissions.length === 1 ? "response" : "responses"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Read every answer in context and open the supporting files without
-            leaving the review.
+            {newestResponse
+              ? `Latest response ${new Date(newestResponse).toLocaleString()}`
+              : "Responses will appear here once someone submits the form."}
           </p>
         </div>
         <button
@@ -866,6 +868,11 @@ function Responses({
           className="w-full bg-transparent text-sm outline-none"
         />
       </label>
+      {query && (
+        <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
+          Showing {visible.length} of {submissions.length} responses
+        </p>
+      )}
       <div className="mt-5 space-y-3">
         {visible.map((submission, index) => (
           <article
@@ -874,7 +881,7 @@ function Responses({
           >
             <header className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-border pb-3">
               <p className="font-semibold">
-                Response {submissions.length - index}
+                Response {visible.length - index}
               </p>
               <time className="font-mono text-xs text-muted-foreground">
                 {new Date(submission.created_at).toLocaleString()}

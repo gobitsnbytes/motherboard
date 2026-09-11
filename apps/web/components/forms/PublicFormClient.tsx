@@ -39,12 +39,28 @@ const allowed = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
+function submissionAttemptStorageKey(
+  slug: string,
+  answers: Record<string, string | string[]>,
+  terms: boolean,
+  files: Record<string, File[]>,
+) {
+  const selectedFiles = Object.entries(files)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([fieldId, fieldFiles]) => [
+      fieldId,
+      fieldFiles.map((file) => [file.name, file.size, file.lastModified]),
+    ]);
+  return `public-form-attempt:${slug}:${JSON.stringify({ answers, terms, selectedFiles })}`;
+}
+
 export function PublicFormClient({ slug }: { slug: string }) {
   const [form, setForm] = useState<FormData | null>(null),
     [answers, setAnswers] = useState<Record<string, string | string[]>>({}),
     [files, setFiles] = useState<Record<string, File[]>>({}),
     [terms, setTerms] = useState(false),
-    [status, setStatus] = useState("");
+    [status, setStatus] = useState(""),
+    [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     fetch(`/api/forms/public/${slug}`).then(async (response) =>
       response.ok
@@ -74,38 +90,53 @@ export function PublicFormClient({ slug }: { slug: string }) {
       )
     )
       return setStatus("Upload PDF, JPG, PNG, or DOCX files under 2 MB.");
+    const storageKey = submissionAttemptStorageKey(slug, answers, terms, files);
+    const idempotencyKey =
+      sessionStorage.getItem(storageKey) || crypto.randomUUID();
+    sessionStorage.setItem(storageKey, idempotencyKey);
+    setSubmitting(true);
     setStatus("Submitting…");
-    const idempotencyKey = crypto.randomUUID();
-    const response = await fetch(`/api/forms/public/${slug}/submissions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        answers,
-        accepted_terms: terms,
-        idempotency_key: idempotencyKey,
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok)
-      return setStatus(payload.detail || "Could not submit your response.");
-    for (const [fieldId, selectedFiles] of Object.entries(files))
-      for (const file of selectedFiles) {
-        const data = new FormData();
-        data.append("field_id", fieldId);
-        data.append("file", file);
-        if (
-          !(
-            await fetch(`/api/forms/public/submissions/${payload.id}/uploads`, {
-              method: "POST",
-              body: data,
-            })
-          ).ok
-        )
-          return setStatus(
-            "Your response was received, but a file could not be uploaded. Please contact us.",
-          );
+    try {
+      const response = await fetch(`/api/forms/public/${slug}/submissions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          answers,
+          accepted_terms: terms,
+          idempotency_key: idempotencyKey,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.id) {
+        setStatus(payload?.detail || "Could not submit your response.");
+        return;
       }
-    setStatus("Thanks — your response has been received.");
+      for (const [fieldId, selectedFiles] of Object.entries(files))
+        for (const file of selectedFiles) {
+          const data = new FormData();
+          data.append("field_id", fieldId);
+          data.append("file", file);
+          if (
+            !(
+              await fetch(`/api/forms/public/submissions/${payload.id}/uploads`, {
+                method: "POST",
+                body: data,
+              })
+            ).ok
+          ) {
+            setStatus(
+              "Your response was received, but a file could not be uploaded. Please try again.",
+            );
+            return;
+          }
+        }
+      sessionStorage.removeItem(storageKey);
+      setStatus("Thanks — your response has been received.");
+    } catch {
+      setStatus("We could not confirm your response. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
   if (!form)
     return (
@@ -167,8 +198,11 @@ export function PublicFormClient({ slug }: { slug: string }) {
               practices for this form.
             </label>
           )}
-          <button className="min-h-12 w-full border-2 border-[#120f0a] bg-[#97192c] px-5 font-heading font-black text-white shadow-[5px_5px_0_#120f0a] active:translate-x-1 active:translate-y-1 active:shadow-none">
-            Submit response
+          <button
+            disabled={submitting}
+            className="min-h-12 w-full border-2 border-[#120f0a] bg-[#97192c] px-5 font-heading font-black text-white shadow-[5px_5px_0_#120f0a] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "Submitting…" : "Submit response"}
           </button>
           {status && (
             <p role="status" className="font-medium">

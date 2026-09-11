@@ -5,7 +5,7 @@ import re
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -163,14 +163,18 @@ async def submit_public_form(slug: str, payload: FormSubmissionCreate, request: 
     if not form:
         raise HTTPException(status_code=404, detail="This form is not available")
     _validate_submission(form, payload.answers)
-    submission = PublicFormSubmission(form_id=form.id, answers=payload.answers, idempotency_key=payload.idempotency_key, terms_accepted_at=datetime.now(timezone.utc), ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
+    form_id = form.id
+    submission = PublicFormSubmission(form_id=form_id, answers=payload.answers, idempotency_key=payload.idempotency_key, terms_accepted_at=datetime.now(timezone.utc), ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     db.add(submission)
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        existing = (await db.execute(select(PublicFormSubmission).where(PublicFormSubmission.form_id == form.id, PublicFormSubmission.idempotency_key == payload.idempotency_key))).scalar_one()
-        return {"id": str(existing.id), "status": "already_submitted"}
+        existing = (await db.execute(select(PublicFormSubmission).where(PublicFormSubmission.form_id == form_id, PublicFormSubmission.idempotency_key == payload.idempotency_key))).scalar_one()
+        return JSONResponse(
+            {"id": str(existing.id), "status": "already_submitted"},
+            status_code=status.HTTP_200_OK,
+        )
     return {"id": str(submission.id), "status": "submitted"}
 
 
