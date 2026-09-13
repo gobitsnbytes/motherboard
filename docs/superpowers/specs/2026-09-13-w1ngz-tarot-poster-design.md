@@ -39,18 +39,18 @@ No event date, venue, call to action, social handle, or claim about W1NGZ servic
 
 ## Visual direction
 
-The poster uses an aged-ivory tarot-card frame around a midnight-blue celestial field. A large sun-and-moon zodiac medallion anchors the composition. Fine engraved rays, orbit lines, zodiac marks, small stars, lotus motifs, and worn ink texture borrow from the supplied references without copying a single reference composition.
+The final poster uses a narrow aged-ivory print border around a near-black indigo field. A monumental, cropped sun-and-moon armillary collage occupies the right half. Torn-paper edges, engraved rays, constellation marks, a partial zodiac ribbon, and uneven ink texture borrow from the supplied references without copying a single reference composition.
 
 The palette is midnight navy and near-black with antique gold, aged ivory, muted teal, and restrained vermilion accents. Texture should feel printed and handled, but never obscure the headline.
 
 ## Layout
 
-1. The W1NGZ logo sits at the upper centre, large enough to remain the first read. It is reproduced from the supplied black-and-white artwork without redrawing or AI alteration.
-2. The tagline sits directly beneath the mark in a high-contrast editorial serif.
-3. The central celestial medallion occupies the middle of the poster and provides the main illustrative moment.
-4. The supporting line is set below the medallion with generous tracking.
-5. The Boys' High School & College crest and institution name form a restrained footer. The crest is reproduced from the supplied image without altering its colours, motto, or proportions.
-6. A thin ornamental border and corner details complete the tarot-card structure.
+1. The W1NGZ logo dominates the upper-left quadrant and is reproduced from the supplied black-and-white artwork without redrawing or AI alteration.
+2. The tagline is stacked below it as a large editorial headline: `YOUR SIGN,` followed by `YOUR STORY`.
+3. `TAROT / ASTROLOGY` works as a small category label beneath the headline.
+4. The cropped celestial object fills the right half and creates tension against the left-aligned type rather than forming a symmetrical zodiac chart.
+5. The Boys' High School & College crest and institution name form a restrained dark footer. The crest is reproduced from the supplied image without altering its colours, motto, or proportions.
+6. A fine inner rule provides a print-safe boundary while the underlying texture remains intentionally rough.
 
 ## Asset handling
 
