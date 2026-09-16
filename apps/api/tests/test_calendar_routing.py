@@ -23,6 +23,7 @@ from app.db.models import (
 from app.main import app
 from app.services.calcom import CalComClient
 from app.services.calendar_routing import reconcile_unknown_bookings
+from conftest import request_as
 
 
 @pytest.fixture(autouse=True)
@@ -99,6 +100,25 @@ async def _routing_setup(db_session):
     db_session.add_all([member_a, member_b])
     await db_session.commit()
     return connection_a, pool, host_a, host_b
+
+
+@pytest.mark.asyncio
+async def test_verify_connection_registers_supported_calcom_triggers(client, db_session):
+    connection, _, _, _ = await _routing_setup(db_session)
+    owner = await db_session.scalar(select(User).where(User.email == "owner@example.com"))
+    with patch.object(CalComClient, "get_me", new=AsyncMock(return_value={"id": 1, "username": "host"})), patch.object(
+        CalComClient, "create_webhook", new=AsyncMock(return_value={"id": 123})
+    ) as create_mock:
+        response = await request_as(
+            client, owner.id, "POST", f"/api/calendar/connections/{connection.id}/verify"
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "active"
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["subscriber_url"].endswith(f"/api/calendar/webhooks/calcom/{connection.id}")
+    assert "BOOKING_LOCATION_UPDATED" not in kwargs["triggers"]
+    assert {"BOOKING_CREATED", "BOOKING_RESCHEDULED", "BOOKING_CANCELLED"} <= set(kwargs["triggers"])
 
 
 @pytest.mark.asyncio
