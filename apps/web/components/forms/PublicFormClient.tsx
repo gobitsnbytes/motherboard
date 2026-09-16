@@ -40,7 +40,7 @@ const allowed = [
 ];
 
 async function submissionAttemptStorageKey(
-  slug: string,
+  form: FormData,
   answers: Record<string, string | string[]>,
   terms: boolean,
   files: Record<string, File[]>,
@@ -51,7 +51,13 @@ async function submissionAttemptStorageKey(
       fieldId,
       fieldFiles.map((file) => [file.name, file.size, file.lastModified]),
     ]);
-  const value = JSON.stringify({ slug, answers, terms, selectedFiles });
+  const value = JSON.stringify({
+    slug: form.slug,
+    blocks: form.blocks,
+    answers,
+    terms,
+    selectedFiles,
+  });
   const hash = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(value),
@@ -59,7 +65,7 @@ async function submissionAttemptStorageKey(
   const fingerprint = Array.from(new Uint8Array(hash), (byte) =>
     byte.toString(16).padStart(2, "0"),
   ).join("");
-  return `public-form-attempt:${slug}:${fingerprint}`;
+  return `public-form-attempt:${form.slug}:${fingerprint}`;
 }
 
 export function PublicFormClient({ slug }: { slug: string }) {
@@ -68,7 +74,8 @@ export function PublicFormClient({ slug }: { slug: string }) {
     [files, setFiles] = useState<Record<string, File[]>>({}),
     [terms, setTerms] = useState(false),
     [status, setStatus] = useState(""),
-    [submitting, setSubmitting] = useState(false);
+    [submitting, setSubmitting] = useState(false),
+    [completed, setCompleted] = useState(false);
   useEffect(() => {
     fetch(`/api/forms/public/${slug}`).then(async (response) =>
       response.ok
@@ -102,21 +109,51 @@ export function PublicFormClient({ slug }: { slug: string }) {
     setStatus("Submitting…");
     try {
       const storageKey = await submissionAttemptStorageKey(
-        slug,
+        form,
         answers,
         terms,
         files,
       );
+      const savedAttempt = localStorage.getItem(storageKey);
+      let parsedAttempt: { key: string; createdAt: number } | null = null;
+      if (savedAttempt) {
+        try {
+          const candidate = JSON.parse(savedAttempt) as Partial<{
+            key: string;
+            createdAt: number;
+          }>;
+          if (
+            typeof candidate.key === "string" &&
+            typeof candidate.createdAt === "number"
+          ) {
+            parsedAttempt = {
+              key: candidate.key,
+              createdAt: candidate.createdAt,
+            };
+          } else {
+            localStorage.removeItem(storageKey);
+          }
+        } catch {
+          localStorage.removeItem(storageKey);
+        }
+      }
       const idempotencyKey =
-        sessionStorage.getItem(storageKey) || crypto.randomUUID();
-      sessionStorage.setItem(storageKey, idempotencyKey);
+        parsedAttempt && Date.now() - parsedAttempt.createdAt < 24 * 60 * 60 * 1000
+          ? parsedAttempt.key
+          : crypto.randomUUID();
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ key: idempotencyKey, createdAt: Date.now() }),
+      );
       const response = await fetch(`/api/forms/public/${slug}/submissions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           answers,
           accepted_terms: terms,
-          idempotency_key: idempotencyKey,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -133,6 +170,7 @@ export function PublicFormClient({ slug }: { slug: string }) {
             !(
               await fetch(`/api/forms/public/submissions/${payload.id}/uploads`, {
                 method: "POST",
+                headers: { "X-Form-Upload-Token": payload.upload_token },
                 body: data,
               })
             ).ok
@@ -143,8 +181,23 @@ export function PublicFormClient({ slug }: { slug: string }) {
             return;
           }
         }
-      sessionStorage.removeItem(storageKey);
+      const completion = await fetch(
+        `/api/forms/public/submissions/${payload.id}/complete`,
+        {
+          method: "POST",
+          headers: { "X-Form-Upload-Token": payload.upload_token },
+        },
+      );
+      if (!completion.ok) {
+        const completionError = await completion.json().catch(() => null);
+        setStatus(
+          completionError?.detail ||
+            "Your response is saved, but it is not complete yet.",
+        );
+        return;
+      }
       setStatus("Thanks — your response has been received.");
+      setCompleted(true);
     } catch {
       setStatus("We could not confirm your response. Please try again.");
     } finally {
@@ -212,10 +265,14 @@ export function PublicFormClient({ slug }: { slug: string }) {
             </label>
           )}
           <button
-            disabled={submitting}
+            disabled={submitting || completed}
             className="min-h-12 w-full border-2 border-[#120f0a] bg-[#97192c] px-5 font-heading font-black text-white shadow-[5px_5px_0_#120f0a] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Submitting…" : "Submit response"}
+            {submitting
+              ? "Submitting…"
+              : completed
+                ? "Response received"
+                : "Submit response"}
           </button>
           {status && (
             <p role="status" className="font-medium">

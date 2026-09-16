@@ -52,6 +52,7 @@ type FormRecord = {
 type Submission = {
   id: string;
   created_at: string;
+  intake_status: "pending" | "complete";
   answers: Record<string, unknown>;
   labels: Record<string, string>;
   uploads: Array<{
@@ -850,13 +851,21 @@ function Responses({
               : "Responses will appear here once someone submits the form."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={back}
-          className="min-h-10 border-2 border-border px-3 text-sm"
-        >
-          Back to editor
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`/api/forms/${formId}/submissions/export.csv`}
+            className="inline-flex min-h-10 items-center gap-2 border-2 border-border bg-white px-3 text-sm font-medium hover:bg-[#f7f4ef]"
+          >
+            <Download size={16} /> Export CSV
+          </a>
+          <button
+            type="button"
+            onClick={back}
+            className="min-h-10 border-2 border-border px-3 text-sm"
+          >
+            Back to editor
+          </button>
+        </div>
       </div>
       <label className="mt-6 flex min-h-11 max-w-md items-center gap-2 border-2 border-border bg-white px-3">
         <Search size={16} className="text-muted-foreground" />
@@ -880,9 +889,12 @@ function Responses({
             className="border-2 border-border bg-secondary-background p-5 shadow-light"
           >
             <header className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-border pb-3">
-              <p className="font-semibold">
-                Response {visible.length - index}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold">Response {visible.length - index}</p>
+                <span className={`border px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${submission.intake_status === "complete" ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-amber-600 bg-amber-50 text-amber-900"}`}>
+                  {submission.intake_status}
+                </span>
+              </div>
               <time className="font-mono text-xs text-muted-foreground">
                 {new Date(submission.created_at).toLocaleString()}
               </time>
