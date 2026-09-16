@@ -19,7 +19,7 @@ async def get_current_user_profile(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> User:
-    return current_user
+    return await db.get(User, current_user.user_id)
 
 
 @router.patch("/me", response_model=UserOut)
@@ -28,14 +28,15 @@ async def update_current_user_profile(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> User:
+    user = await db.get(User, current_user.user_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         if field == "is_super_admin":
             continue
-        setattr(current_user, field, value)
-    current_user.profile_completed = True
+        setattr(user, field, value)
+    user.profile_completed = True
     await db.commit()
-    await db.refresh(current_user)
-    return current_user
+    await db.refresh(user)
+    return user
 
 
 @router.get("/", response_model=list[UserOut])

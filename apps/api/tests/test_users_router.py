@@ -19,6 +19,24 @@ def override_db(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_current_user_profile_reads_and_updates_user(db_session: AsyncSession, super_admin: User):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await request_as(ac, super_admin.id, "GET", "/api/users/me")
+        assert response.status_code == 200
+        assert response.json()["id"] == str(super_admin.id)
+        assert response.json()["display_name"] == super_admin.display_name
+
+        updated = await request_as(
+            ac, super_admin.id, "PATCH", "/api/users/me", json={"display_name": "Updated profile"}
+        )
+        assert updated.status_code == 200
+        assert updated.json()["display_name"] == "Updated profile"
+        assert updated.json()["profile_completed"] is True
+        await db_session.refresh(super_admin)
+        assert super_admin.display_name == "Updated profile"
+
+
+@pytest.mark.asyncio
 async def test_create_user(db_session: AsyncSession, super_admin: User):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
