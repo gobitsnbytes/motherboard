@@ -3,6 +3,7 @@ import hmac
 import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
+from uuid import UUID
 
 import httpx
 import pytest
@@ -119,6 +120,25 @@ async def test_verify_connection_registers_supported_calcom_triggers(client, db_
     assert kwargs["subscriber_url"].endswith(f"/api/calendar/webhooks/calcom/{connection.id}")
     assert "BOOKING_LOCATION_UPDATED" not in kwargs["triggers"]
     assert {"BOOKING_CREATED", "BOOKING_RESCHEDULED", "BOOKING_CANCELLED"} <= set(kwargs["triggers"])
+
+
+@pytest.mark.asyncio
+async def test_shared_core_connection_creates_inactive_host_once(client, db_session):
+    owner = User(display_name="Admin", is_super_admin=True)
+    db_session.add(owner)
+    await db_session.commit()
+    payload = {"shared_host_name": "bits&bytes™ core calendar", "api_key": "cal_core_secret"}
+
+    first = await request_as(client, owner.id, "POST", "/api/calendar/connections/calcom", json=payload)
+    repeated = await request_as(client, owner.id, "POST", "/api/calendar/connections/calcom", json=payload)
+
+    assert first.status_code == 201
+    assert repeated.status_code == 409
+    host = await db_session.get(User, UUID(first.json()["user_id"]))
+    assert host.display_name == payload["shared_host_name"]
+    assert host.is_active is False
+    assert host.email is None
+    assert await db_session.scalar(select(func.count(User.id))) == 2
 
 
 @pytest.mark.asyncio

@@ -93,9 +93,25 @@ async def list_connections(db: DbSession, current_user: CurrentUserDep):
 @router.post("/connections/calcom", response_model=ConnectionOut, status_code=status.HTTP_201_CREATED)
 async def create_connection(body: ConnectionCreate, db: DbSession, current_user: CurrentUserDep):
     await require_permission(db, current_user, "meetings.write")
-    if not await db.get(User, body.user_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    connection = CalendarConnection(user_id=body.user_id, api_key=body.api_key)
+    if body.shared_host_name:
+        await require_permission(db, current_user, "iam.users.write")
+        host = await db.scalar(
+            select(User).where(
+                User.display_name == body.shared_host_name,
+                User.is_active.is_(False),
+                User.email.is_(None),
+            )
+        )
+        if host is None:
+            host = User(display_name=body.shared_host_name, is_active=False)
+            db.add(host)
+            await db.flush()
+        host_id = host.id
+    else:
+        host_id = body.user_id
+        if not await db.get(User, host_id):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    connection = CalendarConnection(user_id=host_id, api_key=body.api_key)
     db.add(connection)
     try:
         await db.commit()
