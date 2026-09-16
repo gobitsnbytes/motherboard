@@ -48,6 +48,7 @@ export default function MeetingsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setMessage(null);
     try {
       const [connectionRows, poolRows, bookingRows, historyRows, currentUser] = await Promise.all([
         api<Connection[]>("/api/calendar/connections"), api<Pool[]>("/api/calendar/routing-pools"),
