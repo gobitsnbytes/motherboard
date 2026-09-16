@@ -255,10 +255,7 @@ def send_smtp_email(
     bcc_emails: Optional[Union[List[str], str]] = None,
     cc_emails: Optional[Union[List[str], str]] = None,
 ):
-    """Send SMTP email containing HTML and optional iCalendar attachment with proper To/Cc/Bcc envelope dispatch.
-    
-    GUARANTEE: Every email dispatched is CC'd to gobitsnbytes@gmail.com for comprehensive audit tracking.
-    """
+    """Send SMTP email containing HTML and an optional iCalendar attachment."""
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
         logger.warning("[SMTP] SMTP mailer not configured. Skipping email dispatch.")
         return
@@ -272,19 +269,12 @@ def send_smtp_email(
         logger.warning("[SMTP] No valid recipient email addresses provided. Skipping email dispatch.")
         return
 
-    # Normalize `cc_emails` - ALWAYS ensure gobitsnbytes@gmail.com is CC'd
+    # Only include CC/BCC recipients explicitly supplied by the caller.
     clean_cc_emails = []
     if cc_emails:
         if isinstance(cc_emails, str):
             cc_emails = [cc_emails]
         clean_cc_emails = [e.strip() for e in cc_emails if e and isinstance(e, str) and e.strip()]
-
-    # Collect settings.smtp_cc (default: gobitsnbytes@gmail.com)
-    smtp_cc = getattr(settings, "smtp_cc", None) or "gobitsnbytes@gmail.com"
-    for cc in smtp_cc.split(","):
-        c_clean = cc.strip()
-        if c_clean and c_clean not in clean_cc_emails and c_clean not in clean_to_emails:
-            clean_cc_emails.append(c_clean)
 
     # Normalize `bcc_emails`
     clean_bcc_emails = []
@@ -292,13 +282,6 @@ def send_smtp_email(
         if isinstance(bcc_emails, str):
             bcc_emails = [bcc_emails]
         clean_bcc_emails = [e.strip() for e in bcc_emails if e and isinstance(e, str) and e.strip()]
-
-    # Collect settings.smtp_bcc
-    if getattr(settings, "smtp_bcc", None):
-        for bcc in settings.smtp_bcc.split(","):
-            b_clean = bcc.strip()
-            if b_clean and b_clean not in clean_bcc_emails and b_clean not in clean_cc_emails and b_clean not in clean_to_emails:
-                clean_bcc_emails.append(b_clean)
 
     # Build unique envelope recipients set (To, CC, and BCC) for SMTP RCPT TO
     envelope_recipients = list(dict.fromkeys(clean_to_emails + clean_cc_emails + clean_bcc_emails))

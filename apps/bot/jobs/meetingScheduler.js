@@ -4,20 +4,11 @@ const meetingsDb = require('../lib/meetingsDb');
 const config = require('../config');
 const meetingsHelper = require('../lib/meetingsHelper');
 const { resolveAttendeeUserIds, createMeetingVoiceChannel, sendMeetingDMs, sendMeetingEmails, sendCommencementNotification } = meetingsHelper;
-const { getEventsChannel, syncCalcomBookings } = require('../lib/calcomWebhook');
+const { getEventsChannel } = require('../lib/calcomWebhook');
 const { stopRecording } = require('../lib/voiceRecorder');
 const { queueTranscription } = require('../lib/transcriptionPipeline');
 
 module.exports = (client) => {
-	// Run Cal.com sync every 2 minutes
-	cron.schedule('*/2 * * * *', async () => {
-		try {
-			await syncCalcomBookings(client);
-		} catch (error) {
-			console.error('[MEETING SCHEDULER] Cal.com sync job error:', error);
-		}
-	});
-
 	// Run every minute
 	cron.schedule('* * * * *', async () => {
 		const guild = client.guilds.cache.first();
@@ -215,5 +206,4 @@ async function sendChannelReminder(guild, meeting, timeLabel, vcLink = '') {
 		embeds: [embed]
 	});
 }
-
 

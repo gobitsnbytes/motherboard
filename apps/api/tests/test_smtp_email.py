@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+from email.utils import parseaddr
 import pytest
 
 from app.config import Settings
@@ -13,12 +14,11 @@ def dummy_settings():
         smtp_user="legal@gobitsnbytes.org",
         smtp_pass="secret_pass",
         smtp_from="bits&bytes Legal <legal@gobitsnbytes.org>",
-        smtp_bcc="gobitsnbytes@gmail.com",
     )
 
 
 @patch("smtplib.SMTP")
-def test_send_smtp_email_envelope_includes_to_and_bcc(mock_smtp_class, dummy_settings):
+def test_send_smtp_email_only_sends_to_requested_recipient(mock_smtp_class, dummy_settings):
     mock_smtp_instance = MagicMock()
     mock_smtp_class.return_value.__enter__.return_value = mock_smtp_instance
 
@@ -31,14 +31,11 @@ def test_send_smtp_email_envelope_includes_to_and_bcc(mock_smtp_class, dummy_set
     assert mock_smtp_instance.sendmail.called
     sender, envelope_recipients, msg_string = mock_smtp_instance.sendmail.call_args[0]
 
-    assert sender == "legal@gobitsnbytes.org"
-    # Ensure BOTH the primary recipient AND the audit address (CC/BCC) are present in envelope recipients
-    assert "applicant@example.com" in envelope_recipients
-    assert "gobitsnbytes@gmail.com" in envelope_recipients
+    assert sender == parseaddr(dummy_settings.smtp_from)[1]
+    assert envelope_recipients == ["applicant@example.com"]
 
-    # Ensure message headers contain To: matching primary recipient and Cc: gobitsnbytes@gmail.com
     assert "To: applicant@example.com" in msg_string
-    assert "Cc: gobitsnbytes@gmail.com" in msg_string
+    assert "Cc:" not in msg_string
 
 
 @patch("smtplib.SMTP")
