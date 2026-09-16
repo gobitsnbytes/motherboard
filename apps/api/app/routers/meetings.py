@@ -605,65 +605,12 @@ async def schedule_meeting(
     current_user: ResolvedPrincipal = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ):
-    """Schedule a new internal meeting, record details, and notify guests via email/ICS."""
+    """Legacy creation path. New bookings must use /api/calendar."""
     await require_permission(db, current_user, "meetings.write")
-
-    meeting_id = f"meet_{int(time.time())}_{uuid.uuid4().hex[:7]}"
-    meet_code = f"m_{uuid.uuid4().hex[:8]}" if body.location_type == "discord_vc" else None
-    end_time = body.scheduled_time + (body.duration_minutes * 60000)
-
-    new_meet = BotMeeting(
-        id=meeting_id,
-        title=body.title,
-        description=body.description,
-        scheduled_time=body.scheduled_time,
-        location_type=body.location_type,
-        location_details=body.location_details,
-        temp_channel_id=None,
-        status="scheduled",
-        creator_id=body.creator_id,
-        created_at=int(time.time() * 1000),
-        end_time=end_time,
-        external_emails=",".join(body.external_emails) if body.external_emails else None,
-        recording_status="none",
-        meet_code=meet_code,
-        booked_by="motherboard",
-        scope=body.scope,
-        calcom_booking_id=body.calcom_booking_id,
-        calcom_uid=body.calcom_uid,
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Legacy meeting creation is disabled. Use a Cal.com routing pool via /api/calendar.",
     )
-    db.add(new_meet)
-
-    attendees_added = []
-    # Add creator as attendee
-    creator_att = MeetingAttendee(meeting_id=meeting_id, attendee_type="user", discord_id=body.creator_id)
-    db.add(creator_att)
-    attendees_added.append(creator_att)
-
-    # Add other invitees
-    for inv in body.invitees:
-        att = MeetingAttendee(meeting_id=meeting_id, attendee_type=inv.type, discord_id=inv.id)
-        db.add(att)
-        attendees_added.append(att)
-
-    await db.commit()
-    await db.refresh(new_meet)
-
-    # Queue background task to send invitations
-    from app.database import get_sessionmaker
-    session_factory = get_sessionmaker()
-    background_tasks.add_task(send_meeting_emails_task, meeting_id, "invite", settings, session_factory)
-
-    # Build output dictionary
-    m_dict = {c.name: getattr(new_meet, c.name) for c in new_meet.__table__.columns}
-    m_dict["attendees"] = [
-        {"meeting_id": a.meeting_id, "attendee_type": a.attendee_type, "discord_id": a.discord_id}
-        for a in attendees_added
-    ]
-    m_dict["transcript"] = None
-    m_dict["reschedule_history"] = []
-
-    return MeetingOut.model_validate(m_dict)
 
 
 @router.get("/{meeting_id}", response_model=MeetingOut)

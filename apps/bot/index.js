@@ -23,7 +23,10 @@ const client = new Client({
 logger.boot('Initializing command loading...', null, false);
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+const disabledMeetingCommands = new Set(['meet-schedule.js', 'meet-start.js', 'meet-stop.js']);
+const commandFiles = fs.readdirSync(commandsPath).filter(
+	file => file.endsWith('.js') && !disabledMeetingCommands.has(file),
+);
 
 for (const file of commandFiles) {
 	const filePath = path.join(commandsPath, file);
@@ -278,21 +281,9 @@ safeStartJob('./jobs/reportReminders', client, 'reportReminders');
 safeStartJob('./jobs/reminderCheck', client, 'reminderCheck');
 safeStartJob('./jobs/monthlyWinner', client, 'monthlyWinner');
 safeStartJob('./jobs/reportLateUpdater', client, 'reportLateUpdater');
-safeStartJob('./jobs/meetingScheduler', client, 'meetingScheduler');
 safeStartJob('./jobs/notionProfileCheck', client, 'notionProfileCheck');
-safeStartJob('./jobs/meetingRecovery', client, 'meetingRecovery');
 
 console.log('[BOOT] Job initialization complete.');
-
-// Start unified scheduling and webhook server
-if (process.env.CALCOM_WEBHOOK_SECRET || process.env.WEBHOOK_PORT) {
-	try {
-		const { startWebServer } = require('./server');
-		startWebServer(client);
-	} catch (webErr) {
-		logger.error('Failed to initialize Web Server', webErr);
-	}
-}
 
 // Log in
 logger.boot('Attempting login...', null, false);

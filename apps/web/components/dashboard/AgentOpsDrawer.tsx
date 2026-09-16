@@ -31,11 +31,11 @@ export default function AgentOpsDrawer({ isOpen, onClose }: AgentOpsDrawerProps)
       tokensUsed: 8900,
     },
     {
-      id: "chrono-v2-agent",
-      name: "Chrono v2 Team Meeting Scheduler",
+      id: "calcom-routing",
+      name: "Cal.com Routing Monitor",
       status: "idle",
       lastRun: "3 hours ago",
-      description: "Matches availability windows across team profiles and Discord roles.",
+      description: "Monitors routed bookings and Cal.com webhook reconciliation.",
       tokensUsed: 3100,
     },
   ]);

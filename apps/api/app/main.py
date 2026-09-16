@@ -9,6 +9,7 @@ Lifespan:
 
 import logging
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -21,6 +22,7 @@ from app.db.seeder import run_seeds
 from app.events import event_bus
 
 logger = logging.getLogger(__name__)
+_calendar_reconciliation_task: asyncio.Task | None = None
 
 # Env vars the Alembic env.py needs access to — pydantic-settings reads from
 # .env but does NOT export to os.environ, so we propagate them here so that
@@ -136,6 +138,24 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     except Exception as form_cleanup_err:
         logger.warning(f"Public form upload cleanup scheduler skipped: {form_cleanup_err}")
 
+    async def _calendar_reconciliation_loop() -> None:
+        from app.services.calendar_routing import reconcile_unknown_bookings
+
+        while True:
+            await asyncio.sleep(15 * 60)
+            try:
+                async with session_factory() as session:
+                    repaired = await reconcile_unknown_bookings(session)
+                if repaired:
+                    logger.info("Reconciled %s uncertain Cal.com booking(s).", repaired)
+            except asyncio.CancelledError:
+                raise
+            except Exception as reconciliation_err:
+                logger.warning("Cal.com reconciliation failed (non-fatal): %s", reconciliation_err)
+
+    global _calendar_reconciliation_task
+    _calendar_reconciliation_task = asyncio.create_task(_calendar_reconciliation_loop())
+
     logger.info("bnb-api is ready.")
     yield
 
@@ -154,6 +174,14 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
     from app.routers.forms import stop_form_cleanup
     await stop_form_cleanup()
+
+    if _calendar_reconciliation_task:
+        _calendar_reconciliation_task.cancel()
+        try:
+            await _calendar_reconciliation_task
+        except asyncio.CancelledError:
+            pass
+        _calendar_reconciliation_task = None
 
     # Unload plugins and trigger their on_unload hooks BEFORE stopping event_bus
     if hasattr(application.state, "plugin_loader"):
@@ -191,7 +219,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, dyslexic, cloud, signatures, contract_assistant, forms, onboarding
+    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, calendar, dyslexic, cloud, signatures, contract_assistant, forms, onboarding
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
@@ -203,6 +231,7 @@ def create_app() -> FastAPI:
     application.include_router(finance.router)
     application.include_router(iam.router, prefix="/api/iam", tags=["iam"])
     application.include_router(meetings.router)
+    application.include_router(calendar.router)
     application.include_router(admin.router)
     application.include_router(dyslexic.router)
     application.include_router(cloud.router)

@@ -32,6 +32,8 @@ async function proxy(request: Request, context: RouteContext) {
   const isPublicRoute =
     (path[0] === "signatures" && (path[1] === "sign" || path[1] === "verify")) ||
     (path[0] === "forms" && path[1] === "public") ||
+    (path[0] === "calendar" && path[1] === "public") ||
+    (path[0] === "calendar" && path[1] === "webhooks" && path[2] === "calcom") ||
     inboundPath === "/health";
 
   const session = await auth();
@@ -49,6 +51,10 @@ async function proxy(request: Request, context: RouteContext) {
   const accept = request.headers.get("accept");
   if (contentType) headers.set("Content-Type", contentType);
   if (accept) headers.set("Accept", accept);
+  for (const header of ["idempotency-key", "x-booking-token", "x-cal-signature-256"]) {
+    const value = request.headers.get(header);
+    if (value) headers.set(header, value);
+  }
 
   const authHeaders = createInternalAuthHeaders({
     method: request.method,
