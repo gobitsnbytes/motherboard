@@ -109,5 +109,7 @@ describe('Mailer RSVP Alternatives', () => {
 		expect(mailOptions.alternatives).toBeDefined();
 		expect(mailOptions.alternatives[0].contentType).toBe('text/calendar; charset=utf-8; method=REQUEST');
 		expect(mailOptions.alternatives[0].content).toBe('BEGIN:VCALENDAR...');
+		expect(mailOptions.cc).toBeUndefined();
+		expect(mailOptions.bcc).toBeUndefined();
 	});
 });
