@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -10,8 +10,15 @@ class StrictModel(BaseModel):
 
 
 class ConnectionCreate(StrictModel):
-    user_id: UUID
+    user_id: UUID | None = None
+    shared_host_name: str | None = Field(default=None, min_length=2, max_length=100)
     api_key: str = Field(min_length=8, max_length=500)
+
+    @model_validator(mode="after")
+    def require_one_host(self):
+        if (self.user_id is None) == (self.shared_host_name is None):
+            raise ValueError("Choose an existing host or name a shared host")
+        return self
 
 
 class ConnectionOut(StrictModel):
