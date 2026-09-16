@@ -14,7 +14,7 @@ export default function ProfilePage() {
         </h1>
 
         <p className="text-sm text-muted-foreground font-base mt-1">
-          Single-source profile setup for team members & Chrono v2 system preferences.
+          Keep your Motherboard identity current. Scheduling availability lives in Cal.com.
         </p>
       </div>
 
