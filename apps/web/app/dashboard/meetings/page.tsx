@@ -9,7 +9,7 @@ interface Pool { id: string; name: string; slug: string; description: string | n
 interface Member { id: string; calendar_connection_id: string; event_type_id: number; event_type_slug: string | null; priority: number; weight: number; last_assigned_at: string | null; }
 interface Booking { uid: string; status: string; start: string; end: string; meeting_url: string | null; host_user_id: string; attendee_name: string; attendee_email: string; }
 interface User { id: string; display_name: string; email: string | null; }
-interface LegacyMeeting { id: string; title: string; scheduled_time: number; status: string; location_type: string; }
+interface LegacyMeeting { id: string; title: string; scheduled_time: number; status: string; location_type: string; calcom_uid: string | null; calcom_booking_id: string | null; }
 
 const fieldClass = "w-full rounded-base border-2 border-border bg-secondary-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-orange focus:ring-2 focus:ring-orange/25 disabled:cursor-not-allowed disabled:opacity-50";
 const primaryButton = "inline-flex min-h-10 items-center justify-center gap-2 rounded-base border-2 border-border bg-orange px-4 py-2 text-sm font-black text-black shadow-light transition-[transform,box-shadow] hover:translate-x-px hover:translate-y-px hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -99,6 +99,15 @@ export default function MeetingsPage() {
   }
 
   const userName = (id: string) => users.find((user) => user.id === id)?.display_name ?? id.slice(0, 8);
+  const seenCalcomBookings = new Set<string>();
+  const visibleHistory = history.filter((meeting) => {
+    const bookingId = meeting.calcom_uid || meeting.calcom_booking_id;
+    if (!bookingId) return true;
+    if (seenCalcomBookings.has(bookingId)) return false;
+    seenCalcomBookings.add(bookingId);
+    return true;
+  });
+  const hiddenImportCount = history.length - visibleHistory.length;
 
   return <main className="mx-auto max-w-7xl space-y-6 pb-12">
     <header className="flex flex-col gap-4 border-b-2 border-border pb-5 md:flex-row md:items-end md:justify-between">
@@ -127,7 +136,7 @@ export default function MeetingsPage() {
       <form onSubmit={createPool} className="h-fit space-y-4 rounded-base border-2 border-border bg-secondary-background p-5"><div><h3 className="font-black">New routing pool</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">Round robin is the safest default for shared scheduling.</p></div><label className="block text-sm font-bold">Name<input name="name" required maxLength={120} className={`${fieldClass} mt-1`} placeholder="Community onboarding" /></label><label className="block text-sm font-bold">Public slug<input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" className={`${fieldClass} mt-1`} placeholder="community-onboarding" /></label><label className="block text-sm font-bold">Description<textarea name="description" rows={3} className={`${fieldClass} mt-1 resize-y`} placeholder="Who this booking route is for" /></label><label className="block text-sm font-bold">Routing<select name="algorithm" className={`${fieldClass} mt-1`}><option value="round_robin">Round robin</option><option value="weighted_round_robin">Weighted round robin</option><option value="priority">Priority</option></select></label><button className={`${primaryButton} w-full`} disabled={busy === "pool"}><Plus className="size-4" /> Create pool</button></form>
     </section>}
 
-    {!loading && tab === "history" && <section aria-labelledby="history-title"><div className="mb-4"><h2 id="history-title" className="text-xl font-black">Legacy meeting history</h2><p className="mt-1 text-sm text-muted-foreground">Discord-era records are preserved for reference. They cannot create, reschedule, or email meetings.</p></div><div className="space-y-2">{history.map((meeting) => <div key={meeting.id} className="flex flex-col gap-2 rounded-base border-2 border-border bg-secondary-background p-4 sm:flex-row sm:items-center sm:justify-between"><div><strong>{meeting.title}</strong><p className="mt-1 text-xs text-muted-foreground">{formatDate(meeting.scheduled_time)} · {meeting.location_type}</p></div><Status value={meeting.status} /></div>)}{history.length === 0 && <p className="rounded-base border-2 border-dashed border-border p-6 text-sm text-muted-foreground">No legacy meetings.</p>}</div></section>}
+    {!loading && tab === "history" && <section aria-labelledby="history-title"><div className="mb-4"><h2 id="history-title" className="text-xl font-black">Legacy meeting history</h2><p className="mt-1 text-sm text-muted-foreground">Discord-era records are preserved for reference. They cannot create, reschedule, or email meetings.</p>{hiddenImportCount > 0 && <p className="mt-1 text-xs text-muted-foreground">{hiddenImportCount} repeated Cal.com imports hidden from this list. Stored records remain available for audit.</p>}</div><div className="space-y-2">{visibleHistory.map((meeting) => <div key={meeting.id} className="flex flex-col gap-2 rounded-base border-2 border-border bg-secondary-background p-4 sm:flex-row sm:items-center sm:justify-between"><div><strong>{meeting.title}</strong><p className="mt-1 text-xs text-muted-foreground">{formatDate(meeting.scheduled_time)} · {meeting.location_type}</p></div><Status value={meeting.status} /></div>)}{visibleHistory.length === 0 && <p className="rounded-base border-2 border-dashed border-border p-6 text-sm text-muted-foreground">No legacy meetings.</p>}</div></section>}
 
     <aside className="flex items-start gap-3 rounded-base border-2 border-border bg-muted p-4 text-sm text-foreground"><Video className="mt-0.5 size-5 shrink-0 text-orange" /><div><strong>Google Meet only.</strong> Motherboard does not create Discord channels, send booking email, or attach ICS files. Transcription is unavailable until a separate Google Workspace integration exists.</div></aside>
   </main>;
