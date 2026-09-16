@@ -2,9 +2,11 @@ from httpx import ASGITransport, AsyncClient
 import csv
 import io
 import pytest
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.db.models import PublicFormSubmission
 from app.main import app
 from conftest import request_as
 
@@ -67,6 +69,24 @@ async def test_forms_validate_answers_and_return_labeled_responses(super_admin):
         assert csv_rows[0][3:5] == ["Your name", "Track"]
         assert csv_rows[1][3:5] == ["Asha", "Code"]
         assert csv_rows[2][3] == "'=1+1"
+
+
+@pytest.mark.asyncio
+async def test_form_lists_and_exports_only_canonical_submissions(super_admin, db_session: AsyncSession):
+    blocks = [{"id": "name", "type": "text", "label": "Your name", "required": True}]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await request_as(client, super_admin.id, "POST", "/api/forms", json={"title": "Deduplicated form", "slug": "deduplicated-form", "blocks": blocks, "is_published": True})
+        form_id = created.json()["id"]
+        first = await client.post("/api/forms/public/deduplicated-form/submissions", headers={"Idempotency-Key": "canonical-answer-key-001"}, json={"answers": {"name": "Asha"}, "accepted_terms": True})
+        repeated = await client.post("/api/forms/public/deduplicated-form/submissions", headers={"Idempotency-Key": "duplicate-answer-key-001"}, json={"answers": {"name": "Asha"}, "accepted_terms": True})
+        duplicate = await db_session.get(PublicFormSubmission, uuid.UUID(repeated.json()["id"]))
+        duplicate.duplicate_of_id = uuid.UUID(first.json()["id"])
+        await db_session.commit()
+
+        responses = await request_as(client, super_admin.id, "GET", f"/api/forms/{form_id}/submissions")
+        assert [row["id"] for row in responses.json()] == [first.json()["id"]]
+        exported = await request_as(client, super_admin.id, "GET", f"/api/forms/{form_id}/submissions/export.csv")
+        assert len(list(csv.reader(io.StringIO(exported.text.lstrip("\ufeff"))))) == 2
 
 
 @pytest.mark.asyncio

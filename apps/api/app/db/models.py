@@ -1786,6 +1786,14 @@ class PublicFormSubmission(Base):
     idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
     intake_status: Mapped[str] = mapped_column(String(20), default="complete", nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Exact historical duplicates remain available for audit but are not counted
+    # as operational responses.
+    duplicate_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("public_form_submissions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     terms_accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
