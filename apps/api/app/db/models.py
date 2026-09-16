@@ -144,6 +144,122 @@ class User(Base):
         return f"<User id={self.id} display_name={self.display_name!r}>"
 
 
+# ---------------------------------------------------------------------------
+# Calendar routing (Cal.com is the scheduling source of truth)
+# ---------------------------------------------------------------------------
+
+class CalendarConnection(Base):
+    __tablename__ = "calendar_connections"
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_calendar_connection_user_provider"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(30), default="calcom", server_default="calcom", nullable=False)
+    cal_user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cal_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    api_key: Mapped[str] = mapped_column(EncryptedString, nullable=False)
+    webhook_secret: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    provider_webhook_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending", nullable=False)
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class RoutingPool(Base):
+    __tablename__ = "routing_pools"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    algorithm: Mapped[str] = mapped_column(String(30), default="round_robin", server_default="round_robin", nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class RoutingPoolMember(Base):
+    __tablename__ = "routing_pool_members"
+    __table_args__ = (
+        UniqueConstraint("pool_id", "calendar_connection_id", "event_type_id", name="uq_routing_pool_member_event_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pool_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("routing_pools.id", ondelete="CASCADE"), nullable=False, index=True)
+    calendar_connection_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("calendar_connections.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_type_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    weight: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=100, server_default="100", nullable=False)
+    daily_booking_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+    last_assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CalendarBooking(Base):
+    __tablename__ = "calendar_bookings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    provider: Mapped[str] = mapped_column(String(30), default="calcom", server_default="calcom", nullable=False)
+    provider_booking_uid: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    provider_booking_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    routing_pool_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("routing_pools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    routing_pool_member_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("routing_pool_members.id", ondelete="RESTRICT"), nullable=False)
+    event_type_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    host_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    attendee_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    attendee_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    attendee_timezone: Mapped[str] = mapped_column(String(100), nullable=False)
+    guest_emails: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    meeting_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rescheduled_from_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rescheduled_to_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    provider_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CalendarWebhookEvent(Base):
+    __tablename__ = "calendar_webhook_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("calendar_connections.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    trigger: Mapped[str] = mapped_column(String(80), nullable=False)
+    booking_uid: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="received", server_default="received", nullable=False)
+    error_details: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+
+class RoutingDecision(Base):
+    __tablename__ = "routing_decisions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    idempotency_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    routing_pool_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("routing_pools.id", ondelete="RESTRICT"), nullable=False, index=True)
+    requested_start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requested_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    candidate_snapshot: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    selected_member_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("routing_pool_members.id", ondelete="SET NULL"), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(30), default="pending", server_default="pending", nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    provider_booking_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    response_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class DiscordAccount(Base):
     """Linked Discord OAuth identity for a platform user."""
 

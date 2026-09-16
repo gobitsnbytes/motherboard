@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     nextauth_secret: str = Field(validation_alias="NEXTAUTH_SECRET")
     nextauth_url: str = Field(default="http://localhost:3000", validation_alias="NEXTAUTH_URL")
     api_url: str = Field(default="http://localhost:8000", validation_alias="API_URL")
+    calendar_webhook_base_url: str | None = Field(default=None, validation_alias="CALENDAR_WEBHOOK_BASE_URL")
     app_version: str = Field(default="0.85.5-beta", validation_alias="APP_VERSION")
     # Comma-separated list of allowed CORS origins (overrides nextauth_url for multi-origin setups)
     cors_origins: str = Field(default="", validation_alias="CORS_ORIGINS")
