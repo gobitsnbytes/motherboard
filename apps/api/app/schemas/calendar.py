@@ -12,12 +12,15 @@ class StrictModel(BaseModel):
 class ConnectionCreate(StrictModel):
     user_id: UUID | None = None
     shared_host_name: str | None = Field(default=None, min_length=2, max_length=100)
+    shared_host_email: EmailStr | None = None
     api_key: str = Field(min_length=8, max_length=500)
 
     @model_validator(mode="after")
     def require_one_host(self):
         if (self.user_id is None) == (self.shared_host_name is None):
             raise ValueError("Choose an existing host or name a shared host")
+        if (self.shared_host_name is None) != (self.shared_host_email is None):
+            raise ValueError("Shared hosts require both a name and email")
         return self
 
 

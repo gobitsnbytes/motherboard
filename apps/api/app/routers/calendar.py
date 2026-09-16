@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.config import get_settings
@@ -97,13 +97,13 @@ async def create_connection(body: ConnectionCreate, db: DbSession, current_user:
         await require_permission(db, current_user, "iam.users.write")
         host = await db.scalar(
             select(User).where(
-                User.display_name == body.shared_host_name,
-                User.is_active.is_(False),
-                User.email.is_(None),
+                func.lower(User.email) == body.shared_host_email.lower(),
             )
         )
-        if host is None:
-            host = User(display_name=body.shared_host_name, is_active=False)
+        if host and (host.is_active or host.display_name != body.shared_host_name):
+            raise HTTPException(status.HTTP_409_CONFLICT, "Host email already belongs to another user")
+        if not host:
+            host = User(display_name=body.shared_host_name, email=body.shared_host_email, is_active=False)
             db.add(host)
             await db.flush()
         host_id = host.id
@@ -131,6 +131,9 @@ async def verify_connection(connection_id: UUID, db: DbSession, current_user: Cu
     client = CalComClient(connection.api_key)
     try:
         profile = await client.get_me()
+        host = await db.get(User, connection.user_id)
+        if host and not host.is_active and host.email and str(profile.get("email") or "").lower() != host.email.lower():
+            raise CalComError("calcom_account_mismatch", status_code=409)
         connection.cal_user_id = str(profile.get("id")) if profile.get("id") is not None else None
         connection.cal_username = profile.get("username")
         connection.webhook_secret = connection.webhook_secret or secrets.token_urlsafe(32)

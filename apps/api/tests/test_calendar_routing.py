@@ -127,18 +127,38 @@ async def test_shared_core_connection_creates_inactive_host_once(client, db_sess
     owner = User(display_name="Admin", is_super_admin=True)
     db_session.add(owner)
     await db_session.commit()
-    payload = {"shared_host_name": "bits&bytes™ core calendar", "api_key": "cal_core_secret"}
+    owner_id = owner.id
+    payload = {
+        "shared_host_name": "bits&bytes",
+        "shared_host_email": "gobitsnbytes@gmail.com",
+        "api_key": "cal_core_secret",
+    }
 
-    first = await request_as(client, owner.id, "POST", "/api/calendar/connections/calcom", json=payload)
-    repeated = await request_as(client, owner.id, "POST", "/api/calendar/connections/calcom", json=payload)
+    first = await request_as(client, owner_id, "POST", "/api/calendar/connections/calcom", json=payload)
+    repeated = await request_as(client, owner_id, "POST", "/api/calendar/connections/calcom", json=payload)
 
     assert first.status_code == 201
     assert repeated.status_code == 409
     host = await db_session.get(User, UUID(first.json()["user_id"]))
     assert host.display_name == payload["shared_host_name"]
     assert host.is_active is False
-    assert host.email is None
+    assert host.email == payload["shared_host_email"]
     assert await db_session.scalar(select(func.count(User.id))) == 2
+
+    with patch.object(CalComClient, "get_me", new=AsyncMock(return_value={"id": 1, "email": "other@example.com"})), patch.object(
+        CalComClient, "create_webhook", new=AsyncMock(return_value={"id": 123})
+    ) as create_mock:
+        mismatch = await request_as(client, owner_id, "POST", f"/api/calendar/connections/{first.json()['id']}/verify")
+    assert mismatch.status_code == 409
+    create_mock.assert_not_awaited()
+
+    with patch.object(CalComClient, "get_me", new=AsyncMock(return_value={"id": 1, "username": "bitsandbytes", "email": "gobitsnbytes@gmail.com"})), patch.object(
+        CalComClient, "create_webhook", new=AsyncMock(return_value={"id": 123})
+    ) as create_mock:
+        verified = await request_as(client, owner_id, "POST", f"/api/calendar/connections/{first.json()['id']}/verify")
+    assert verified.status_code == 200
+    assert verified.json()["status"] == "active"
+    create_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
