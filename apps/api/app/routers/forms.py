@@ -221,7 +221,15 @@ async def list_submissions(form_id: uuid.UUID, db: DbSession, current_user: Reso
     form = (await db.execute(statement)).scalar_one_or_none()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
-    rows = (await db.execute(select(PublicFormSubmission).options(selectinload(PublicFormSubmission.uploads)).where(PublicFormSubmission.form_id == form_id).order_by(PublicFormSubmission.created_at.desc()))).scalars().all()
+    rows = (await db.execute(
+        select(PublicFormSubmission)
+        .options(selectinload(PublicFormSubmission.uploads))
+        .where(
+            PublicFormSubmission.form_id == form_id,
+            PublicFormSubmission.duplicate_of_id.is_(None),
+        )
+        .order_by(PublicFormSubmission.created_at.desc())
+    )).scalars().all()
     return [FormSubmissionResponse(id=str(row.id), form_id=str(form.id), created_at=row.created_at, intake_status=row.intake_status, answers=row.answers, labels=_answer_labels(form, row.answers), uploads=[{"id": str(upload.id), "field_id": upload.field_id, "name": upload.original_name, "content_type": upload.content_type, "size_bytes": upload.size_bytes} for upload in row.uploads]) for row in rows]
 
 
@@ -236,7 +244,10 @@ async def export_submissions(form_id: uuid.UUID, db: DbSession, current_user: Re
     rows = (await db.execute(
         select(PublicFormSubmission)
         .options(selectinload(PublicFormSubmission.uploads))
-        .where(PublicFormSubmission.form_id == form_id)
+        .where(
+            PublicFormSubmission.form_id == form_id,
+            PublicFormSubmission.duplicate_of_id.is_(None),
+        )
         .order_by(PublicFormSubmission.created_at.asc())
     )).scalars().all()
     fields = _form_fields(form)
