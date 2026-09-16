@@ -1784,6 +1784,8 @@ class PublicFormSubmission(Base):
     form_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("public_forms.id", ondelete="CASCADE"), index=True, nullable=False)
     answers: Mapped[dict] = mapped_column(JSON, nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    intake_status: Mapped[str] = mapped_column(String(20), default="complete", nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     terms_accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -1795,12 +1797,21 @@ class PublicFormSubmission(Base):
 
 class PublicFormUpload(Base):
     __tablename__ = "public_form_uploads"
+    __table_args__ = (
+        UniqueConstraint(
+            "submission_id",
+            "field_id",
+            "content_fingerprint",
+            name="uq_form_upload_content",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     submission_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("public_form_submissions.id", ondelete="CASCADE"), index=True, nullable=False)
     field_id: Mapped[str] = mapped_column(String(100), nullable=False)
     original_name: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    content_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)

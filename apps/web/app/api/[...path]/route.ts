@@ -51,7 +51,7 @@ async function proxy(request: Request, context: RouteContext) {
   const accept = request.headers.get("accept");
   if (contentType) headers.set("Content-Type", contentType);
   if (accept) headers.set("Accept", accept);
-  for (const header of ["idempotency-key", "x-booking-token", "x-cal-signature-256"]) {
+  for (const header of ["idempotency-key", "x-booking-token", "x-cal-signature-256", "x-form-upload-token"]) {
     const value = request.headers.get(header);
     if (value) headers.set(header, value);
   }
