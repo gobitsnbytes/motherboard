@@ -32,6 +32,7 @@ async function proxy(request: Request, context: RouteContext) {
   const isPublicRoute =
     (path[0] === "signatures" && (path[1] === "sign" || path[1] === "verify")) ||
     (path[0] === "forms" && path[1] === "public") ||
+    (path[0] === "onboarding" && path[1] === "public") ||
     (path[0] === "calendar" && path[1] === "public") ||
     (path[0] === "calendar" && path[1] === "webhooks" && path[2] === "calcom") ||
     inboundPath === "/health";
