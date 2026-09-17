@@ -1,6 +1,6 @@
 # Onboarding pre-release implementation plan
 
-**Design:** `docs/superpowers/specs/2026-09-17-onboarding-pre-release-design.md`  
+**Design:** `docs/superpowers/specs/2026-09-17-onboarding-pre-release-design.md`
 **Target:** `prod` worktree only
 
 ## 1. Remove unsafe behavior and establish regression tests

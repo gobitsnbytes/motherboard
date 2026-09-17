@@ -1,7 +1,7 @@
 # Digital onboarding pre-release design
 
-**Status:** Approved architecture; legal wording and authority remain external ship gates  
-**Date:** 17 September 2026  
+**Status:** Approved architecture; legal wording and authority remain external ship gates
+**Date:** 17 September 2026
 **Scope:** One production-bound release for adult volunteers, minors with guardians, and prospective Forks
 
 ## Decision
