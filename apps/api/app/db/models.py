@@ -1611,8 +1611,13 @@ class SignatureRecipient(Base):
     access_token: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     access_passcode: Mapped[str | None] = mapped_column(String(50), nullable=True)
     requires_otp: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Legacy plaintext OTPs are retained only for a reversible schema
+    # transition. New codes are stored exclusively as recipient-bound hashes.
     otp_code: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    otp_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    otp_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    otp_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)

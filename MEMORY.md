@@ -280,3 +280,9 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Merged `main` into `prod` as `478d79d`. Resolved the onboarding overlaps by retaining production's central public-route allowlist, document-specific submission workflow, resend flow, and email-correction flow.
 - Added the missing `document_answers` schema field required by the production submission handler; this had existed only as an uncommitted edit in the live `prod` worktree. Focused onboarding tests pass: 7 passed, 1 skipped because the local DOCX renderer is unavailable.
 - The merged web tree is unchanged from the `prod` parent. An isolated TypeScript typecheck could not resolve Next after the pinned installation was blocked by the local Windows native-build toolchain (`node-crc` requires a Windows SDK); it did not report an application-specific type error.
+
+### 2026-09-18 — Onboarding Cancellation and Signing Controls
+
+- Added a staff-authorized cancellation endpoint for non-terminal onboarding cases. It requires a recorded reason, expires every participant portal link, voids pending signature envelopes, clears OTP state, marks the current revision revoked, and writes an IAM audit event.
+- Replaced persisted plaintext signature OTPs with recipient-bound HMAC digests, bounded failed-attempt tracking, an expiring verified session, and OTP-state clearing on cancellation or envelope voiding. Submission now enforces recipient-owned required fields and signing order.
+- Added a forward-only Alembic migration for the OTP state. Focused onboarding routing tests pass; the broader signature test now uses a valid fixture image and explicit recipient/field binding.

@@ -3,11 +3,12 @@ FastAPI APIRouter for digital signature contracts (bnb-signatures).
 """
 
 from datetime import datetime, timedelta, timezone
+import hmac
 import hashlib
 import logging
 import os
-import random
 import re
+import secrets
 import uuid
 from typing import List, Optional
 
@@ -119,6 +120,21 @@ def _mask_email(email: str) -> str:
     dom_masked = dom_name[:1] + "*" * max(len(dom_name) - 1, 3)
     ext = f".{domain_parts[1]}" if len(domain_parts) > 1 else ""
     return f"{user_masked}@{dom_masked}{ext}"
+
+
+OTP_MAX_ATTEMPTS = 5
+OTP_VERIFICATION_SESSION = timedelta(minutes=15)
+
+
+def _otp_digest(recipient_id: uuid.UUID, code: str) -> str:
+    """Return a server-secret, recipient-bound digest without persisting the code."""
+    secret = get_settings().api_internal_secret.encode()
+    message = f"{recipient_id}:{code}".encode()
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+
+def _requires_participant_signature(recipient: SignatureRecipient) -> bool:
+    return recipient.role not in {"viewer", "cc", "organization", "org_signer"}
 
 
 # ---------------------------------------------------------------------------
@@ -582,16 +598,14 @@ async def request_signing_otp(
             detail="The email address entered does not match the signatory record for this contract."
         )
 
-    otp_code = f"{random.randint(100000, 999999)}"
-    recipient.otp_code = otp_code
+    otp_code = f"{100000 + secrets.randbelow(900000)}"
+    recipient.otp_code = None
+    recipient.otp_hash = _otp_digest(recipient.id, otp_code)
+    recipient.otp_attempts = 0
     recipient.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=2)
+    recipient.otp_verified_at = None
 
-    logger.info(
-        "[OTP] Generated security PIN (masked %s****) for recipient %s <%s>",
-        otp_code[:2],
-        recipient.name,
-        recipient.email,
-    )
+    logger.info("[OTP] Issued verification code for signature recipient %s", recipient.id)
 
     client_ip = req.client.host if req and req.client else "127.0.0.1"
     user_agent = req.headers.get("user-agent") if req else "Browser"
@@ -603,7 +617,7 @@ async def request_signing_otp(
         action="otp_requested",
         ip_address=client_ip,
         user_agent=user_agent,
-        details=f"Sent 2-minute 6-digit OTP verification code ({otp_code[:2]}****) to verified email ({recipient.email})",
+        details="Dispatched a 2-minute OTP to the recipient mailbox",
     )
     await db.commit()
 
@@ -627,7 +641,7 @@ async def request_signing_otp(
     """
     bg_tasks.add_task(send_smtp_email, settings, recipient.email, subject, html_body)
 
-    return {"message": "OTP code sent to email", "email": recipient.email, "expires_in_seconds": 120}
+    return {"message": "OTP code sent to email", "email": _mask_email(recipient.email), "expires_in_seconds": 120}
 
 
 @router.post("/sign/{token}/verify-otp")
@@ -655,15 +669,32 @@ async def verify_signing_otp(
             detail=f"This contract agreement has been {recipient.request.status} and cannot verify verification codes.",
         )
 
-    if not recipient.otp_code or not recipient.otp_expires_at:
+    if not recipient.otp_hash or not recipient.otp_expires_at:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active OTP found. Please request a new verification code.")
 
     now = datetime.now(timezone.utc)
     if now > recipient.otp_expires_at:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification code has expired. Please request a new code.")
 
-    if payload.otp.strip() != recipient.otp_code:
+    if recipient.otp_attempts >= OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many failed attempts. Please request a new verification code.")
+
+    if not hmac.compare_digest(_otp_digest(recipient.id, payload.otp.strip()), recipient.otp_hash):
+        recipient.otp_attempts += 1
+        await _log_audit_event(
+            db,
+            request_id=recipient.request_id,
+            recipient_id=recipient.id,
+            action="otp_failed",
+            ip_address=req.client.host if req and req.client else "127.0.0.1",
+            user_agent=req.headers.get("user-agent") if req else "Browser",
+            details=f"OTP verification failed (attempt {recipient.otp_attempts} of {OTP_MAX_ATTEMPTS})",
+        )
+        await db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification code. Please check your inbox and try again.")
+
+    recipient.otp_hash = None
+    recipient.otp_verified_at = now
 
     client_ip = req.client.host if req and req.client else "127.0.0.1"
     user_agent = req.headers.get("user-agent") if req else "Browser"
@@ -973,17 +1004,39 @@ async def submit_signature(
     if recipient.access_passcode and recipient.access_passcode != payload.passcode:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid security passcode")
 
+    now = datetime.now(timezone.utc)
+    if recipient.requires_otp and (
+        not recipient.otp_verified_at
+        or now - recipient.otp_verified_at > OTP_VERIFICATION_SESSION
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Verify the recipient email OTP before signing")
+
+    required_signers = [
+        item
+        for item in sig_request.recipients
+        if _requires_participant_signature(item) and item.signing_order < recipient.signing_order
+    ]
+    if any(item.status != "signed" for item in required_signers):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Earlier required signatories must complete before this signature")
+
     client_ip = req.client.host if req and req.client else "127.0.0.1"
     user_agent = req.headers.get("user-agent") if req else "Browser"
 
-    # Fill field values
+    # Reject fields owned by another recipient and require every assigned
+    # mandatory field before changing recipient state.
     submitted_values_map = {item.field_id: item.value for item in payload.fields}
+    recipient_field_ids = {field.id for field in sig_request.fields if field.recipient_id == recipient.id}
+    if set(submitted_values_map) - recipient_field_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Submitted fields are not assigned to this recipient")
 
     for f in sig_request.fields:
         if f.recipient_id == recipient.id and f.id in submitted_values_map:
             f.value = submitted_values_map[f.id]
+    if any(field.required and not (field.value or "").strip() for field in sig_request.fields if field.recipient_id == recipient.id):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Complete every required signing field before submitting")
 
     recipient.status = "signed"
+    recipient.otp_verified_at = None
     recipient.signed_at = datetime.now(timezone.utc)
     recipient.ip_address = client_ip
     recipient.user_agent = user_agent
@@ -999,7 +1052,7 @@ async def submit_signature(
     )
 
     # Check if ALL signatories have completed
-    all_signed = all(r.status == "signed" for r in sig_request.recipients if r.role == "signer")
+    all_signed = all(_requires_participant_signature(item) and item.status == "signed" for item in sig_request.recipients if _requires_participant_signature(item))
 
     if all_signed:
         await _finalize_request_if_complete(db, sig_request, client_ip, user_agent)
@@ -1581,7 +1634,10 @@ async def void_signature_request(
         if r.status in ("pending", "viewed"):
             r.status = "declined"
         r.otp_code = None
+        r.otp_hash = None
+        r.otp_attempts = 0
         r.otp_expires_at = None
+        r.otp_verified_at = None
 
     db.add(SignatureAuditLog(
         request_id=sig_req.id,

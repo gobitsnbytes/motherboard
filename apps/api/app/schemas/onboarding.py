@@ -51,6 +51,10 @@ class OnboardingReviewCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class OnboardingCancelRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=2000)
+
+
 class OnboardingCertificateCreate(BaseModel):
     director_one_name: str = Field(min_length=2, max_length=255)
     director_one_email: EmailStr

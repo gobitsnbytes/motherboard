@@ -201,6 +201,39 @@ async def test_staff_can_resend_untouched_invite_and_rotates_portal_link(super_a
 
 
 @pytest.mark.asyncio
+async def test_staff_can_cancel_onboarding_and_revoke_portal_link(super_admin, db_session):
+    get_settings().smtp_host = None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "volunteer",
+                "title": "Cancelled volunteer onboarding",
+                "participant": {"name": "Asha Example", "email": "asha@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        assert created.status_code == 201, created.text
+        body = created.json()
+        token = body["participants"][0]["portal_url"].rsplit("/", 1)[-1]
+        cancelled = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            f"/api/onboarding/cases/{body['id']}/cancel",
+            json={"reason": "Participant asked to withdraw from onboarding."},
+        )
+        assert cancelled.status_code == 200, cancelled.text
+        assert cancelled.json()["status"] == "revoked"
+        assert (await client.get(f"/api/onboarding/public/{token}")).status_code == 404
+        from app.db.models import AuditLog
+        audit = (await db_session.execute(select(AuditLog).where(AuditLog.action == "onboarding.case_cancelled"))).scalar_one()
+        assert audit.target_id == body["id"]
+
+
+@pytest.mark.asyncio
 async def test_staff_cannot_correct_email_after_packet_submission(super_admin):
     get_settings().smtp_host = None
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

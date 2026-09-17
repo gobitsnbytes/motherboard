@@ -1021,7 +1021,10 @@ async def void_contract_agreement(
                         if r.status in ("pending", "viewed"):
                             r.status = "declined"
                         r.otp_code = None
+                        r.otp_hash = None
+                        r.otp_attempts = 0
                         r.otp_expires_at = None
+                        r.otp_verified_at = None
                     db.add(SignatureAuditLog(
                         request_id=s_r.id,
                         action="VOIDED",
@@ -1034,7 +1037,10 @@ async def void_contract_agreement(
             if r.status in ("pending", "viewed"):
                 r.status = "declined"
             r.otp_code = None
+            r.otp_hash = None
+            r.otp_attempts = 0
             r.otp_expires_at = None
+            r.otp_verified_at = None
         db.add(SignatureAuditLog(
             request_id=sig_req.id,
             action="VOIDED",
@@ -1398,5 +1404,4 @@ def _as_utc_safe(ts: Optional[datetime]) -> Optional[datetime]:
     if ts is None:
         return None
     return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
-
 

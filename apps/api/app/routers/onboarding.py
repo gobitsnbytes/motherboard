@@ -31,6 +31,7 @@ from app.iam.policy import require_permission
 from app.schemas.onboarding import (
     OnboardingCaseCreate,
     OnboardingCaseResponse,
+    OnboardingCancelRequest,
     OnboardingCertificateCreate,
     OnboardingDocumentResponse,
     OnboardingParticipantResponse,
@@ -510,6 +511,65 @@ async def add_teammate(token: str, payload: OnboardingTeammateCreate, db: DbSess
             parent_subject, parent_body = _invite_email(payload.parent.name, lead.case.title, parent_token)
             background_tasks.add_task(send_smtp_email, settings, [str(payload.parent.email)], parent_subject, parent_body)
     return await get_portal(token, db)
+
+
+@router.post("/cases/{case_id}/cancel", response_model=OnboardingCaseResponse)
+async def cancel_case(
+    case_id: uuid.UUID,
+    payload: OnboardingCancelRequest,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> OnboardingCaseResponse:
+    """Cancel a non-terminal case, revoke its portal links, and void pending signing envelopes."""
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+    if case.status in {"approved", "rejected", "revoked"}:
+        raise HTTPException(status_code=409, detail="This onboarding case can no longer be cancelled")
+
+    now = datetime.now(timezone.utc)
+    for participant in case.participants:
+        participant.token_expires_at = now
+        if participant.status != "submitted":
+            participant.status = "revoked"
+    request_ids = [document.signature_request_id for document in case.documents if document.signature_request_id]
+    if request_ids:
+        requests = (
+            await db.execute(
+                select(SignatureRequest)
+                .options(selectinload(SignatureRequest.recipients))
+                .where(SignatureRequest.id.in_(request_ids))
+            )
+        ).scalars().all()
+        for request in requests:
+            if request.status not in {"completed", "voided", "expired"}:
+                request.status = "voided"
+                for recipient in request.recipients:
+                    if recipient.status not in {"signed", "declined"}:
+                        recipient.status = "declined"
+                    recipient.otp_code = None
+                    recipient.otp_hash = None
+                    recipient.otp_attempts = 0
+                    recipient.otp_expires_at = None
+                    recipient.otp_verified_at = None
+    for document in case.documents:
+        if document.status not in {"signed", "accepted"}:
+            document.status = "revoked"
+    if case.current_revision_id:
+        revision = await db.get(OnboardingRevision, case.current_revision_id)
+        if revision:
+            revision.status = "revoked"
+    case.status = "revoked"
+    case.case_data = {**(case.case_data or {}), "cancelled_at": now.isoformat(), "cancellation_reason": payload.reason}
+    await write_audit_entry(
+        db,
+        current_user.user_id,
+        "onboarding.case_cancelled",
+        "onboarding_case",
+        str(case.id),
+        {"reason": payload.reason, "revision_id": str(case.current_revision_id) if case.current_revision_id else None},
+    )
+    await db.commit()
+    return _case_response(await _load_case(db, case.id))
 
 
 @router.post("/cases/{case_id}/review", response_model=OnboardingCaseResponse)

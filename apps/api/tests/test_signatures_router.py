@@ -5,12 +5,14 @@ Unit and integration tests for bnb-signatures engine and REST API.
 import io
 import pytest
 import uuid
+from unittest.mock import patch
 from httpx import ASGITransport, AsyncClient
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
+from app.config import get_settings
 from app.database import get_session
 from app.db.models import User
 from conftest import internal_auth_headers, request_as
@@ -51,6 +53,7 @@ async def test_upload_contract_pdf(sample_pdf_bytes: bytes, super_admin):
 
 @pytest.mark.asyncio
 async def test_signature_request_creation_and_signing_flow(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    get_settings().smtp_host = None
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Create user
         user = User(display_name="Contract Creator", is_super_admin=True)
@@ -62,6 +65,7 @@ async def test_signature_request_creation_and_signing_flow(db_session: AsyncSess
         upload_res = await request_as(client, user.id, "POST", "/api/signatures/upload", files=files)
         assert upload_res.status_code == 200
         file_path = upload_res.json()["file_path"]
+        recipient_id = str(uuid.uuid4())
 
         # 2. Create Request via API
         payload = {
@@ -69,16 +73,18 @@ async def test_signature_request_creation_and_signing_flow(db_session: AsyncSess
             "file_path": file_path,
             "recipients": [
                 {
-                    "name": "Jane Doe",
-                    "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "email": "jane@example.com",
+                        "id": recipient_id,
                     "role": "signer",
                     "signing_order": 1,
+                    "requires_otp": False,
                 }
             ],
             "fields": [
                 {
-                    "recipient_id": str(uuid.uuid4()),
-                    "type": "signature",
+                    "recipient_id": recipient_id,
+                        "type": "text",
                     "page_number": 1,
                     "pos_x": 10.0,
                     "pos_y": 20.0,
@@ -100,18 +106,18 @@ async def test_signature_request_creation_and_signing_flow(db_session: AsyncSess
 
         # 3. Public Recipient Sign Portal View
         portal_res = await client.get(f"/api/signatures/sign/{recipient_token}")
-        assert portal_res.status_code == 200
+        assert portal_res.status_code == 200, portal_res.text
         portal_data = portal_res.json()
         assert portal_data["recipient"]["name"] == "Jane Doe"
         assert len(portal_data["previews"]) >= 1
 
         # 4. Submit Signature
-        dummy_sig_base64 = "data:image/png;base64,iVBORw0KGgoAAAANSUheader"
+        signature_value = "Jane Doe"
         sign_res = await client.post(
             f"/api/signatures/sign/{recipient_token}",
             json={
                 "fields": [
-                    {"field_id": field_id, "value": dummy_sig_base64}
+                        {"field_id": field_id, "value": signature_value}
                 ]
             }
         )
@@ -140,6 +146,7 @@ async def test_public_verification_not_found():
 
 @pytest.mark.asyncio
 async def test_signature_request_otp_verification_flow(db_session: AsyncSession, sample_pdf_bytes: bytes):
+    get_settings().smtp_host = None
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         user = User(display_name="OTP Contract Admin", is_super_admin=True)
         db_session.add(user)
@@ -194,24 +201,40 @@ async def test_signature_request_otp_verification_flow(db_session: AsyncSession,
         bad_req = await client.post(f"/api/signatures/sign/{recipient_token}/request-otp", json={"email": "wrong@example.com"})
         assert bad_req.status_code == 400
 
-        # Request OTP with correct email -> pass
-        good_req = await client.post(f"/api/signatures/sign/{recipient_token}/request-otp", json={"email": "akshatkushwah@gmail.com"})
+        # OTP-only recipients cannot sign before a verified server-side session.
+        bypass_sign = await client.post(f"/api/signatures/sign/{recipient_token}", json={"fields": []})
+        assert bypass_sign.status_code == 403
+
+        # Request OTP with correct email -> pass. The deterministic code is
+        # available only to this test, never from persisted recipient state.
+        with patch("app.routers.signatures.secrets.randbelow", return_value=234567):
+            good_req = await client.post(f"/api/signatures/sign/{recipient_token}/request-otp", json={"email": "akshatkushwah@gmail.com"})
         assert good_req.status_code == 200
         assert good_req.json()["expires_in_seconds"] == 120
 
-        # Fetch recipient to get generated code
+        # Recipient persistence stores a one-way, recipient-bound digest, not
+        # the six-digit code itself.
         from sqlalchemy import select
         from app.db.models import SignatureRecipient
         res = await db_session.execute(select(SignatureRecipient).where(SignatureRecipient.access_token == recipient_token))
         recipient_db = res.scalar_one()
-        assert recipient_db.otp_code is not None
+        assert recipient_db.otp_code is None
+        assert recipient_db.otp_hash is not None
+        assert recipient_db.otp_hash != "334567"
 
-        # Verify with wrong OTP -> fail
-        wrong_verify = await client.post(f"/api/signatures/sign/{recipient_token}/verify-otp", json={"otp": "000000"})
-        assert wrong_verify.status_code == 400
+        # Five failed attempts exhaust this OTP; requesting a new one resets
+        # the bounded attempt counter.
+        for _ in range(5):
+            wrong_verify = await client.post(f"/api/signatures/sign/{recipient_token}/verify-otp", json={"otp": "000000"})
+            assert wrong_verify.status_code == 400
+        locked = await client.post(f"/api/signatures/sign/{recipient_token}/verify-otp", json={"otp": "000000"})
+        assert locked.status_code == 429
+        with patch("app.routers.signatures.secrets.randbelow", return_value=234567):
+            reset = await client.post(f"/api/signatures/sign/{recipient_token}/request-otp", json={"email": "akshatkushwah@gmail.com"})
+        assert reset.status_code == 200
 
         # Verify with correct OTP -> pass
-        right_verify = await client.post(f"/api/signatures/sign/{recipient_token}/verify-otp", json={"otp": recipient_db.otp_code})
+        right_verify = await client.post(f"/api/signatures/sign/{recipient_token}/verify-otp", json={"otp": "334567"})
         assert right_verify.status_code == 200
         assert right_verify.json()["success"] is True
 
