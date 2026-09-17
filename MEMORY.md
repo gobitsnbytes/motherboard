@@ -274,3 +274,9 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Refined the dashboard response view with accurate singular/plural counts, a latest-response timestamp, and accessible filtered-result feedback.
 - Production cleanup for `techfest-30th-organising-team` removed seven later exact-answer duplicates, retaining the earliest copy of each response. The form now has ten responses with ten distinct answer payloads; none of the deleted records had uploads.
 - Released the branch metadata as `0.86.0-beta.1` / `0.86.0b1`, synchronized package, web, and API identifiers, and added `bun run check:version` to detect version drift.
+
+### 2026-09-18 — Production Mainline Reconciliation
+
+- Merged `main` into `prod` as `478d79d`. Resolved the onboarding overlaps by retaining production's central public-route allowlist, document-specific submission workflow, resend flow, and email-correction flow.
+- Added the missing `document_answers` schema field required by the production submission handler; this had existed only as an uncommitted edit in the live `prod` worktree. Focused onboarding tests pass: 7 passed, 1 skipped because the local DOCX renderer is unavailable.
+- The merged web tree is unchanged from the `prod` parent. An isolated TypeScript typecheck could not resolve Next after the pinned installation was blocked by the local Windows native-build toolchain (`node-crc` requires a Windows SDK); it did not report an application-specific type error.
