@@ -19,11 +19,14 @@ from app.db.models import (
     Fork,
     OnboardingCase,
     OnboardingDocument,
+    OnboardingRevision,
     OnboardingParticipant,
     OnboardingReview,
     SignatureRequest,
+    User,
 )
 from app.dependencies import CurrentUserDep, DbSession
+from app.iam.audit import write_audit_entry
 from app.iam.policy import require_permission
 from app.schemas.onboarding import (
     OnboardingCaseCreate,
@@ -73,6 +76,7 @@ def _document_response(document: OnboardingDocument, request: SignatureRequest |
         evidence_hash=document.evidence_hash,
         canonical_hash=document.canonical_hash,
         completed_at=document.completed_at,
+        revision_id=document.revision_id,
     )
 
 
@@ -137,6 +141,7 @@ def _case_response(case: OnboardingCase) -> OnboardingCaseResponse:
         case_data=case.case_data,
         created_by=case.created_by,
         reviewer_id=case.reviewer_id,
+        current_revision_id=case.current_revision_id,
         created_at=case.created_at,
         updated_at=case.updated_at,
         participants=participants,
@@ -199,16 +204,26 @@ async def create_case(
 
     if payload.fork_id and not await db.get(Fork, payload.fork_id):
         raise HTTPException(status_code=404, detail="Fork not found")
+    if payload.reviewer_id:
+        if payload.reviewer_id == current_user.user_id:
+            raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
+        if not await db.get(User, payload.reviewer_id):
+            raise HTTPException(status_code=404, detail="Assigned reviewer not found")
 
     case = OnboardingCase(
         kind=payload.kind,
         title=payload.title,
         created_by=current_user.user_id,
+        reviewer_id=payload.reviewer_id,
         fork_id=payload.fork_id,
         case_data={"fork_name": payload.fork_name, "participant_age": age, "parent_required": is_minor},
     )
     db.add(case)
     await db.flush()
+    revision = OnboardingRevision(case_id=case.id, number=1, created_by=current_user.user_id)
+    db.add(revision)
+    await db.flush()
+    case.current_revision_id = revision.id
 
     token, token_hash = new_portal_token()
     participant = OnboardingParticipant(
@@ -218,6 +233,7 @@ async def create_case(
         email=str(payload.participant.email),
         date_of_birth=payload.participant.date_of_birth,
         is_minor=is_minor,
+        revision_id=revision.id,
         portal_token_hash=token_hash,
         token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
     )
@@ -229,7 +245,7 @@ async def create_case(
         document_keys += ["fork_application", "fork_agreement"]
     for key in document_keys:
         manifest = TEMPLATE_MANIFEST[key]
-        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, document_key=key, template_filename=manifest["template"]))
+        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, revision_id=revision.id, document_key=key, template_filename=manifest["template"]))
 
     parent_token = None
     if is_minor and payload.participant.parent:
@@ -240,12 +256,29 @@ async def create_case(
             name=payload.participant.parent.name,
             email=str(payload.participant.parent.email),
             is_minor=False,
+            revision_id=revision.id,
             portal_token_hash=parent_hash,
             token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         )
         db.add(parent)
         await db.flush()
-        db.add(OnboardingDocument(case_id=case.id, participant_id=parent.id, document_key="parent_consent", template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"]))
+        db.add(OnboardingDocument(case_id=case.id, participant_id=parent.id, revision_id=revision.id, document_key="parent_consent", template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"]))
+
+    revision.template_snapshot = {
+        key: {
+            "template": TEMPLATE_MANIFEST[key]["template"],
+            "source_hash": TEMPLATE_MANIFEST[key]["source_hash"],
+        }
+        for key in document_keys + (["parent_consent"] if parent_token else [])
+    }
+    await write_audit_entry(
+        db,
+        current_user.user_id,
+        "onboarding.case_created",
+        "onboarding_case",
+        str(case.id),
+        {"kind": case.kind, "revision_id": str(revision.id)},
+    )
 
     await db.commit()
     settings = get_settings()
@@ -413,6 +446,10 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
     participant.status = "submitted"
     participant.verified_at = datetime.now(timezone.utc)
     participant.submitted_at = datetime.now(timezone.utc)
+    revision = await db.get(OnboardingRevision, participant.revision_id) if participant.revision_id else None
+    if not revision:
+        raise HTTPException(status_code=409, detail="This onboarding case has no active revision")
+    revision.answer_snapshot = {str(participant.id): participant.answers}
     try:
         for document in participant.documents:
             if document.status == "awaiting_completion":
@@ -425,6 +462,15 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
                     values.setdefault("parent_email", participant.email)
                 await materialize_document(db, case=participant.case, document=document, participant=participant, values=values)
         participant.case.status = "awaiting_signatures"
+        revision.status = "awaiting_signatures"
+        await write_audit_entry(
+            db,
+            None,
+            "onboarding.revision_submitted",
+            "onboarding_revision",
+            str(revision.id),
+            {"case_id": str(participant.case_id), "participant_id": str(participant.id)},
+        )
         await db.commit()
     except (FileNotFoundError, RuntimeError) as exc:
         await db.rollback()
@@ -475,8 +521,11 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
         raise HTTPException(status_code=403, detail="The case creator cannot review or approve their own case")
     if payload.document_id and not any(document.id == payload.document_id for document in case.documents):
         raise HTTPException(status_code=404, detail="Document is not part of this case")
-    review = OnboardingReview(case_id=case.id, document_id=payload.document_id, reviewer_id=current_user.user_id, decision=payload.decision, note=payload.note)
+    if case.reviewer_id and case.reviewer_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Only the assigned reviewer can decide this case")
+    review = OnboardingReview(case_id=case.id, document_id=payload.document_id, reviewer_id=current_user.user_id, decision=payload.decision, note=payload.note, revision_id=case.current_revision_id)
     db.add(review)
+    case.reviews.append(review)
     case.reviewer_id = current_user.user_id
     if payload.document_id:
         document = next(document for document in case.documents if document.id == payload.document_id)
@@ -491,6 +540,14 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
         case.status = "approved"
         case.approved_at = datetime.now(timezone.utc)
         case.approved_by = current_user.user_id
+    await write_audit_entry(
+        db,
+        current_user.user_id,
+        "onboarding.review_recorded",
+        "onboarding_case",
+        str(case.id),
+        {"decision": payload.decision, "revision_id": str(case.current_revision_id) if case.current_revision_id else None},
+    )
     await db.commit()
     return _case_response(await _load_case(db, case.id))
 

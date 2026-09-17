@@ -25,6 +25,7 @@ class OnboardingCaseCreate(BaseModel):
     participant: OnboardingParticipantCreate
     fork_id: uuid.UUID | None = None
     fork_name: str | None = Field(default=None, max_length=100)
+    reviewer_id: uuid.UUID | None = None
 
 
 class OnboardingTeammateCreate(BaseModel):
@@ -69,6 +70,7 @@ class OnboardingDocumentResponse(BaseModel):
     evidence_hash: str | None = None
     canonical_hash: str | None = None
     completed_at: datetime | None = None
+    revision_id: uuid.UUID | None = None
 
 
 class OnboardingParticipantResponse(BaseModel):
@@ -108,6 +110,7 @@ class OnboardingCaseResponse(BaseModel):
     case_data: dict = {}
     created_by: uuid.UUID | None = None
     reviewer_id: uuid.UUID | None = None
+    current_revision_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
     participants: list[OnboardingParticipantResponse] = []

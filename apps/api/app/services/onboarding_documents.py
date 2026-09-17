@@ -14,7 +14,7 @@ import fitz
 from lxml import etree
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import OnboardingCase, OnboardingDocument, OnboardingParticipant, SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest
+from app.db.models import OnboardingCase, OnboardingDocument, OnboardingEvidence, OnboardingParticipant, SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest
 
 
 ORG_LEGAL_EMAIL = "legal@gobitsnbytes.org"
@@ -150,6 +150,21 @@ async def materialize_document(db: AsyncSession, *, case: OnboardingCase, docume
     pdf_path = render_docx_to_pdf(filled_path, folder)
     document.source_docx_path = str(source_path); document.filled_docx_path = str(filled_path); document.source_pdf_path = str(pdf_path)
     document.evidence_hash = hashlib.sha256(filled_path.read_bytes()).hexdigest(); document.field_values = values; document.status = "awaiting_signatures"
+    if document.revision_id:
+        for artifact_type, artifact_path in (
+            ("source_docx", source_path),
+            ("filled_docx", filled_path),
+            ("pre_sign_pdf", pdf_path),
+        ):
+            db.add(
+                OnboardingEvidence(
+                    revision_id=document.revision_id,
+                    document_id=document.id,
+                    artifact_type=artifact_type,
+                    storage_key=str(artifact_path),
+                    sha256=hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
+                )
+            )
     signer_role = "guardian" if participant.role == "parent" else "lead" if document.document_key.startswith("fork_") else "subject"
     request = await create_signature_request(db, case=case, document=document, pdf_path=pdf_path, signer_specs=[{"name": participant.name, "email": participant.email, "role": signer_role}], values=values)
     document.signature_request_id = request.id

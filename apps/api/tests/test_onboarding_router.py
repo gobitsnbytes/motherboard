@@ -1,10 +1,12 @@
 from httpx import ASGITransport, AsyncClient
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.config import get_settings
 from app.main import app
+from app.db.models import AuditLog, User
 from conftest import request_as
 
 
@@ -19,7 +21,7 @@ def override_db(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_volunteer_case_creates_scoped_portal(super_admin):
+async def test_volunteer_case_creates_scoped_portal(super_admin, db_session):
     get_settings().smtp_host = None
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await request_as(
@@ -39,11 +41,68 @@ async def test_volunteer_case_creates_scoped_portal(super_admin):
         )
         assert response.status_code == 201, response.text
         body = response.json()
+        assert body["current_revision_id"]
+        assert all(document["revision_id"] == body["current_revision_id"] for document in body["documents"])
         portal_url = body["participants"][0]["portal_url"]
         token = portal_url.rsplit("/", 1)[-1]
         portal = await client.get(f"/api/onboarding/public/{token}")
         assert portal.status_code == 200
         assert portal.json()["participant"]["email"] == "asha@example.com"
+        audit_actions = (await db_session.execute(select(AuditLog.action))).scalars().all()
+        assert "onboarding.case_created" in audit_actions
+
+
+@pytest.mark.asyncio
+async def test_assigned_reviewer_is_independent_and_records_the_active_revision(super_admin, db_session):
+    get_settings().smtp_host = None
+    reviewer = User(display_name="Independent Reviewer", is_super_admin=True)
+    db_session.add(reviewer)
+    await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        self_assignment = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "volunteer",
+                "title": "Invalid reviewer",
+                "reviewer_id": str(super_admin.id),
+                "participant": {"name": "Asha Example", "email": "asha@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        assert self_assignment.status_code == 422
+        created = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "volunteer",
+                "title": "Independent review",
+                "reviewer_id": str(reviewer.id),
+                "participant": {"name": "Asha Example", "email": "asha@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        assert created.status_code == 201, created.text
+        case_id = created.json()["id"]
+        reviewed = await request_as(
+            client,
+            reviewer.id,
+            "POST",
+            f"/api/onboarding/cases/{case_id}/review",
+            json={"decision": "changes_requested", "note": "Please correct the packet details."},
+        )
+        assert reviewed.status_code == 200, reviewed.text
+        assert reviewed.json()["reviews"][0]["decision"] == "changes_requested"
+        blocked = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            f"/api/onboarding/cases/{case_id}/review",
+            json={"decision": "changes_requested", "note": "Creator must not review."},
+        )
+        assert blocked.status_code == 403
 
 
 @pytest.mark.asyncio
