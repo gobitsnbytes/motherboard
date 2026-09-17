@@ -193,6 +193,13 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 ## 7. Session Log
 
+### 2026-09-17 -- Onboarding pre-release design refresh
+
+- User approved one integrated release covering adult, minor/guardian, and Fork onboarding on the `prod` worktree (`D:\\motherboard-prod`).
+- Current dirty onboarding changes are unreviewed input. They contain a fuzzy DOCX anchor implementation, paragraph-text rewriting, fabricated signature positions, and a CI change that narrows the API suite; all conflict with the approved pre-release PRD and must be replaced or reverted in scoped commits.
+- Added the approved implementation design at `docs/superpowers/specs/2026-09-17-onboarding-pre-release-design.md`. It defines revisioned cases, exact versioned markers, verified PDF anchors, guardian/authority controls, immutable evidence, command authorization, and the release test contract.
+- No deployment, migration execution, production-data modification, or template activation has occurred. Legal wording, Board authority, and retention policy remain external ship gates.
+
 ### Pre-Production (S1–S33, up to 2026-06-25)
 - Scaffolding, Phase 1 (13 ORM tables), Phase 2 (IAM), Phase 3 (EventBus), Phase 4 (Plugin SDK), Phase 7 (Finance shell), VPS deployment, Nginx SSL.
 
