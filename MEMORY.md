@@ -286,3 +286,7 @@ Comprehensive read-only production audits (S62–S63) established the following 
 - Added a staff-authorized cancellation endpoint for non-terminal onboarding cases. It requires a recorded reason, expires every participant portal link, voids pending signature envelopes, clears OTP state, marks the current revision revoked, and writes an IAM audit event.
 - Replaced persisted plaintext signature OTPs with recipient-bound HMAC digests, bounded failed-attempt tracking, an expiring verified session, and OTP-state clearing on cancellation or envelope voiding. Submission now enforces recipient-owned required fields and signing order.
 - Added a forward-only Alembic migration for the OTP state. Focused onboarding routing tests pass; the broader signature test now uses a valid fixture image and explicit recipient/field binding.
+
+### 2026-09-18 — Production Onboarding Removal
+
+- At the user's explicit request, removed the confirmed `CTO Onboarding - HQ - Akshat` case (`0170213c-450e-48f2-916b-38f6e9b5cefc`) directly from production PostgreSQL after a read-only identity and linkage check. The linked pending signature envelope (`39c0a845-4e1b-4044-a6cf-cc62d6002d29`) was voided first; no user account or unrelated audit record was deleted.
