@@ -31,6 +31,7 @@ from app.schemas.onboarding import (
     OnboardingCertificateCreate,
     OnboardingDocumentResponse,
     OnboardingParticipantResponse,
+    OnboardingParticipantEmailUpdate,
     OnboardingPortalResponse,
     OnboardingPortalSubmit,
     OnboardingReviewCreate,
@@ -280,6 +281,55 @@ async def get_case(case_id: uuid.UUID, db: DbSession, current_user: CurrentUserD
     await _sync_signature_states(db, case)
     await db.commit()
     return _case_response(case)
+
+
+@router.patch("/cases/{case_id}/participants/{participant_id}/email")
+async def update_participant_email(
+    case_id: uuid.UUID,
+    participant_id: uuid.UUID,
+    payload: OnboardingParticipantEmailUpdate,
+    background_tasks: BackgroundTasks,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> dict[str, str]:
+    """Correct an untouched primary participant's email and rotate their portal link."""
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+    participant = next((item for item in case.participants if item.id == participant_id), None)
+    if not participant:
+        raise HTTPException(status_code=404, detail="Onboarding participant not found")
+    if participant.role != "participant":
+        raise HTTPException(status_code=403, detail="Only the primary volunteer or fork lead email can be updated here")
+    if not participant.documents or participant.status != "invited" or any(
+        document.status != "awaiting_completion" or document.signature_request_id
+        for document in participant.documents
+    ):
+        raise HTTPException(status_code=409, detail="Email can only be updated before this participant starts signing")
+    duplicate = (
+        await db.execute(
+            select(OnboardingParticipant.id).where(
+                OnboardingParticipant.case_id == case.id,
+                OnboardingParticipant.email == str(payload.email),
+                OnboardingParticipant.id != participant.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="That email is already used by another participant in this case")
+
+    token, token_hash = new_portal_token()
+    participant.email = str(payload.email)
+    participant.portal_token_hash = token_hash
+    participant.token_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    await db.commit()
+
+    settings = get_settings()
+    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+        from app.routers.meetings import send_smtp_email
+
+        subject, body = _invite_email(participant.name, case.title, token)
+        background_tasks.add_task(send_smtp_email, settings, [participant.email], subject, body)
+    return {"participant_id": str(participant.id), "email": participant.email, "portal_url": _portal_url(token)}
 
 
 @router.get("/public/{token}", response_model=OnboardingPortalResponse)
