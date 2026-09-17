@@ -8,6 +8,7 @@ from app.services.onboarding_documents import (
     hash_portal_token,
     manifest_for,
     new_portal_token,
+    template_root,
     validate_age,
 )
 
@@ -27,3 +28,9 @@ def test_portal_tokens_are_hashed_and_manifest_is_complete():
     assert manifest_for("volunteer")["template"] == "1_Volunteer_Form.docx"
     with pytest.raises(ValueError):
         manifest_for("unknown")
+
+
+def test_every_registered_onboarding_template_is_packaged_with_the_api():
+    root = template_root()
+    assert root.name == "templates"
+    assert all((root / manifest["template"]).is_file() for manifest in TEMPLATE_MANIFEST.values())
