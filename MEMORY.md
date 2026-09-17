@@ -290,3 +290,8 @@ Comprehensive read-only production audits (S62–S63) established the following 
 ### 2026-09-18 — Production Onboarding Removal
 
 - At the user's explicit request, removed the confirmed `CTO Onboarding - HQ - Akshat` case (`0170213c-450e-48f2-916b-38f6e9b5cefc`) directly from production PostgreSQL after a read-only identity and linkage check. The linked pending signature envelope (`39c0a845-4e1b-4044-a6cf-cc62d6002d29`) was voided first; no user account or unrelated audit record was deleted.
+
+### 2026-09-18 — Volunteer Template Production Hotfix
+
+- Repaired the registered volunteer DOCX on the live `prod` checkout. The original form lacked the five exact onboarding markers, so submissions failed closed. Added a dedicated digital-record block containing every marker and the subject-signature anchor, pinned its new SHA-256 hash, and verified both materialization and PDF rendering before restarting `bnb-api`.
+- Confirmed the new CTO onboarding case now has a submitted participant and one pending signature envelope. The API health endpoint returns `ok`; GitHub `prod` includes the server hotfix as `0807615`.
