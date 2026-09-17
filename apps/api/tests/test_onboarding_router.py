@@ -73,3 +73,69 @@ async def test_minor_requires_parent_and_underage_is_rejected(super_admin):
             },
         )
         assert underage.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_staff_can_correct_untouched_volunteer_email_and_rotates_portal_link(super_admin):
+    get_settings().smtp_host = None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "volunteer",
+                "title": "Email correction",
+                "participant": {"name": "Asha Example", "email": "wrong@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        body = created.json()
+        old_url = body["participants"][0]["portal_url"]
+        old_token = old_url.rsplit("/", 1)[-1]
+        updated = await request_as(
+            client,
+            super_admin.id,
+            "PATCH",
+            f"/api/onboarding/cases/{body['id']}/participants/{body['participants'][0]['id']}/email",
+            json={"email": "correct@example.com"},
+        )
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["email"] == "correct@example.com"
+        old_portal = await client.get(f"/api/onboarding/public/{old_token}")
+        assert old_portal.status_code == 404
+        new_token = updated.json()["portal_url"].rsplit("/", 1)[-1]
+        portal = await client.get(f"/api/onboarding/public/{new_token}")
+        assert portal.status_code == 200
+        assert portal.json()["participant"]["email"] == "correct@example.com"
+
+
+@pytest.mark.asyncio
+async def test_staff_cannot_correct_email_after_packet_submission(super_admin):
+    get_settings().smtp_host = None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "volunteer",
+                "title": "Started packet",
+                "participant": {"name": "Asha Example", "email": "asha@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        body = created.json()
+        token = body["participants"][0]["portal_url"].rsplit("/", 1)[-1]
+        submitted = await client.post(f"/api/onboarding/public/{token}/submit", json={"answers": {}, "confirmed_identity": True})
+        if submitted.status_code == 503:
+            pytest.skip("DOCX renderer is unavailable in this test environment")
+        assert submitted.status_code == 200, submitted.text
+        updated = await request_as(
+            client,
+            super_admin.id,
+            "PATCH",
+            f"/api/onboarding/cases/{body['id']}/participants/{body['participants'][0]['id']}/email",
+            json={"email": "correct@example.com"},
+        )
+        assert updated.status_code == 409

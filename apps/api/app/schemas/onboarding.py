@@ -34,6 +34,10 @@ class OnboardingTeammateCreate(BaseModel):
     parent: OnboardingParentCreate | None = None
 
 
+class OnboardingParticipantEmailUpdate(BaseModel):
+    email: EmailStr
+
+
 class OnboardingPortalSubmit(BaseModel):
     answers: dict[str, str | bool | int | None] = Field(default_factory=dict)
     confirmed_identity: bool = False
