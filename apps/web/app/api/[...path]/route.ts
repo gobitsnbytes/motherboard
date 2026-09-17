@@ -1,5 +1,6 @@
 import { auth } from "../../../lib/auth";
 import { createInternalAuthHeaders } from "../../../lib/internal-auth";
+import { isPublicApiRoute } from "../../../lib/public-api";
 
 export const runtime = "nodejs";
 
@@ -28,14 +29,7 @@ async function proxy(request: Request, context: RouteContext) {
   const { path } = await context.params;
   const inboundPath = `/${path.join("/")}`;
 
-  // Public routes (signing portal & verification engine) do not require Next.js session auth
-  const isPublicRoute =
-    (path[0] === "signatures" && (path[1] === "sign" || path[1] === "verify")) ||
-    (path[0] === "forms" && path[1] === "public") ||
-    (path[0] === "onboarding" && path[1] === "public") ||
-    (path[0] === "calendar" && path[1] === "public") ||
-    (path[0] === "calendar" && path[1] === "webhooks" && path[2] === "calcom") ||
-    inboundPath === "/health";
+  const isPublicRoute = isPublicApiRoute(path, inboundPath);
 
   const session = await auth();
   const userId = session?.user?.internalUserId;
