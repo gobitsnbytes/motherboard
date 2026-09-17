@@ -47,6 +47,13 @@ if [ "$PREV_COMMIT" = "$NEW_COMMIT" ]; then
     echo "--> No new code changes. Verifying dependencies and restarting..."
 fi
 
+# 1.4. Install the production DOCX renderer used by digital onboarding packets.
+if ! command -v soffice >/dev/null 2>&1 && ! command -v libreoffice >/dev/null 2>&1; then
+    echo "--> Installing LibreOffice Writer for onboarding document rendering..."
+    sudo apt-get update
+    sudo apt-get install -y libreoffice-writer
+fi
+
 # 1.5. Install monorepo JS dependencies
 echo "--> Installing monorepo Node/Bun dependencies..."
 sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" || rollback

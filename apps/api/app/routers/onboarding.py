@@ -332,6 +332,41 @@ async def update_participant_email(
     return {"participant_id": str(participant.id), "email": participant.email, "portal_url": _portal_url(token)}
 
 
+@router.post("/cases/{case_id}/participants/{participant_id}/resend")
+async def resend_participant_invite(
+    case_id: uuid.UUID,
+    participant_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> dict[str, str | bool]:
+    """Send a fresh, rotated portal link to an invited onboarding participant."""
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+    participant = next((item for item in case.participants if item.id == participant_id), None)
+    if not participant:
+        raise HTTPException(status_code=404, detail="Onboarding participant not found")
+    if not participant.documents or participant.status != "invited" or any(
+        document.status != "awaiting_completion" or document.signature_request_id
+        for document in participant.documents
+    ):
+        raise HTTPException(status_code=409, detail="Only untouched onboarding invites can be resent")
+
+    token, token_hash = new_portal_token()
+    participant.portal_token_hash = token_hash
+    participant.token_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    await db.commit()
+
+    settings = get_settings()
+    email_sent = bool(settings.smtp_host and settings.smtp_user and settings.smtp_pass)
+    if email_sent:
+        from app.routers.meetings import send_smtp_email
+
+        subject, body = _invite_email(participant.name, case.title, token)
+        background_tasks.add_task(send_smtp_email, settings, [participant.email], subject, body)
+    return {"participant_id": str(participant.id), "email": participant.email, "portal_url": _portal_url(token), "email_sent": email_sent}
+
+
 @router.get("/public/{token}", response_model=OnboardingPortalResponse)
 async def get_portal(token: str, db: DbSession) -> OnboardingPortalResponse:
     participant = await _find_portal_participant(db, token)

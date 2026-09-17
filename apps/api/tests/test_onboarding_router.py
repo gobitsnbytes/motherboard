@@ -111,6 +111,37 @@ async def test_staff_can_correct_untouched_volunteer_email_and_rotates_portal_li
 
 
 @pytest.mark.asyncio
+async def test_staff_can_resend_untouched_invite_and_rotates_portal_link(super_admin):
+    get_settings().smtp_host = None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "fork",
+                "title": "Fork invite resend",
+                "fork_name": "Chennai",
+                "participant": {"name": "Asha Example", "email": "asha@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        body = created.json()
+        old_token = body["participants"][0]["portal_url"].rsplit("/", 1)[-1]
+        resent = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            f"/api/onboarding/cases/{body['id']}/participants/{body['participants'][0]['id']}/resend",
+        )
+        assert resent.status_code == 200, resent.text
+        assert resent.json()["email_sent"] is False
+        assert (await client.get(f"/api/onboarding/public/{old_token}")).status_code == 404
+        new_token = resent.json()["portal_url"].rsplit("/", 1)[-1]
+        assert (await client.get(f"/api/onboarding/public/{new_token}")).status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_staff_cannot_correct_email_after_packet_submission(super_admin):
     get_settings().smtp_host = None
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

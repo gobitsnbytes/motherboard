@@ -14,7 +14,7 @@ echo "--> Updating system packages..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get upgrade -y
-apt-get install -y git curl ufw fail2ban software-properties-common build-essential libpq-dev
+apt-get install -y git curl ufw fail2ban software-properties-common build-essential libpq-dev libreoffice-writer
 
 # 2. Install Python 3.12
 echo "--> Installing Python 3.12..."
