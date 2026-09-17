@@ -38,7 +38,7 @@ jobs:
         run: |
           uv sync --project apps/api --frozen
 
-      - name: Run Pytest
+      - name: Run backend tests
         working-directory: apps/api
         env:
           # If real secrets are added in GitHub, they will be loaded. Otherwise fallback to SQLite.
@@ -52,7 +52,7 @@ jobs:
           API_INTERNAL_SECRET: ${{ secrets.API_INTERNAL_SECRET || 'mock_internal_secret' }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'mock_nextauth_secret' }}
         run: |
-          uv run python -m pytest
+          uv run python -m pytest -q
 
   deploy:
     name: Deploy to VPS

@@ -39,7 +39,6 @@ from app.schemas.onboarding import (
 )
 from app.services.onboarding_documents import (
     TEMPLATE_MANIFEST,
-    _append_evidence_section,
     create_signature_request,
     hash_portal_token,
     materialize_document,
@@ -400,21 +399,30 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
         raise HTTPException(status_code=422, detail="Confirm that the information belongs to you before submitting")
     if participant.status == "submitted" and participant.submitted_at:
         raise HTTPException(status_code=409, detail="This onboarding packet has already been submitted")
-    if len(payload.answers) > 40 or any(len(key) > 100 or (isinstance(value, str) and len(value) > 2000) for key, value in payload.answers.items()):
+    document_keys = {document.document_key for document in participant.documents}
+    if set(payload.document_answers) - document_keys:
+        raise HTTPException(status_code=422, detail="Answers include a document not assigned to this portal")
+    for document_key, answers in payload.document_answers.items():
+        allowed = {field["key"] for field in TEMPLATE_MANIFEST[document_key]["fields"]}
+        if set(answers) - allowed:
+            raise HTTPException(status_code=422, detail="Answers include an unknown template field")
+    all_answers = [item for answers in payload.document_answers.values() for item in answers.items()]
+    if len(payload.answers) + len(all_answers) > 120 or any(len(key) > 100 or (isinstance(value, str) and len(value) > 2000) for key, value in [*payload.answers.items(), *all_answers]):
         raise HTTPException(status_code=422, detail="Onboarding answers exceed the allowed size")
-    values = dict(payload.answers)
-    values.setdefault("full_name", participant.name)
-    values.setdefault("date_of_birth", participant.date_of_birth)
-    if participant.role == "parent":
-        values.setdefault("parent_name", participant.name)
-        values.setdefault("parent_email", participant.email)
-    participant.answers = values
+    participant.answers = payload.document_answers or payload.answers
     participant.status = "submitted"
     participant.verified_at = datetime.now(timezone.utc)
     participant.submitted_at = datetime.now(timezone.utc)
     try:
         for document in participant.documents:
             if document.status == "awaiting_completion":
+                values = dict(payload.document_answers.get(document.document_key, payload.answers))
+                values.setdefault("full_name", participant.name)
+                values.setdefault("lead_name", participant.name)
+                values.setdefault("date_of_birth", participant.date_of_birth)
+                if participant.role == "parent":
+                    values.setdefault("parent_name", participant.name)
+                    values.setdefault("parent_email", participant.email)
                 await materialize_document(db, case=participant.case, document=document, participant=participant, values=values)
         participant.case.status = "awaiting_signatures"
         await db.commit()
@@ -489,33 +497,4 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
 
 @router.post("/cases/{case_id}/certificate")
 async def create_certificate(case_id: uuid.UUID, payload: OnboardingCertificateCreate, db: DbSession, current_user: CurrentUserDep) -> dict:
-    await require_permission(db, current_user, "onboarding.certificate")
-    case = await _load_case(db, case_id)
-    if case.kind != "fork" or case.status != "approved":
-        raise HTTPException(status_code=409, detail="A fork certificate requires an approved fork onboarding case")
-    if any(document.document_key == "fork_certificate" for document in case.documents):
-        raise HTTPException(status_code=409, detail="A fork certificate has already been initiated")
-    lead = next((participant for participant in case.participants if participant.role == "participant"), None)
-    if not lead:
-        raise HTTPException(status_code=409, detail="Fork lead is missing")
-    document = OnboardingDocument(case_id=case.id, participant_id=None, document_key="fork_certificate", template_filename=TEMPLATE_MANIFEST["fork_certificate"]["template"], status="awaiting_signatures")
-    db.add(document)
-    await db.flush()
-    folder = storage_root() / str(case.id) / str(document.id)
-    folder.mkdir(parents=True, exist_ok=True)
-    template = template_root() / TEMPLATE_MANIFEST["fork_certificate"]["template"]
-    source = folder / template.name
-    filled = folder / f"filled_{template.name}"
-    shutil.copyfile(template, source)
-    values = {"fork_name": case.case_data.get("fork_name") or "Fork", "lead_name": lead.name, "directors": f"{payload.director_one_name}; {payload.director_two_name}", "certificate_date": datetime.now(timezone.utc).date().isoformat()}
-    _append_evidence_section(source, filled, values)
-    pdf = render_docx_to_pdf(filled, folder)
-    document.source_docx_path = str(source)
-    document.filled_docx_path = str(filled)
-    document.source_pdf_path = str(pdf)
-    document.evidence_hash = hashlib.sha256(filled.read_bytes()).hexdigest()
-    document.field_values = values
-    request = await create_signature_request(db, case=case, document=document, pdf_path=pdf, signer_specs=[{"name": payload.director_one_name, "email": str(payload.director_one_email)}, {"name": payload.director_two_name, "email": str(payload.director_two_email)}], values=values, include_legal=True)
-    document.signature_request_id = request.id
-    await db.commit()
-    return {"case_id": str(case.id), "document_id": str(document.id), "signature_request_id": str(request.id), "status": document.status}
+    raise HTTPException(status_code=409, detail="Fork recognition requires a registered template version and Board authority record")
