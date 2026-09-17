@@ -64,7 +64,7 @@ def _portal_url(token: str) -> str:
 def _document_response(document: OnboardingDocument, request: SignatureRequest | None = None) -> OnboardingDocumentResponse:
     url = None
     if request:
-        signer = next((recipient for recipient in request.recipients if recipient.role == "signer"), None)
+        signer = next((recipient for recipient in request.recipients if recipient.role in {"signer", "subject", "guardian", "lead"}), None)
         if signer:
             url = f"{get_settings().nextauth_url}/sign/{signer.access_token}"
     return OnboardingDocumentResponse(

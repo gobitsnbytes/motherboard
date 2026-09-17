@@ -100,7 +100,7 @@ export default function OnboardingPortalClient({ token }: { token: string }) {
             {portal.documents.map((document) => (
               <div key={document.id} className="flex flex-col gap-3 border-2 border-zinc-300 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div><p className="font-black uppercase">{document.document_key.replaceAll("_", " ")}</p><p className="font-mono text-xs text-zinc-600">Status: {document.status}</p></div>
-                {document.signature_url ? <Link href={document.signature_url} className="border-2 border-black bg-[#3c0a12] px-4 py-2 text-center font-mono text-xs font-black uppercase text-white">Open signature window</Link> : <span className="font-mono text-xs text-zinc-500">Complete the portal form first</span>}
+                {document.signature_url ? <Link href={document.signature_url} className="border-2 border-black bg-[#3c0a12] px-4 py-2 text-center font-mono text-xs font-black uppercase text-white">Sign document</Link> : document.status === "awaiting_signatures" ? <span className="font-mono text-xs text-zinc-600">Your details are saved. The signing link is being prepared.</span> : document.status === "signed" || document.status === "accepted" ? <span className="font-mono text-xs text-emerald-800">Signature received</span> : <span className="font-mono text-xs text-zinc-500">Complete the portal form first</span>}
               </div>
             ))}
           </div>
