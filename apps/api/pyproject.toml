@@ -17,8 +17,6 @@ dependencies = [
   "httpx>=0.27.0",
   "redis>=5.0.6",
   "apscheduler>=3.10.4",
-  "pytest>=9.1.0",
-  "pytest-asyncio>=1.4.0",
   "aiosqlite>=0.20.0",
   "google-genai>=2.10.0",
   "python-multipart>=0.0.32",
@@ -28,6 +26,14 @@ dependencies = [
   "pymupdf>=1.24.0",
   "python-docx>=1.1.0",
   "qenlo==0.1.0a5",
+]
+
+[dependency-groups]
+# Test-only. deploy.sh syncs with --no-dev, so none of this reaches the VPS.
+dev = [
+  "pytest>=9.1.0",
+  "pytest-asyncio>=1.4.0",
+  "pytest-sugar>=1.0.0",
 ]
 
 [tool.fastapi]
