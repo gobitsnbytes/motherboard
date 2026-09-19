@@ -1,313 +1,67 @@
-# Motherboard Operations Platform — Agent Memory
+# Motherboard agent memory
 
-## 2026-09-19 — Semantic OOXML onboarding editor
+Keep this file short. Record only current architecture, durable decisions, active risks, and commands that future work needs. Git history is the session log.
 
-- Implementation is being performed in the existing `D:\motherboard-prod` worktree on branch `prod`.
-- User refined the workflow to a GitHub PR model: HQ creates field/block review threads, requests changes, participants edit and resubmit from their portal, and all prior revisions remain auditable.
-- Form 3 is HQ-issued only after the fork packet audit and document review are approved. Final PDF compilation is an explicit HQ action after required signatures, never automatic.
-- Accessibility, faithful rendering, easy form completion, review state management, and robust final compilation are acceptance gates.
+## Current state
 
-Persistent log of tasks, architectural decisions, workspace status, and audit findings. Every agent invocation maintains this document.
+- Production branches from `prod`; `main` is not the deployment branch.
+- Public web: `https://motherboard.gobitsnbytes.org`; API: `https://api.gobitsnbytes.org`.
+- Stack: Bun/Turborepo, Next.js 15 + React 19, FastAPI/Python 3.12, async SQLAlchemy/Alembic, PostgreSQL 16, Redis 7.
+- GitHub Actions deploys the API and bot to the VPS on relevant `prod` changes. Vercel owns web deployment.
+- Do not store secrets, API keys, raw outreach rows, uploaded documents, rendered artifacts, or runtime databases in Git.
 
----
+## Commands
 
-## 2026-09-09 — IAM Overhaul Discovery
-
-- User identified IAM as the first critical area for the 100-person / 30-city rollout.
-- Focused IAM tests currently pass (`12 passed`), but coverage misses production risks.
-- Confirmed concrete issues: expired memberships are not filtered by principal resolution; API-key fallback binds requests to the first super-admin; grant payloads lack strict principal/permission validation; `batch_can` has ambiguous per-key semantics; several IAM mutations lack audit writes; group management is duplicated under `/api/iam/*` and `/api/groups/*`.
-- Working authorization assumption: city/fork-scoped RBAC, aligned with `docs/techspec.md` scopes such as `fork:{city}` and `fork:{city}:{track}`. Users may belong to multiple cities; explicit HQ/executive roles may be global.
-- Proposed IAM contract: one canonical `/api/iam` surface, active/non-expired principal resolution, explicit global vs scoped permissions, break-glass super-admin only, transactional audit for every mutation, and Discord sync that preserves manual memberships.
-
-### IAM Foundation Slice
-
-- Filtered expired memberships out of principal resolution.
-- Constrained grant principal types and permission-key shape at the Pydantic boundary.
-- Added grant reference validation and creation audit entries.
-- Replaced API-key binding to the first super-admin with an explicit `API_SERVICE_USER_ID`; missing, invalid, nonexistent, or super-admin service identities fail closed.
-- Added regression coverage for expired memberships, invalid grant permissions, and service-auth isolation.
-- Verification: focused IAM/auth suite `17 passed`; full backend suite previously `100 passed` before the final service-identity tightening.
-
-### IAM Mutation Boundary Slice
-
-- Added strict permission and group input validation.
-- Added existence/active-state checks for grant principals, group membership targets, and Discord mapping groups.
-- Rejected membership expiry timestamps in the past.
-- Added audit entries for permission creation, group creation, membership creation, grant creation, and Discord mapping upserts.
-- Verification: focused IAM/auth suite `20 passed`; full backend suite `101 passed`.
-
-### IAM Policy Batch Semantics
-
-- Changed `batch_can` to return an independent result for every `(permission_key, resource_scope)` pair instead of collapsing different city scopes into one boolean.
-- Updated the policy regression test to assert allow for `res_1` and deny for `res_2` under the same permission key.
-- Verification: IAM policy suite `7 passed`.
-
-### IAM Service Identity Failure Handling
-
-- Inactive configured service users now return 401 instead of leaking a `ValueError` as a 500.
-- Verification: API-key authentication suite `8 passed`.
-
-### Phase Verification
-
-- Production-oriented review found no diff-format errors or new unhandled policy paths in the committed IAM/auth slices.
-- Final full backend verification after all current fixes: `103 passed`.
-- Current working tree still contains pre-existing untracked runtime artifacts (`.vercel/`, `apps/api/data/`, `apps/api/repro_temp.db`, `apps/bot/`, `apps/web/.vercel/`, `opencode.json`) that have not been touched or staged.
-
-### IAM Authentication Ambiguity
-
-- Mixed API-key and internal-signature credentials are now rejected with a 400 instead of silently selecting the API-key path.
-- Verification: API-key authentication suite `7 passed`.
-
-### IAM Global-Scope Leak Fix
-
-- Fixed `can(permission, None)` so a city/resource-scoped grant cannot satisfy a global permission check; only an explicit unscoped grant can do that.
-- Added regression coverage for the scoped-grant-as-global case.
-- Verification: IAM policy suite `7 passed`.
-
-
-## 1. Project Status
-
-- **Current Phase:** All Phases Completed ✅ (Phases 0–11)
-- **Production URL:** `https://motherboard.gobitsnbytes.org` · **API:** `https://api.gobitsnbytes.org`
-- **Workspace Hub:** `https://workspace.gobitsnbytes.org` (Nextcloud Suite)
-- **Latest Test Baseline:** 247/247 pytest passing (100% green), Next.js 15 build clean (31/31 routes).
-
-### Milestone Checklist
-
-- [x] **Phase 0: Scaffolding** ✅ — Bun/Turborepo workspace + FastAPI (Python 3.12, uv) monorepo.
-- [x] **Phase 1: DB Schema** ✅ — SQLAlchemy 2.0 ORM (13 tables), Alembic, idempotent seeder, 8 active routers, auto-migrate lifespan.
-- [x] **Phase 2: IAM Module** ✅ — Principal resolver, policy evaluator (`can`/`require_permission`/`batch_can`), audit writer, Pydantic schemas, visual hierarchy tree.
-- [x] **Phase 3: Event Bus** ✅ — Redis 7 pub/sub EventBus, typed schemas, graceful fallback.
-- [x] **Phase 4: Plugin SDK** ✅ — Dynamic loader, Pydantic lifecycle contracts, active manifest API, permission seeding, route isolation.
-- [x] **Phase 5: Provisioning Worker** ✅ — Discord sync worker, APScheduler periodic sync, REST sync routes.
-- [x] **Phase 6: Shared UI (`@bnb/ui`)** ✅ — 38 Neobrutalism React components (barrel exports avoided for SSR safety).
-- [x] **Phase 7: Web Dashboard (`apps/web`)** ✅ — Next.js 15 App Router, NextAuth v5 (Discord OAuth), double-entry finance ledger, dynamic plugin loader.
-- [x] **Phase 8: Core Plugins** ✅ — `email_server`, `minecraft_server` with real telemetry & admin permission gates.
-- [x] **Phase 9: Docker & Deployment** ✅ — Multi-stage Dockerfiles, Docker Compose, automated VPS deploy script (`deploy.sh`), Nginx reverse proxy, SSL.
-- [x] **Phase 10: chrono ↔ Motherboard Unification** ✅ — Single meetings backend, `AvailabilityGrid`, `ChronoHostGrid`, `ChronoBookingPanel`, RFC-2446 email RSVP, agenda calendar tab.
-- [x] **Phase 11: Cockpit Architecture & Neobrutalism Overhaul** ✅ — Swiss Neobrutalism design system (Anton/Inter/JetBrains Mono), Cockpit Debugger (`Ctrl+Shift+D`), Agent Ops Drawer, `bnb-signatures` digital contract engine, Dottr-style Legal Agent.
-
----
-
-## 2. Architecture & Monorepo Layout
-
-Hybrid monorepo managed via Turborepo (`"packageManager": "bun@1.3.11"`):
-
-```
-apps/
-  web/          — Next.js 15 (React 19, Tailwind, Framer Motion, Neobrutalism UI)
-  api/          — FastAPI backend (Python 3.12, uv, SQLAlchemy 2.0 async, Alembic)
-    app/db/       — ORM models, Alembic migrations, idempotent seeders
-    app/iam/      — Principal resolver, policy evaluator, audit logger
-    app/events/   — Redis EventBus pub/sub
-    app/provisioning/ — Discord sync worker & background scheduler
-    app/plugin_sdk/  — Dynamic plugin loader & manifest validator
-    app/routers/  — auth, iam, finance, sync, users, groups, forks, audit, meetings, signatures, contract_assistant, dyslexic, plugins
-    app/services/ — signature_engine, legal_agent, razorpayx_adapter, llm_client
-  bot/          — Discord Bot clerk (@bnb/bot, Bun, bun:sqlite, signed HMAC API client)
-packages/
-  ui/           — @bnb/ui (38 Neobrutalism components)
-plugins/        — email_server, minecraft_server, sample_plugin
+```powershell
+bun install --frozen-lockfile
+bun run typecheck
+bun run lint
+bun run build
+uv sync --project apps/api --frozen
+uv run --project apps/api python -m pytest apps/api/tests
 ```
 
-- **Databases:** PostgreSQL 16 (Alembic head: `a9c4e7f1b2d6`) · Redis 7 · Local `bot.db` (`bun:sqlite`, ephemeral bot tables only).
-- **Auth:** NextAuth v5 (Discord OAuth) → fire-and-forget upsert to FastAPI `/api/auth/upsert`. Public signing/verification routes bypass NextAuth.
-- **Mail & Relay:** Postfix/Dovecot on VPS + Brevo SMTP relay fallback (`smtp-relay.brevo.com:587`). Mandatory CC to `gobitsnbytes@gmail.com` across all systems.
+Focused API tests should run from `apps/api` when their imports or relative data paths require it.
 
----
+## Repository map
 
-## 3. Key Learnings & Engineering Gotchas
+- `apps/web`: Next.js dashboard and public portals.
+- `apps/api`: FastAPI application, routers, services, models, migrations, and tests.
+- `apps/bot`: Discord bot and signed Motherboard API client.
+- `packages/ui`: shared React components.
+- `plugins`: optional Motherboard plugins.
+- `data/company-knowledge`: legal/OKF knowledge source.
+- `templates`: onboarding DOCX sources copied by `docker/api.Dockerfile`.
+- `deploy/api`: VPS setup, systemd, Nginx, and rollout scripts.
 
-1. **Turborepo Workspace Resolution:** Root `package.json` must explicitly specify `"packageManager": "bun@1.3.11"`.
-2. **SSR Barrel Import Safety:** `@bnb/ui` barrel imports cause `d.createContext` errors with Next.js `transpilePackages` — use direct component imports or Tailwind utility tokens.
-3. **IAM Polymorphic Grants:** `grants` table uses polymorphic `principal_id` (not foreign keys) to unify user and group grants in a single table.
-4. **FastAPI Plugin Route Cloning:** APIRouters resolve route dependencies lazily. To enforce plugin permissions without mutating source routers or causing accumulation across reloads, the loader mounts a shallow clone (`copy.copy`) of each `APIRoute` with injected IAM dependencies.
-5. **aiosqlite / Pytest Event-Loop Isolation:** Shared SQLAlchemy engines across pytest-asyncio function-scoped loops cause connection leakage and rotating StaleDataErrors. Tests creating isolated transactions must use per-test `create_async_engine(..., poolclass=NullPool)` and explicitly dispose at teardown.
-6. **Timezone Normalization (SQLite vs Postgres):** `DateTime(timezone=True)` reads back naive on `aiosqlite`. Normalize with `.replace(tzinfo=timezone.utc)` before Python comparisons.
-7. **Database Decoupling:** The Discord bot does not query Postgres directly in production (`usePostgres = false`). It proxies shared state via signed HMAC requests (`callMotherboard`) to Motherboard APIs.
-8. **Dual Approval Persistence Pattern:** Money requests >= ₹1L require two distinct approvers (OKF Rule 35). Approvals are persisted as append-only `AuditLog` rows (`action=finance.request.approval_recorded`) and counted via `COUNT(DISTINCT actor_id)`.
+## Durable contracts and gotchas
 
----
+- IAM is city/resource scoped. A scoped grant must never satisfy a global permission check. Service auth uses explicit `API_SERVICE_USER_ID` and fails closed.
+- `grants.principal_id` is intentionally polymorphic across users and groups.
+- Plugin routers are shallow-cloned before IAM dependencies are injected; mutating source routers accumulates dependencies across reloads.
+- Async SQLite tests need per-test engines with `NullPool`; SQLite returns naive datetimes, so normalize to UTC before comparisons.
+- The bot does not read production PostgreSQL directly. Shared state crosses signed HMAC API calls.
+- Avoid `@bnb/ui` barrel imports in server-rendered code; direct imports prevent React context failures.
+- Finance requests at or above INR 1 lakh require two distinct approvers and prohibit self-approval.
+- Onboarding Forms 1-5 are the active package. Form 6 is a separate minor event-consent flow. Generated onboarding files live under `apps/api/data/onboarding/` and are never source assets.
+- Qenlo is an embedded local retrieval index for the legal agent, not a remote service or system of record. PostgreSQL remains the shared durable boundary.
+- The legal mailbox requires authenticated sender validation. Never trust the visible `From` header alone.
+- The old Cal.com callback on `mail.gobitsnbytes.org` is stale. Current callbacks use `/api/calendar/webhooks/calcom/{connectionId}`.
 
-## 4. Subsystem Specifications
+## Production operations
 
-### 4.1 IAM (Identity & Access Management)
-- Principal resolver (`principal.py`) resolves user + inherited group permissions.
-- Evaluator (`policy.py`) exposes `can(user, perm, resource)`, `require_permission(perm)`, `batch_can(user, perms)`.
-- Visual hierarchy at `/dashboard/iam` (`IAMHierarchyVisualizer.tsx`) maps Discord roles to system roles (`Super Admin -> Executive -> Lead -> Member -> Bot`).
+- `deploy/api/deploy.sh` hard-resets the VPS checkout to `origin/prod`, runs migrations, restarts `bnb-api` and `bnb-bot`, then checks `http://127.0.0.1:8000/health` with rollback on failure.
+- Dependency installation is conditional on lockfile/manifest changes or a missing environment.
+- Database migrations must remain backward compatible with the running application during rollout.
+- Never force-push `prod`, discard a dirty production worktree, or deploy without a verified rollback commit.
 
-### 4.2 Meetings & Chrono v2 Engine
-- **Unification:** Both dashboard (`/dashboard/meetings`) and public booking portal (`cal.gobitsnbytes.org`) use Motherboard `/api/meetings` APIs.
-- **Availability:** `AvailabilityGrid.tsx` serializes 7-day schedule JSON. Public `/hosts` and `/{slug}/slots` calculate timezone and meeting overlaps.
-- **Persistence & OTP:** `GuestVerification` model (`a9c4e7f1b2d6`) stores SHA-256 hashed OTPs (1h TTL). `meetings.recording_metadata` JSON stores audio duration/size.
-- **RSVP Widget:** RFC-2446 `multipart/alternative` + `text/calendar; method=REQUEST` MIME generation for native 1-click Gmail/Outlook calendar RSVPs.
-- **Transcription:** Fallback pipeline: Gemini 3.5 Flash $\rightarrow$ Gemini 2.5 Flash $\rightarrow$ structured JSON briefs & action items (`/action-items/mine`).
+## Active work
 
-### 4.3 Finance & Double-Entry Ledger
-- **Self-Approval Prohibition:** HTTP 403 when `requester_id == actor_id` (IOM v2.0 §3.2).
-- **Dual Authorization Band:** Requests $\ge$ ₹1L require 2 distinct approvers before funds move (OKF Rule 35).
-- **Section 8 Compliance:** `GET /api/finance/compliance` delivers live compliance attestations, active FY labels (Apr 1–Mar 31), and audit counts.
-- **Adapter Seam:** `RazorpayXAdapter` protocol (`PaperLedgerAdapter` for DB virtual accounts; `RazorpayXLiveAdapter` stub for future API activation).
-- **FY CSV Export:** `GET /api/finance/reports/fy?fy=YYYY-YY` streams chunked ledger transactions.
+- Semantic OOXML onboarding editor design is approved. Preserve DOCX layout, use versioned semantic anchors, retain audit evidence, and keep Qenlo out of this subsystem.
+- Legal email policy replies and attachment review are implemented. Production mailbox secrets and end-to-end mail verification remain operational prerequisites when absent.
+- Public scheduling needs server-side slot verification and rate limiting; historical Cal.com duplicates are hidden non-destructively.
+- Finance still needs the live RazorpayX boundary and immutable double-entry journal enforcement before it can be treated as a complete banking ledger.
 
-### 4.4 Digital Signatures & Legal Agent (`bnb-signatures`)
-- **Signature Engine:** PyMuPDF preview/overlay generator, `.docx` to PDF conversion, SHA-256 tamper-evident sealing, and Audit Certificates.
-- **Security & DSC:** 6-digit email OTP (2-min expiry), Class 1/2/3 USB token & PKCS#12 `.pfx` software certificate signing (`e5f6a1b2c3d4`).
-- **Statutory Framework:** Aligned with IT Act 2000 Sec 10A (electronic contracts) and BSA 2023 Sec 63 (forensic electronic records).
-- **Quash / Void & Purge:** `POST /void` invalidates active signing tokens with immutable audit entries; `DELETE` generates a downloadable Certificate of Cancellation before purging disk files.
-- **Legal Agent (`legal@gobitsnbytes.org`):** IMAP inbox poller, automatic clause risk analysis (OKF rules), RAG `/ask` over executed contracts, and 3/7/14-day automated signing reminder nudges.
+## Maintenance rule
 
-### 4.5 Swiss Neobrutalism Design System
-- **Core Tokens:** 2px solid borders (`border-2 border-border`), boxy corners (`rounded-base`), hard offset drop shadows (`shadow-shadow`), dark backgrounds (`#0d0d10`, `#141418`).
-- **Typography:** Anton (`font-heading font-black`) for headers, Inter (`font-base`) for UI controls, JetBrains Mono (`font-mono`) for coordinates and metrics, Merriweather for long-form prose.
-- **Branding Palette:** Core Burgundy (`#97192C`), Pop Orange (`#FC920D`), Dark Neutral (`#120F0A`), Warm Blank (`#FAF8F5`).
-
----
-
-## 5. Alembic Migration History
-
-| Migration ID | Description |
-|---|---|
-| `initial_schema` | Core 13 tables (users, groups, permissions, grants, forks, audit_logs, events, virtual_accounts, etc.) |
-| `a1b2c3d4e5f6` | Added `calcom_booking_id` and `calcom_uid` to `EventCache` and meetings schema. |
-| `f1a2b3c4d5e6` | Added Digital Signatures tables (`signature_requests`, `recipients`, `fields`, `audit_logs`). |
-| `e5f6a1b2c3d4` | Added DSC certificate columns (`dsc_type`, `dsc_issuer`, `dsc_serial`, `allowed_sig_type`). |
-| `a7f3c92b1d84` | Contract Assistant ORM tables & clause findings. |
-| `h1i2j3k4l5m6` | Dyslexic CRM tables & lead tracking models. |
-| `a9c4e7f1b2d6` | Added `guest_verifications` table (hashed OTPs) and `meetings.recording_metadata` JSON column. |
-
----
-
-## 6. Audit Findings & Production Priorities
-
-Comprehensive read-only production audits (S62–S63) established the following priority backlog for future rollout phases:
-
-1. **Finance & Banking:**
-   - Implement real double-entry journal lines (immutable credit/debit pairs) and reconcile historical opening balances.
-   - Complete live RazorpayX payout/contact integration with HMAC webhook signature validation.
-2. **Signatures & Legal Evidence:**
-   - Strengthen public verification endpoints with rate limiting and signed session tokens.
-   - Enforce mandatory org countersignature in final completion workflow before sealing.
-   - Update compliance copy to reference BSA 2023 Section 63 certificate requirements.
-3. **Meetings & Scheduling:**
-   - Ensure PostgreSQL is the single source of truth for the bot scheduler to prevent SQLite mirror split-brain.
-   - Enforce database-level UNIQUE constraints on `calcom_booking_id` to eliminate poll duplication.
-   - Add rate-limiting and server-side slot verification to public booking endpoints.
-4. **Plugins:**
-   - Enforce explicit `*.admin` permission checks on destructive routes across all plugin manifests.
-
----
-
-## 7. Session Log
-
-### 2026-09-17 -- Onboarding pre-release design refresh
-
-- User approved one integrated release covering adult, minor/guardian, and Fork onboarding on the `prod` worktree (`D:\\motherboard-prod`).
-- Current dirty onboarding changes are unreviewed input. They contain a fuzzy DOCX anchor implementation, paragraph-text rewriting, fabricated signature positions, and a CI change that narrows the API suite; all conflict with the approved pre-release PRD and must be replaced or reverted in scoped commits.
-- Added the approved implementation design at `docs/superpowers/specs/2026-09-17-onboarding-pre-release-design.md`. It defines revisioned cases, exact versioned markers, verified PDF anchors, guardian/authority controls, immutable evidence, command authorization, and the release test contract.
-- No deployment, migration execution, production-data modification, or template activation has occurred. Legal wording, Board authority, and retention policy remain external ship gates.
-- Committed the first implementation safety slice as `c7e103b`: restored the full backend CI command, replaced fuzzy label/appendix generation with hash-pinned exact OOXML marker replacement, derived signature fields only from verified PDF anchors, and blocked Fork recognition until Board authority is represented. Focused onboarding tests: `7 passed, 1 skipped` (the skip requires the production renderer). The currently packaged legal DOCX files do not yet contain registered markers/anchors, so issuance now fails closed until approved markerized template versions are supplied.
-- User supplied `D:\\motherboard\\templates` and authorized use of the cleaned Form 2 candidate. Replaced the packaged Form 2 source under its registered filename and pinned its SHA-256 (`a6e0c10f25aadc24213bcd738fd6ea913f8d74deaf9672b409bc3bd6d387fb76`). It has not been activated for issuance because it still needs exact marker/anchor registration and visual QA.
-
-### Pre-Production (S1–S33, up to 2026-06-25)
-- Scaffolding, Phase 1 (13 ORM tables), Phase 2 (IAM), Phase 3 (EventBus), Phase 4 (Plugin SDK), Phase 7 (Finance shell), VPS deployment, Nginx SSL.
-
-### S34–S44 (2026-06-26 to 2026-07-19)
-- **S34–S36:** Discord bot refactored to proxy all operations to Motherboard via HMAC `callMotherboard`; audio transcription offloaded to FastAPI; Bun test suite hardened (208/208 green).
-- **S37–S39:** Cal.com rescheduling webhook (`BOOKING_RESCHEDULED`); voice channel auto-join cache resolution; Docker compose Redis URL fix.
-- **S40–S41:** Meetings N+1 query optimization; Cal.com schema migration (`a1b2c3d4e5f6`); Gemini 3.5 $\rightarrow$ 2.5 Flash transcription fallback; programmatic API key auth.
-- **S42–S44:** Consolidated bot into monorepo (`apps/bot`); migrated SQLite to `bun:sqlite`; built public availability slots API; RFC-2446 email RSVP widget.
-
-**S41 — Command Database Wiring, DNS Routing & Cal.com Schema Migration:**
-- **Forks Dashboard Crash Fix (`commands/forks-info.js`)**: Removed the `NODE_ENV === 'test'` condition from the `bot_settings` table creation block. The table is now created idempotently on startup in all environments (including production Neon Postgres), preventing subsequent `db.get()` from crashing with a missing relation error.
-- **Event Update Performance & Direct DB Query (`commands/event-update.js`)**: Fixed a performance bottleneck by replacing the full-table scan/filter block (`notion.getEvents()`) with an optimized direct database row lookup by ID.
-- **Report Point Award Correction (`commands/report-submit.js`)**: Updated point awarding to use the canonical `gamification.POINTS.REPORT_SUBMISSION` (15 points) rather than a hardcoded `5` points to maintain system points parity.
-- **Announcement Channel Centralization (`commands/admin-add-lead.js`)**: Replaced a hardcoded channel ID string with `config.CHANNEL_IDS.announcement` for configuration parity.
-- **Dynamic Achievements Streak (`commands/fork-badges.js`)**: Removed a hardcoded `pulseStreak: 0` and replaced it with a dynamic weekly streak calculation derived from the fork's actual `Last Pulse` date in Notion, making the `PULSE_MASTER` badge earnable in Discord commands.
-- **Cal.com Database Schema Migration (`notion.js` & Motherboard model/migration)**:
-  - Added `calcom_booking_id` and `calcom_uid` columns to the events schema initialization in `lib/notion.js`.
-  - Updated `createEvent()` and `updateEvent()` to support writing and updating Cal.com IDs in the database.
-  - Added `calcom_booking_id` and `calcom_uid` properties to Motherboard's `EventCache` ORM model (`apps/api/app/db/models.py`).
-  - Created and ran a new Alembic database migration (`a1b2c3d4e5f6`) to add these columns to the production Neon PostgreSQL database.
-- **Local DNS Routing Fix on VPS**: Changed `MOTHERBOARD_API_URL` from `localhost:8000` to `127.0.0.1:8000` inside the bot's `.env` configuration on the VPS to resolve IPv6 loopback routing failures on local API requests.
-- **Gemini Transcription Fallback (`apps/api/app/routers/meetings.py`)**: Implemented a model fallback mechanism. If generating the transcription with the primary model fails (e.g. 503 unavailability on `gemini-3.5-flash`), the system automatically falls back to `gemini-2.5-flash` to ensure 100% successful meeting briefs.
-- **Calendar & Meetings Programmatic API Key Auth (`apps/api/app/dependencies.py`)**: Implemented a secure, API key-authorized fallback (supporting `X-API-Key` and `Authorization: Bearer <API_KEY>`) to `get_current_user` in the FastAPI backend (`motherboard.gobitsnbytes.org`). This enables external calendars, Cal.com scripts, and bots to query and modify scheduled meetings and user availability host lists without browser NextAuth sessions.
-- **Verification**: Verified that all 210 bot tests and 97 python backend tests pass 100% green. Tested the fallback directly on the VPS via python request calls, verifying successful 200 OK responses on the meetings index. Restarted all services.
-
-### 2026-09-09 — IAM + Control Room Overhaul Phase
-
-- Read the brand guideline and established `PRODUCT.md` / `DESIGN.md` as the working product and visual contract: warm editorial surfaces, burgundy control-room rail, orange signal color, crisp borders, explicit city/global scope, keyboard-first and WCAG AA behavior.
-- Reworked IAM around explainable, city-scoped access: active/non-expired principal resolution, fail-closed service identity, mixed-credential rejection, grant validation, mutation audit entries, and scope-preserving `batch_can` behavior. Focused IAM/auth suites and the full API suite pass (`103 passed`).
-- Rebuilt the IAM overview UI with effective access, scope explanation, group search, loading/error states, and safer Discord mapping feedback.
-- Reworked the dashboard shell across overview, meetings, members, finance, IAM, audit, and settings with a consistent branded control-room frame while preserving dark high-density workflows where they are intentional.
-- Repaired the workspace install state with `bun install --frozen-lockfile`; the full production web build now passes. Web typecheck passes.
-- Smoke-tested all main routes locally. Unauthenticated requests correctly land on local `/login`; `/api/auth/session` returns 200 when the local runtime is started with the configured secret. Production deployment and Discord RLVR testing remain intentionally deferred until the broader overhaul is complete.
-- Continued the shell pass through Finance: unified the portal frame with the burgundy rail and warm workspace, and corrected finance page titles/subtitles for readable contrast on the new surface. Typecheck and `git diff --check` remain clean.
-- Reworked Members and Audit into operator-grade surfaces: typed records, explicit retryable errors, skeleton loading, honest empty states, branded summaries, and accessible table captions. This slice is ready for its own review/build/deploy checkpoint.
-
-### 2026-09-09 — Production Checkpoint Reconciliation
-
-- Merged the current IAM/auth hardening line with the production UI/release checkpoint in merge commit `ba2b144` without force-pushing or dropping either line of work.
-- Reconciled Meetings, FinanceSidebar, dashboard navigation, and IAM role-mapping typing/runtime issues introduced by the merge. The web typecheck is green and the focused IAM suites pass.
-- Preserved the `0.85.5-beta` version contract and existing CI promotion path. User-owned signature PDFs and local templates remain untracked and were not staged.
-- Authenticated production smoke checks confirmed the v0.85.5 beta shell and Finance route. Removed the duplicate legacy Meetings tab row found during that check.
-- Audited authenticated IAM in production: fixed role-mapping contrast on burgundy surfaces and added native role-name/ID filtering for the Discord mapping table. Web typecheck remains green.
-- Production smoke testing found the Signatures page could remain in a permanent loading state when `/api/signatures/requests` stalled. Added a 10-second native fetch timeout, explicit response validation, and retryable accessible error UI.
-
-### 2026-09-09 — Digital Onboarding Design
-
-- Inspected the existing signature engine, signature router/schemas, public forms, fork onboarding checklist, email helper, and signing portal. The existing signature system is reusable, but onboarding needs a case-level orchestrator above child signature requests.
-- Inspected all six supplied DOCX templates as OOXML ZIPs. Their `goog_rdk_*` structured-document tags are generic wrappers rather than semantic fields; one parent-consent file contains sample personal data. A versioned per-template manifest is required.
-- Confirmed the current DOCX-to-PDF conversion rebuilds paragraph text and loses layout/control structure. Onboarding must use faithful DOCX rendering, targeted OOXML filling, and the existing PDF overlay/sealing engine.
-- User decisions: ship volunteer and fork onboarding together; signed PDF is canonical; original and filled DOCX files are evidence; review is assigned to an IAM-authorized reviewer with self-approval prevention; legal/director signing uses the authenticated dashboard with optional DSC; participant completion uses the web portal only; fork recognition requires two distinct directors.
-- Added and committed the design spec at `docs/superpowers/specs/2026-09-09-onboarding-design.md` in commit `8f10882`.
-- Renderer decision recorded in follow-up commit `fd05f65`: provision headless LibreOffice in the API image, expose an explicit binary path, and fail closed if it is unavailable. The local runtime currently has Word but no LibreOffice.
-- Current state: design choices were adopted for implementation planning after the user supplied the delivery constraints and raised no objections to the documented defaults. Existing user changes in `apps/api/app/dependencies.py`, dashboard UI files, and untracked `templates/` were not staged by this work.
-
-### 2026-09-09 — Digital Onboarding Implementation Slice
-
-- Implemented `onboarding_cases`, scoped `onboarding_participants`, `onboarding_documents`, and append-only `onboarding_reviews` with Alembic migration `l5m6n7o8p9q0`.
-- Added IAM permissions for onboarding read/write/review/certificate actions and registered the new `/api/onboarding` router.
-- Added volunteer and fork-lead case creation, age gating (under 13 rejected; 13-17 requires parent), parent portal invitations, fork teammate invitations restricted to a submitted fork lead, and token-hashed portal access.
-- Added a raw-template-derived manifest for all six DOCX templates. Submitted answers are retained in filled DOCX evidence, rendered with headless LibreOffice, and handed to the existing signature engine as child requests with legal org-signature recipients.
-- Added public portal and IAM dashboard surfaces. The dashboard can create cases and record acceptance of signed documents; existing signature dashboard remains the internal signing surface.
-- Added focused service and router tests. `test_onboarding_documents.py` and `test_onboarding_router.py` pass; web typecheck passes. Existing IAM/fork suites remain green. Renderer QA remains a container step because LibreOffice is not installed on this Windows workspace.
-- The local `bunx skills find` command remains unavailable because its temporary package cannot import `yaml`; checked-in FastAPI/frontend/security/deployment skill documents were used instead.
-- Full backend suite result: 256 passed, 1 pre-existing failure in `test_smtp_email.py` because the repository `.env` overrides the test fixture's `smtp_from` with `hello@gobitsnbytes.org`; onboarding-focused tests and the web typecheck pass.
-
-### 2026-09-12 — Public Forms Reliability
-
-- Fixed public form retries so the same browser-session attempt reuses its idempotency key; duplicate submissions return the original submission with HTTP 200 instead of creating a second response. The browser stores only a SHA-256 fingerprint and opaque key, then clears it after confirmed success.
-- Refined the dashboard response view with accurate singular/plural counts, a latest-response timestamp, and accessible filtered-result feedback.
-- Production cleanup for `techfest-30th-organising-team` removed seven later exact-answer duplicates, retaining the earliest copy of each response. The form now has ten responses with ten distinct answer payloads; none of the deleted records had uploads.
-- Released the branch metadata as `0.86.0-beta.1` / `0.86.0b1`, synchronized package, web, and API identifiers, and added `bun run check:version` to detect version drift.
-
-### 2026-09-18 — Production Mainline Reconciliation
-
-- Merged `main` into `prod` as `478d79d`. Resolved the onboarding overlaps by retaining production's central public-route allowlist, document-specific submission workflow, resend flow, and email-correction flow.
-- Added the missing `document_answers` schema field required by the production submission handler; this had existed only as an uncommitted edit in the live `prod` worktree. Focused onboarding tests pass: 7 passed, 1 skipped because the local DOCX renderer is unavailable.
-- The merged web tree is unchanged from the `prod` parent. An isolated TypeScript typecheck could not resolve Next after the pinned installation was blocked by the local Windows native-build toolchain (`node-crc` requires a Windows SDK); it did not report an application-specific type error.
-
-### 2026-09-18 — Onboarding Cancellation and Signing Controls
-
-- Added a staff-authorized cancellation endpoint for non-terminal onboarding cases. It requires a recorded reason, expires every participant portal link, voids pending signature envelopes, clears OTP state, marks the current revision revoked, and writes an IAM audit event.
-- Replaced persisted plaintext signature OTPs with recipient-bound HMAC digests, bounded failed-attempt tracking, an expiring verified session, and OTP-state clearing on cancellation or envelope voiding. Submission now enforces recipient-owned required fields and signing order.
-- Added a forward-only Alembic migration for the OTP state. Focused onboarding routing tests pass; the broader signature test now uses a valid fixture image and explicit recipient/field binding.
-
-### 2026-09-18 — Production Onboarding Removal
-
-- At the user's explicit request, removed the confirmed `CTO Onboarding - HQ - Akshat` case (`0170213c-450e-48f2-916b-38f6e9b5cefc`) directly from production PostgreSQL after a read-only identity and linkage check. The linked pending signature envelope (`39c0a845-4e1b-4044-a6cf-cc62d6002d29`) was voided first; no user account or unrelated audit record was deleted.
-
-### 2026-09-18 — Volunteer Template Production Hotfix
-
-- Repaired the registered volunteer DOCX on the live `prod` checkout. The original form lacked the five exact onboarding markers, so submissions failed closed. Added a dedicated digital-record block containing every marker and the subject-signature anchor, pinned its new SHA-256 hash, and verified both materialization and PDF rendering before restarting `bnb-api`.
-- Confirmed the new CTO onboarding case now has a submitted participant and one pending signature envelope. The API health endpoint returns `ok`; GitHub `prod` includes the server hotfix as `0807615`.
-
-### 2026-09-19 — Semantic OOXML Onboarding Workflow
-
-- Implemented the approved architecture on the `prod` worktree for Forms 1–5; Qenlo and Form 6 remain intentionally out of scope.
-- Added safe DOCX unpacking, semantic `w:sdt` controls, typed field ownership, browser document projection, deterministic revision state hashes, package hashes, and valid DOCX repacking. All five real templates round-trip successfully with every declared semantic field anchored.
-- Added immutable document revisions and field/block-anchored review threads with open, addressed, and resolved states. Draft writes use optimistic revision checks; participant resubmission and HQ edits create new hashed revisions.
-- Added participant and HQ browser workspaces with autosave, conflict recovery, accessible labels/error summaries/keyboard navigation, review replies, request-changes, approval, and explicit compile/sign controls.
-- Form 3 is now issued only after the fork application/agreement audit is approved. Approval is distinct from cryptographic signing; compilation is blocked until HQ explicitly requests it and all review threads and required fields are complete.
-- Added OOXML security and regression coverage. Verification: 16 focused onboarding tests pass, web TypeScript checks pass, Python modules compile, Alembic has a single `p9q0r1s2t3u4` head, and `git diff --check` is clean.
+Update this file only when a durable fact changes. Replace stale facts instead of appending session narratives. Keep it under 150 lines.
