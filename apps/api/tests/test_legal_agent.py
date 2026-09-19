@@ -328,6 +328,59 @@ async def test_poll_once_skips_when_unconfigured(monkeypatch, db_session):
     assert await poller.poll_once(db_session) == 0
 
 
+async def test_poll_once_handles_empty_search_result(monkeypatch, db_session):
+    monkeypatch.setenv("LEGAL_INBOX_IMAP_HOST", "imap.test.local")
+    monkeypatch.setenv("LEGAL_INBOX_IMAP_USER", "legal@test.local")
+    monkeypatch.setenv("LEGAL_INBOX_IMAP_PASSWORD", "not-a-secret")
+
+    class _EmptyIMAP(_FakeIMAP):
+        fetched_nums: list = []
+        def search(self, charset, *criteria):
+            return ("OK", [b""])
+        def fetch(self, num, spec):
+            self.fetched_nums.append(num)
+            return ("OK", [(num, b"")])
+
+    _EmptyIMAP.instances = []
+    _EmptyIMAP.fetched_nums = []
+    monkeypatch.setattr(legal_agent.imaplib, "IMAP4_SSL", _EmptyIMAP)
+
+    poller = legal_agent.LegalInboxPoller(get_settings())
+    processed = await poller.poll_once(db_session)
+    assert processed == 0
+    assert len(_EmptyIMAP.fetched_nums) == 0, "fetch must not be called when search returns empty"
+
+
+async def test_poll_once_handles_space_separated_ids(monkeypatch, db_session):
+    monkeypatch.setenv("LEGAL_INBOX_IMAP_HOST", "imap.test.local")
+    monkeypatch.setenv("LEGAL_INBOX_IMAP_USER", "legal@test.local")
+    monkeypatch.setenv("LEGAL_INBOX_IMAP_PASSWORD", "not-a-secret")
+
+    def fake_reply(*args, **kwargs):
+        return True
+    monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
+
+    class _MultiIMAP(_FakeIMAP):
+        fetched_nums: list = []
+        def search(self, charset, *criteria):
+            return ("OK", [b"10 20"])
+        def fetch(self, num, spec):
+            self.fetched_nums.append(num)
+            raw = _build_mime(f"<multi-{num.decode()}@vendor.example>", attach=False).replace(
+                b"counsel@vendor.example", b"member@gobitsnbytes.org"
+            )
+            return ("OK", [(num, raw)])
+
+    _MultiIMAP.instances = []
+    _MultiIMAP.fetched_nums = []
+    monkeypatch.setattr(legal_agent.imaplib, "IMAP4_SSL", _MultiIMAP)
+
+    poller = legal_agent.LegalInboxPoller(get_settings())
+    processed = await poller.poll_once(db_session)
+    assert processed == 2
+    assert _MultiIMAP.fetched_nums == [b"10", b"20"]
+
+
 # ---------------------------------------------------------------------------
 # Nudge sequencer
 # ---------------------------------------------------------------------------

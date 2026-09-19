@@ -510,7 +510,16 @@ class LegalInboxPoller:
             if typ != "OK":
                 logger.error("[LegalAgent] IMAP SEARCH failed: %s", typ)
                 return batch
-            for num in (data or [])[-_MAX_MESSAGES_PER_POLL:]:
+            message_nums: List[bytes] = []
+            for entry in data or []:
+                if not entry:
+                    continue
+                if isinstance(entry, bytes):
+                    message_nums.extend([n for n in entry.split() if n])
+                elif isinstance(entry, str):
+                    message_nums.extend([n.encode("utf-8") for n in entry.split() if n])
+
+            for num in message_nums[-_MAX_MESSAGES_PER_POLL:]:
                 typ_msg, fetched = client.fetch(num, "(RFC822)")
                 if typ_msg != "OK" or not fetched:
                     continue

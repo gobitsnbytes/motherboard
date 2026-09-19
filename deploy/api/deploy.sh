@@ -39,6 +39,7 @@ rollback() {
 # 1. Ensure working directory ownership & pull latest code
 echo "--> Fixing directory ownership and pulling latest code from prod..."
 sudo chown -R $(whoami):$(id -gn) "$APP_DIR"
+sudo chmod -R u+rwX "$APP_DIR/.git"
 git -C "$APP_DIR" fetch origin prod
 git -C "$APP_DIR" reset --hard origin/prod
 
@@ -61,6 +62,7 @@ if [ ! -d "$APP_DIR/node_modules" ] || ! git -C "$APP_DIR" diff --quiet "$PREV_C
     echo "--> JavaScript dependency manifests changed; installing with Bun..."
     sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" --frozen-lockfile || rollback
     sudo chown -R deploy:deploy "$APP_DIR"
+    sudo chown -R $(whoami):$(id -gn) "$APP_DIR/.git"
 else
     echo "--> JavaScript dependency manifests unchanged; skipping Bun install."
 fi
@@ -127,7 +129,12 @@ else:
     print('--> SMTP credentials not specified in .env, skipping live auth test.')
 ") || true
 
-# 4. Restart services
+# 4. Set runtime ownership & restart services
+echo "--> Ensuring runtime directory permissions..."
+sudo chown -R deploy:deploy "$APP_DIR"
+sudo chown -R $(whoami):$(id -gn) "$APP_DIR/.git"
+sudo chmod -R u+rwX "$APP_DIR/.git"
+
 echo "--> Restarting bnb-api systemd service..."
 sudo systemctl restart "$SERVICE_NAME" || rollback
 echo "--> Restarting bnb-bot systemd service..."
