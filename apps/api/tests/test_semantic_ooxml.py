@@ -12,6 +12,7 @@ from app.services.semantic_ooxml import (
     NS,
     annotate_package,
     repack_docx,
+    signature_markers,
     state_hash,
     unpack_docx,
     validate_values,
@@ -40,6 +41,37 @@ def test_real_templates_round_trip_with_all_semantic_controls(document_key: str)
         assert {field.id for field in FORM_FIELDS[document_key]} <= tags
         output = repack_docx(package, root / "compiled.docx")
         assert Document(str(output)).paragraphs
+
+
+@pytest.mark.parametrize(
+    "document_key",
+    [
+        "volunteer",
+        "parent_consent",
+        "fork_certificate",
+        "fork_agreement",
+        "fork_application",
+    ],
+)
+def test_each_signature_marker_appears_exactly_once_in_the_compiled_document(
+    document_key: str,
+):
+    """The signing anchors are found by text search, so duplicates break compilation."""
+    markers = signature_markers(document_key)
+    assert markers
+    source = template_root() / TEMPLATE_MANIFEST[document_key]["template"]
+    with tempfile.TemporaryDirectory() as directory:
+        package = Path(directory) / "package"
+        unpack_docx(source, package)
+        assert annotate_package(package, document_key, markers) == []
+        text = "".join(
+            etree.parse(str(package / "word" / "document.xml")).xpath(
+                "//w:t/text()", namespaces=NS
+            )
+        )
+    for marker in markers.values():
+        assert text.count(marker) == 1, f"{marker} appears {text.count(marker)} times"
+        assert " " not in marker
 
 
 def test_state_hash_chains_revision_and_values():

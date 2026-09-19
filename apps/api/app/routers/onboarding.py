@@ -74,6 +74,7 @@ from app.services.semantic_ooxml import (
     fields_for,
     package_hash,
     repack_docx,
+    signature_markers,
     state_hash,
     template_hash,
     unpack_docx,
@@ -1259,17 +1260,13 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
         raise HTTPException(status_code=409, detail="The HQ signer needs an email address")
 
     role = "guardian" if participant.role == "parent" else "lead" if document.document_key.startswith("fork_") else "subject"
-    marker_values = dict(document.field_values or {})
     signature_fields = [field for field in fields_for(document.document_key) if field["type"] == "signature"]
-    for field in signature_fields:
-        marker_role = "organization" if field["editable_by"] == "hq" else role
-        marker_values[field["id"]] = f"[[signature_{marker_role}]]"
+    marker_values = dict(document.field_values or {}) | signature_markers(document.document_key)
     try:
         _, docx_path = await run_in_threadpool(_compile_ooxml_source, document, marker_values)
         pdf_path = await run_in_threadpool(render_docx_to_pdf, docx_path, docx_path.parent)
-        anchor_roles = {anchor["recipient_role"] for anchor in TEMPLATE_MANIFEST[document.document_key]["signature_anchors"]}
         signer_specs = [{"name": participant.name, "email": participant.email, "role": role}]
-        if "organization" in anchor_roles:
+        if any(field["editable_by"] == "hq" for field in signature_fields):
             signer_specs.append({"name": hq_user.display_name, "email": hq_user.email, "role": "organization", "allowed_sig_type": "email_only"})
         request = await create_signature_request(
             db,
@@ -1277,8 +1274,6 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
             document=document,
             pdf_path=pdf_path,
             signer_specs=signer_specs,
-            values=document.field_values,
-            include_legal=False,
         )
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
         await db.rollback()

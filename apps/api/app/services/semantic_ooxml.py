@@ -222,6 +222,15 @@ def fields_for(document_key: str, *, editor: str | None = None) -> list[dict[str
     return [field.as_dict() for field in fields]
 
 
+def signature_markers(document_key: str) -> dict[str, str]:
+    """Single-word PDF search tokens, one per signature field.
+
+    They must be unique (a token that appears twice is ambiguous) and contain no
+    whitespace (PyMuPDF cannot find text that the renderer wrapped across lines).
+    """
+    return {field["id"]: f"[[sig{index}]]" for index, field in enumerate(fields_for(document_key)) if field["type"] == "signature"}
+
+
 def template_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
