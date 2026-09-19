@@ -23,15 +23,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.db.models import Grant, User
 from app.plugin_sdk.loader import PluginLoader
-from app.plugin_sdk.types import PermissionDeclaration, PluginManifest, UiPanelDeclaration
+from app.plugin_sdk.types import (
+    PermissionDeclaration,
+    PluginManifest,
+    UiPanelDeclaration,
+)
 from conftest import request_as
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-
 # ---------------------------------------------------------------------------
 # Plugin module loading helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_plugin_module(plugin_id: str):
     main_path = REPO_ROOT / "plugins" / plugin_id / "api" / "main.py"
@@ -48,6 +52,7 @@ def _load_plugin_module(plugin_id: str):
 # ---------------------------------------------------------------------------
 # SSL certificate expiry checks
 # ---------------------------------------------------------------------------
+
 
 def _generate_self_signed_cert(days_valid: int):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -134,12 +139,13 @@ def tls_server_port():
         thread.join(timeout=5)
 
 
-@pytest.mark.asyncio
 async def test_ssl_check_returns_real_positive_days(tls_server_port):
     email_plugin = _load_plugin_module("email_server")
     port, not_after = tls_server_port
 
-    days_remaining, reachable = await email_plugin._check_ssl_cert_days("127.0.0.1", port)
+    days_remaining, reachable = await email_plugin._check_ssl_cert_days(
+        "127.0.0.1", port
+    )
 
     assert reachable is True
     expected_days = (not_after - datetime.now(timezone.utc)).days
@@ -147,12 +153,13 @@ async def test_ssl_check_returns_real_positive_days(tls_server_port):
     assert days_remaining > 0
 
 
-@pytest.mark.asyncio
 async def test_ssl_check_unreachable_host_returns_error_state():
     email_plugin = _load_plugin_module("email_server")
     dead_port = _free_tcp_port()
 
-    days_remaining, reachable = await email_plugin._check_ssl_cert_days("127.0.0.1", dead_port)
+    days_remaining, reachable = await email_plugin._check_ssl_cert_days(
+        "127.0.0.1", dead_port
+    )
 
     assert days_remaining is None
     assert reachable is False
@@ -161,6 +168,7 @@ async def test_ssl_check_unreachable_host_returns_error_state():
 # ---------------------------------------------------------------------------
 # DNS validation against a mocked resolver
 # ---------------------------------------------------------------------------
+
 
 def _rrset(name: str, rdtype: str, *items):
     return dns.rrset.from_text_list(name, 300, "IN", rdtype, list(items))
@@ -182,7 +190,6 @@ class FakeResolver:
         return self._answers[key]
 
 
-@pytest.mark.asyncio
 async def test_dns_validator_all_matching_reports_valid():
     email_plugin = _load_plugin_module("email_server")
     base = f"{email_plugin.BASE_DOMAIN}."
@@ -190,7 +197,9 @@ async def test_dns_validator_all_matching_reports_valid():
     admin = f"{email_plugin.ADMIN_DOMAIN}."
     answers = {
         (base, "MX"): _rrset(base, "MX", f"10 {mail}"),
-        (base, "TXT"): _rrset(base, "TXT", f'"v=spf1 mx a:{email_plugin.MAIL_DOMAIN} ~all"'),
+        (base, "TXT"): _rrset(
+            base, "TXT", f'"v=spf1 mx a:{email_plugin.MAIL_DOMAIN} ~all"'
+        ),
         (f"default._domainkey.{base}", "TXT"): _rrset(
             f"default._domainkey.{base}",
             "TXT",
@@ -211,16 +220,13 @@ async def test_dns_validator_all_matching_reports_valid():
     assert all(r.valid for r in records)
 
 
-@pytest.mark.asyncio
 async def test_dns_validator_reports_mismatch_and_missing_honestly():
     email_plugin = _load_plugin_module("email_server")
     base = f"{email_plugin.BASE_DOMAIN}."
     mail = f"{email_plugin.MAIL_DOMAIN}."
     answers = {
         (base, "MX"): _rrset(base, "MX", f"10 {mail}"),
-        (base, "TXT"): _rrset(
-            base, "TXT", '"v=spf1 include:_spf.example.com ~all"'
-        ),
+        (base, "TXT"): _rrset(base, "TXT", '"v=spf1 include:_spf.example.com ~all"'),
         (f"default._domainkey.{base}", "TXT"): _rrset(
             f"default._domainkey.{base}",
             "TXT",
@@ -251,12 +257,16 @@ async def test_dns_validator_reports_mismatch_and_missing_honestly():
 # Minecraft metrics honesty
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
 async def test_minecraft_metrics_failure_has_no_fabricated_numbers(monkeypatch):
     mc_plugin = _load_plugin_module("minecraft_server")
 
     async def failing_ssh(ssh_host, cmd, timeout=8.0):
-        return -1, "", "ssh: connect to host bnb-mc-server port 22: Connection timed out"
+        return (
+            -1,
+            "",
+            "ssh: connect to host bnb-mc-server port 22: Connection timed out",
+        )
 
     monkeypatch.setattr(mc_plugin, "_run_ssh_command", failing_ssh)
 
@@ -273,7 +283,6 @@ async def test_minecraft_metrics_failure_has_no_fabricated_numbers(monkeypatch):
     assert response.uptime is None
 
 
-@pytest.mark.asyncio
 async def test_minecraft_metrics_success_parses_without_fakes(monkeypatch):
     mc_plugin = _load_plugin_module("minecraft_server")
 
@@ -304,6 +313,7 @@ async def test_minecraft_metrics_success_parses_without_fakes(monkeypatch):
 # Loader permission enforcement
 # ---------------------------------------------------------------------------
 
+
 def _session_factory(session: AsyncSession):
     from contextlib import asynccontextmanager
 
@@ -314,7 +324,9 @@ def _session_factory(session: AsyncSession):
     return _factory
 
 
-def _build_gated_manifest(permission_key: str | None) -> tuple[PluginManifest, APIRouter]:
+def _build_gated_manifest(
+    permission_key: str | None,
+) -> tuple[PluginManifest, APIRouter]:
     gated_router = APIRouter()
 
     @gated_router.get("/gated")
@@ -341,7 +353,9 @@ def _build_gated_manifest(permission_key: str | None) -> tuple[PluginManifest, A
         description="Loader enforcement test plugin",
         router=gated_router,
         permissions=[
-            PermissionDeclaration(key="hardening.gate.read", description="Gate read access")
+            PermissionDeclaration(
+                key="hardening.gate.read", description="Gate read access"
+            )
         ]
         if permission_key
         else [],
@@ -350,8 +364,9 @@ def _build_gated_manifest(permission_key: str | None) -> tuple[PluginManifest, A
     return manifest, gated_router
 
 
-@pytest.mark.asyncio
-async def test_loader_enforces_manifest_permission(db_session: AsyncSession, super_admin: User):
+async def test_loader_enforces_manifest_permission(
+    db_session: AsyncSession, super_admin: User
+):
     manifest, _router = _build_gated_manifest("hardening.gate.read")
 
     test_app = FastAPI()
@@ -365,20 +380,21 @@ async def test_loader_enforces_manifest_permission(db_session: AsyncSession, sup
     await loader.load_plugin(manifest)
 
     route_path = "/api/plugins/hardening_gate_plugin/gated"
-    transport = ASGITransport(app=test_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        anon = await ac.get(route_path)
+    async with AsyncClient(
+        transport=ASGITransport(app=test_app), base_url="http://test"
+    ) as client:
+        anon = await client.get(route_path)
         assert anon.status_code == 401, anon.text
 
         regular = User(display_name="No Perm Regular", is_super_admin=False)
         db_session.add(regular)
         await db_session.commit()
 
-        denied = await request_as(ac, regular.id, "GET", route_path)
+        denied = await request_as(client, regular.id, "GET", route_path)
         assert denied.status_code == 403, denied.text
         assert "hardening.gate.read" in denied.json()["detail"]
 
-        allowed = await request_as(ac, super_admin.id, "GET", route_path)
+        allowed = await request_as(client, super_admin.id, "GET", route_path)
         assert allowed.status_code == 200, allowed.text
         assert allowed.json() == {"ok": True}
 
@@ -391,12 +407,13 @@ async def test_loader_enforces_manifest_permission(db_session: AsyncSession, sup
         db_session.add(grant)
         await db_session.commit()
 
-        granted = await request_as(ac, regular.id, "GET", route_path)
+        granted = await request_as(client, regular.id, "GET", route_path)
         assert granted.status_code == 200, granted.text
 
 
-@pytest.mark.asyncio
-async def test_loader_without_panel_permission_keeps_auth_only(db_session: AsyncSession, super_admin: User):
+async def test_loader_without_panel_permission_keeps_auth_only(
+    db_session: AsyncSession, super_admin: User
+):
     manifest, _router = _build_gated_manifest(None)
 
     test_app = FastAPI()
@@ -410,14 +427,15 @@ async def test_loader_without_panel_permission_keeps_auth_only(db_session: Async
     await loader.load_plugin(manifest)
 
     route_path = "/api/plugins/hardening_gate_plugin/gated"
-    transport = ASGITransport(app=test_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        anon = await ac.get(route_path)
+    async with AsyncClient(
+        transport=ASGITransport(app=test_app), base_url="http://test"
+    ) as client:
+        anon = await client.get(route_path)
         assert anon.status_code == 401
 
         regular = User(display_name="Auth Only Regular", is_super_admin=False)
         db_session.add(regular)
         await db_session.commit()
 
-        ok = await request_as(ac, regular.id, "GET", route_path)
+        ok = await request_as(client, regular.id, "GET", route_path)
         assert ok.status_code == 200

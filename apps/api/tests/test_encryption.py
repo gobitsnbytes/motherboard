@@ -1,13 +1,10 @@
-import pytest
 import uuid
-from cryptography.fernet import Fernet
 from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User, DiscordAccount, EncryptedString
 
 
-@pytest.mark.asyncio
 async def test_token_encryption_decryption(db_session: AsyncSession):
     # 1. Setup a test User
     user = User(display_name="Encrypted Alice")
@@ -32,8 +29,10 @@ async def test_token_encryption_decryption(db_session: AsyncSession):
 
     # 3. Query the database using RAW SQL by username to verify it is stored as ciphertext
     raw_result = await db_session.execute(
-        text("SELECT access_token, refresh_token FROM discord_accounts WHERE username = :username"),
-        {"username": "alice_encrypted"}
+        text(
+            "SELECT access_token, refresh_token FROM discord_accounts WHERE username = :username"
+        ),
+        {"username": "alice_encrypted"},
     )
     row = raw_result.fetchone()
     assert row is not None
@@ -57,7 +56,6 @@ async def test_token_encryption_decryption(db_session: AsyncSession):
     assert loaded_da.refresh_token == plaintext_refresh
 
 
-@pytest.mark.asyncio
 async def test_encryption_fallback_graceful(db_session: AsyncSession):
     # If the database contains plaintext (e.g. legacy data), the decryptor should fall back gracefully and return it as-is
     legacy_plaintext = "legacy-plaintext-token"

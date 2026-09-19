@@ -8,30 +8,18 @@ volunteer must still be able to write the email themselves and log the send.
 import json
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.database import get_session
 from app.db.models import DyslexicCompany, DyslexicContact, User
 from app.dyslexic import emails
-from app.main import app
 from conftest import request_as
 
 GOOD_DRAFT = {
     "subject": "Sponsoring bits&bytes in Bangalore",
     "body": "Hi Priya,\n\nWe run student hackathons across India...\n\nThanks,\nAarav",
 }
-
-
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
-    async def _get_test_session():
-        yield db_session
-
-    app.dependency_overrides[get_session] = _get_test_session
-    yield
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -73,8 +61,11 @@ async def setup(db_session: AsyncSession):
     await db_session.flush()
 
     contact = DyslexicContact(
-        company_id=company.id, name="Priya Sharma",
-        role="Campus Marketing Lead", email="priya@zomato.com", added_by=user.id,
+        company_id=company.id,
+        name="Priya Sharma",
+        role="Campus Marketing Lead",
+        email="priya@zomato.com",
+        added_by=user.id,
     )
     db_session.add(contact)
     await db_session.commit()
@@ -86,12 +77,15 @@ async def setup(db_session: AsyncSession):
 # Generation
 # ---------------------------------------------------------------------------
 
+
 async def test_draft_is_parsed_and_returned(monkeypatch):
     stub_model(monkeypatch, json.dumps(GOOD_DRAFT))
 
     result = await emails.generate_email(
-        company_name="Zomato", research_json={"summary": "Food delivery."},
-        contact_name="Priya", contact_role="Campus Lead",
+        company_name="Zomato",
+        research_json={"summary": "Food delivery."},
+        contact_name="Priya",
+        contact_role="Campus Lead",
     )
 
     assert result.ok
@@ -115,7 +109,8 @@ async def test_prompt_carries_research_and_brand_rules(monkeypatch):
             "sponsorship_angle": "Hires engineering graduates.",
             "products": ["Food delivery"],
         },
-        contact_name="Priya", contact_role="Campus Lead",
+        contact_name="Priya",
+        contact_role="Campus Lead",
     )
 
     prompt = sink["prompt"]
@@ -131,8 +126,10 @@ async def test_missing_research_does_not_invent_details(monkeypatch):
     capture_prompt(monkeypatch, sink)
 
     await emails.generate_email(
-        company_name="Unknown Co", research_json={},
-        contact_name="Someone", contact_role=None,
+        company_name="Unknown Co",
+        research_json={},
+        contact_name="Someone",
+        contact_role=None,
     )
 
     assert "No research available" in sink["prompt"]
@@ -143,10 +140,14 @@ async def test_follow_up_prompt_includes_the_previous_email(monkeypatch):
     capture_prompt(monkeypatch, sink)
 
     await emails.generate_email(
-        company_name="Zomato", research_json={}, contact_name="Priya",
-        contact_role="Campus Lead", kind="follow_up",
+        company_name="Zomato",
+        research_json={},
+        contact_name="Priya",
+        contact_role="Campus Lead",
+        kind="follow_up",
         previous_subject="Sponsoring bits&bytes",
-        previous_body="Our original note.", days_ago=5,
+        previous_body="Our original note.",
+        days_ago=5,
     )
 
     prompt = sink["prompt"]
@@ -160,8 +161,10 @@ async def test_unparseable_draft_fails_cleanly(monkeypatch):
     stub_model(monkeypatch, "Sure! Here's an email for you.")
 
     result = await emails.generate_email(
-        company_name="Zomato", research_json={},
-        contact_name="Priya", contact_role=None,
+        company_name="Zomato",
+        research_json={},
+        contact_name="Priya",
+        contact_role=None,
     )
 
     assert not result.ok
@@ -172,8 +175,10 @@ async def test_draft_missing_a_field_fails(monkeypatch):
     stub_model(monkeypatch, json.dumps({"subject": "Hello"}))
 
     result = await emails.generate_email(
-        company_name="Zomato", research_json={},
-        contact_name="Priya", contact_role=None,
+        company_name="Zomato",
+        research_json={},
+        contact_name="Priya",
+        contact_role=None,
     )
 
     assert not result.ok
@@ -184,8 +189,10 @@ async def test_missing_api_key_is_explained(monkeypatch):
     monkeypatch.setattr(get_settings(), "gemini_api_key", None, raising=False)
 
     result = await emails.generate_email(
-        company_name="Zomato", research_json={},
-        contact_name="Priya", contact_role=None,
+        company_name="Zomato",
+        research_json={},
+        contact_name="Priya",
+        contact_role=None,
     )
 
     assert not result.ok
@@ -196,18 +203,18 @@ async def test_missing_api_key_is_explained(monkeypatch):
 # Route behaviour
 # ---------------------------------------------------------------------------
 
-async def test_generating_claims_the_contact(setup, db_session, monkeypatch):
+
+async def test_generating_claims_the_contact(setup, db_session, monkeypatch, client):
     """Everyone else should see the draft is underway, not find out at send time."""
     stub_model(monkeypatch, json.dumps(GOOD_DRAFT))
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        response = await request_as(
-            ac, setup["user"].id, "POST",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
-            json={"kind": "initial"},
-        )
+    response = await request_as(
+        client,
+        setup["user"].id,
+        "POST",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
+        json={"kind": "initial"},
+    )
 
     assert response.status_code == 201
     assert response.json()["subject"] == GOOD_DRAFT["subject"]
@@ -220,26 +227,27 @@ async def test_generating_claims_the_contact(setup, db_session, monkeypatch):
 
 
 async def test_cannot_generate_for_a_contact_someone_else_is_drafting(
-    setup, db_session, monkeypatch
+    setup, db_session, monkeypatch, client
 ):
     stub_model(monkeypatch, json.dumps(GOOD_DRAFT))
     other = User(display_name="Priya", email="priya@bnb.org")
     db_session.add(other)
     await db_session.commit()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        first = await request_as(
-            ac, setup["user"].id, "POST",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
-            json={"kind": "initial"},
-        )
-        second = await request_as(
-            ac, other.id, "POST",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
-            json={"kind": "initial"},
-        )
+    first = await request_as(
+        client,
+        setup["user"].id,
+        "POST",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
+        json={"kind": "initial"},
+    )
+    second = await request_as(
+        client,
+        other.id,
+        "POST",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
+        json={"kind": "initial"},
+    )
 
     assert first.status_code == 201
     assert second.status_code == 409
@@ -247,50 +255,53 @@ async def test_cannot_generate_for_a_contact_someone_else_is_drafting(
 
 
 async def test_model_failure_returns_503_and_outreach_still_works(
-    setup, monkeypatch
+    setup, monkeypatch, client
 ):
     """
     Drafting is a convenience. When it breaks the volunteer writes the email
     themselves, and logging the send must still succeed.
     """
+
     def _boom(prompt, model, key):
         raise RuntimeError("upstream 503")
 
     monkeypatch.setattr(emails, "_call_model", _boom)
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        draft = await request_as(
-            ac, setup["user"].id, "POST",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
-            json={"kind": "initial"},
-        )
-        sent = await request_as(
-            ac, setup["user"].id, "POST",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/sent",
-            json={"kind": "initial"},
-        )
+    draft = await request_as(
+        client,
+        setup["user"].id,
+        "POST",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
+        json={"kind": "initial"},
+    )
+    sent = await request_as(
+        client,
+        setup["user"].id,
+        "POST",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/sent",
+        json={"kind": "initial"},
+    )
 
     assert draft.status_code == 503
     assert sent.status_code == 201
 
 
-async def test_drafts_are_kept_and_listed(setup, monkeypatch):
+async def test_drafts_are_kept_and_listed(setup, monkeypatch, client):
     stub_model(monkeypatch, json.dumps(GOOD_DRAFT))
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        await request_as(
-            ac, setup["user"].id, "POST",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
-            json={"kind": "initial"},
-        )
-        listed = await request_as(
-            ac, setup["user"].id, "GET",
-            f"/api/dyslexic/contacts/{setup['contact'].id}/emails",
-        )
+    await request_as(
+        client,
+        setup["user"].id,
+        "POST",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/generate-email",
+        json={"kind": "initial"},
+    )
+    listed = await request_as(
+        client,
+        setup["user"].id,
+        "GET",
+        f"/api/dyslexic/contacts/{setup['contact'].id}/emails",
+    )
 
     assert listed.status_code == 200
     assert len(listed.json()) == 1

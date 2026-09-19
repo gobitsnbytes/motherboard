@@ -49,19 +49,26 @@ async def world(db_session: AsyncSession):
     await db_session.flush()
 
     first = DyslexicContact(
-        company_id=company.id, name="Dev Rel Lead",
-        email="devrel@zomato.com", added_by=priya.id,
+        company_id=company.id,
+        name="Dev Rel Lead",
+        email="devrel@zomato.com",
+        added_by=priya.id,
     )
     second = DyslexicContact(
-        company_id=company.id, name="Campus Marketing",
-        email="campus@zomato.com", added_by=priya.id,
+        company_id=company.id,
+        name="Campus Marketing",
+        email="campus@zomato.com",
+        added_by=priya.id,
     )
     db_session.add_all([first, second])
     await db_session.commit()
 
     return {
-        "priya": priya, "aarav": aarav, "company": company,
-        "first": first, "second": second,
+        "priya": priya,
+        "aarav": aarav,
+        "company": company,
+        "first": first,
+        "second": second,
     }
 
 
@@ -75,6 +82,7 @@ async def count(db: AsyncSession, model, **filters) -> int:
 # ---------------------------------------------------------------------------
 # normalize_domain
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "website,expected",
@@ -99,6 +107,7 @@ def test_normalize_domain(website, expected):
 # log_send
 # ---------------------------------------------------------------------------
 
+
 async def test_log_send_creates_outreach_contact_state_and_follow_up(
     db_session: AsyncSession, world
 ):
@@ -122,10 +131,16 @@ async def test_log_send_creates_outreach_contact_state_and_follow_up(
     assert company.stage == "email_sent"
 
     follow_ups = (
-        await db_session.execute(
-            select(DyslexicFollowUp).where(DyslexicFollowUp.contact_id == contact.id)
+        (
+            await db_session.execute(
+                select(DyslexicFollowUp).where(
+                    DyslexicFollowUp.contact_id == contact.id
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(follow_ups) == 1
     assert follow_ups[0].status == "pending"
     assert follow_ups[0].assigned_to == priya.id
@@ -133,10 +148,14 @@ async def test_log_send_creates_outreach_contact_state_and_follow_up(
     assert abs(delta - timedelta(days=FOLLOW_UP_INTERVAL_DAYS)) < timedelta(seconds=5)
 
     events = (
-        await db_session.execute(
-            select(DyslexicEvent).where(DyslexicEvent.kind == "email.sent")
+        (
+            await db_session.execute(
+                select(DyslexicEvent).where(DyslexicEvent.kind == "email.sent")
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(events) == 1
     assert events[0].actor_id == priya.id
 
@@ -199,8 +218,16 @@ async def test_follow_up_send_resolves_the_previous_follow_up(
     )
     await db_session.commit()
 
-    assert await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="pending") == 1
-    assert await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="done") == 1
+    assert (
+        await count(
+            db_session, DyslexicFollowUp, contact_id=contact.id, status="pending"
+        )
+        == 1
+    )
+    assert (
+        await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="done")
+        == 1
+    )
     assert await count(db_session, DyslexicOutreach, contact_id=contact.id) == 2
 
     await db_session.refresh(world["company"])
@@ -210,6 +237,7 @@ async def test_follow_up_send_resolves_the_previous_follow_up(
 # ---------------------------------------------------------------------------
 # record_outcome
 # ---------------------------------------------------------------------------
+
 
 async def test_record_outcome_follow_up_sent_matches_log_send_path(
     db_session: AsyncSession, world
@@ -235,9 +263,22 @@ async def test_record_outcome_follow_up_sent_matches_log_send_path(
     assert initial.outcome == "follow_up_sent"
     assert initial.outcome_by == priya.id
 
-    assert await count(db_session, DyslexicOutreach, contact_id=contact.id, kind="follow_up") == 1
-    assert await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="pending") == 1
-    assert await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="done") == 1
+    assert (
+        await count(
+            db_session, DyslexicOutreach, contact_id=contact.id, kind="follow_up"
+        )
+        == 1
+    )
+    assert (
+        await count(
+            db_session, DyslexicFollowUp, contact_id=contact.id, status="pending"
+        )
+        == 1
+    )
+    assert (
+        await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="done")
+        == 1
+    )
 
 
 async def test_record_outcome_replied_resolves_follow_up_and_advances_stage(
@@ -251,8 +292,11 @@ async def test_record_outcome_replied_resolves_follow_up_and_advances_stage(
     await db_session.commit()
 
     await service.record_outcome(
-        db_session, outreach_id=outreach.id, user_id=priya.id,
-        outcome="replied", note="Asked for the deck",
+        db_session,
+        outreach_id=outreach.id,
+        user_id=priya.id,
+        outcome="replied",
+        note="Asked for the deck",
     )
     await db_session.commit()
 
@@ -260,26 +304,36 @@ async def test_record_outcome_replied_resolves_follow_up_and_advances_stage(
     await db_session.refresh(company)
     assert contact.status == "replied"
     assert company.stage == "replied"
-    assert await count(db_session, DyslexicFollowUp, contact_id=contact.id, status="pending") == 0
+    assert (
+        await count(
+            db_session, DyslexicFollowUp, contact_id=contact.id, status="pending"
+        )
+        == 0
+    )
 
 
 async def test_record_outcome_rejects_unknown_outcome(db_session: AsyncSession, world):
     outreach = await service.log_send(
-        db_session, contact_id=world["first"].id,
-        user_id=world["priya"].id, kind="initial",
+        db_session,
+        contact_id=world["first"].id,
+        user_id=world["priya"].id,
+        kind="initial",
     )
     await db_session.commit()
 
     with pytest.raises(service.InvalidOutcome):
         await service.record_outcome(
-            db_session, outreach_id=outreach.id,
-            user_id=world["priya"].id, outcome="ghosted_us",
+            db_session,
+            outreach_id=outreach.id,
+            user_id=world["priya"].id,
+            outcome="ghosted_us",
         )
 
 
 # ---------------------------------------------------------------------------
 # Stage monotonicity
 # ---------------------------------------------------------------------------
+
 
 async def test_stage_never_moves_backwards(db_session: AsyncSession, world):
     """
@@ -293,7 +347,9 @@ async def test_stage_never_moves_backwards(db_session: AsyncSession, world):
         db_session, contact_id=first.id, user_id=priya.id, kind="initial"
     )
     await service.record_outcome(
-        db_session, outreach_id=outreach.id, user_id=priya.id,
+        db_session,
+        outreach_id=outreach.id,
+        user_id=priya.id,
         outcome="meeting_scheduled",
     )
     await db_session.commit()
@@ -311,6 +367,7 @@ async def test_stage_never_moves_backwards(db_session: AsyncSession, world):
 # ---------------------------------------------------------------------------
 # Claims
 # ---------------------------------------------------------------------------
+
 
 async def test_claim_conflict_and_expiry(db_session: AsyncSession, world):
     contact, priya, aarav = world["first"], world["priya"], world["aarav"]
@@ -360,6 +417,8 @@ async def test_log_send_on_missing_contact_raises_not_found(
 
     with pytest.raises(service.NotFound):
         await service.log_send(
-            db_session, contact_id=uuid.uuid4(),
-            user_id=world["priya"].id, kind="initial",
+            db_session,
+            contact_id=uuid.uuid4(),
+            user_id=world["priya"].id,
+            kind="initial",
         )

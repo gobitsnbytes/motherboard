@@ -1,17 +1,19 @@
-import pytest
-import uuid
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import User, Group, Membership, DiscordAccount, DiscordRoleMapping, SyncRun
+from app.db.models import (
+    User,
+    Group,
+    Membership,
+    DiscordAccount,
+    DiscordRoleMapping,
+)
 from app.provisioning.client import DiscordClient
 from app.provisioning.sync import run_sync
 
 
-@pytest.mark.asyncio
 async def test_sync_happy_path(db_session: AsyncSession):
     # 1. Create a group
     group = Group(slug="test_sync_group_1", name="Tech Lead", is_system=True)
@@ -81,7 +83,6 @@ async def test_sync_happy_path(db_session: AsyncSession):
     assert memberships[0].source == "discord_sync"
 
 
-@pytest.mark.asyncio
 async def test_sync_removes_stale_memberships(db_session: AsyncSession):
     # User currently has membership from discord_sync, but role is removed on Discord
     group = Group(slug="test_sync_group_2", name="Tech Lead", is_system=True)
@@ -122,7 +123,10 @@ async def test_sync_removes_stale_memberships(db_session: AsyncSession):
     mock_client.get_guild_members = AsyncMock(
         return_value=[
             {
-                "user": {"id": "discord_alice_stale", "username": "alice_on_discord_stale"},
+                "user": {
+                    "id": "discord_alice_stale",
+                    "username": "alice_on_discord_stale",
+                },
                 "roles": [],  # role removed
             }
         ]
@@ -143,7 +147,6 @@ async def test_sync_removes_stale_memberships(db_session: AsyncSession):
     assert len(res.scalars().all()) == 0
 
 
-@pytest.mark.asyncio
 async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     # Manual membership should not be deleted even if roles don't match
     group = Group(slug="test_sync_group_3", name="Tech Lead", is_system=True)
@@ -183,7 +186,10 @@ async def test_sync_preserves_manual_memberships(db_session: AsyncSession):
     mock_client.get_guild_members = AsyncMock(
         return_value=[
             {
-                "user": {"id": "discord_alice_manual", "username": "alice_on_discord_manual"},
+                "user": {
+                    "id": "discord_alice_manual",
+                    "username": "alice_on_discord_manual",
+                },
                 "roles": [],  # no mapped roles
             }
         ]

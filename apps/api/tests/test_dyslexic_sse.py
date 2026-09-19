@@ -11,7 +11,6 @@ import asyncio
 import json
 import time
 
-import pytest
 
 from app.events.sse import (
     DEDUPE_MAX_ENTRIES,

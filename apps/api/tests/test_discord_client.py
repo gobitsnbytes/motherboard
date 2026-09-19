@@ -1,13 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch
-import httpx
-import asyncio
 
 from app.provisioning.client import DiscordClient
 from app.provisioning.errors import DiscordAPIError
 
 
-@pytest.mark.asyncio
 async def test_get_roles_success():
     client = DiscordClient(bot_token="test_token")
     mock_roles = [{"id": "role1", "name": "Admin"}]
@@ -27,12 +24,14 @@ async def test_get_roles_success():
         )
 
 
-@pytest.mark.asyncio
 async def test_get_roles_rate_limit_retry():
     client = DiscordClient(bot_token="test_token")
     mock_roles = [{"id": "role1", "name": "Admin"}]
 
-    with patch("httpx.AsyncClient.get") as mock_get, patch("asyncio.sleep") as mock_sleep:
+    with (
+        patch("httpx.AsyncClient.get") as mock_get,
+        patch("asyncio.sleep") as mock_sleep,
+    ):
         mock_response_429 = MagicMock()
         mock_response_429.status_code = 429
         mock_response_429.json.return_value = {"retry_after": 0.5}
@@ -50,7 +49,6 @@ async def test_get_roles_rate_limit_retry():
         mock_sleep.assert_called_once_with(0.5)
 
 
-@pytest.mark.asyncio
 async def test_get_roles_error_raises():
     client = DiscordClient(bot_token="test_token")
 
@@ -67,7 +65,6 @@ async def test_get_roles_error_raises():
         assert "Not Found" in exc_info.value.message
 
 
-@pytest.mark.asyncio
 async def test_get_members_pagination():
     client = DiscordClient(bot_token="test_token")
 

@@ -6,16 +6,18 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.database import get_session
-from app.db.models import ActionItem, BotMeeting, DiscordAccount, GuestVerification, User
-from app.main import app
+from app.db.models import (
+    ActionItem,
+    BotMeeting,
+    DiscordAccount,
+    GuestVerification,
+    User,
+)
 from conftest import request_as
 
 
@@ -31,23 +33,6 @@ async def _fresh_restart_session():
         await engine.dispose()
 
 
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
-    async def _get_test_session():
-        yield db_session
-
-    app.dependency_overrides[get_session] = _get_test_session
-    yield
-    app.dependency_overrides.clear()
-
-
-@pytest_asyncio.fixture
-async def client():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-
 def _make_meeting(meeting_id: str) -> BotMeeting:
     return BotMeeting(
         id=meeting_id,
@@ -61,10 +46,11 @@ def _make_meeting(meeting_id: str) -> BotMeeting:
     )
 
 
-@pytest.mark.asyncio
 @patch("app.routers.meetings.send_smtp_email")
 @patch("app.routers.meetings.random.randint", return_value=424242)
-async def test_guest_otp_persists_across_restart(mock_randint, mock_send, client, db_session):
+async def test_guest_otp_persists_across_restart(
+    mock_randint, mock_send, client, db_session
+):
     resp = await client.post(
         "/api/meetings/public/guest/verification/send",
         json={"email": "guest@example.com"},
@@ -75,7 +61,9 @@ async def test_guest_otp_persists_across_restart(mock_randint, mock_send, client
     # Simulated restart: a brand-new engine/session must see the persisted OTP row
     async with _fresh_restart_session() as fresh:
         res = await fresh.execute(
-            select(GuestVerification).where(GuestVerification.email == "guest@example.com")
+            select(GuestVerification).where(
+                GuestVerification.email == "guest@example.com"
+            )
         )
         row = res.scalar_one()
         assert row.verified is False
@@ -93,22 +81,25 @@ async def test_guest_otp_persists_across_restart(mock_randint, mock_send, client
     # New session again: verified row holds the SHA-256 of the session token
     async with _fresh_restart_session() as fresh:
         res = await fresh.execute(
-            select(GuestVerification).where(GuestVerification.email == "guest@example.com")
+            select(GuestVerification).where(
+                GuestVerification.email == "guest@example.com"
+            )
         )
         row = res.scalar_one()
         assert row.verified is True
         assert row.otp_hash == hashlib.sha256(token.encode()).hexdigest()
 
 
-@pytest.mark.asyncio
 async def test_expired_otp_rejected(client, db_session):
     now = datetime.now(timezone.utc)
-    db_session.add(GuestVerification(
-        email="late@example.com",
-        otp_hash=hashlib.sha256(b"111111").hexdigest(),
-        expires_at=now - timedelta(minutes=1),
-        verified=False,
-    ))
+    db_session.add(
+        GuestVerification(
+            email="late@example.com",
+            otp_hash=hashlib.sha256(b"111111").hexdigest(),
+            expires_at=now - timedelta(minutes=1),
+            verified=False,
+        )
+    )
     await db_session.commit()
 
     resp = await client.post(
@@ -124,7 +115,6 @@ async def test_expired_otp_rejected(client, db_session):
     assert res.scalar_one_or_none() is None
 
 
-@pytest.mark.asyncio
 @patch("app.routers.meetings.send_smtp_email")
 @patch("app.routers.meetings.random.randint", return_value=555555)
 async def test_wrong_otp_rejected(mock_randint, mock_send, client, db_session):
@@ -142,8 +132,9 @@ async def test_wrong_otp_rejected(mock_randint, mock_send, client, db_session):
     assert "Invalid verification code" in resp.json()["detail"]
 
 
-@pytest.mark.asyncio
-async def test_recording_register_flips_status_and_appears_in_detail(client, db_session, super_admin):
+async def test_recording_register_flips_status_and_appears_in_detail(
+    client, db_session, super_admin
+):
     db_session.add(_make_meeting("meet_rec_test_1"))
     await db_session.commit()
 
@@ -165,7 +156,9 @@ async def test_recording_register_flips_status_and_appears_in_detail(client, db_
     assert data["recording_metadata"]["audio_url"] == "https://cdn.example.com/rec.ogg"
     assert data["recording_metadata"]["file_size_bytes"] == 1048576
 
-    detail = await request_as(client, super_admin.id, "GET", "/api/meetings/meet_rec_test_1")
+    detail = await request_as(
+        client, super_admin.id, "GET", "/api/meetings/meet_rec_test_1"
+    )
     assert detail.status_code == 200
     detail_data = detail.json()
     assert detail_data["recording_status"] == "uploaded"
@@ -173,7 +166,6 @@ async def test_recording_register_flips_status_and_appears_in_detail(client, db_
     assert detail_data["recording_metadata"]["notes"] == "Full session audio"
 
 
-@pytest.mark.asyncio
 async def test_recording_register_internal_secret(client, db_session):
     db_session.add(_make_meeting("meet_rec_test_2"))
     await db_session.commit()
@@ -196,24 +188,55 @@ async def test_recording_register_internal_secret(client, db_session):
     assert unauth.status_code == 401
 
 
-@pytest.mark.asyncio
 async def test_action_items_mine_returns_own_only(client, db_session):
     u1 = User(display_name="Alice", is_super_admin=True)
     u2 = User(display_name="Bob", is_super_admin=True)
     db_session.add_all([u1, u2])
     await db_session.flush()
-    db_session.add_all([
-        DiscordAccount(user_id=u1.id, discord_id="1001", username="alice"),
-        DiscordAccount(user_id=u2.id, discord_id="2002", username="bob"),
-    ])
+    db_session.add_all(
+        [
+            DiscordAccount(user_id=u1.id, discord_id="1001", username="alice"),
+            DiscordAccount(user_id=u2.id, discord_id="2002", username="bob"),
+        ]
+    )
     db_session.add_all([_make_meeting("meet_mine_1"), _make_meeting("meet_mine_2")])
     await db_session.flush()
-    db_session.add_all([
-        ActionItem(meeting_id="meet_mine_1", assignee="Alice", discord_id="1001", task="Alice task A", status="pending", created_at=1000),
-        ActionItem(meeting_id="meet_mine_2", assignee="Alice", discord_id="1001", task="Alice task B", status="pending", created_at=2000),
-        ActionItem(meeting_id="meet_mine_1", assignee="Bob", discord_id="2002", task="Bob task A", status="pending", created_at=3000),
-        ActionItem(meeting_id="meet_mine_1", assignee="Alice", discord_id="1001", task="Alice done item", status="completed", created_at=4000),
-    ])
+    db_session.add_all(
+        [
+            ActionItem(
+                meeting_id="meet_mine_1",
+                assignee="Alice",
+                discord_id="1001",
+                task="Alice task A",
+                status="pending",
+                created_at=1000,
+            ),
+            ActionItem(
+                meeting_id="meet_mine_2",
+                assignee="Alice",
+                discord_id="1001",
+                task="Alice task B",
+                status="pending",
+                created_at=2000,
+            ),
+            ActionItem(
+                meeting_id="meet_mine_1",
+                assignee="Bob",
+                discord_id="2002",
+                task="Bob task A",
+                status="pending",
+                created_at=3000,
+            ),
+            ActionItem(
+                meeting_id="meet_mine_1",
+                assignee="Alice",
+                discord_id="1001",
+                task="Alice done item",
+                status="completed",
+                created_at=4000,
+            ),
+        ]
+    )
     await db_session.commit()
 
     resp = await request_as(client, u1.id, "GET", "/api/meetings/action-items/mine")
@@ -234,6 +257,8 @@ async def test_action_items_mine_returns_own_only(client, db_session):
     u3 = User(display_name="No Discord", is_super_admin=True)
     db_session.add(u3)
     await db_session.commit()
-    resp_none = await request_as(client, u3.id, "GET", "/api/meetings/action-items/mine")
+    resp_none = await request_as(
+        client, u3.id, "GET", "/api/meetings/action-items/mine"
+    )
     assert resp_none.status_code == 200
     assert resp_none.json() == []

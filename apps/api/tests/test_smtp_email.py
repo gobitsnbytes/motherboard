@@ -18,7 +18,9 @@ def dummy_settings():
 
 
 @patch("smtplib.SMTP")
-def test_send_smtp_email_only_sends_to_requested_recipient(mock_smtp_class, dummy_settings):
+def test_send_smtp_email_only_sends_to_requested_recipient(
+    mock_smtp_class, dummy_settings
+):
     mock_smtp_instance = MagicMock()
     mock_smtp_class.return_value.__enter__.return_value = mock_smtp_instance
 

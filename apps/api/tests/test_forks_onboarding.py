@@ -2,11 +2,11 @@
 
 import uuid
 
-import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Fork, User
+from app.db.models import AuditLog, Fork, User
 from app.main import app
 from tests.conftest import request_as
 
@@ -37,27 +37,16 @@ async def _create_fork(db_session: AsyncSession, **meta_overrides) -> Fork:
     return fork
 
 
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
-    from app.database import get_session
-
-    async def _get_test_session():
-        yield db_session
-
-    app.dependency_overrides[get_session] = _get_test_session
-    yield
-    app.dependency_overrides.clear()
-
-
 def _client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-@pytest.mark.asyncio
 async def test_onboarding_detail_returns_seven_steps(db_session, super_admin):
     fork = await _create_fork(db_session)
     async with _client() as ac:
-        resp = await request_as(ac, super_admin.id, "GET", f"/api/forks/{fork.id}/onboarding")
+        resp = await request_as(
+            ac, super_admin.id, "GET", f"/api/forks/{fork.id}/onboarding"
+        )
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["checklist"]) == 7
@@ -67,7 +56,6 @@ async def test_onboarding_detail_returns_seven_steps(db_session, super_admin):
     assert body["next_stage"] == "approved"
 
 
-@pytest.mark.asyncio
 async def test_checklist_step_toggle_persists(db_session, super_admin):
     fork = await _create_fork(db_session)
     async with _client() as ac:
@@ -93,7 +81,6 @@ async def test_checklist_step_toggle_persists(db_session, super_admin):
     assert unknown.status_code == 400
 
 
-@pytest.mark.asyncio
 async def test_advance_blocked_until_exit_requirements_met(db_session, super_admin):
     """A fork with failing compliance sits at 'submitted' and cannot advance."""
     fork = await _create_fork(
@@ -105,59 +92,81 @@ async def test_advance_blocked_until_exit_requirements_met(db_session, super_adm
         track_leads={},
     )
     async with _client() as ac:
-        detail = await request_as(ac, super_admin.id, "GET", f"/api/forks/{fork.id}/onboarding")
+        detail = await request_as(
+            ac, super_admin.id, "GET", f"/api/forks/{fork.id}/onboarding"
+        )
         assert detail.json()["stage"] == "submitted"
 
         resp = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/onboarding/action",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
             json={"action": "advance"},
         )
     assert resp.status_code == 400
 
 
-@pytest.mark.asyncio
 async def test_full_approval_journey(db_session, super_admin):
     """Complete all 7 checklist steps then advance to approved."""
     fork = await _create_fork(db_session)
     steps = [
-        "github_invite", "leads_discord", "email_setup", "website_deploy",
-        "notion_share", "first_pulse", "team_event_plan",
+        "github_invite",
+        "leads_discord",
+        "email_setup",
+        "website_deploy",
+        "notion_share",
+        "first_pulse",
+        "team_event_plan",
     ]
     async with _client() as ac:
         for step in steps:
             r = await request_as(
-                ac, super_admin.id, "PATCH",
+                ac,
+                super_admin.id,
+                "PATCH",
                 f"/api/forks/{fork.id}/onboarding/checklist/{step}",
                 json={"completed": True},
             )
             assert r.status_code == 200
 
         resp = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/onboarding/action",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
             json={"action": "advance"},
         )
         assert resp.status_code == 200, f"advance failed: {resp.text}"
         assert resp.json()["stage"] == "approved"
 
         again = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/onboarding/action",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
             json={"action": "advance"},
         )
     assert again.status_code == 400
 
 
-@pytest.mark.asyncio
 async def test_reject_requires_reason_and_archives(db_session, super_admin):
     fork = await _create_fork(db_session)
     async with _client() as ac:
         no_reason = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/onboarding/action",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
             json={"action": "reject"},
         )
         assert no_reason.status_code == 400
 
         resp = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/onboarding/action",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
             json={"action": "reject", "reason": "No active teen leadership."},
         )
     assert resp.status_code == 200
@@ -165,7 +174,6 @@ async def test_reject_requires_reason_and_archives(db_session, super_admin):
     assert body["stage"] == "archived"
 
 
-@pytest.mark.asyncio
 async def test_reactivate_archived_fork(db_session, super_admin):
     fork = await _create_fork(db_session)
     from sqlalchemy import update
@@ -173,13 +181,22 @@ async def test_reactivate_archived_fork(db_session, super_admin):
     await db_session.execute(
         update(Fork)
         .where(Fork.id == fork.id)
-        .values(is_active=False, metadata_json={**(fork.metadata_json or {}), "onboarding_stage": "archived"})
+        .values(
+            is_active=False,
+            metadata_json={
+                **(fork.metadata_json or {}),
+                "onboarding_stage": "archived",
+            },
+        )
     )
     await db_session.commit()
 
     async with _client() as ac:
         resp = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/onboarding/action",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
             json={"action": "reactivate"},
         )
     assert resp.status_code == 200, f"reactivate failed: {resp.text}"
@@ -187,7 +204,6 @@ async def test_reactivate_archived_fork(db_session, super_admin):
     assert body["stage"] != "archived"
 
 
-@pytest.mark.asyncio
 async def test_member_add_duplicate_remove(db_session, super_admin):
     fork = await _create_fork(db_session)
     member_user = User(display_name="Fork Member")
@@ -196,22 +212,88 @@ async def test_member_add_duplicate_remove(db_session, super_admin):
 
     async with _client() as ac:
         added = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/members",
-            json={"user_id": str(member_user.id), "track": "tech", "local_role": "track_lead"},
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/members",
+            json={
+                "user_id": str(member_user.id),
+                "track": "tech",
+                "local_role": "track_lead",
+            },
         )
         assert added.status_code == 201
 
         dup = await request_as(
-            ac, super_admin.id, "POST", f"/api/forks/{fork.id}/members",
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/members",
             json={"user_id": str(member_user.id)},
         )
         assert dup.status_code == 409
 
         removed = await request_as(
-            ac, super_admin.id, "DELETE", f"/api/forks/{fork.id}/members/{added.json()['id']}",
+            ac,
+            super_admin.id,
+            "DELETE",
+            f"/api/forks/{fork.id}/members/{added.json()['id']}",
         )
         assert removed.status_code == 200
         assert removed.json()["is_active"] is False
 
-        listing = await request_as(ac, super_admin.id, "GET", f"/api/forks/{fork.id}/members")
+        listing = await request_as(
+            ac, super_admin.id, "GET", f"/api/forks/{fork.id}/members"
+        )
         assert listing.json() == []
+
+
+async def test_stage_actions_persist_audit_entries(db_session, super_admin):
+    """Approving a fork must leave a durable audit trail.
+
+    Regression guard: these entries were silently lost for months because the
+    router called the async ``write_audit_entry`` without awaiting it. The
+    endpoint still returned 200, so nothing else in the suite noticed.
+    """
+    fork = await _create_fork(db_session)
+    steps = [
+        "github_invite",
+        "leads_discord",
+        "email_setup",
+        "website_deploy",
+        "notion_share",
+        "first_pulse",
+        "team_event_plan",
+    ]
+    async with _client() as ac:
+        for step in steps:
+            await request_as(
+                ac,
+                super_admin.id,
+                "PATCH",
+                f"/api/forks/{fork.id}/onboarding/checklist/{step}",
+                json={"completed": True},
+            )
+        advance = await request_as(
+            ac,
+            super_admin.id,
+            "POST",
+            f"/api/forks/{fork.id}/onboarding/action",
+            json={"action": "advance"},
+        )
+    assert advance.status_code == 200, advance.text
+
+    entries = (
+        (
+            await db_session.execute(
+                select(AuditLog).where(AuditLog.target_id == str(fork.id))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    actions = [e.action for e in entries]
+    assert all(e.actor_id == super_admin.id for e in entries)
+    # one row per completed checklist step, plus the stage advance
+    assert actions.count("fork.onboarding.step_updated") == len(steps), actions
+    assert "fork.onboarding.advanced" in actions, actions

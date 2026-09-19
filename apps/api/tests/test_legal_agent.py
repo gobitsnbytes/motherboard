@@ -11,7 +11,7 @@ import os
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -33,7 +33,6 @@ from app.services.llm_client import SparkCloudAIClient
 from app.db.models import User
 from conftest import request_as
 
-
 pytestmark = pytest.mark.asyncio
 
 
@@ -48,7 +47,9 @@ async def override_db():
     disposed afterwards.
     """
     engine = create_async_engine(os.environ["DATABASE_URL"])
-    session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    session_maker = async_sessionmaker(
+        engine, expire_on_commit=False, class_=AsyncSession
+    )
 
     async def _get_test_session():
         async with session_maker() as session:
@@ -71,7 +72,10 @@ async def db_session(override_db):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _build_mime(message_id: str = "<test-mid-1@vendor.example>", attach: bool = True) -> bytes:
+
+def _build_mime(
+    message_id: str = "<test-mid-1@vendor.example>", attach: bool = True
+) -> bytes:
     msg = EmailMessage()
     msg["From"] = "Counsel Perry <counsel@vendor.example>"
     msg["To"] = "legal@gobitsnbytes.org"
@@ -147,6 +151,7 @@ async def _seed_pending_nudge_scenario(db_session: AsyncSession, *, stale_days: 
 # parse_message
 # ---------------------------------------------------------------------------
 
+
 async def test_parse_message_extracts_attachments_and_bodies():
     raw = _build_mime()
     parsed = legal_agent.parse_message(raw)
@@ -185,7 +190,9 @@ async def test_internal_plain_email_receives_policy_reply(db_session, monkeypatc
         return True
 
     monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
-    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+    handled = await legal_agent.handle_inbox_message(
+        db_session, get_settings(), message
+    )
 
     assert handled is True
     assert "policy" in sent["body"].lower()
@@ -194,6 +201,7 @@ async def test_internal_plain_email_receives_policy_reply(db_session, monkeypatc
 # ---------------------------------------------------------------------------
 # Dedupe
 # ---------------------------------------------------------------------------
+
 
 async def test_dedupe_skips_known_message_id(db_session: AsyncSession):
     db_session.add(
@@ -205,12 +213,20 @@ async def test_dedupe_skips_known_message_id(db_session: AsyncSession):
     )
     await db_session.commit()
 
-    assert await legal_agent.is_duplicate_inbound(db_session, "<dup-1@vendor.example>") is True
-    assert await legal_agent.is_duplicate_inbound(db_session, "<fresh-1@vendor.example>") is False
+    assert (
+        await legal_agent.is_duplicate_inbound(db_session, "<dup-1@vendor.example>")
+        is True
+    )
+    assert (
+        await legal_agent.is_duplicate_inbound(db_session, "<fresh-1@vendor.example>")
+        is False
+    )
 
 
 async def test_dedupe_falls_back_to_event_payload_scan(db_session: AsyncSession):
-    contract = ContractAssistantContract(title="Payload only", original_file_path="y.pdf")
+    contract = ContractAssistantContract(
+        title="Payload only", original_file_path="y.pdf"
+    )
     db_session.add(contract)
     await db_session.flush()
     db_session.add(
@@ -222,10 +238,15 @@ async def test_dedupe_falls_back_to_event_payload_scan(db_session: AsyncSession)
     )
     await db_session.commit()
 
-    assert await legal_agent.is_duplicate_inbound(db_session, "<dup-2@vendor.example>") is True
+    assert (
+        await legal_agent.is_duplicate_inbound(db_session, "<dup-2@vendor.example>")
+        is True
+    )
 
 
-async def test_handle_message_short_circuits_on_duplicate(db_session: AsyncSession, monkeypatch):
+async def test_handle_message_short_circuits_on_duplicate(
+    db_session: AsyncSession, monkeypatch
+):
     db_session.add(
         ContractAssistantContract(
             title="Original ingest",
@@ -243,12 +264,18 @@ async def test_handle_message_short_circuits_on_duplicate(db_session: AsyncSessi
 
     monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
 
-    before = len((await db_session.execute(select(ContractAssistantContract))).scalars().all())
+    before = len(
+        (await db_session.execute(select(ContractAssistantContract))).scalars().all()
+    )
     message = legal_agent.parse_message(_build_mime("<dup-mail@vendor.example>"))
-    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+    handled = await legal_agent.handle_inbox_message(
+        db_session, get_settings(), message
+    )
 
     assert handled is True
-    after = len((await db_session.execute(select(ContractAssistantContract))).scalars().all())
+    after = len(
+        (await db_session.execute(select(ContractAssistantContract))).scalars().all()
+    )
     assert after == before
     assert called["reply"] == 0
 
@@ -256,6 +283,7 @@ async def test_handle_message_short_circuits_on_duplicate(db_session: AsyncSessi
 # ---------------------------------------------------------------------------
 # Poller against mocked imaplib
 # ---------------------------------------------------------------------------
+
 
 class _FakeIMAP:
     instances: list = []
@@ -313,8 +341,15 @@ async def test_poll_once_marks_seen_and_dedupes(monkeypatch, db_session):
     assert len(seen_markers) == 1
     assert seen_markers[0].stored_flags == [(b"1", "\\Seen")]
 
-    total = len((await db_session.execute(select(ContractAssistantContract))).scalars().all())
-    titles = [c.title for c in (await db_session.execute(select(ContractAssistantContract))).scalars().all()]
+    total = len(
+        (await db_session.execute(select(ContractAssistantContract))).scalars().all()
+    )
+    titles = [
+        c.title
+        for c in (await db_session.execute(select(ContractAssistantContract)))
+        .scalars()
+        .all()
+    ]
     assert total == 1 and titles == ["Prior ingest"]
     assert legal_agent.get_last_poll_at() is not None
 
@@ -335,8 +370,10 @@ async def test_poll_once_handles_empty_search_result(monkeypatch, db_session):
 
     class _EmptyIMAP(_FakeIMAP):
         fetched_nums: list = []
+
         def search(self, charset, *criteria):
             return ("OK", [b""])
+
         def fetch(self, num, spec):
             self.fetched_nums.append(num)
             return ("OK", [(num, b"")])
@@ -348,7 +385,9 @@ async def test_poll_once_handles_empty_search_result(monkeypatch, db_session):
     poller = legal_agent.LegalInboxPoller(get_settings())
     processed = await poller.poll_once(db_session)
     assert processed == 0
-    assert len(_EmptyIMAP.fetched_nums) == 0, "fetch must not be called when search returns empty"
+    assert len(_EmptyIMAP.fetched_nums) == 0, (
+        "fetch must not be called when search returns empty"
+    )
 
 
 async def test_poll_once_handles_space_separated_ids(monkeypatch, db_session):
@@ -358,17 +397,20 @@ async def test_poll_once_handles_space_separated_ids(monkeypatch, db_session):
 
     def fake_reply(*args, **kwargs):
         return True
+
     monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
 
     class _MultiIMAP(_FakeIMAP):
         fetched_nums: list = []
+
         def search(self, charset, *criteria):
             return ("OK", [b"10 20"])
+
         def fetch(self, num, spec):
             self.fetched_nums.append(num)
-            raw = _build_mime(f"<multi-{num.decode()}@vendor.example>", attach=False).replace(
-                b"counsel@vendor.example", b"member@gobitsnbytes.org"
-            )
+            raw = _build_mime(
+                f"<multi-{num.decode()}@vendor.example>", attach=False
+            ).replace(b"counsel@vendor.example", b"member@gobitsnbytes.org")
             return ("OK", [(num, raw)])
 
     _MultiIMAP.instances = []
@@ -384,6 +426,7 @@ async def test_poll_once_handles_space_separated_ids(monkeypatch, db_session):
 # ---------------------------------------------------------------------------
 # Nudge sequencer
 # ---------------------------------------------------------------------------
+
 
 async def test_nudge_selection_cadence_and_cap(db_session: AsyncSession):
     _, _, _ = await _seed_pending_nudge_scenario(db_session, stale_days=5)
@@ -402,9 +445,7 @@ async def test_nudge_selection_cadence_and_cap(db_session: AsyncSession):
             payload={"recipient_id": str(recipient.recipient_id), "cadence_day": 3},
         )
     )
-    audit_rows = (
-        (await db_session.execute(select(SignatureAuditLog))).scalars().all()
-    )
+    audit_rows = (await db_session.execute(select(SignatureAuditLog))).scalars().all()
     for audit in audit_rows:
         audit.created_at = datetime.now(timezone.utc) - timedelta(days=8)
     await db_session.commit()
@@ -419,7 +460,10 @@ async def test_nudge_selection_cadence_and_cap(db_session: AsyncSession):
             ContractAssistantEvent(
                 contract_id=targets[0].contract_id,
                 type=legal_agent.REMINDER_EVENT_TYPE,
-                payload={"recipient_id": str(targets[0].recipient_id), "cadence_day": day},
+                payload={
+                    "recipient_id": str(targets[0].recipient_id),
+                    "cadence_day": day,
+                },
             )
         )
     await db_session.commit()
@@ -460,15 +504,21 @@ async def test_nudges_stop_after_completion_and_skip_unlinked(db_session: AsyncS
 
 
 async def test_signed_recipient_never_nudged(db_session: AsyncSession):
-    _, request, recipient = await _seed_pending_nudge_scenario(db_session, stale_days=10)
+    _, request, recipient = await _seed_pending_nudge_scenario(
+        db_session, stale_days=10
+    )
     recipient.status = "signed"
     await db_session.commit()
 
     assert await legal_agent.collect_nudge_targets(db_session) == []
 
 
-async def test_send_signature_nudge_persists_events_and_audit(db_session: AsyncSession, monkeypatch):
-    contract = ContractAssistantContract(title="Send Target", original_file_path="s.pdf")
+async def test_send_signature_nudge_persists_events_and_audit(
+    db_session: AsyncSession, monkeypatch
+):
+    contract = ContractAssistantContract(
+        title="Send Target", original_file_path="s.pdf"
+    )
     db_session.add(contract)
     await db_session.flush()
 
@@ -497,10 +547,11 @@ async def test_send_signature_nudge_persists_events_and_audit(db_session: AsyncS
     assert "Send Target Agreement" in sent["subject"]
 
     reminder_events = (
-        (await db_session.execute(select(ContractAssistantEvent)))
-        .scalars().all()
+        (await db_session.execute(select(ContractAssistantEvent))).scalars().all()
     )
-    reminders = [e for e in reminder_events if e.type == legal_agent.REMINDER_EVENT_TYPE]
+    reminders = [
+        e for e in reminder_events if e.type == legal_agent.REMINDER_EVENT_TYPE
+    ]
     assert len(reminders) == 1
     assert reminders[0].payload["cadence_day"] == 3
 
@@ -521,7 +572,10 @@ async def test_send_signature_nudge_persists_events_and_audit(db_session: AsyncS
 # /ask RAG over OKF rules + executed contracts
 # ---------------------------------------------------------------------------
 
-async def test_ask_includes_executed_contract_hit(db_session: AsyncSession, monkeypatch):
+
+async def test_ask_includes_executed_contract_hit(
+    db_session: AsyncSession, monkeypatch, client
+):
     captured = {}
 
     def fake_chat_completion(self, messages, json_response=False):
@@ -564,13 +618,17 @@ async def test_ask_includes_executed_contract_hit(db_session: AsyncSession, monk
     )
     await db_session.commit()
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await request_as(
-            client, user.id, "POST", "/api/contract-assistant/ask",
-            json={"question": "What is the liability cap in the Master Services Agreement?"},
-        )
-        assert response.status_code == 200
-        data = response.json()
+    response = await request_as(
+        client,
+        user.id,
+        "POST",
+        "/api/contract-assistant/ask",
+        json={
+            "question": "What is the liability cap in the Master Services Agreement?"
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
 
     assert "fees paid" in data["answer"]
     labels_titles = {(s["label"], s["title"]) for s in data["sources"]}
@@ -580,7 +638,9 @@ async def test_ask_includes_executed_contract_hit(db_session: AsyncSession, monk
     assert "Limitation of Liability" in captured["context"]
 
 
-async def test_ask_returns_empty_sources_when_no_match(db_session: AsyncSession, monkeypatch):
+async def test_ask_returns_empty_sources_when_no_match(
+    db_session: AsyncSession, monkeypatch, client
+):
     def fail_completion(self, messages, json_response=False):
         raise AssertionError("LLM should not be called with an empty corpus match")
 
@@ -589,25 +649,29 @@ async def test_ask_returns_empty_sources_when_no_match(db_session: AsyncSession,
     user = User(display_name="Legal Member", email="member@gobitsnbytes.org")
     db_session.add(user)
     await db_session.commit()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await request_as(
-            client, user.id, "POST", "/api/contract-assistant/ask",
-            json={"question": "zzzzqqqq unrelated gibberish xyzzy"},
-        )
-        assert response.status_code == 200
-        data = response.json()
+    response = await request_as(
+        client,
+        user.id,
+        "POST",
+        "/api/contract-assistant/ask",
+        json={"question": "zzzzqqqq unrelated gibberish xyzzy"},
+    )
+    assert response.status_code == 200
+    data = response.json()
     assert data["sources"] == []
 
 
-async def test_ask_rejects_non_organization_account(db_session: AsyncSession):
+async def test_ask_rejects_non_organization_account(db_session: AsyncSession, client):
     user = User(display_name="External", email="external@example.org")
     db_session.add(user)
     await db_session.commit()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await request_as(
-            client, user.id, "POST", "/api/contract-assistant/ask",
-            json={"question": "What is the liability cap?"},
-        )
+    response = await request_as(
+        client,
+        user.id,
+        "POST",
+        "/api/contract-assistant/ask",
+        json={"question": "What is the liability cap?"},
+    )
     assert response.status_code == 403
 
 
@@ -615,11 +679,11 @@ async def test_ask_rejects_non_organization_account(db_session: AsyncSession):
 # Agent stats
 # ---------------------------------------------------------------------------
 
-async def test_agent_stats_endpoint_shape(db_session: AsyncSession):
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get("/api/contract-assistant/agent/stats")
-        assert response.status_code == 200
-        data = response.json()
+
+async def test_agent_stats_endpoint_shape(db_session: AsyncSession, client):
+    response = await client.get("/api/contract-assistant/agent/stats")
+    assert response.status_code == 200
+    data = response.json()
 
     for key in (
         "inbox_processed_24h",
@@ -636,6 +700,7 @@ async def test_agent_stats_endpoint_shape(db_session: AsyncSession):
 # Loop prevention & Policy email formatting
 # ---------------------------------------------------------------------------
 
+
 async def test_handle_inbox_message_drops_self_email(db_session, monkeypatch):
     raw = _build_mime(attach=False).replace(
         b"counsel@vendor.example", b"legal@gobitsnbytes.org"
@@ -643,43 +708,57 @@ async def test_handle_inbox_message_drops_self_email(db_session, monkeypatch):
     message = legal_agent.parse_message(raw)
     replied = []
 
-    monkeypatch.setattr(legal_agent, "send_reply", lambda *args, **kwargs: replied.append(args))
-    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+    monkeypatch.setattr(
+        legal_agent, "send_reply", lambda *args, **kwargs: replied.append(args)
+    )
+    handled = await legal_agent.handle_inbox_message(
+        db_session, get_settings(), message
+    )
 
     assert handled is True
     assert len(replied) == 0, "Should never reply to self"
 
 
 async def test_handle_inbox_message_drops_automated_bounces(db_session, monkeypatch):
-    raw = _build_mime(attach=False).replace(
-        b"counsel@vendor.example", b"MAILER-DAEMON@gobitsnbytes.org"
-    ).replace(
-        b"Vendor Agreement for review", b"Undelivered Mail Returned to Sender"
+    raw = (
+        _build_mime(attach=False)
+        .replace(b"counsel@vendor.example", b"MAILER-DAEMON@gobitsnbytes.org")
+        .replace(b"Vendor Agreement for review", b"Undelivered Mail Returned to Sender")
     )
     message = legal_agent.parse_message(raw)
     replied = []
 
-    monkeypatch.setattr(legal_agent, "send_reply", lambda *args, **kwargs: replied.append(args))
-    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+    monkeypatch.setattr(
+        legal_agent, "send_reply", lambda *args, **kwargs: replied.append(args)
+    )
+    handled = await legal_agent.handle_inbox_message(
+        db_session, get_settings(), message
+    )
 
     assert handled is True
     assert len(replied) == 0, "Should never reply to delivery failure bounces"
 
 
-async def test_handle_inbox_message_synthesizes_with_llm_and_formats_html(db_session, monkeypatch):
+async def test_handle_inbox_message_synthesizes_with_llm_and_formats_html(
+    db_session, monkeypatch
+):
     raw = _build_mime(attach=False).replace(
         b"counsel@vendor.example", b"akshat@gobitsnbytes.org"
     )
     message = legal_agent.parse_message(raw)
     sent_replies = []
 
-    def fake_reply(settings, to_addr, subject, text_body, html_body, in_reply_to, references):
-        sent_replies.append({
-            "to": to_addr,
-            "subject": subject,
-            "text": text_body,
-            "html": html_body,
-        })
+    def fake_reply(
+        settings, to_addr, subject, text_body, html_body, in_reply_to, references
+    ):
+        sent_replies.append(
+            {
+                "to": to_addr,
+                "subject": subject,
+                "text": text_body,
+                "html": html_body,
+            }
+        )
         return True
 
     def fake_llm(self, messages, json_response=False):
@@ -688,7 +767,9 @@ async def test_handle_inbox_message_synthesizes_with_llm_and_formats_html(db_ses
     monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
     monkeypatch.setattr(SparkCloudAIClient, "_chat_completion", fake_llm)
 
-    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+    handled = await legal_agent.handle_inbox_message(
+        db_session, get_settings(), message
+    )
 
     assert handled is True
     assert len(sent_replies) == 1
@@ -699,15 +780,31 @@ async def test_handle_inbox_message_synthesizes_with_llm_and_formats_html(db_ses
     assert "bits&amp;bytes™ Legal Agent" in reply["html"]
     assert "GOBITSNBYTES FOUNDATION" in reply["html"]
     import re
+
     assert not re.search(r"\b[0-9a-fA-F]{32}\b", reply["html"])
     assert not re.search(r"\b[0-9a-fA-F]{32}\b", reply["text"])
 
 
 async def test_send_reply_rejects_self_or_daemon():
     settings = get_settings()
-    assert legal_agent.send_reply(settings, "legal@gobitsnbytes.org", "test", "text", "html") is False
-    assert legal_agent.send_reply(settings, "mailer-daemon@gobitsnbytes.org", "test", "text", "html") is False
-    assert legal_agent.send_reply(settings, "bounces-123@sender-sib.com", "test", "text", "html") is False
+    assert (
+        legal_agent.send_reply(
+            settings, "legal@gobitsnbytes.org", "test", "text", "html"
+        )
+        is False
+    )
+    assert (
+        legal_agent.send_reply(
+            settings, "mailer-daemon@gobitsnbytes.org", "test", "text", "html"
+        )
+        is False
+    )
+    assert (
+        legal_agent.send_reply(
+            settings, "bounces-123@sender-sib.com", "test", "text", "html"
+        )
+        is False
+    )
 
 
 async def test_clean_notion_title_and_content():
@@ -738,13 +835,25 @@ async def test_parse_message_extracts_html_and_strips_quotes():
     parsed = legal_agent.parse_message(raw_mime)
     assert parsed.from_addr == "akshat@gobitsnbytes.org"
     assert parsed.subject == "Re: Legal Agent"
-    assert parsed.body_text == "hello, can i buy a ps5 using foundation current account at axis bank?"
+    assert (
+        parsed.body_text
+        == "hello, can i buy a ps5 using foundation current account at axis bank?"
+    )
 
 
 async def test_okf_concept_search():
     from app.services.okf_engine import get_okf_store
+
     store = get_okf_store()
-    hits = store.search_concepts("hello, can i buy a ps5 using foundation current account at axis bank?", k=3)
+    hits = store.search_concepts(
+        "hello, can i buy a ps5 using foundation current account at axis bank?", k=3
+    )
     assert len(hits) > 0
     titles = [h.title for h in hits]
-    assert any("operating manual" in t.lower() or "financial" in t.lower() or "cash" in t.lower() or "charter" in t.lower() for t in titles)
+    assert any(
+        "operating manual" in t.lower()
+        or "financial" in t.lower()
+        or "cash" in t.lower()
+        or "charter" in t.lower()
+        for t in titles
+    )

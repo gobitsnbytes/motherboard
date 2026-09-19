@@ -11,14 +11,13 @@ Run:
 
 import os
 import uuid
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import (
-    AsyncConnection,
     AsyncSession,
-    AsyncTransaction,
     async_sessionmaker,
     create_async_engine,
 )
@@ -33,9 +32,12 @@ if not DATABASE_URL or "sqlite" in DATABASE_URL:
             pass
     DATABASE_URL = f"sqlite+aiosqlite:///{db_file}"
 
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
+
 # ---------------------------------------------------------------------------
 # Session-scoped engine (one connection pool for all tests)
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture(scope="session")
 async def engine():
@@ -48,19 +50,23 @@ async def engine():
 # Seed data once per session before tests run
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def seed_once(engine):
-    """Run the full seeder before any tests execute."""
+    """Run the full seeder before any tests execute.
+
+    On Postgres the schema already exists — conftest built it with
+    ``alembic upgrade head``. On SQLite there are no migrations to run, so the
+    tables come from the models instead.
+    """
     from app.db.models import Base
-    
-    # If running on SQLite, create tables and insert mock alembic version
-    if "sqlite" in engine.url.drivername or "sqlite" in engine.url.database:
+
+    if IS_SQLITE:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            await conn.execute(text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
-            await conn.execute(text("INSERT OR IGNORE INTO alembic_version (version_num) VALUES ('test_mock_version')"))
 
     from app.db.seeder import run_seeds
+
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         await run_seeds(session)
@@ -70,6 +76,7 @@ async def seed_once(engine):
 # Per-test session using SAVEPOINT for cheap rollback isolation
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def db(engine) -> AsyncSession:
     """
@@ -77,7 +84,7 @@ async def db(engine) -> AsyncSession:
     and be fully rolled back at teardown without touching committed data.
     """
     async with engine.connect() as conn:
-        await conn.begin()   # outer transaction
+        await conn.begin()  # outer transaction
         sess = AsyncSession(bind=conn, expire_on_commit=False)
         yield sess
         await sess.close()
@@ -88,42 +95,72 @@ async def db(engine) -> AsyncSession:
 # 1. Database connectivity
 # ===========================================================================
 
+
 class TestDatabaseConnectivity:
     async def test_can_connect(self, db: AsyncSession) -> None:
         result = await db.execute(text("SELECT 1"))
         assert result.scalar() == 1
 
+    @pytest.mark.skipif(
+        IS_SQLITE,
+        reason="SQLite builds its schema from the same models this asserts against, "
+        "so the check is circular. Only meaningful against a migrated Postgres.",
+    )
     async def test_all_tables_exist(self, db: AsyncSession) -> None:
+        """Every core table must have been created by the migrations."""
         expected = {
-            "users", "discord_accounts", "groups", "memberships",
-            "discord_role_mappings", "permissions", "grants", "delegations",
-            "forks", "fork_members", "plugin_registry", "audit_log", "sync_runs",
+            "users",
+            "discord_accounts",
+            "groups",
+            "memberships",
+            "discord_role_mappings",
+            "permissions",
+            "grants",
+            "delegations",
+            "forks",
+            "fork_members",
+            "plugin_registry",
+            "audit_log",
+            "sync_runs",
             "alembic_version",
         }
-        if "sqlite" in db.bind.dialect.name:
-            result = await db.execute(
-                text("SELECT name FROM sqlite_master WHERE type='table'")
-            )
-        else:
-            result = await db.execute(
-                text("SELECT tablename FROM pg_tables WHERE schemaname='public'")
-            )
+        result = await db.execute(
+            text("SELECT tablename FROM pg_tables WHERE schemaname='public'")
+        )
         actual = {row[0] for row in result.fetchall()}
         assert expected.issubset(actual), f"Missing tables: {expected - actual}"
 
-    async def test_alembic_version_set(self, db: AsyncSession) -> None:
+    @pytest.mark.skipif(
+        IS_SQLITE, reason="No migrations run against SQLite; there is no real version."
+    )
+    async def test_alembic_version_matches_head(self, db: AsyncSession) -> None:
+        """The database must be stamped at the latest revision on disk.
+
+        A mismatch means the deployed schema is behind the migrations in the
+        repo — the exact drift that surfaces as a 500 in production.
+        """
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+
+        api_root = Path(__file__).resolve().parent.parent
+        cfg = Config(str(api_root / "alembic.ini"))
+        cfg.set_main_option("script_location", str(api_root / "alembic"))
+        head = ScriptDirectory.from_config(cfg).get_current_head()
+
         result = await db.execute(text("SELECT version_num FROM alembic_version"))
         version = result.scalar_one_or_none()
-        assert version is not None, "No alembic version row found"
+        assert version == head, f"DB is at {version!r}, migrations head is {head!r}"
 
 
 # ===========================================================================
 # 2. ORM model CRUD
 # ===========================================================================
 
+
 class TestUserModel:
     async def test_create_and_fetch_user(self, db: AsyncSession) -> None:
         from app.db.models import User
+
         user = User(display_name="Test User", email="test@example.com")
         db.add(user)
         await db.flush()
@@ -135,6 +172,7 @@ class TestUserModel:
 
     async def test_user_defaults(self, db: AsyncSession) -> None:
         from app.db.models import User
+
         user = User(display_name="Minimal User")
         db.add(user)
         await db.flush()
@@ -145,6 +183,7 @@ class TestUserModel:
 
     async def test_user_soft_delete(self, db: AsyncSession) -> None:
         from app.db.models import User
+
         user = User(display_name="Deletable User")
         db.add(user)
         await db.flush()
@@ -155,6 +194,7 @@ class TestUserModel:
 
     async def test_discord_account_linked(self, db: AsyncSession) -> None:
         from app.db.models import User, DiscordAccount
+
         user = User(display_name="Discord User")
         db.add(user)
         await db.flush()
@@ -172,6 +212,7 @@ class TestUserModel:
 class TestGroupModel:
     async def test_create_group(self, db: AsyncSession) -> None:
         from app.db.models import Group
+
         slug = f"test-group-{uuid.uuid4().hex[:6]}"
         group = Group(slug=slug, name="Test Group", is_system=False)
         db.add(group)
@@ -183,6 +224,7 @@ class TestGroupModel:
     async def test_membership_unique_constraint(self, db: AsyncSession) -> None:
         from sqlalchemy.exc import IntegrityError
         from app.db.models import User, Group, Membership
+
         user = User(display_name="UQ Test User")
         slug = f"uq-group-{uuid.uuid4().hex[:6]}"
         group = Group(slug=slug, name="UQ Group")
@@ -198,6 +240,7 @@ class TestGroupModel:
 
     async def test_add_user_to_group(self, db: AsyncSession) -> None:
         from app.db.models import User, Group, Membership
+
         user = User(display_name="Member User")
         slug = f"mem-group-{uuid.uuid4().hex[:6]}"
         group = Group(slug=slug, name="Member Group")
@@ -213,12 +256,15 @@ class TestGroupModel:
 class TestGrantModel:
     async def test_create_user_grant(self, db: AsyncSession) -> None:
         from app.db.models import User, Permission, Grant
+
         user = User(display_name="Grant Test User")
         perm_key = f"test.perm.{uuid.uuid4().hex[:8]}"
         perm = Permission(key=perm_key)
         db.add_all([user, perm])
         await db.flush()
-        grant = Grant(principal_type="user", principal_id=user.id, permission_key=perm.key)
+        grant = Grant(
+            principal_type="user", principal_id=user.id, permission_key=perm.key
+        )
         db.add(grant)
         await db.flush()
         fetched = await db.get(Grant, grant.id)
@@ -227,6 +273,7 @@ class TestGrantModel:
 
     async def test_create_scoped_grant(self, db: AsyncSession) -> None:
         from app.db.models import User, Permission, Grant
+
         user = User(display_name="Scoped Grant User")
         perm_key = f"test.scoped.{uuid.uuid4().hex[:8]}"
         perm = Permission(key=perm_key)
@@ -247,6 +294,7 @@ class TestGrantModel:
 class TestDelegationModel:
     async def test_create_delegation(self, db: AsyncSession) -> None:
         from app.db.models import User, Permission, Delegation
+
         u1 = User(display_name="Delegator")
         u2 = User(display_name="Delegatee")
         perm_key = f"test.delegate.{uuid.uuid4().hex[:8]}"
@@ -269,6 +317,7 @@ class TestDelegationModel:
 class TestForkModel:
     async def test_create_fork(self, db: AsyncSession) -> None:
         from app.db.models import Fork
+
         slug = f"test-city-{uuid.uuid4().hex[:6]}"
         fork = Fork(slug=slug, city_name="Test City", metadata_json={})
         db.add(fork)
@@ -279,12 +328,15 @@ class TestForkModel:
 
     async def test_fork_member_with_track(self, db: AsyncSession) -> None:
         from app.db.models import Fork, ForkMember, User
+
         user = User(display_name="Fork Member")
         slug = f"city2-{uuid.uuid4().hex[:6]}"
         fork = Fork(slug=slug, city_name="City 2", metadata_json={})
         db.add_all([user, fork])
         await db.flush()
-        member = ForkMember(user_id=user.id, fork_id=fork.id, local_role="contributor", track="tech")
+        member = ForkMember(
+            user_id=user.id, fork_id=fork.id, local_role="contributor", track="tech"
+        )
         db.add(member)
         await db.flush()
         fetched = await db.get(ForkMember, member.id)
@@ -294,6 +346,7 @@ class TestForkModel:
     async def test_fork_member_unique_constraint(self, db: AsyncSession) -> None:
         from sqlalchemy.exc import IntegrityError
         from app.db.models import Fork, ForkMember, User
+
         user = User(display_name="UQ Fork User")
         slug = f"uq-fork-{uuid.uuid4().hex[:6]}"
         fork = Fork(slug=slug, city_name="UQ City", metadata_json={})
@@ -309,6 +362,7 @@ class TestForkModel:
 class TestSyncRun:
     async def test_create_sync_run(self, db: AsyncSession) -> None:
         from app.db.models import SyncRun
+
         run = SyncRun(trigger="manual", status="running")
         db.add(run)
         await db.flush()
@@ -322,8 +376,11 @@ class TestSyncRun:
 class TestPluginRegistry:
     async def test_create_plugin(self, db: AsyncSession) -> None:
         from app.db.models import PluginRegistry
+
         pid = f"org.bnb.test.{uuid.uuid4().hex[:6]}"
-        plugin = PluginRegistry(id=pid, name="Test Plugin", version="1.0.0", config={"key": "val"})
+        plugin = PluginRegistry(
+            id=pid, name="Test Plugin", version="1.0.0", config={"key": "val"}
+        )
         db.add(plugin)
         await db.flush()
         fetched = await db.get(PluginRegistry, pid)
@@ -336,34 +393,54 @@ class TestPluginRegistry:
 # 3. Seeder validation (reads committed data from before-tests setup)
 # ===========================================================================
 
+
 class TestSeeder:
     async def test_system_groups_seeded(self, db: AsyncSession) -> None:
         from app.db.models import Group
+
         result = await db.execute(select(Group).where(Group.is_system.is_(True)))
         slugs = {g.slug for g in result.scalars().all()}
-        required = {"sg_super_admin", "sg_contributor", "sg_fork_lead", "sg_executive", "sg_hq"}
+        required = {
+            "sg_super_admin",
+            "sg_contributor",
+            "sg_fork_lead",
+            "sg_executive",
+            "sg_hq",
+        }
         assert required.issubset(slugs), f"Missing: {required - slugs}"
 
     async def test_system_groups_count(self, db: AsyncSession) -> None:
         from app.db.models import Group
+
         result = await db.execute(select(Group).where(Group.is_system.is_(True)))
         assert len(result.scalars().all()) >= 15
 
     async def test_core_permissions_seeded(self, db: AsyncSession) -> None:
         from app.db.models import Permission
+
         result = await db.execute(select(Permission))
         keys = {p.key for p in result.scalars().all()}
-        required = {"iam.users.read", "iam.grants.write", "forks.read", "audit.read", "provisioning.sync.trigger"}
+        required = {
+            "iam.users.read",
+            "iam.grants.write",
+            "forks.read",
+            "audit.read",
+            "provisioning.sync.trigger",
+        }
         assert required.issubset(keys), f"Missing: {required - keys}"
 
     async def test_permission_is_core(self, db: AsyncSession) -> None:
         from app.db.models import Permission
-        result = await db.execute(select(Permission).where(Permission.key == "iam.users.read"))
+
+        result = await db.execute(
+            select(Permission).where(Permission.key == "iam.users.read")
+        )
         perm = result.scalar_one()
         assert perm.plugin_id is None
 
     async def test_discord_role_mappings_seeded(self, db: AsyncSession) -> None:
         from app.db.models import DiscordRoleMapping
+
         result = await db.execute(select(DiscordRoleMapping))
         ids = {m.discord_role_id for m in result.scalars().all()}
         assert "1506019068132462804" in ids  # Contributor
@@ -373,6 +450,7 @@ class TestSeeder:
         """Operational data is never seeded — forks arrive via live Notion sync."""
         from app.db.models import Fork
         from app.db.seeder import run_seeds
+
         await run_seeds(db)
         result = await db.execute(select(Fork))
         assert result.scalars().all() == []
@@ -381,6 +459,7 @@ class TestSeeder:
         """Running seeder again should not create duplicate permissions."""
         from app.db.models import Permission
         from app.db.seeder import run_seeds
+
         # Run again in this test's transaction (rolled back after)
         await run_seeds(db)
         result = await db.execute(
@@ -394,9 +473,11 @@ class TestSeeder:
 # 4. AuditLog
 # ===========================================================================
 
+
 class TestAuditLog:
     async def test_audit_log_insert(self, db: AsyncSession) -> None:
         from app.db.models import AuditLog
+
         entry = AuditLog(
             action="test.action",
             target_type="user",
@@ -412,6 +493,7 @@ class TestAuditLog:
 
     async def test_audit_log_with_actor(self, db: AsyncSession) -> None:
         from app.db.models import AuditLog, User
+
         user = User(display_name="Auditor")
         db.add(user)
         await db.flush()

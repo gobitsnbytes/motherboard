@@ -33,4 +33,7 @@ def test_portal_tokens_are_hashed_and_manifest_is_complete():
 def test_every_registered_onboarding_template_is_packaged_with_the_api():
     root = template_root()
     assert root.name == "templates"
-    assert all((root / manifest["template"]).is_file() for manifest in TEMPLATE_MANIFEST.values())
+    assert all(
+        (root / manifest["template"]).is_file()
+        for manifest in TEMPLATE_MANIFEST.values()
+    )

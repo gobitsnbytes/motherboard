@@ -11,7 +11,6 @@ from app.services.semantic_ooxml import (
     FORM_FIELDS,
     NS,
     annotate_package,
-    package_hash,
     repack_docx,
     state_hash,
     unpack_docx,
@@ -19,7 +18,16 @@ from app.services.semantic_ooxml import (
 )
 
 
-@pytest.mark.parametrize("document_key", ["volunteer", "parent_consent", "fork_certificate", "fork_agreement", "fork_application"])
+@pytest.mark.parametrize(
+    "document_key",
+    [
+        "volunteer",
+        "parent_consent",
+        "fork_certificate",
+        "fork_agreement",
+        "fork_application",
+    ],
+)
 def test_real_templates_round_trip_with_all_semantic_controls(document_key: str):
     source = template_root() / TEMPLATE_MANIFEST[document_key]["template"]
     with tempfile.TemporaryDirectory() as directory:
@@ -35,10 +43,28 @@ def test_real_templates_round_trip_with_all_semantic_controls(document_key: str)
 
 
 def test_state_hash_chains_revision_and_values():
-    first = state_hash(document_id="doc", revision=1, previous_hash=None, values={"name": "A"}, package_digest="package")
-    second = state_hash(document_id="doc", revision=2, previous_hash=first, values={"name": "B"}, package_digest="package")
+    first = state_hash(
+        document_id="doc",
+        revision=1,
+        previous_hash=None,
+        values={"name": "A"},
+        package_digest="package",
+    )
+    second = state_hash(
+        document_id="doc",
+        revision=2,
+        previous_hash=first,
+        values={"name": "B"},
+        package_digest="package",
+    )
     assert first != second
-    assert second == state_hash(document_id="doc", revision=2, previous_hash=first, values={"name": "B"}, package_digest="package")
+    assert second == state_hash(
+        document_id="doc",
+        revision=2,
+        previous_hash=first,
+        values={"name": "B"},
+        package_digest="package",
+    )
 
 
 def test_unpack_rejects_zip_traversal():
@@ -52,7 +78,9 @@ def test_unpack_rejects_zip_traversal():
 
 
 def test_role_validation_rejects_participant_editing_hq_fields():
-    errors = validate_values("fork_certificate", {"director_names": "Someone"}, editor="participant")
+    errors = validate_values(
+        "fork_certificate", {"director_names": "Someone"}, editor="participant"
+    )
     assert errors["director_names"] == "This field cannot be edited by this signer"
 
 
@@ -93,6 +121,7 @@ def test_validate_values_final_submission_ignores_other_role_existing_fields():
         "bnb.volunteer.signed_place": "Lucknow",
         "bnb.volunteer.assigned_role": "Core Tech",  # HQ field already present
     }
-    participant_errors = validate_values("volunteer", values, editor="participant", final=True)
+    participant_errors = validate_values(
+        "volunteer", values, editor="participant", final=True
+    )
     assert participant_errors == {}
-

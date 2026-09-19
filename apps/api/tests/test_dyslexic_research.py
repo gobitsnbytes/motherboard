@@ -11,15 +11,13 @@ import contextlib
 import json
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.database import get_session
 from app.db.models import DyslexicCompany, DyslexicEvent, User
 from app.dyslexic import research
-from app.main import app
 from conftest import request_as
 
 GOOD_RESPONSE = {
@@ -33,16 +31,6 @@ GOOD_RESPONSE = {
     "recent_news": ["Expanded quick commerce"],
     "confidence": "high",
 }
-
-
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
-    async def _get_test_session():
-        yield db_session
-
-    app.dependency_overrides[get_session] = _get_test_session
-    yield
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +51,7 @@ def stub_model(monkeypatch, text: str, sources=None):
 # ---------------------------------------------------------------------------
 # Parsing
 # ---------------------------------------------------------------------------
+
 
 async def test_clean_json_is_parsed(monkeypatch):
     stub_model(monkeypatch, json.dumps(GOOD_RESPONSE))
@@ -161,6 +150,7 @@ async def test_sources_come_from_grounding_metadata(monkeypatch):
 # Background task
 # ---------------------------------------------------------------------------
 
+
 @contextlib.asynccontextmanager
 async def _borrow(session):
     """
@@ -175,7 +165,7 @@ async def _borrow(session):
 
 def use_test_session(monkeypatch, db_session):
     monkeypatch.setattr(
-        research, "_session_factory", lambda: (lambda: _borrow(db_session))
+        research, "_session_factory", lambda: lambda: _borrow(db_session)
     )
 
 
@@ -205,10 +195,14 @@ async def test_background_task_stores_a_successful_result(
     assert stored.research_generated_at is not None
 
     events = (
-        await db_session.execute(
-            select(DyslexicEvent).where(DyslexicEvent.company_id == company_id)
+        (
+            await db_session.execute(
+                select(DyslexicEvent).where(DyslexicEvent.company_id == company_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert [event.kind for event in events] == ["research.generated"]
 
 
@@ -270,7 +264,7 @@ async def test_background_task_never_leaves_a_company_running(
 
 
 async def test_failed_research_does_not_block_outreach(
-    db_session: AsyncSession, monkeypatch
+    db_session: AsyncSession, monkeypatch, client
 ):
     """
     The whole point of making research advisory: a company whose research failed
@@ -287,35 +281,42 @@ async def test_failed_research_does_not_block_outreach(
     db_session.add(user)
     await db_session.commit()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        created = await request_as(
-            ac, user.id, "POST", "/api/dyslexic/companies",
-            json={"name": "Zomato", "website": "zomato.com"},
-        )
-        company_id = created.json()["id"]
+    created = await request_as(
+        client,
+        user.id,
+        "POST",
+        "/api/dyslexic/companies",
+        json={"name": "Zomato", "website": "zomato.com"},
+    )
+    company_id = created.json()["id"]
 
-        stored = await db_session.get(DyslexicCompany, __import__("uuid").UUID(company_id))
-        stored.research_status = "failed"
-        stored.research_error = "Could not parse the model's response as JSON."
-        await db_session.commit()
+    stored = await db_session.get(DyslexicCompany, __import__("uuid").UUID(company_id))
+    stored.research_status = "failed"
+    stored.research_error = "Could not parse the model's response as JSON."
+    await db_session.commit()
 
-        contact = await request_as(
-            ac, user.id, "POST", f"/api/dyslexic/companies/{company_id}/contacts",
-            json={"name": "Dev Rel", "email": "devrel@zomato.com"},
-        )
-        sent = await request_as(
-            ac, user.id, "POST",
-            f"/api/dyslexic/contacts/{contact.json()['id']}/sent",
-            json={"kind": "initial"},
-        )
+    contact = await request_as(
+        client,
+        user.id,
+        "POST",
+        f"/api/dyslexic/companies/{company_id}/contacts",
+        json={"name": "Dev Rel", "email": "devrel@zomato.com"},
+    )
+    sent = await request_as(
+        client,
+        user.id,
+        "POST",
+        f"/api/dyslexic/contacts/{contact.json()['id']}/sent",
+        json={"kind": "initial"},
+    )
 
     assert contact.status_code == 201
     assert sent.status_code == 201
 
 
-async def test_retry_resets_status_to_pending(db_session: AsyncSession, monkeypatch):
+async def test_retry_resets_status_to_pending(
+    db_session: AsyncSession, monkeypatch, client
+):
     from app.routers import dyslexic as router_module
 
     async def _noop(*args, **kwargs):
@@ -327,18 +328,18 @@ async def test_retry_resets_status_to_pending(db_session: AsyncSession, monkeypa
     db_session.add(user)
     await db_session.flush()
     company = DyslexicCompany(
-        name="Zomato", normalized_domain="zomato.com", added_by=user.id,
-        research_status="failed", research_error="boom",
+        name="Zomato",
+        normalized_domain="zomato.com",
+        added_by=user.id,
+        research_status="failed",
+        research_error="boom",
     )
     db_session.add(company)
     await db_session.commit()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        response = await request_as(
-            ac, user.id, "POST", f"/api/dyslexic/companies/{company.id}/research"
-        )
+    response = await request_as(
+        client, user.id, "POST", f"/api/dyslexic/companies/{company.id}/research"
+    )
 
     assert response.status_code == 202
     await db_session.refresh(company)

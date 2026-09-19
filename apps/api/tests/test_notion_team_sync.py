@@ -2,7 +2,6 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +22,6 @@ def _notion_page(name: str, email: str, discord_id: str, role: str) -> dict:
     }
 
 
-@pytest.mark.asyncio
 async def test_team_sync_skips_without_config(db_session: AsyncSession):
     get_settings().notion_token = None
     get_settings().notion_team_db = None
@@ -34,7 +32,6 @@ async def test_team_sync_skips_without_config(db_session: AsyncSession):
     assert result["synced_count"] == 0
 
 
-@pytest.mark.asyncio
 async def test_team_sync_upserts_users_and_discord_ids(db_session: AsyncSession):
     """Real Discord IDs from Notion replace bootstrap placeholder identities."""
     settings = get_settings()
@@ -62,7 +59,9 @@ async def test_team_sync_upserts_users_and_discord_ids(db_session: AsyncSession)
                 "222111000999888777",
                 "Chief Technology Officer (CTO)",
             ),
-            _notion_page("New Member", "new@gobitsnbytes.org", "555444333222111000", "Volunteer"),
+            _notion_page(
+                "New Member", "new@gobitsnbytes.org", "555444333222111000", "Volunteer"
+            ),
         ]
     }
 

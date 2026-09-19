@@ -1,34 +1,28 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
+
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
-from app.database import get_session
 from app.db.models import PluginRegistry, Permission, User
 from app.plugin_sdk.loader import PluginLoader
-from app.plugin_sdk.types import PluginManifest, PermissionDeclaration, UiPanelDeclaration, PluginContext
-from conftest import request_as, engine
+from app.plugin_sdk.types import (
+    PluginManifest,
+    PermissionDeclaration,
+    UiPanelDeclaration,
+    PluginContext,
+)
+from conftest import request_as
 from fastapi import APIRouter, FastAPI
 
-
 from contextlib import asynccontextmanager
-
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
-    async def _get_test_session():
-        yield db_session
-    app.dependency_overrides[get_session] = _get_test_session
-    yield
-    app.dependency_overrides.clear()
 
 
 def make_session_factory(session: AsyncSession):
     @asynccontextmanager
     async def _factory():
         yield session
-    return _factory
 
+    return _factory
 
 
 # Mock Router and Lifecycle Hooks
@@ -54,7 +48,9 @@ async def mock_on_unload(ctx: PluginContext):
     on_unload_called = True
 
 
-def make_test_manifest(plugin_id: str = "test_plugin", is_enabled: bool = True) -> PluginManifest:
+def make_test_manifest(
+    plugin_id: str = "test_plugin", is_enabled: bool = True
+) -> PluginManifest:
     return PluginManifest(
         id=plugin_id,
         name="Test Dynamic Plugin",
@@ -64,7 +60,9 @@ def make_test_manifest(plugin_id: str = "test_plugin", is_enabled: bool = True) 
         on_load=mock_on_load,
         on_unload=mock_on_unload,
         permissions=[
-            PermissionDeclaration(key=f"{plugin_id}.read", description="Read plugin data"),
+            PermissionDeclaration(
+                key=f"{plugin_id}.read", description="Read plugin data"
+            ),
         ],
         ui_panels=[
             UiPanelDeclaration(
@@ -73,13 +71,12 @@ def make_test_manifest(plugin_id: str = "test_plugin", is_enabled: bool = True) 
                 route_segment="panel",
                 placement="sidebar",
                 icon="Puzzle",
-                required_permission=f"{plugin_id}.read"
+                required_permission=f"{plugin_id}.read",
             )
-        ]
+        ],
     )
 
 
-@pytest.mark.asyncio
 async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
     global on_load_called, on_unload_called
     on_load_called = False
@@ -95,13 +92,17 @@ async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
     await loader.load_plugin(manifest)
 
     # Assert database records
-    result = await db_session.execute(select(PluginRegistry).where(PluginRegistry.id == "unit_test_plugin"))
+    result = await db_session.execute(
+        select(PluginRegistry).where(PluginRegistry.id == "unit_test_plugin")
+    )
     db_plugin = result.scalar_one_or_none()
     assert db_plugin is not None
     assert db_plugin.name == "Test Dynamic Plugin"
     assert db_plugin.is_enabled is True
 
-    perm_result = await db_session.execute(select(Permission).where(Permission.key == "unit_test_plugin.read"))
+    perm_result = await db_session.execute(
+        select(Permission).where(Permission.key == "unit_test_plugin.read")
+    )
     db_perm = perm_result.scalar_one_or_none()
     assert db_perm is not None
     assert db_perm.plugin_id == "unit_test_plugin"
@@ -116,7 +117,6 @@ async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
     assert len(loader.loaded_plugins) == 0
 
 
-@pytest.mark.asyncio
 async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
     global on_load_called
     on_load_called = False
@@ -127,7 +127,7 @@ async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
         name="Disabled Plugin",
         version="1.0.0",
         is_enabled=False,
-        config={}
+        config={},
     )
     db_session.add(disabled_plugin)
     await db_session.commit()
@@ -145,7 +145,9 @@ async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
     db_session.expire_all()
 
     # Check that update happened
-    result = await db_session.execute(select(PluginRegistry).where(PluginRegistry.id == "disabled_test_plugin"))
+    result = await db_session.execute(
+        select(PluginRegistry).where(PluginRegistry.id == "disabled_test_plugin")
+    )
     db_plugin = result.scalar_one()
     assert db_plugin.name == "Test Dynamic Plugin"
     assert db_plugin.is_enabled is False
@@ -155,14 +157,15 @@ async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
     assert "disabled_test_plugin" not in loader.loaded_plugins
 
 
-@pytest.mark.asyncio
-async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSession, super_admin: User):
+async def test_active_plugins_and_sample_router_endpoints(
+    db_session: AsyncSession, super_admin: User, client
+):
     # Ensure the sample plugin workspace is loaded in the actual app for endpoint testing.
     # The actual app runs the PluginLoader inside lifespan against the real plugins dir.
     # In tests, override_db provides the isolated DB session.
     # Let's seed a sample plugin registry record so that the loader enables it.
     session_factory = make_session_factory(db_session)
-    
+
     # Snapshot original routes and state to restore them after the test
     original_routes = list(app.router.routes)
     original_loader = getattr(app.state, "plugin_loader", None)
@@ -170,76 +173,98 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
     # Run the real app's loader manually to mount routes on the test app instance.
     loader = PluginLoader(app, session_factory)
     manifest = make_test_manifest("endpoint_test_plugin")
-    
+
     try:
         await loader.load_plugin(manifest)
-        
+
         # Store our mock loader in app.state.plugin_loader so the endpoint can read from it
         app.state.plugin_loader = loader
 
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            # 1. Test GET /api/plugins/active (authenticated - super admin)
-            response = await request_as(ac, super_admin.id, "GET", "/api/plugins/active")
-            assert response.status_code == 200
-            active_plugins = response.json()
-            assert len(active_plugins) >= 1
-            
-            # Verify schema elements
-            plugin_entry = next((p for p in active_plugins if p["id"] == "endpoint_test_plugin"), None)
-            assert plugin_entry is not None
-            assert plugin_entry["name"] == "Test Dynamic Plugin"
-            assert len(plugin_entry["ui_panels"]) == 1
-            assert plugin_entry["ui_panels"][0]["route_segment"] == "panel"
-            assert plugin_entry["ui_panels"][0]["icon"] == "Puzzle"
+        # 1. Test GET /api/plugins/active (authenticated - super admin)
+        response = await request_as(
+            client, super_admin.id, "GET", "/api/plugins/active"
+        )
+        assert response.status_code == 200
+        active_plugins = response.json()
+        assert len(active_plugins) >= 1
 
-            # 2. Test GET /api/plugins/active (authenticated - regular user without plugins.read)
-            regular_user = User(display_name="Regular Contributor", is_super_admin=False)
-            db_session.add(regular_user)
-            await db_session.commit()
-            
-            response = await request_as(ac, regular_user.id, "GET", "/api/plugins/active")
-            assert response.status_code == 403
+        # Verify schema elements
+        plugin_entry = next(
+            (p for p in active_plugins if p["id"] == "endpoint_test_plugin"), None
+        )
+        assert plugin_entry is not None
+        assert plugin_entry["name"] == "Test Dynamic Plugin"
+        assert len(plugin_entry["ui_panels"]) == 1
+        assert plugin_entry["ui_panels"][0]["route_segment"] == "panel"
+        assert plugin_entry["ui_panels"][0]["icon"] == "Puzzle"
 
-            # 3. Test GET /api/plugins/active (authenticated - regular user with plugins.read)
-            # Add a permission grant for plugins.read to the regular user
-            from app.db.models import Grant
-            import uuid
-            grant = Grant(
-                id=uuid.uuid4(),
-                principal_type="user",
-                principal_id=regular_user.id,
-                permission_key="plugins.read"
-            )
-            db_session.add(grant)
-            await db_session.commit()
-            
-            response = await request_as(ac, regular_user.id, "GET", "/api/plugins/active")
-            assert response.status_code == 200
+        # 2. Test GET /api/plugins/active (authenticated - regular user without plugins.read)
+        regular_user = User(display_name="Regular Contributor", is_super_admin=False)
+        db_session.add(regular_user)
+        await db_session.commit()
 
-            # 4. Test dynamic router mounting under /api/plugins/{plugin_id}
-            # Manifest-level panel permission is enforced by the loader, so a user
-            # without endpoint_test_plugin.read must be rejected.
-            response = await request_as(ac, super_admin.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
-            assert response.status_code == 200
-            assert response.json() == {"message": "Success"}
+        response = await request_as(
+            client, regular_user.id, "GET", "/api/plugins/active"
+        )
+        assert response.status_code == 403
 
-            denied = await request_as(ac, regular_user.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
-            assert denied.status_code == 403
+        # 3. Test GET /api/plugins/active (authenticated - regular user with plugins.read)
+        # Add a permission grant for plugins.read to the regular user
+        from app.db.models import Grant
+        import uuid
 
-            plugin_grant = Grant(
-                id=uuid.uuid4(),
-                principal_type="user",
-                principal_id=regular_user.id,
-                permission_key="endpoint_test_plugin.read"
-            )
-            db_session.add(plugin_grant)
-            await db_session.commit()
+        grant = Grant(
+            id=uuid.uuid4(),
+            principal_type="user",
+            principal_id=regular_user.id,
+            permission_key="plugins.read",
+        )
+        db_session.add(grant)
+        await db_session.commit()
 
-            response = await request_as(ac, regular_user.id, "GET", "/api/plugins/endpoint_test_plugin/test-endpoint")
-            assert response.status_code == 200
-            assert response.json() == {"message": "Success"}
-            
+        response = await request_as(
+            client, regular_user.id, "GET", "/api/plugins/active"
+        )
+        assert response.status_code == 200
+
+        # 4. Test dynamic router mounting under /api/plugins/{plugin_id}
+        # Manifest-level panel permission is enforced by the loader, so a user
+        # without endpoint_test_plugin.read must be rejected.
+        response = await request_as(
+            client,
+            super_admin.id,
+            "GET",
+            "/api/plugins/endpoint_test_plugin/test-endpoint",
+        )
+        assert response.status_code == 200
+        assert response.json() == {"message": "Success"}
+
+        denied = await request_as(
+            client,
+            regular_user.id,
+            "GET",
+            "/api/plugins/endpoint_test_plugin/test-endpoint",
+        )
+        assert denied.status_code == 403
+
+        plugin_grant = Grant(
+            id=uuid.uuid4(),
+            principal_type="user",
+            principal_id=regular_user.id,
+            permission_key="endpoint_test_plugin.read",
+        )
+        db_session.add(plugin_grant)
+        await db_session.commit()
+
+        response = await request_as(
+            client,
+            regular_user.id,
+            "GET",
+            "/api/plugins/endpoint_test_plugin/test-endpoint",
+        )
+        assert response.status_code == 200
+        assert response.json() == {"message": "Success"}
+
     finally:
         # Restore app state and routes
         await loader.unload_all()
@@ -249,5 +274,3 @@ async def test_active_plugins_and_sample_router_endpoints(db_session: AsyncSessi
         else:
             if hasattr(app.state, "plugin_loader"):
                 delattr(app.state, "plugin_loader")
-
-

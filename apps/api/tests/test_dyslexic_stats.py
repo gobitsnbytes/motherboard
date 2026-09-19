@@ -9,10 +9,9 @@ point is that nobody ever has to type their own stats in.
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.db.models import (
     DyslexicCompany,
     DyslexicContact,
@@ -22,18 +21,7 @@ from app.db.models import (
 )
 from app.dyslexic.constants import LEADERBOARD_WEIGHTS
 from app.dyslexic.stats import dashboard_stats, leaderboard
-from app.main import app
 from conftest import request_as
-
-
-@pytest.fixture(autouse=True)
-def override_db(db_session: AsyncSession):
-    async def _get_test_session():
-        yield db_session
-
-    app.dependency_overrides[get_session] = _get_test_session
-    yield
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -52,8 +40,10 @@ async def fixtures(db_session: AsyncSession):
     await db_session.flush()
 
     zomato = DyslexicCompany(
-        name="Zomato", normalized_domain="zomato.com",
-        added_by=priya.id, stage="sponsored",
+        name="Zomato",
+        normalized_domain="zomato.com",
+        added_by=priya.id,
+        stage="sponsored",
     )
     swiggy = DyslexicCompany(
         name="Swiggy", normalized_domain="swiggy.com", added_by=priya.id
@@ -67,41 +57,69 @@ async def fixtures(db_session: AsyncSession):
     zomato.created_at = old
     await db_session.flush()
 
-    c1 = DyslexicContact(company_id=zomato.id, name="A", email="a@zomato.com", added_by=priya.id)
-    c2 = DyslexicContact(company_id=swiggy.id, name="B", email="b@swiggy.com", added_by=priya.id)
-    c3 = DyslexicContact(company_id=razorpay.id, name="C", email="c@razorpay.com", added_by=aarav.id)
+    c1 = DyslexicContact(
+        company_id=zomato.id, name="A", email="a@zomato.com", added_by=priya.id
+    )
+    c2 = DyslexicContact(
+        company_id=swiggy.id, name="B", email="b@swiggy.com", added_by=priya.id
+    )
+    c3 = DyslexicContact(
+        company_id=razorpay.id, name="C", email="c@razorpay.com", added_by=aarav.id
+    )
     db_session.add_all([c1, c2, c3])
     await db_session.flush()
 
-    db_session.add_all([
-        DyslexicOutreach(
-            contact_id=c1.id, company_id=zomato.id, kind="initial",
-            sent_by=priya.id, sent_at=old, outcome="sponsored",
-        ),
-        DyslexicOutreach(
-            contact_id=c2.id, company_id=swiggy.id, kind="initial",
-            sent_by=priya.id, sent_at=now,
-        ),
-        DyslexicOutreach(
-            contact_id=c2.id, company_id=swiggy.id, kind="follow_up",
-            sent_by=priya.id, sent_at=now,
-        ),
-        DyslexicOutreach(
-            contact_id=c3.id, company_id=razorpay.id, kind="initial",
-            sent_by=aarav.id, sent_at=now, outcome="replied",
-        ),
-    ])
+    db_session.add_all(
+        [
+            DyslexicOutreach(
+                contact_id=c1.id,
+                company_id=zomato.id,
+                kind="initial",
+                sent_by=priya.id,
+                sent_at=old,
+                outcome="sponsored",
+            ),
+            DyslexicOutreach(
+                contact_id=c2.id,
+                company_id=swiggy.id,
+                kind="initial",
+                sent_by=priya.id,
+                sent_at=now,
+            ),
+            DyslexicOutreach(
+                contact_id=c2.id,
+                company_id=swiggy.id,
+                kind="follow_up",
+                sent_by=priya.id,
+                sent_at=now,
+            ),
+            DyslexicOutreach(
+                contact_id=c3.id,
+                company_id=razorpay.id,
+                kind="initial",
+                sent_by=aarav.id,
+                sent_at=now,
+                outcome="replied",
+            ),
+        ]
+    )
     await db_session.flush()
 
-    outreach = (await db_session.execute(
-        DyslexicOutreach.__table__.select().where(
-            DyslexicOutreach.__table__.c.contact_id == c2.id
+    outreach = (
+        await db_session.execute(
+            DyslexicOutreach.__table__.select().where(
+                DyslexicOutreach.__table__.c.contact_id == c2.id
+            )
         )
-    )).first()
+    ).first()
     db_session.add(
         DyslexicFollowUp(
-            outreach_id=outreach.id, contact_id=c2.id, company_id=swiggy.id,
-            assigned_to=priya.id, due_at=now - timedelta(days=1), status="pending",
+            outreach_id=outreach.id,
+            contact_id=c2.id,
+            company_id=swiggy.id,
+            assigned_to=priya.id,
+            due_at=now - timedelta(days=1),
+            status="pending",
         )
     )
     await db_session.commit()
@@ -177,15 +195,18 @@ async def test_leaderboard_does_not_multiply_counts_across_tables(
     assert priya["companies_added"] == 2
 
 
-async def test_stats_endpoint_is_open_to_any_member(db_session: AsyncSession, fixtures):
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        response = await request_as(ac, fixtures["aarav"].id, "GET", "/api/dyslexic/stats")
-        board = await request_as(
-            ac, fixtures["aarav"].id, "GET", "/api/dyslexic/leaderboard?period=all"
-        )
-        activity = await request_as(ac, fixtures["aarav"].id, "GET", "/api/dyslexic/activity")
+async def test_stats_endpoint_is_open_to_any_member(
+    db_session: AsyncSession, fixtures, client
+):
+    response = await request_as(
+        client, fixtures["aarav"].id, "GET", "/api/dyslexic/stats"
+    )
+    board = await request_as(
+        client, fixtures["aarav"].id, "GET", "/api/dyslexic/leaderboard?period=all"
+    )
+    activity = await request_as(
+        client, fixtures["aarav"].id, "GET", "/api/dyslexic/activity"
+    )
 
     assert response.status_code == 200
     assert response.json()["companies"] == 3
