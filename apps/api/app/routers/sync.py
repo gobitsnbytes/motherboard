@@ -3,9 +3,8 @@
 import uuid
 from datetime import datetime, timezone
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status, BackgroundTasks, Query
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 from sqlalchemy import select
 
 from app.config import get_settings

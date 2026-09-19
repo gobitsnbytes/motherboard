@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal, Optional, List, Any
+from typing import Literal, Optional, List
 from pydantic import BaseModel, ConfigDict, Field
 
 # Principal

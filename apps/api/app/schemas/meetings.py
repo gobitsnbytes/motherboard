@@ -1,6 +1,5 @@
 """Pydantic v2 schemas for Meeting and Transcription endpoints."""
 
-import uuid
 from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import Any
 

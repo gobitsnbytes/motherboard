@@ -7,7 +7,6 @@ existing IAM principal and never accept a portal token as reviewer authority.
 from datetime import datetime, timedelta, timezone
 import html
 import hashlib
-import json
 from pathlib import Path
 import shutil
 import uuid
@@ -63,7 +62,6 @@ from app.services.onboarding_documents import (
     TEMPLATE_MANIFEST,
     create_signature_request,
     hash_portal_token,
-    materialize_document,
     new_portal_token,
     render_docx_to_pdf,
     storage_root,

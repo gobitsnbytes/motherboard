@@ -2,9 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
-from sqlalchemy import select, and_, delete, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Query, status, Response
+from sqlalchemy import select, and_, or_
 from sqlalchemy.exc import IntegrityError
 import httpx
 

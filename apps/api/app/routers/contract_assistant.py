@@ -4,7 +4,6 @@ Powered by SparkCloud AI (auto model) and OKF Knowledge Base.
 Full Database Persistence & bnb-signatures Integration.
 """
 
-import io
 import os
 import re
 import uuid
@@ -14,9 +13,9 @@ from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
-from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings

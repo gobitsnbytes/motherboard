@@ -16,11 +16,10 @@ import os
 from typing import List, Tuple
 
 import fitz  # PyMuPDF
-from PIL import Image
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.platypus import HRFlowable, Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 def render_pdf_page_previews(pdf_bytes: bytes) -> List[str]:
@@ -67,7 +66,7 @@ def prepare_document_pdf(file_bytes: bytes, filename: str) -> bytes:
 
             doc_pdf.build(story)
             return buffer.getvalue()
-        except Exception as e:
+        except Exception:
             # Fallback plain-text PDF builder if docx fails
             buffer = io.BytesIO()
             doc_pdf = SimpleDocTemplate(buffer, pagesize=letter)

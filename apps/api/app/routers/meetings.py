@@ -11,10 +11,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from typing import Annotated, Any, List, Optional, Union
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks, Header, Request
-from sqlalchemy import select, update, delete, insert
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import DbSession, get_current_user
@@ -37,12 +36,9 @@ from app.schemas.meetings import (
     MeetingCreate,
     MeetingUpdate,
     MeetingOut,
-    MeetingAttendeeSchema,
     MeetingTranscriptSchema,
     UserAvailabilitySchema,
-    UserAvailabilityUpdate,
     MeetingEmailPreferenceSchema,
-    MeetingEmailPreferenceUpdate,
     ActionItemSchema,
     ActionItemCreate,
     ActionItemStatusUpdate,

@@ -1,12 +1,11 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import DiscordAccount, DiscordRoleMapping, Membership, SyncRun
 from app.provisioning.client import DiscordClient
-from app.provisioning.errors import SyncAbortedError
 
 import uuid
 

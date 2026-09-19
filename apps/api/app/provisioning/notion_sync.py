@@ -6,7 +6,6 @@ and Team Members into motherboard's database.
 
 import logging
 import uuid
-import json
 from typing import Any, Dict, List
 import httpx
 from sqlalchemy import func, select

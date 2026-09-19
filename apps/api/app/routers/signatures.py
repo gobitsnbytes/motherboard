@@ -12,18 +12,17 @@ import secrets
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 
 from app.config import get_settings
-from app.db.models import SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest, User
+from app.db.models import SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest
 from app.dependencies import DbSession, OptionalUserDep, get_current_user
 from app.iam.principal import ResolvedPrincipal
 from app.iam.policy import require_permission
@@ -31,14 +30,11 @@ from app.schemas.signatures import (
     DSCHardwareSealRequest,
     AuditTrailResponse,
     DocumentVerificationResponse,
-    FieldCreate,
-    FieldResponse,
     OTPRequestPayload,
     OTPVerifyRequest,
     OrgCountersignPayload,
     PublicVoidRequest,
     RecipientCreate,
-    RecipientResponse,
     SignSubmissionRequest,
     SignatureAuditLogResponse,
     SignatureRequestCreate,
@@ -871,7 +867,7 @@ async def seal_software_pfx_dsc_signature(
             pfx_bytes,
             passphrase.encode("utf-8") if passphrase else None
         )
-    except Exception as err:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PFX/P12 certificate file or incorrect passphrase")
 
     if not cert:

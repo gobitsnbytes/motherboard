@@ -7,7 +7,7 @@ Provides zero-cost deterministic rule checking and OKF template linking.
 import os
 import re
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("app.services.okf_engine")

@@ -1,9 +1,8 @@
 """Admin actions router for settings and danger zone commands."""
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status, Request
+from sqlalchemy import delete
 
 from app.db.models import SyncRun
 from app.dependencies import DbDep, CurrentUserDep

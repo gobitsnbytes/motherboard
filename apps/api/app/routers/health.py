@@ -2,13 +2,13 @@
 
 import logging
 import httpx
-from typing import Dict, Any
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func
 
 from app.config import get_settings
-from app.dependencies import DbDep, CurrentUserDep, OptionalUserDep
+from app.dependencies import DbDep, OptionalUserDep
 from app.events import event_bus
 from app.db.models import SyncRun, Group, Permission, DiscordRoleMapping
 
