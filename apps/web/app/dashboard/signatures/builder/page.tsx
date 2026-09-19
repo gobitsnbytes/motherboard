@@ -326,8 +326,7 @@ export default function SignatureBuilderPage() {
                         }}
                         className="px-2.5 py-1.5 bg-white border-2 border-border rounded-base text-[11px] font-mono font-bold text-foreground focus:outline-none focus:border-orange"
                       >
-                        <option value="any">DSC (if available) or Simple OTP (Default)</option>
-                        <option value="dsc_only">Enforce Class 1/2/3 DSC Only</option>
+                        <option value="any">E-signature with email OTP (default)</option>
                         <option value="email_only">Enforce Simple Email OTP Only</option>
                       </select>
                     </div>

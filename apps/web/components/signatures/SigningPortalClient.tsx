@@ -575,7 +575,6 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
           <SignatureCanvas
             onSave={handleSaveSignature}
             onCancel={() => setActiveSigFieldId(null)}
-            allowedSigType={data.recipient?.allowed_sig_type || "any"}
           />
         </div>
       )}
@@ -634,7 +633,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
                   <li>UTC &amp; IST Execution Timestamps registered at submission</li>
                   <li>Signatory IP Address &amp; User-Agent Browser Metadata</li>
                   <li>6-Digit Email OTP verification log (where enabled)</li>
-                  <li>X.509 Digital Signature Certificate (Class 1 / 2 / 3 DSC) serial numbers (where attached)</li>
+                  <li>The Foundation's X.509 Digital Signature Certificate seal applied to the completed document</li>
                 </ul>
                 <p className="text-[11px] text-muted-foreground">
                   Under Section 65B of the Indian Evidence Act, 1872 (Bharatiya Sakshya Adhiniyam, 2023), these electronic audit logs constitute primary admissible evidence in Indian courts.
