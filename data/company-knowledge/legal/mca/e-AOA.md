@@ -1,8 +1,8 @@
 ---
 type: Policy Rule
-title: e-AOA
-description: Official bits&bytes legal document from mca
-tags: ['legal', 'statutory', 'mca', 'incorporation']
+title: e-AOA (Articles of Association) - GOBITSNBYTES FOUNDATION
+description: Articles of Association of GOBITSNBYTES FOUNDATION under Section 5 and Schedule I (Table H) of the Companies Act, 2013. Statutory regulations governing Board of Directors, meetings, quorum, voting, Article 28 executive officer appointments and operational limits, application of income to objects, prohibition of dividend distribution, transfer of membership, and winding up.
+tags: ['e-aoa', 'articles-of-association', 'mca', 'companies-act-2013', 'statutory', 'board-of-directors', 'article-28', 'executive-officers', 'quorum', 'voting', 'meetings', 'governance', 'section-8', 'non-profit', 'incorporation']
 timestamp: 2026-08-04T00:00:00Z
 ---
 

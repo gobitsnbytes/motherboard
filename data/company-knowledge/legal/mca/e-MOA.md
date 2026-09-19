@@ -1,8 +1,8 @@
 ---
 type: Policy Rule
-title: e-MOA
-description: Official bits&bytes legal document from mca
-tags: ['legal', 'statutory', 'mca', 'incorporation']
+title: e-MOA (Memorandum of Association) - GOBITSNBYTES FOUNDATION
+description: Memorandum of Association of GOBITSNBYTES FOUNDATION under Sections 4 and 8 of the Companies Act, 2013. Sets company name, registered office in Uttar Pradesh, Section 8 non-profit charitable objects (STEM education, technical skill development, youth empowerment, hackathons, open source, digital literacy), limited liability by guarantee, application of income exclusively towards objects, non-profit distribution clause, and dissolution provisions.
+tags: ['e-moa', 'memorandum-of-association', 'mca', 'companies-act-2013', 'section-8', 'non-profit-objects', 'stem-education', 'uttar-pradesh', 'charitable-objects', 'liability-guarantee', 'non-distribution-of-profits', 'incorporation', 'statutory']
 timestamp: 2026-08-04T00:00:00Z
 ---
 
