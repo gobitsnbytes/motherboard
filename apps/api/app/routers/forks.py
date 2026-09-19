@@ -492,7 +492,7 @@ async def update_onboarding_step(
     meta["onboarding_checklist"] = checklist_state
     fork.metadata_json = meta
 
-    write_audit_entry(
+    await write_audit_entry(
         db,
         actor_id=current_user.user_id,
         action="fork.onboarding.step_updated",
@@ -547,7 +547,7 @@ async def fork_onboarding_action(
         meta["onboarding_stage"] = next_stage
         if next_stage == "approved":
             fork.is_active = True
-        write_audit_entry(
+        await write_audit_entry(
             db,
             actor_id=current_user.user_id,
             action="fork.onboarding.advanced",
@@ -570,7 +570,7 @@ async def fork_onboarding_action(
         meta["onboarding_stage"] = "archived"
         meta["archive_reason"] = payload.reason
         fork.is_active = False
-        write_audit_entry(
+        await write_audit_entry(
             db,
             actor_id=current_user.user_id,
             action="fork.onboarding.rejected",
@@ -588,7 +588,7 @@ async def fork_onboarding_action(
         meta["onboarding_stage"] = "archived"
         meta["archive_reason"] = payload.reason
         fork.is_active = False
-        write_audit_entry(
+        await write_audit_entry(
             db,
             actor_id=current_user.user_id,
             action="fork.onboarding.archived",
@@ -606,7 +606,7 @@ async def fork_onboarding_action(
         meta["onboarding_stage"] = "submitted"
         meta.pop("archive_reason", None)
         fork.is_active = True
-        write_audit_entry(
+        await write_audit_entry(
             db,
             actor_id=current_user.user_id,
             action="fork.onboarding.reactivated",
@@ -672,7 +672,7 @@ async def add_fork_member(
         )
         db.add(member)
 
-    write_audit_entry(
+    await write_audit_entry(
         db,
         actor_id=current_user.user_id,
         action="fork.member.added",
@@ -701,7 +701,7 @@ async def remove_fork_member(
 
     member.is_active = False
     member.left_at = datetime.now(timezone.utc)
-    write_audit_entry(
+    await write_audit_entry(
         db,
         actor_id=current_user.user_id,
         action="fork.member.removed",
