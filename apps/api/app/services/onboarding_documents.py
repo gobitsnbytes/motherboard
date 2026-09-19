@@ -77,7 +77,66 @@ def render_docx_to_pdf(docx_path: Path, output_dir: Path) -> Path:
     pdf_path = output_dir / f"{docx_path.stem}.pdf"
     if result.returncode != 0 or not pdf_path.is_file():
         raise RuntimeError("Onboarding DOCX rendering failed")
+    _drop_blank_pages(pdf_path)
     return pdf_path
+
+
+def _drop_blank_pages(pdf_path: Path) -> None:
+    """Writer emits trailing pages carrying only the page frame; they waste paper
+    and give the signer empty sheets to scroll past."""
+    with fitz.open(str(pdf_path)) as pdf:
+        blanks = [index for index, page in enumerate(pdf) if not page.get_text().strip() and not page.get_images()]
+        if not blanks or len(blanks) == pdf.page_count:
+            return
+        pdf.delete_pages(blanks)
+        pdf.save(str(pdf_path.with_suffix(".trimmed")))
+    pdf_path.with_suffix(".trimmed").replace(pdf_path)
+
+
+SIGNATURE_BOX_PT = (170.0, 40.0)
+
+
+def _signature_box(marker: fitz.Rect, page: fitz.Rect) -> fitz.Rect:
+    """A signature needs a box, not the glyph run of its marker; the marker's line
+    is ~12pt tall, which squashes the stamp into the text around it."""
+    width, height = SIGNATURE_BOX_PT
+    x0 = min(marker.x0, page.width - width - 24)
+    y0 = min(max(marker.y1 - height, 24.0), page.height - height - 24)
+    return fitz.Rect(max(x0, 24.0), y0, max(x0, 24.0) + width, y0 + height)
+
+
+def resolve_signature_anchors(pdf_path: Path, document_key: str) -> list[tuple[dict[str, Any], dict[str, float | int]]]:
+    """Turn each ``[[sigN]]`` marker into a signing box, then erase the marker.
+
+    The marker is a coordinate anchor, not content: left in place it prints in the
+    executed document and the stamp lands on top of it.  Mutates ``pdf_path``.
+    """
+    markers = signature_markers(document_key)
+    placements: list[tuple[dict[str, Any], dict[str, float | int]]] = []
+    with fitz.open(str(pdf_path)) as pdf:
+        for field in fields_for(document_key):
+            if field["type"] != "signature":
+                continue
+            marker = markers[field["id"]]
+            matches = [(number, rect) for number, page in enumerate(pdf, start=1) for rect in page.search_for(marker)]
+            if len(matches) != 1:
+                raise RuntimeError(f"Onboarding signature anchor contract failed: {field['label']} ({len(matches)} placeholders found in the rendered PDF)")
+            page_number, rect = matches[0]
+            page = pdf[page_number - 1]
+            box = _signature_box(rect, page.rect)
+            page.add_redact_annot(rect)
+            placements.append((field, {
+                "page_number": page_number,
+                "pos_x": 100 * box.x0 / page.rect.width,
+                "pos_y": 100 * box.y0 / page.rect.height,
+                "width": 100 * box.width / page.rect.width,
+                "height": 100 * box.height / page.rect.height,
+            }))
+        for page in pdf:
+            page.apply_redactions()
+        pdf.save(str(pdf_path.with_suffix(".anchored")))
+    pdf_path.with_suffix(".anchored").replace(pdf_path)
+    return placements
 
 
 async def create_signature_request(db: AsyncSession, *, case: OnboardingCase, document: OnboardingDocument, pdf_path: Path, signer_specs: list[dict[str, Any]]) -> SignatureRequest:
@@ -92,18 +151,12 @@ async def create_signature_request(db: AsyncSession, *, case: OnboardingCase, do
         recipients[recipient.role] = recipient
     organization = recipients.get("organization")
     signer = next((recipient for role, recipient in recipients.items() if role != "organization"), None)
-    markers = signature_markers(document.document_key)
-    with fitz.open(str(pdf_path)) as pdf_doc:
-        for field in fields_for(document.document_key):
-            if field["type"] != "signature":
-                continue
-            recipient = organization if field["editable_by"] == "hq" else signer
-            marker = markers[field["id"]]
-            matches = [(number, rect) for number, page in enumerate(pdf_doc, start=1) for rect in page.search_for(marker)]
-            if recipient is None or len(matches) != 1:
-                raise RuntimeError(f"Onboarding signature anchor contract failed: {field['label']} ({len(matches)} placeholders found in the rendered PDF)")
-            page_number, rect = matches[0]
-            page = pdf_doc[page_number - 1]
-            db.add(SignatureField(request_id=request.id, recipient_id=recipient.id, type="signature", page_number=page_number, pos_x=100 * rect.x0 / page.rect.width, pos_y=100 * rect.y0 / page.rect.height, width=100 * rect.width / page.rect.width, height=100 * rect.height / page.rect.height, required=field["required"]))
+    if signer is None:
+        raise RuntimeError("Onboarding signature request has no participant signer")
+    for field, placement in resolve_signature_anchors(pdf_path, document.document_key):
+        recipient = organization if field["editable_by"] == "hq" else signer
+        if recipient is None:
+            raise RuntimeError(f"Onboarding signature anchor contract failed: no signer for {field['label']}")
+        db.add(SignatureField(request_id=request.id, recipient_id=recipient.id, type="signature", required=field["required"], **placement))
     db.add(SignatureAuditLog(request_id=request.id, action="created", ip_address="onboarding", user_agent="motherboard", details=f"Created from onboarding case {case.id}"))
     return request

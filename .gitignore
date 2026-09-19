@@ -54,6 +54,7 @@ __pycache__/
 /data/onboarding/
 /apps/api/data/signatures/
 /apps/api/data/onboarding/
+/apps/api/data/test_*/
 /output/
 
 # Local scratch, campaign exports, and one-off operators

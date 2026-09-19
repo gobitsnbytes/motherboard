@@ -38,6 +38,11 @@ class Field:
     editable_by: str = "participant"
     options: tuple[str, ...] = ()
     multiline: bool = False
+    after: str = ""
+    """Heading that scopes the anchor search.  ``Signature:`` and ``Place:`` repeat
+    in every signing block, so an unscoped anchor lands on the wrong one."""
+    derive: str = ""
+    """Non-editable field filled at compile time from the signer identity."""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -90,17 +95,18 @@ FORM_FIELDS: dict[str, tuple[Field, ...]] = {
             ("skills", "Relevant skills and experience", "Briefly describe your relevant skills and experience:", {"multiline": True}),
         ]),
         *_f("volunteer", "Applicant signature", [
-            ("participant_signature", "Electronic signature", "Signature:", {"type": "signature", "required": True}),
-            ("signed_place", "Place", "Place:", {"required": True}),
+            ("participant_signature", "Electronic signature", "Signature:", {"type": "signature", "required": True, "after": "SECTION F"}),
+            ("participant_print_name", "Printed name", "Full Name (Print):", {"after": "SECTION F", "editable_by": "auto", "derive": "participant_name"}),
+            ("signed_place", "Place", "Place:", {"required": True, "after": "SECTION F"}),
         ]),
         *_f("volunteer", "Foundation review", [
             ("assigned_role", "Assigned role / domain", "Assigned Role / Domain", {"editable_by": "hq"}),
             ("attached_team", "Attached fork / team", "Attached Fork / Team", {"editable_by": "hq"}),
             ("reporting_to", "Reporting to", "Reporting To", {"editable_by": "hq"}),
             ("effective_from", "Effective from", "Effective From", {"type": "date", "editable_by": "hq"}),
-            ("hq_name", "Accepted by", "Name:", {"editable_by": "hq"}),
-            ("hq_designation", "Designation", "Designation:", {"editable_by": "hq"}),
-            ("hq_signature", "Foundation signature", "RECEIVED AND ACCEPTED BY GOBITSNBYTES FOUNDATION", {"type": "signature", "editable_by": "hq"}),
+            ("hq_name", "Accepted by", "Name:", {"editable_by": "hq", "after": "RECEIVED AND ACCEPTED BY"}),
+            ("hq_designation", "Designation", "Designation:", {"editable_by": "hq", "after": "RECEIVED AND ACCEPTED BY"}),
+            ("hq_signature", "Foundation signature", "Signature:", {"type": "signature", "editable_by": "hq", "after": "RECEIVED AND ACCEPTED BY"}),
         ]),
     ),
     "parent_consent": (
@@ -131,13 +137,14 @@ FORM_FIELDS: dict[str, tuple[Field, ...]] = {
         ]),
         *_f("parent", "Consent", [
             ("media_consent", "Photography and media consent", "Please tick all that apply:", {"type": "choice", "required": True, "options": ("Internal records only", "Internal and external use", "No photography or recording")}),
-            ("guardian_signature", "Parent / guardian signature", "SIGNATURE OF PARENT / GUARDIAN", {"type": "signature", "required": True}),
-            ("signed_place", "Place", "Place:", {"required": True}),
-            ("minor_cosignature", "Minor co-signature (age 16+)", "CO-SIGNATURE OF MINOR", {"type": "signature"}),
+            ("guardian_signature", "Parent / guardian signature", "Signature:", {"type": "signature", "required": True, "after": "SIGNATURE OF PARENT / GUARDIAN"}),
+            ("guardian_print_name", "Printed name", "Full Name (Print):", {"after": "SIGNATURE OF PARENT / GUARDIAN", "editable_by": "auto", "derive": "participant_name"}),
+            ("signed_place", "Place", "Place:", {"required": True, "after": "SIGNATURE OF PARENT / GUARDIAN"}),
+            ("minor_cosignature", "Minor co-signature (age 16+)", "Signature:", {"type": "signature", "after": "CO-SIGNATURE OF MINOR"}),
         ]),
         *_f("parent", "Foundation review", [
-            ("received_by", "Received by", "Received by:", {"editable_by": "hq"}),
-            ("designation", "Designation", "Designation:", {"editable_by": "hq"}),
+            ("received_by", "Received by", "Received by:", {"editable_by": "hq", "after": "FOR FOUNDATION USE ONLY"}),
+            ("designation", "Designation", "Designation:", {"editable_by": "hq", "after": "FOR FOUNDATION USE ONLY"}),
             ("volunteer_form_ref", "Volunteer form reference", "Attached to Volunteer Form Ref:", {"editable_by": "hq"}),
         ]),
     ),
@@ -163,12 +170,13 @@ FORM_FIELDS: dict[str, tuple[Field, ...]] = {
             ("declarations", "Applicant declarations", "Tick all boxes before signing.", {"type": "checkbox", "required": True}),
         ]),
         *_f("fork.application", "Applicant signature", [
-            ("lead_signature", "Fork lead signature", "SECTION F — APPLICANT DECLARATION", {"type": "signature", "required": True}),
-            ("signed_place", "Place", "Place:", {"required": True}),
+            ("lead_signature", "Fork lead signature", "Signature:", {"type": "signature", "required": True, "after": "SECTION F"}),
+            ("lead_print_name", "Printed name", "Full Name (Print):", {"after": "SECTION F", "editable_by": "auto", "derive": "participant_name"}),
+            ("signed_place", "Place", "Place:", {"required": True, "after": "SECTION F"}),
         ]),
         *_f("fork.application", "Foundation review", [
             ("application_ref", "Application reference", "Application Reference No", {"editable_by": "hq"}),
-            ("received_by", "Received by", "Received by", {"editable_by": "hq"}),
+            ("received_by", "Received by", "Received by", {"editable_by": "hq", "after": "SECTION G"}),
             ("interviewers", "Interviewers", "Interviewer(s)", {"editable_by": "hq"}),
             ("interview_date", "Interview date", "Interview Date", {"type": "date", "editable_by": "hq"}),
             ("interview_score", "Interview score", "Interview Score", {"type": "number", "editable_by": "hq"}),
@@ -189,8 +197,9 @@ FORM_FIELDS: dict[str, tuple[Field, ...]] = {
             ("fork_name", "Fork name", "Fork Name", {"required": True}), ("fork_location", "Fork location / city", "Fork Location / City", {"required": True}),
         ]),
         *_f("fork.agreement", "Signatures", [
-            ("lead_signature", "Fork lead signature", "FORK LEAD", {"type": "signature", "required": True}),
-            ("signed_place", "Place", "Place:", {"required": True}),
+            ("lead_signature", "Fork lead signature", "Signature:", {"type": "signature", "required": True, "after": "SIGNATURES"}),
+            ("lead_print_name", "Printed name", "Full Name (Print):", {"after": "SIGNATURES", "editable_by": "auto", "derive": "participant_name"}),
+            ("signed_place", "Place", "Place:", {"required": True, "after": "SIGNATURES"}),
             ("hq_signature", "Board signature", "FOR AND ON BEHALF OF THE BOARD OF DIRECTORS", {"type": "signature", "editable_by": "hq", "required": True}),
         ]),
     ),
@@ -206,8 +215,9 @@ FORM_FIELDS: dict[str, tuple[Field, ...]] = {
             ("director_signatures", "Board signatures", "FOR AND ON BEHALF OF THE BOARD OF DIRECTORS", {"type": "signature", "editable_by": "hq", "required": True}),
         ]),
         *_f("fork.certificate", "Fork lead acknowledgement", [
-            ("lead_signature", "Fork lead acknowledgement", "ACKNOWLEDGED AND ACCEPTED BY FORK LEAD", {"type": "signature", "required": True}),
-            ("signed_place", "Place", "Place:", {"required": True}),
+            ("lead_signature", "Fork lead acknowledgement", "Signature:", {"type": "signature", "required": True, "after": "ACKNOWLEDGED AND ACCEPTED BY FORK LEAD"}),
+            ("lead_print_name", "Printed name", "Full Name (Print):", {"after": "ACKNOWLEDGED AND ACCEPTED BY FORK LEAD", "editable_by": "auto", "derive": "participant_name"}),
+            ("signed_place", "Place", "Place:", {"required": True, "after": "ACKNOWLEDGED AND ACCEPTED BY FORK LEAD"}),
         ]),
     ),
 }
@@ -219,7 +229,15 @@ def fields_for(document_key: str, *, editor: str | None = None) -> list[dict[str
         raise ValueError(f"Unknown onboarding document type: {document_key}")
     if editor is not None:
         fields = tuple(field for field in fields if field.editable_by == editor)
+    else:
+        fields = tuple(field for field in fields if field.editable_by != "auto")
     return [field.as_dict() for field in fields]
+
+
+def derived_values(document_key: str, *, participant_name: str) -> dict[str, str]:
+    """Values nobody types: the printed name that accompanies each signature."""
+    sources = {"participant_name": participant_name}
+    return {field.id: sources[field.derive] for field in FORM_FIELDS[document_key] if field.derive in sources}
 
 
 def signature_markers(document_key: str) -> dict[str, str]:
@@ -269,13 +287,33 @@ def _paragraph_text(paragraph: etree._Element) -> str:
     return " ".join("".join(paragraph.xpath(".//w:t/text()", namespaces=NS)).split())
 
 
-def _find_anchor(root: etree._Element, anchor: str) -> etree._Element | None:
-    normalized = " ".join(anchor.split()).casefold()
+def _find_anchor(root: etree._Element, field: Field) -> etree._Element | None:
     candidates = root.xpath(".//w:p", namespaces=NS)
-    exact = [p for p in candidates if _paragraph_text(p).casefold() == normalized]
-    if exact:
-        return exact[0]
-    return next((p for p in candidates if normalized in _paragraph_text(p).casefold()), None)
+    if field.after:
+        scope = " ".join(field.after.split()).casefold()
+        start = next((index for index, p in enumerate(candidates) if scope in _paragraph_text(p).casefold()), None)
+        if start is None:
+            return None
+        candidates = candidates[start + 1:]
+    normalized = " ".join(field.anchor.split()).casefold()
+    texts = [_paragraph_text(p).casefold() for p in candidates]
+    exact = next((p for p, text in zip(candidates, texts) if text == normalized), None)
+    return exact if exact is not None else next((p for p, text in zip(candidates, texts) if normalized in text), None)
+
+
+def _set_text(node: etree._Element, value: str) -> None:
+    """Write a value into a ``w:t``, turning newlines into real OOXML breaks."""
+    run = node.getparent()
+    for sibling in run.xpath("following-sibling::*"):
+        run.remove(sibling)
+    node.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    lines = str(value).splitlines() or [""]
+    node.text = lines[0]
+    for line in lines[1:]:
+        etree.SubElement(run, W + "br")
+        extra = etree.SubElement(run, W + "t")
+        extra.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+        extra.text = line
 
 
 def _semantic_sdt(field: Field, value: Any = None) -> etree._Element:
@@ -287,19 +325,22 @@ def _semantic_sdt(field: Field, value: Any = None) -> etree._Element:
     content = etree.SubElement(sdt, W + "sdtContent")
     run = etree.SubElement(content, W + "r")
     text = etree.SubElement(run, W + "t")
-    text.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-    text.text = _display_value(field, value)
+    _set_text(text, _display_value(field, value))
     return sdt
 
 
 def _display_value(field: Field, value: Any) -> str:
     if value in (None, "", []):
-        return f"[Enter {field.label.lower()}]"
+        return ""
     if field.type == "checkbox":
         return "☒ Confirmed" if value else "☐ Not confirmed"
     if field.type == "signature":
-        name = value.get("name") if isinstance(value, dict) else str(value)
-        timestamp = value.get("signed_at") if isinstance(value, dict) else None
+        if isinstance(value, str):
+            # A bare signing marker: it is a coordinate anchor for the PDF stamp,
+            # so it must not be wrapped in prose that changes its bounding box.
+            return value
+        name = value.get("name")
+        timestamp = value.get("signed_at")
         return f"Electronically signed by {name}" + (f" on {timestamp}" if timestamp else "")
     if isinstance(value, list):
         return ", ".join(str(item) for item in value)
@@ -319,16 +360,24 @@ def annotate_package(package_dir: Path, document_key: str, values: dict[str, Any
         if controls:
             text_nodes = controls[0].xpath(".//w:t", namespaces=NS)
             if text_nodes:
-                text_nodes[0].text = _display_value(field, values.get(field.id))
+                _set_text(text_nodes[0], _display_value(field, values.get(field.id)))
             continue
-        paragraph = _find_anchor(root, field.anchor)
+        paragraph = _find_anchor(root, field)
         if paragraph is None:
             missing.append(field.id)
             continue
-        tab_run = etree.Element(W + "r")
-        etree.SubElement(tab_run, W + "tab")
-        paragraph.append(tab_run)
-        paragraph.append(_semantic_sdt(field, values.get(field.id)))
+        if field.multiline or field.type == "signature":
+            # Prose tab-appended to its label wraps into the margin, and a
+            # signature needs a clear line: a stamp placed on a marker that shares
+            # a line with other text lands on top of that text.
+            holder = etree.Element(W + "p")
+            holder.append(_semantic_sdt(field, values.get(field.id)))
+            paragraph.addnext(holder)
+        else:
+            tab_run = etree.Element(W + "r")
+            etree.SubElement(tab_run, W + "tab")
+            paragraph.append(tab_run)
+            paragraph.append(_semantic_sdt(field, values.get(field.id)))
         existing.add(field.id)
     tree.write(str(xml_path), xml_declaration=True, encoding="UTF-8", standalone=True)
     return missing
@@ -377,6 +426,8 @@ def document_blocks(template_path: Path, document_key: str) -> list[dict[str, An
     sections.append(current)
     field_by_anchor: dict[str, list[Field]] = {}
     for field in fields:
+        if field.editable_by == "auto":
+            continue
         field_by_anchor.setdefault(field.anchor.casefold(), []).append(field)
     for paragraph in document.paragraphs:
         text = " ".join(paragraph.text.split())
@@ -400,7 +451,7 @@ def document_blocks(template_path: Path, document_key: str) -> list[dict[str, An
 
 
 def validate_values(document_key: str, values: dict[str, Any], *, editor: str = "all", final: bool = False) -> dict[str, str]:
-    all_fields = {field.id: field for field in FORM_FIELDS[document_key]}
+    all_fields = {field.id: field for field in FORM_FIELDS[document_key] if field.editable_by != "auto"}
     if editor == "all":
         allowed = all_fields
     else:

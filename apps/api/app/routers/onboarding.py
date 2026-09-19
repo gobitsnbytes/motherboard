@@ -70,6 +70,7 @@ from app.services.onboarding_documents import (
 )
 from app.services.semantic_ooxml import (
     annotate_package,
+    derived_values,
     document_blocks,
     fields_for,
     package_hash,
@@ -147,7 +148,7 @@ async def _sync_signature_states(db: DbSession, case: OnboardingCase) -> None:
                 document.final_pdf_hash = hashlib.sha256(Path(request.signed_file_path).read_bytes()).hexdigest()
         elif request.status in {"voided", "expired"}:
             document.status = request.status
-    if case.documents and all(document.status == "completed" for document in case.documents):
+    if case.documents and all(document.status in {"completed", "accepted"} for document in case.documents):
         case.status = "completed"
 
 
@@ -533,7 +534,13 @@ async def create_case(
 async def list_cases(db: DbSession, current_user: CurrentUserDep) -> list[OnboardingCaseResponse]:
     await require_permission(db, current_user, "onboarding.read")
     rows = (await db.execute(select(OnboardingCase).order_by(OnboardingCase.created_at.desc()))).scalars().all()
-    return [_case_response(await _load_case(db, row.id)) for row in rows]
+    # The signing engine does not know about onboarding, so signed documents only
+    # converge on a read.  Without this the dashboard sits on "signing" forever.
+    cases = [await _load_case(db, row.id) for row in rows]
+    for case in cases:
+        await _sync_signature_states(db, case)
+    await db.commit()
+    return [_case_response(case) for case in cases]
 
 
 @router.get("/cases/{case_id}", response_model=OnboardingCaseResponse)
@@ -1103,6 +1110,9 @@ async def get_staff_document_editor(case_id: uuid.UUID, document_id: uuid.UUID, 
     document = await _load_document_for_editor(db, document_id)
     if document.case_id != case_id:
         raise HTTPException(status_code=404, detail="Onboarding document not found")
+    await _sync_signature_states(db, await _load_case(db, case_id))
+    await db.commit()
+    await db.refresh(document)
     await _ensure_initial_revision(db, document)
     sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
     return OnboardingEditorResponse(
@@ -1261,7 +1271,11 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
 
     role = "guardian" if participant.role == "parent" else "lead" if document.document_key.startswith("fork_") else "subject"
     signature_fields = [field for field in fields_for(document.document_key) if field["type"] == "signature"]
-    marker_values = dict(document.field_values or {}) | signature_markers(document.document_key)
+    marker_values = (
+        dict(document.field_values or {})
+        | derived_values(document.document_key, participant_name=participant.name)
+        | signature_markers(document.document_key)
+    )
     try:
         _, docx_path = await run_in_threadpool(_compile_ooxml_source, document, marker_values)
         pdf_path = await run_in_threadpool(render_docx_to_pdf, docx_path, docx_path.parent)
