@@ -26,6 +26,24 @@ type CaseRow = {
   participants: ParticipantRow[];
 };
 
+function apiErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((issue) =>
+        typeof issue === "object" && issue !== null && "msg" in issue
+          ? String(issue.msg)
+          : null,
+      )
+      .filter(Boolean)
+      .join(" ") || fallback;
+  }
+  if (typeof detail === "object" && detail !== null && "message" in detail) {
+    return String(detail.message);
+  }
+  return fallback;
+}
+
 export default function OnboardingDashboardPage() {
   const [cases, setCases] = useState<CaseRow[]>([]);
   const [kind, setKind] = useState("volunteer");
@@ -72,11 +90,7 @@ export default function OnboardingDashboardPage() {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(
-        typeof body.detail === "string"
-          ? body.detail
-          : "Could not create case.",
-      );
+      setError(apiErrorMessage(body.detail, "Could not create case."));
       return;
     }
     setTitle("");
