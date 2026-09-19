@@ -63,6 +63,10 @@ data/signatures/
 apps/api/data/signatures/
 apps/api/data/*.db*
 
+# Generated onboarding OOXML packages and rendered document artifacts
+data/onboarding/
+apps/api/data/onboarding/
+
 # Security & Secret safeguarding (SSH keys, tokens, environment files)
 *.key
 *.pem
