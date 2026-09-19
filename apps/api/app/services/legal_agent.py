@@ -480,38 +480,118 @@ def _clean_numbered_text(line: str) -> str:
     return re.sub(r"^\d+\.\s*", "", line.strip())
 
 
-def _render_markdown_paragraphs(text: str) -> str:
-    """Safely convert basic markdown (bold, lists, paragraphs) into inline-styled email HTML."""
-    escaped = html.escape(text.strip())
+def _render_inline_markdown(text: str) -> str:
+    escaped = html.escape(text)
     escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
     escaped = re.sub(r"__(.+?)__", r"<strong>\1</strong>", escaped)
     escaped = re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"<em>\1</em>", escaped)
+    escaped = re.sub(r"(?<!_)_([^_]+?)_(?!_)", r"<em>\1</em>", escaped)
+    escaped = re.sub(
+        r"`([^`]+?)`",
+        r'<code style="background-color:#F5F3EF;padding:2px 5px;border-radius:3px;font-family:monospace;font-size:12px;color:#97192C;border:1px solid #E5E4E2;">\1</code>',
+        escaped,
+    )
+    return escaped
 
-    paragraphs = [p.strip() for p in escaped.split("\n\n") if p.strip()]
+
+def _render_markdown_paragraphs(text: str) -> str:
+    """Convert markdown (headings, bold, lists, quotes, paragraphs) into responsive, polished email HTML."""
+    cleaned = text.strip()
+    if not cleaned:
+        return ""
+
+    raw_blocks = [b.strip() for b in re.split(r"\n\s*\n", cleaned) if b.strip()]
     rendered_parts: List[str] = []
-    for p in paragraphs:
-        lines = p.splitlines()
-        if all(re.match(r"^[-*•]\s+", line.strip()) for line in lines):
-            items = "".join(
-                f'<li style="margin-bottom:6px;">{_clean_bullet_text(line)}</li>'
+
+    for block in raw_blocks:
+        lines = block.splitlines()
+        first_line = lines[0].strip()
+
+        # Headings
+        if first_line.startswith("# ") and len(lines) == 1:
+            title = _render_inline_markdown(first_line[2:].strip())
+            rendered_parts.append(
+                f'<h2 style="margin:20px 0 10px 0;font-size:18px;font-weight:800;color:#97192C;letter-spacing:-0.01em;border-bottom:2px solid #FC920D;padding-bottom:6px;">{title}</h2>'
+            )
+            continue
+        elif first_line.startswith("## ") and len(lines) == 1:
+            title = _render_inline_markdown(first_line[3:].strip())
+            rendered_parts.append(
+                f'<h3 style="margin:18px 0 8px 0;font-size:15px;font-weight:700;color:#3C0A12;letter-spacing:-0.01em;">{title}</h3>'
+            )
+            continue
+        elif first_line.startswith("### ") and len(lines) == 1:
+            title = _render_inline_markdown(first_line[4:].strip())
+            rendered_parts.append(
+                f'<h4 style="margin:14px 0 6px 0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#716F6C;">{title}</h4>'
+            )
+            continue
+
+        # Blockquotes
+        if all(line.strip().startswith(">") for line in lines):
+            quote_text = "<br/>".join(
+                _render_inline_markdown(re.sub(r"^>\s*", "", line.strip()))
                 for line in lines
             )
             rendered_parts.append(
-                f'<ul style="margin:10px 0 14px 20px;padding:0;font-size:14px;line-height:1.6;color:#120F0A;">{items}</ul>'
+                f'<blockquote style="margin:14px 0;padding:10px 16px;border-left:4px solid #FC920D;background-color:#FAF8F5;color:#413F3B;font-size:13px;line-height:1.6;font-style:italic;">{quote_text}</blockquote>'
             )
-        elif all(re.match(r"^\d+\.\s+", line.strip()) for line in lines):
-            items = "".join(
-                f'<li style="margin-bottom:6px;">{_clean_numbered_text(line)}</li>'
-                for line in lines
+            continue
+
+        # Bullet lists
+        if any(re.match(r"^[-*•]\s+", line.strip()) for line in lines):
+            items: List[str] = []
+            curr_item: List[str] = []
+            for line in lines:
+                stripped = line.strip()
+                if re.match(r"^[-*•]\s+", stripped):
+                    if curr_item:
+                        items.append(" ".join(curr_item))
+                    curr_item = [re.sub(r"^[-*•]\s*", "", stripped)]
+                else:
+                    curr_item.append(stripped)
+            if curr_item:
+                items.append(" ".join(curr_item))
+
+            rendered_items = "".join(
+                f'<li style="margin-bottom:8px;line-height:1.6;">{_render_inline_markdown(item)}</li>'
+                for item in items
             )
             rendered_parts.append(
-                f'<ol style="margin:10px 0 14px 20px;padding:0;font-size:14px;line-height:1.6;color:#120F0A;">{items}</ol>'
+                f'<ul style="margin:12px 0 16px 20px;padding:0;font-size:14px;color:#120F0A;">{rendered_items}</ul>'
             )
-        else:
-            p_html = "<br/>".join(line.strip() for line in lines if line.strip())
+            continue
+
+        # Numbered lists
+        if any(re.match(r"^\d+\.\s+", line.strip()) for line in lines):
+            num_items: List[str] = []
+            num_curr: List[str] = []
+            for line in lines:
+                stripped = line.strip()
+                if re.match(r"^\d+\.\s+", stripped):
+                    if num_curr:
+                        num_items.append(" ".join(num_curr))
+                    num_curr = [re.sub(r"^\d+\.\s*", "", stripped)]
+                else:
+                    num_curr.append(stripped)
+            if num_curr:
+                num_items.append(" ".join(num_curr))
+
+            rendered_num = "".join(
+                f'<li style="margin-bottom:8px;line-height:1.6;">{_render_inline_markdown(item)}</li>'
+                for item in num_items
+            )
             rendered_parts.append(
-                f'<p style="margin:12px 0;font-size:14px;line-height:1.6;color:#120F0A;">{p_html}</p>'
+                f'<ol style="margin:12px 0 16px 20px;padding:0;font-size:14px;color:#120F0A;">{rendered_num}</ol>'
             )
+            continue
+
+        # Regular paragraphs
+        p_html = "<br/>".join(_render_inline_markdown(line.strip()) for line in lines if line.strip())
+        rendered_parts.append(
+            f'<p style="margin:12px 0;font-size:14px;line-height:1.65;color:#120F0A;">{p_html}</p>'
+        )
+
     return "\n".join(rendered_parts)
 
 
