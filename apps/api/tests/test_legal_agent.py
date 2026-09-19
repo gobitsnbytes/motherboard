@@ -630,3 +630,94 @@ async def test_agent_stats_endpoint_shape(db_session: AsyncSession):
         "last_poll_at",
     ):
         assert key in data
+
+
+# ---------------------------------------------------------------------------
+# Loop prevention & Policy email formatting
+# ---------------------------------------------------------------------------
+
+async def test_handle_inbox_message_drops_self_email(db_session, monkeypatch):
+    raw = _build_mime(attach=False).replace(
+        b"counsel@vendor.example", b"legal@gobitsnbytes.org"
+    )
+    message = legal_agent.parse_message(raw)
+    replied = []
+
+    monkeypatch.setattr(legal_agent, "send_reply", lambda *args, **kwargs: replied.append(args))
+    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+
+    assert handled is True
+    assert len(replied) == 0, "Should never reply to self"
+
+
+async def test_handle_inbox_message_drops_automated_bounces(db_session, monkeypatch):
+    raw = _build_mime(attach=False).replace(
+        b"counsel@vendor.example", b"MAILER-DAEMON@gobitsnbytes.org"
+    ).replace(
+        b"Vendor Agreement for review", b"Undelivered Mail Returned to Sender"
+    )
+    message = legal_agent.parse_message(raw)
+    replied = []
+
+    monkeypatch.setattr(legal_agent, "send_reply", lambda *args, **kwargs: replied.append(args))
+    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+
+    assert handled is True
+    assert len(replied) == 0, "Should never reply to delivery failure bounces"
+
+
+async def test_handle_inbox_message_synthesizes_with_llm_and_formats_html(db_session, monkeypatch):
+    raw = _build_mime(attach=False).replace(
+        b"counsel@vendor.example", b"akshat@gobitsnbytes.org"
+    )
+    message = legal_agent.parse_message(raw)
+    sent_replies = []
+
+    def fake_reply(settings, to_addr, subject, text_body, html_body, in_reply_to, references):
+        sent_replies.append({
+            "to": to_addr,
+            "subject": subject,
+            "text": text_body,
+            "html": html_body,
+        })
+        return True
+
+    def fake_llm(self, messages, json_response=False):
+        return "Per Foundation policy, sponsorships must be approved through official banking accounts [Sponsorships & Financial Limits]."
+
+    monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
+    monkeypatch.setattr(SparkCloudAIClient, "_chat_completion", fake_llm)
+
+    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+
+    assert handled is True
+    assert len(sent_replies) == 1
+    reply = sent_replies[0]
+    assert reply["to"] == "akshat@gobitsnbytes.org"
+    assert "sponsorships must be approved" in reply["text"].lower()
+    assert "<pre" not in reply["html"].lower()
+    assert "bits&amp;bytes™ Legal Agent" in reply["html"]
+    assert "GOBITSNBYTES FOUNDATION" in reply["html"]
+    import re
+    assert not re.search(r"\b[0-9a-fA-F]{32}\b", reply["html"])
+    assert not re.search(r"\b[0-9a-fA-F]{32}\b", reply["text"])
+
+
+async def test_send_reply_rejects_self_or_daemon():
+    settings = get_settings()
+    assert legal_agent.send_reply(settings, "legal@gobitsnbytes.org", "test", "text", "html") is False
+    assert legal_agent.send_reply(settings, "mailer-daemon@gobitsnbytes.org", "test", "text", "html") is False
+    assert legal_agent.send_reply(settings, "bounces-123@sender-sib.com", "test", "text", "html") is False
+
+
+async def test_clean_notion_title_and_content():
+    raw_title = "💰 Sponsorships & Financial Limits 36449ed2fc33819b9d80fa3011f63ff7"
+    cleaned_title = legal_agent._clean_notion_title(raw_title)
+    assert "36449ed2fc33819b9d80fa3011f63ff7" not in cleaned_title
+    assert "Sponsorships & Financial Limits" in cleaned_title
+
+    raw_content = "# 💰 Sponsorships & Financial Limits 36449ed2fc33819b9d80fa3011f63ff7\nOwner: Bits Bytes\nOfficial bits&bytes legal document from notion-wiki\n## The central rule\nAll money must be routed through official systems."
+    cleaned_content = legal_agent._clean_notion_content(raw_content)
+    assert "36449ed2fc33819b9d80fa3011f63ff7" not in cleaned_content
+    assert "Owner: Bits Bytes" not in cleaned_content
+    assert "All money must be routed through official systems." in cleaned_content

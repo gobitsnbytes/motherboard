@@ -23,6 +23,7 @@ import imaplib
 import logging
 import os
 import random
+import re
 import smtplib
 import uuid
 from dataclasses import dataclass, field
@@ -86,6 +87,7 @@ class LegalInboxMessage:
     body_text: str
     attachments: List[Tuple[str, str, bytes]] = field(default_factory=list)
     received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    is_automated: bool = False
 
 
 def _decode_mime_header(value: Optional[str]) -> str:
@@ -110,9 +112,9 @@ def _is_contract_attachment(filename: str, content_type: str) -> bool:
 def parse_message(raw_bytes: bytes) -> LegalInboxMessage:
     """Parse an RFC822 payload into a :class:`LegalInboxMessage`.
 
-    Walks multipart trees, decodes the first text/plain body, and extracts
-    contract-document attachments (pdf/docx/doc, including octet-stream parts
-    that carry a document filename).
+    Walks multipart trees, decodes the first text/plain body, extracts
+    contract-document attachments (pdf/docx/doc), and detects automated
+    bounces or mailing-list headers.
     """
     msg = email.message_from_bytes(raw_bytes)
 
@@ -127,6 +129,29 @@ def parse_message(raw_bytes: bytes) -> LegalInboxMessage:
         received_at = datetime.now(timezone.utc)
     if received_at.tzinfo is None:
         received_at = received_at.replace(tzinfo=timezone.utc)
+
+    # Detect automated bounces, system notifications, and auto-responders
+    auto_submitted = (msg.get("Auto-Submitted") or "").strip().lower()
+    precedence = (msg.get("Precedence") or "").strip().lower()
+    x_autoreply = (msg.get("X-Autoreply") or msg.get("X-Autorespond") or "").strip().lower()
+    return_path = (msg.get("Return-Path") or "").strip()
+    content_type_raw = (msg.get("Content-Type") or "").lower()
+
+    is_automated = False
+    if auto_submitted and auto_submitted not in ("no", ""):
+        is_automated = True
+    elif precedence in ("bulk", "junk", "list", "auto_reply"):
+        is_automated = True
+    elif x_autoreply:
+        is_automated = True
+    elif return_path in ("<>", "<MAILER-DAEMON>"):
+        is_automated = True
+    elif "report-type=delivery-status" in content_type_raw or msg.get_content_type() == "multipart/report":
+        is_automated = True
+    elif any(subject.lower().startswith(p) for p in (
+        "undelivered mail", "delivery status notification", "failure notice", "returned mail", "mail delivery failed", "out of office"
+    )):
+        is_automated = True
 
     body_text = ""
     attachments: List[Tuple[str, str, bytes]] = []
@@ -159,6 +184,7 @@ def parse_message(raw_bytes: bytes) -> LegalInboxMessage:
         body_text=body_text.strip(),
         attachments=attachments[:_MAX_ATTACHMENTS_PER_MESSAGE],
         received_at=received_at,
+        is_automated=is_automated,
     )
 
 
@@ -212,21 +238,53 @@ async def handle_inbox_message(
     # without creating an import cycle at module load.
     from app.routers.contract_assistant import analyze_contract_bytes
 
+    sender_lower = (message.from_addr or "").strip().lower()
+    org_mailbox_lower = (settings.legal_org_mailbox or "legal@gobitsnbytes.org").strip().lower()
+
+    # Never process or reply to messages sent by this mailbox (prevents ping-pong loop)
+    if not sender_lower or sender_lower == org_mailbox_lower or sender_lower == "legal@gobitsnbytes.org":
+        logger.info("[LegalAgent] Dropping self-addressed message (%s)", sender_lower)
+        return True
+
+    # Drop automated bounces, system notifications, mailer-daemon, and marketing relays
+    if (
+        message.is_automated
+        or any(sender_lower.startswith(p) for p in ("mailer-daemon@", "postmaster@", "noreply@", "no-reply@", "bounces-", "bounce@"))
+        or any(d in sender_lower for d in ("sender-sib.com", "sendinblue.com"))
+    ):
+        logger.info("[LegalAgent] Dropping automated/bounce message from %s (subject: %s)", sender_lower, message.subject)
+        return True
+
+    subject_lower = (message.subject or "").strip().lower()
+    if any(subject_lower.startswith(p) for p in (
+        "undelivered mail", "delivery status notification", "failure notice", "returned mail", "mail delivery failed"
+    )):
+        logger.info("[LegalAgent] Dropping delivery failure notification: %s", message.subject)
+        return True
+
     if await is_duplicate_inbound(db, message.message_id):
         logger.info("[LegalAgent] Skipping duplicate Message-ID %s", message.message_id)
         return True
 
     if not message.attachments:
-        if not message.from_addr.lower().endswith("@gobitsnbytes.org"):
+        if not sender_lower.endswith("@gobitsnbytes.org"):
             await _send_policy_reply(
                 settings, message,
-                "This mailbox can review attached PDF or DOCX agreements. Policy-question answers are available to verified @gobitsnbytes.org senders."
+                "This mailbox can review attached PDF or DOCX agreements. Policy guidance is available to verified @gobitsnbytes.org team members.",
+                sources=[],
             )
             return True
+
         from app.services.okf_engine import get_okf_store
         from app.services.legal_retrieval import LegalRetrievalService, keyword_search
+        from app.services.llm_client import get_llm_client
+
         corpus = [
-            {"label": "OKF Rule", "title": concept.title, "text": f"{concept.title}\n{concept.description}\n{concept.content[:1500]}"}
+            {
+                "label": "OKF Rule",
+                "title": _clean_notion_title(concept.title),
+                "text": _clean_notion_content(f"{concept.title}\n{concept.description}\n{concept.content[:1500]}"),
+            }
             for concept in get_okf_store().concepts
         ]
         try:
@@ -238,15 +296,64 @@ async def handle_inbox_message(
         except Exception as err:
             logger.warning("[LegalAgent] Qenlo policy lookup failed: %s", err)
             hits = keyword_search(corpus, message.body_text, k=3)
+
         if hits:
-            references = "\n".join(f"- [{hit['title']}] {_truncate(hit['text'], 360)}" for hit in hits)
-            answer = (
-                "Based on the approved Foundation policy material:\n\n"
-                f"{references}\n\nThis is an internal policy summary, not final legal advice. Reply with a PDF or DOCX for contract-specific review."
+            # Clean titles for source chips (unique)
+            seen_src = set()
+            sources: List[str] = []
+            for hit in hits:
+                ct = _clean_notion_title(hit["title"])
+                if ct not in seen_src:
+                    seen_src.add(ct)
+                    sources.append(ct)
+
+            context_block = "\n\n".join(
+                f"[{_clean_notion_title(hit['title'])}]\n{_clean_notion_content(hit['text'][:600])}"
+                for hit in hits
             )
+
+            llm_client = get_llm_client()
+            system_prompt = (
+                "You are the official Legal & Policy AI Assistant for GOBITSNBYTES FOUNDATION (bits&bytes™).\n"
+                "Answer the user's question clearly, concisely, and professionally using ONLY the provided approved Foundation policy context.\n"
+                "Formatting guidelines:\n"
+                "- Directly address the question with actionable, clear advice.\n"
+                "- Structure your answer with clear paragraphs or bullet points where explaining rules.\n"
+                "- Mention policy names cleanly (e.g., 'Under the Sponsorships & Financial Limits policy...').\n"
+                "- Do NOT output raw hex hashes (like Notion UUIDs), internal file paths, or document boilerplate.\n"
+                "- Maintain a helpful, professional tone suited for internal leadership and team members."
+            )
+            user_prompt = f"Question: {message.body_text}\n\nApproved Foundation Policy Context:\n{context_block}"
+
+            answer: Optional[str] = None
+            try:
+                raw_llm = llm_client._chat_completion([
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ])
+                if raw_llm and raw_llm.strip():
+                    answer = raw_llm.strip()
+            except Exception as llm_err:
+                logger.warning("[LegalAgent] LLM policy synthesis failed (%s), using fallback.", llm_err)
+
+            if not answer:
+                bullets = "\n".join(
+                    f"- **{_clean_notion_title(hit['title'])}**: {_truncate(_clean_notion_content(hit['text']), 240)}"
+                    for hit in hits
+                )
+                answer = (
+                    "Based on approved Foundation policy guidelines:\n\n"
+                    f"{bullets}"
+                )
         else:
-            answer = "I could not find an approved policy source for that question. Please name the relevant policy topic or attach the agreement for review."
-        await _send_policy_reply(settings, message, answer)
+            sources = []
+            answer = (
+                "I could not find an approved Foundation policy source matching that question. "
+                "Please name the relevant policy topic (such as sponsorships, safeguarding, financial rules, or fork agreement) "
+                "or attach an agreement for automated legal review."
+            )
+
+        await _send_policy_reply(settings, message, answer, sources=sources)
         return True
 
     shared_meta = {
@@ -282,6 +389,138 @@ async def handle_inbox_message(
 
     await db.commit()
     return True
+
+
+def _clean_notion_title(title: str) -> str:
+    """Remove 32-character hex UUID hashes appended by Notion page exports."""
+    cleaned = re.sub(r"\b[0-9a-fA-F]{32}\b", "", title or "").strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned or (title or "").strip()
+
+
+def _clean_notion_content(content: str) -> str:
+    """Strip Notion hex hashes, duplicate header lines, and metadata banners."""
+    if not content:
+        return ""
+    cleaned = re.sub(r"\b[0-9a-fA-F]{32}\b", "", content)
+    lines: List[str] = []
+    for line in cleaned.splitlines():
+        line_str = line.strip()
+        lower_line = line_str.lower()
+        if lower_line.startswith("owner:"):
+            continue
+        if "official bits&bytes legal document from notion-wiki" in lower_line:
+            continue
+        if "official bits&bytes legal document" in lower_line:
+            continue
+        lines.append(line)
+    cleaned = "\n".join(lines)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _clean_bullet_text(line: str) -> str:
+    return re.sub(r"^[-*•]\s*", "", line.strip())
+
+
+def _clean_numbered_text(line: str) -> str:
+    return re.sub(r"^\d+\.\s*", "", line.strip())
+
+
+def _render_markdown_paragraphs(text: str) -> str:
+    """Safely convert basic markdown (bold, lists, paragraphs) into inline-styled email HTML."""
+    escaped = html.escape(text.strip())
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"__(.+?)__", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"<em>\1</em>", escaped)
+
+    paragraphs = [p.strip() for p in escaped.split("\n\n") if p.strip()]
+    rendered_parts: List[str] = []
+    for p in paragraphs:
+        lines = p.splitlines()
+        if all(re.match(r"^[-*•]\s+", line.strip()) for line in lines):
+            items = "".join(
+                f'<li style="margin-bottom:6px;">{_clean_bullet_text(line)}</li>'
+                for line in lines
+            )
+            rendered_parts.append(
+                f'<ul style="margin:10px 0 14px 20px;padding:0;font-size:14px;line-height:1.6;color:#120F0A;">{items}</ul>'
+            )
+        elif all(re.match(r"^\d+\.\s+", line.strip()) for line in lines):
+            items = "".join(
+                f'<li style="margin-bottom:6px;">{_clean_numbered_text(line)}</li>'
+                for line in lines
+            )
+            rendered_parts.append(
+                f'<ol style="margin:10px 0 14px 20px;padding:0;font-size:14px;line-height:1.6;color:#120F0A;">{items}</ol>'
+            )
+        else:
+            p_html = "<br/>".join(line.strip() for line in lines if line.strip())
+            rendered_parts.append(
+                f'<p style="margin:12px 0;font-size:14px;line-height:1.6;color:#120F0A;">{p_html}</p>'
+            )
+    return "\n".join(rendered_parts)
+
+
+def build_policy_email_bodies(
+    answer: str,
+    sources: Optional[List[str]] = None,
+) -> Tuple[str, str]:
+    """Generate both plain-text and responsive branded HTML email bodies for policy responses."""
+    text_lines = [
+        "bits&bytes™ Legal Agent — GOBITSNBYTES FOUNDATION",
+        "==================================================",
+        "",
+        answer.strip(),
+    ]
+    if sources:
+        text_lines.append("")
+        text_lines.append("Approved Policy References:")
+        for s in sources:
+            text_lines.append(f"• {s}")
+    text_lines.extend([
+        "",
+        "--------------------------------------------------",
+        "Notice: This is an internal policy summary, not final legal advice.",
+        "Reply with a PDF or DOCX agreement for automated contract analysis.",
+    ])
+    text_body = "\n".join(text_lines)
+
+    content_html = _render_markdown_paragraphs(answer)
+    chips_html = ""
+    if sources:
+        chips = "".join(
+            f'<span style="display:inline-block;background-color:#FEE9CF;color:#791423;border:1px solid #FC920D;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;margin-right:6px;margin-bottom:6px;">{html.escape(s)}</span>'
+            for s in sources
+        )
+        chips_html = f"""
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #E5E4E2;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#716F6C;margin-bottom:8px;">Referenced Foundation Policies:</div>
+            <div>{chips}</div>
+        </div>
+        """
+
+    html_body = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/></head>
+<body style="margin:0;padding:24px 12px;background-color:#FAF8F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#120F0A;">
+  <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border:2px solid #120F0A;border-radius:10px;box-shadow:4px 4px 0px 0px #120F0A;overflow:hidden;">
+    <div style="background-color:#97192C;padding:18px 24px;border-bottom:2px solid #120F0A;">
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">bits&amp;bytes™ Legal Agent</h2>
+      <p style="margin:4px 0 0 0;font-size:12px;color:#FED39E;font-weight:500;">GOBITSNBYTES FOUNDATION · Internal Policy Advisory</p>
+    </div>
+    <div style="padding:24px;">
+      {content_html}
+      {chips_html}
+    </div>
+    <div style="background-color:#F5F3EF;border-top:1px solid #E5E4E2;padding:16px 24px;font-size:11px;line-height:1.5;color:#716F6C;">
+      <p style="margin:0 0 4px 0;"><strong>Notice:</strong> This is an internal policy reference summary generated for verified team members, not final legal advice. Reply with a PDF or DOCX agreement for automated contract analysis.</p>
+      <div style="margin-top:6px;color:#A09F9D;font-size:10px;">GOBITSNBYTES FOUNDATION · Registered Section 8 Non-Profit</div>
+    </div>
+  </div>
+</body>
+</html>"""
+    return text_body, html_body
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -388,11 +627,27 @@ def send_reply(
     org = settings.legal_org_mailbox
     domain = org.split("@")[-1] if "@" in org else "gobitsnbytes.org"
 
+    to_clean = (to_addr or "").strip().lower()
+    if (
+        not to_clean
+        or to_clean == org.lower()
+        or to_clean == "legal@gobitsnbytes.org"
+        or any(to_clean.startswith(p) for p in ("mailer-daemon@", "postmaster@", "noreply@", "no-reply@", "bounces-", "bounce@"))
+        or any(d in to_clean for d in ("sender-sib.com", "sendinblue.com"))
+    ):
+        logger.warning("[LegalAgent] Refusing to send reply to loop or daemon recipient: %s", to_addr)
+        return False
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject if subject.lower().startswith("re:") else f"Re: {subject}"
     msg["From"] = email.utils.formataddr(("GOBITSNBYTES FOUNDATION Legal", org))
     msg["To"] = to_addr
     msg["Message-ID"] = email.utils.make_msgid(domain=domain)
+    msg["Date"] = email.utils.formatdate(localtime=True)
+    msg["Reply-To"] = org
+    msg["Auto-Submitted"] = "auto-replied"
+    msg["X-Auto-Response-Suppress"] = "All"
+    msg["Precedence"] = "bulk"
     if in_reply_to:
         msg["In-Reply-To"] = in_reply_to
         combined_refs = f"{references or ''} {in_reply_to}".strip()
@@ -471,11 +726,22 @@ async def _send_ingestion_reply(
         logger.exception("[LegalAgent] Unexpected failure while sending ingestion reply.")
 
 
-async def _send_policy_reply(settings: Settings, message: LegalInboxMessage, body: str) -> None:
-    html_body = "<html><body><pre style='font-family:Arial,sans-serif;white-space:pre-wrap'>" + html.escape(body) + "</pre></body></html>"
+async def _send_policy_reply(
+    settings: Settings,
+    message: LegalInboxMessage,
+    body: str,
+    sources: Optional[List[str]] = None,
+) -> None:
+    text_body, html_body = build_policy_email_bodies(body, sources)
     delivered = await asyncio.to_thread(
-        send_reply, settings, message.from_addr, message.subject or "Legal Agent", body, html_body,
-        message.in_reply_to, message.references,
+        send_reply,
+        settings,
+        message.from_addr,
+        message.subject or "Policy Advisory",
+        text_body,
+        html_body,
+        message.in_reply_to,
+        message.references,
     )
     if not delivered:
         logger.warning("[LegalAgent] Policy reply could not be delivered for message %s", message.message_id)
