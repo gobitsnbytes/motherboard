@@ -8,7 +8,7 @@ import os
 import re
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("app.services.okf_engine")
 
@@ -123,6 +123,63 @@ class OKFKnowledgeStore:
             if c.concept_type == "Template" and tag.lower() in [t.lower() for t in c.tags]:
                 return c
         return None
+
+    def search_concepts(self, query: str, k: int = 4) -> List[OKFConcept]:
+        """Direct, transparent retrieval over OKF concepts based on the open spec.
+
+        Evaluates title, tags, description, and content with rank-weighted scoring.
+        Eliminates external vector database dependencies and embedding costs.
+        """
+        cleaned_query = (query or "").strip().lower()
+        if not cleaned_query:
+            return []
+
+        tokens = set(re.findall(r"[a-z0-9]{3,}", cleaned_query))
+        if not tokens:
+            return []
+
+        scored: List[Tuple[int, int, OKFConcept]] = []
+        for index, concept in enumerate(self.concepts):
+            t_text = concept.title.lower()
+            d_text = concept.description.lower()
+            c_text = concept.content.lower()
+            tags_lower = [t.lower() for t in concept.tags]
+
+            t_tokens = set(re.findall(r"[a-z0-9]{3,}", t_text))
+            d_tokens = set(re.findall(r"[a-z0-9]{3,}", d_text))
+            c_tokens = set(re.findall(r"[a-z0-9]{3,}", c_text))
+
+            score = 0
+            # Title match (high priority)
+            score += len(tokens & t_tokens) * 8
+            # Tag match (high priority)
+            for tag in tags_lower:
+                if any(tok in tag or tag in tok for tok in tokens):
+                    score += 6
+            # Description match
+            score += len(tokens & d_tokens) * 4
+            # Content token intersection
+            score += len(tokens & c_tokens) * 1
+
+            # Exact phrase / n-gram match bonus
+            q_words = cleaned_query.split()
+            for length in (3, 2):
+                if len(q_words) >= length:
+                    for i in range(len(q_words) - length + 1):
+                        ngram = " ".join(q_words[i : i + length])
+                        if len(ngram) >= 6:
+                            if ngram in t_text:
+                                score += 15
+                            elif ngram in d_text:
+                                score += 10
+                            elif ngram in c_text:
+                                score += 6
+
+            if score > 0:
+                scored.append((score, index, concept))
+
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return [concept for _, _, concept in scored[:k]]
 
 
 class DeterministicRuleEngine:

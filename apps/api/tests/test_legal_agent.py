@@ -721,3 +721,30 @@ async def test_clean_notion_title_and_content():
     assert "36449ed2fc33819b9d80fa3011f63ff7" not in cleaned_content
     assert "Owner: Bits Bytes" not in cleaned_content
     assert "All money must be routed through official systems." in cleaned_content
+
+
+async def test_parse_message_extracts_html_and_strips_quotes():
+    raw_mime = (
+        "From: Akshat Kushwaha <akshat@gobitsnbytes.org>\r\n"
+        "To: GOBITSNBYTES FOUNDATION Legal <legal@gobitsnbytes.org>\r\n"
+        "Subject: Re: Legal Agent\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "\r\n"
+        "<div dir='auto'><div>hello, can i buy a ps5 using foundation current account at axis bank?</div>"
+        "<div data-smartmail='gmail_signature'>Co-founder &amp; CTO</div></div>"
+        "<div class='gmail_quote'>On 19 Sept wrote:<blockquote>Previous reply</blockquote></div>"
+    ).encode("utf-8")
+
+    parsed = legal_agent.parse_message(raw_mime)
+    assert parsed.from_addr == "akshat@gobitsnbytes.org"
+    assert parsed.subject == "Re: Legal Agent"
+    assert parsed.body_text == "hello, can i buy a ps5 using foundation current account at axis bank?"
+
+
+async def test_okf_concept_search():
+    from app.services.okf_engine import get_okf_store
+    store = get_okf_store()
+    hits = store.search_concepts("hello, can i buy a ps5 using foundation current account at axis bank?", k=3)
+    assert len(hits) > 0
+    titles = [h.title for h in hits]
+    assert any("operating manual" in t.lower() or "financial" in t.lower() or "cash" in t.lower() or "charter" in t.lower() for t in titles)

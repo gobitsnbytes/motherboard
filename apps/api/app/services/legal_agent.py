@@ -154,6 +154,8 @@ def parse_message(raw_bytes: bytes) -> LegalInboxMessage:
         is_automated = True
 
     body_text = ""
+    plain_parts: List[str] = []
+    html_parts: List[str] = []
     attachments: List[Tuple[str, str, bytes]] = []
 
     for part in msg.walk():
@@ -163,17 +165,26 @@ def parse_message(raw_bytes: bytes) -> LegalInboxMessage:
         filename = _decode_mime_header(part.get_filename())
         disposition = (part.get("Content-Disposition") or "").lower()
 
-        if content_type == "text/plain" and not filename and "attachment" not in disposition:
-            payload = part.get_payload(decode=True)
-            if payload:
-                charset = part.get_content_charset() or "utf-8"
-                body_text += payload.decode(charset, errors="replace")
-            continue
+        if not filename and "attachment" not in disposition:
+            if content_type == "text/plain":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    charset = part.get_content_charset() or "utf-8"
+                    plain_parts.append(payload.decode(charset, errors="replace"))
+                continue
+            elif content_type == "text/html":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    charset = part.get_content_charset() or "utf-8"
+                    html_parts.append(payload.decode(charset, errors="replace"))
+                continue
 
         if filename or "attachment" in disposition:
             payload = part.get_payload(decode=True) or b""
             if _is_contract_attachment(filename, content_type):
                 attachments.append((filename or "attachment.pdf", content_type, payload))
+
+    body_text = _extract_clean_email_body(plain_parts, html_parts)
 
     return LegalInboxMessage(
         message_id=msg.get("Message-ID"),
@@ -181,11 +192,64 @@ def parse_message(raw_bytes: bytes) -> LegalInboxMessage:
         references=msg.get("References"),
         from_addr=from_addr,
         subject=subject,
-        body_text=body_text.strip(),
+        body_text=body_text,
         attachments=attachments[:_MAX_ATTACHMENTS_PER_MESSAGE],
         received_at=received_at,
         is_automated=is_automated,
     )
+
+
+def _extract_clean_email_body(plain_parts: List[str], html_parts: List[str]) -> str:
+    """Extract clean question text, falling back to HTML if plain text is absent.
+
+    Strips email client reply quotes (e.g. Gmail blockquotes, attribution lines)
+    and signatures so the retrieval query focuses solely on the user's question.
+    """
+    raw_text = ""
+    is_html = False
+
+    combined_plain = "\n".join(p for p in plain_parts if p.strip()).strip()
+    if combined_plain:
+        raw_text = combined_plain
+        is_html = False
+    elif html_parts:
+        raw_text = "\n".join(h for h in html_parts if h.strip()).strip()
+        is_html = True
+
+    if not raw_text:
+        return ""
+
+    if is_html:
+        # Strip script / style / head tags
+        raw_text = re.sub(r"<(?:script|style|head)[^>]*>[\s\S]*?</(?:script|style|head)>", "", raw_text, flags=re.IGNORECASE)
+        # Strip quoted reply containers and smartmail signatures
+        raw_text = re.sub(r'<div[^>]*class=[\'"](?:gmail_quote|gmail_extra)[\'"][\s\S]*', "", raw_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'<blockquote[\s\S]*?</blockquote>', "", raw_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'<div[^>]*data-smartmail=[\'"]gmail_signature[\'"][\s\S]*?</div>', "", raw_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'<div[^>]*id=[\'"](?:appendonsend|divRplyFwdMsg)[\'"][\s\S]*', "", raw_text, flags=re.IGNORECASE)
+        # Convert break and block tags to newlines
+        raw_text = re.sub(r"<(?:br|/p|/div|/tr|/li)[^>]*>", "\n", raw_text, flags=re.IGNORECASE)
+        # Strip all other HTML tags
+        raw_text = re.sub(r"<[^>]+>", " ", raw_text)
+        raw_text = html.unescape(raw_text)
+
+    # Clean reply quote headers and delimiters in text
+    lines = []
+    for line in raw_text.splitlines():
+        trimmed = line.strip()
+        # Cut off email reply quote headers
+        if re.match(r"^On\s+.*,\s+.*wrote:\s*$", trimmed, flags=re.IGNORECASE):
+            break
+        if re.match(r"^-+\s*Original Message\s*-+", trimmed, flags=re.IGNORECASE):
+            break
+        if trimmed.startswith(">"):
+            continue
+        # Stop at standard signature delimiter
+        if trimmed in ("--", "-- ", "___"):
+            break
+        lines.append(trimmed)
+
+    return "\n".join(lines).strip()
 
 
 # ---------------------------------------------------------------------------
@@ -276,41 +340,30 @@ async def handle_inbox_message(
             return True
 
         from app.services.okf_engine import get_okf_store
-        from app.services.legal_retrieval import LegalRetrievalService, keyword_search
         from app.services.llm_client import get_llm_client
 
-        corpus = [
-            {
-                "label": "OKF Rule",
-                "title": _clean_notion_title(concept.title),
-                "text": _clean_notion_content(f"{concept.title}\n{concept.description}\n{concept.content[:1500]}"),
-            }
-            for concept in get_okf_store().concepts
-        ]
-        try:
-            hits = (
-                LegalRetrievalService().search(corpus, message.body_text, k=3)
-                if settings.legal_retrieval_backend.lower() == "qenlo"
-                else keyword_search(corpus, message.body_text, k=3)
-            )
-        except Exception as err:
-            logger.warning("[LegalAgent] Qenlo policy lookup failed: %s", err)
-            hits = keyword_search(corpus, message.body_text, k=3)
+        store = get_okf_store()
+        clean_subj = re.sub(r"^(?:re|fwd|fw):\s*", "", message.subject or "", flags=re.IGNORECASE).strip()
+        search_query = f"{clean_subj} {message.body_text}".strip()
 
-        if hits:
+        # Query native OKF concepts directly
+        matching_concepts = store.search_concepts(search_query, k=3)
+
+        if matching_concepts:
             # Clean titles for source chips (unique)
             seen_src = set()
             sources: List[str] = []
-            for hit in hits:
-                ct = _clean_notion_title(hit["title"])
+            for c in matching_concepts:
+                ct = _clean_notion_title(c.title)
                 if ct not in seen_src:
                     seen_src.add(ct)
                     sources.append(ct)
 
-            context_block = "\n\n".join(
-                f"[{_clean_notion_title(hit['title'])}]\n{_clean_notion_content(hit['text'][:600])}"
-                for hit in hits
-            )
+            blocks = []
+            for c in matching_concepts:
+                raw_c = c.description + "\n" + c.content[:1200]
+                blocks.append(f"[{_clean_notion_title(c.title)}]\n{_clean_notion_content(raw_c)}")
+            context_block = "\n\n".join(blocks)
 
             llm_client = get_llm_client()
             system_prompt = (
@@ -319,11 +372,11 @@ async def handle_inbox_message(
                 "Formatting guidelines:\n"
                 "- Directly address the question with actionable, clear advice.\n"
                 "- Structure your answer with clear paragraphs or bullet points where explaining rules.\n"
-                "- Mention policy names cleanly (e.g., 'Under the Sponsorships & Financial Limits policy...').\n"
+                "- Mention policy names cleanly (e.g., 'Under the Foundation Operating Manual...').\n"
                 "- Do NOT output raw hex hashes (like Notion UUIDs), internal file paths, or document boilerplate.\n"
                 "- Maintain a helpful, professional tone suited for internal leadership and team members."
             )
-            user_prompt = f"Question: {message.body_text}\n\nApproved Foundation Policy Context:\n{context_block}"
+            user_prompt = f"Question: {message.body_text or search_query}\n\nApproved Foundation Policy Context:\n{context_block}"
 
             answer: Optional[str] = None
             try:
@@ -338,8 +391,8 @@ async def handle_inbox_message(
 
             if not answer:
                 bullets = "\n".join(
-                    f"- **{_clean_notion_title(hit['title'])}**: {_truncate(_clean_notion_content(hit['text']), 240)}"
-                    for hit in hits
+                    f"- **{_clean_notion_title(c.title)}**: {_truncate(_clean_notion_content(c.description or c.content), 240)}"
+                    for c in matching_concepts
                 )
                 answer = (
                     "Based on approved Foundation policy guidelines:\n\n"
@@ -349,8 +402,8 @@ async def handle_inbox_message(
             sources = []
             answer = (
                 "I could not find an approved Foundation policy source matching that question. "
-                "Please name the relevant policy topic (such as sponsorships, safeguarding, financial rules, or fork agreement) "
-                "or attach an agreement for automated legal review."
+                "Please name the relevant policy topic (such as sponsorships, safeguarding, "
+                "financial rules, or fork agreement) or attach an agreement for automated legal review."
             )
 
         await _send_policy_reply(settings, message, answer, sources=sources)
