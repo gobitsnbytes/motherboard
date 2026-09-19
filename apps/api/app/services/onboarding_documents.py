@@ -21,7 +21,7 @@ def _manifest(template: str, source_hash: str, fields: list[tuple[str, str, str]
 
 
 TEMPLATE_MANIFEST: dict[str, dict[str, Any]] = {
-    "volunteer": _manifest("1_Volunteer_Form.docx", "e1420c8e009a04cedb25e76a0675b8f31f3ef6c393b5f2ce52206f0f8c67e854", [("full_name", "Full name", "text"), ("date_of_birth", "Date of birth", "date"), ("volunteer_role", "Volunteer role", "text"), ("track", "Track", "text"), ("consent", "Volunteer consent", "checkbox")]),
+    "volunteer": _manifest("1_Volunteer_Form.docx", "71add5790bde909e31fd2d76065848f4ac5255b41910984dfacccc7bce914c75", [("full_name", "Full name", "text"), ("date_of_birth", "Date of birth", "date"), ("volunteer_role", "Volunteer role", "text"), ("track", "Track", "text"), ("consent", "Volunteer consent", "checkbox")]),
     "parent_consent": _manifest("2_Parents_Consent_Fork.docx", "a6e0c10f25aadc24213bcd738fd6ea913f8d74deaf9672b409bc3bd6d387fb76", [("minor_name", "Minor name", "text"), ("parent_name", "Parent or guardian name", "text"), ("parent_email", "Parent email", "text"), ("consent", "Parent consent", "checkbox")]),
     "fork_application": _manifest("5_Fork_Application_Form.docx", "ff9113e4500c889edf688bd0620d643673730badcb669ab0d515f5e3811e2876", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("summary", "Fork summary", "text")]),
     "fork_agreement": _manifest("4_Fork_Agreement.docx", "e7e43a74ff5decc7d0ceefd29ab065b6bebe25b7f0c35b2f467dc5394a5ae4aa", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("agreement", "Agreement accepted", "checkbox")]),

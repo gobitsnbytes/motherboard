@@ -1,3 +1,4 @@
+import hashlib
 from datetime import date
 
 import pytest
@@ -33,7 +34,10 @@ def test_portal_tokens_are_hashed_and_manifest_is_complete():
 def test_every_registered_onboarding_template_is_packaged_with_the_api():
     root = template_root()
     assert root.name == "templates"
-    assert all(
-        (root / manifest["template"]).is_file()
-        for manifest in TEMPLATE_MANIFEST.values()
-    )
+    for manifest in TEMPLATE_MANIFEST.values():
+        template = root / manifest["template"]
+        assert template.is_file()
+        # An edited template with a stale pin is an unrecorded change to a legal document.
+        assert (
+            hashlib.sha256(template.read_bytes()).hexdigest() == manifest["source_hash"]
+        ), manifest["template"]
