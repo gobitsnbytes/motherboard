@@ -1,5 +1,9 @@
 """Sync contract assistant tables and retire the unused release-contract schema.
 
+Every operation is guarded by an inspection: deploy.sh used to build missing
+tables with ``create_all``, so production already holds part of what this
+migration creates and an unguarded CREATE TABLE fails the deploy.
+
 Revision ID: r2s3t4u5v6w7
 Revises: q0r1s2t3u4v5
 
@@ -19,6 +23,64 @@ branch_labels = None
 depends_on = None
 
 
+def _inspector():
+    return sa.inspect(op.get_bind())
+
+
+def _has_table(table: str) -> bool:
+    return _inspector().has_table(table)
+
+
+def _has_column(table: str, column: str) -> bool:
+    return _has_table(table) and any(item["name"] == column for item in _inspector().get_columns(table))
+
+
+def _has_index(table: str, index: str) -> bool:
+    return _has_table(table) and any(item["name"] == index for item in _inspector().get_indexes(table))
+
+
+def _has_constraint(table: str, name: str, kind: str) -> bool:
+    if not _has_table(table):
+        return False
+    items = _inspector().get_unique_constraints(table) if kind == "unique" else _inspector().get_foreign_keys(table)
+    return any(item["name"] == name for item in items)
+
+
+def _create_table(table: str, *columns) -> None:
+    if not _has_table(table):
+        op.create_table(table, *columns)
+
+
+def _create_index(index: str, table: str, columns: list[str], unique: bool = False) -> None:
+    if not _has_index(table, index):
+        op.create_index(index, table, columns, unique=unique)
+
+
+def _drop_index(index: str, table: str) -> None:
+    if _has_index(table, index):
+        op.drop_index(index, table_name=table)
+
+
+def _drop_table(table: str) -> None:
+    if _has_table(table):
+        op.drop_table(table)
+
+
+def _create_foreign_key(name: str, table: str, *args, **kwargs) -> None:
+    if not _has_constraint(table, name, "foreignkey"):
+        op.create_foreign_key(name, table, *args, **kwargs)
+
+
+def _create_unique_constraint(name: str, table: str, columns: list[str]) -> None:
+    if not _has_constraint(table, name, "unique"):
+        op.create_unique_constraint(name, table, columns)
+
+
+def _drop_constraint(table: str, name: str, kind: str) -> None:
+    if _has_constraint(table, name, kind):
+        op.drop_constraint(name, table, type_=kind if kind == "unique" else "foreignkey")
+
+
 RETIRED_INDEXES = (
     ("ix_onboarding_evidence_document_id", "onboarding_evidence"),
     ("ix_onboarding_evidence_revision_id", "onboarding_evidence"),
@@ -31,7 +93,7 @@ RETIRED_INDEXES = (
 
 
 def upgrade() -> None:
-    op.create_table(
+    _create_table(
         "ca_contracts",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
@@ -47,9 +109,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_ca_contracts_message_id", "ca_contracts", ["message_id"], unique=True)
+    _create_index("ix_ca_contracts_message_id", "ca_contracts", ["message_id"], unique=True)
 
-    op.create_table(
+    _create_table(
         "ca_clauses",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("contract_id", sa.Uuid(), nullable=False),
@@ -61,7 +123,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.create_table(
+    _create_table(
         "ca_findings",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("contract_id", sa.Uuid(), nullable=False),
@@ -85,7 +147,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.create_table(
+    _create_table(
         "ca_signatories",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("contract_id", sa.Uuid(), nullable=False),
@@ -97,7 +159,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.create_table(
+    _create_table(
         "ca_envelopes",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("contract_id", sa.Uuid(), nullable=False),
@@ -109,7 +171,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.create_table(
+    _create_table(
         "ca_events",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("contract_id", sa.Uuid(), nullable=False),
@@ -122,33 +184,35 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.add_column("signature_recipients", sa.Column("allowed_sig_type", sa.String(length=50), nullable=True))
+    if not _has_column("signature_recipients", "allowed_sig_type"):
+        op.add_column("signature_recipients", sa.Column("allowed_sig_type", sa.String(length=50), nullable=True))
     op.execute("UPDATE signature_recipients SET allowed_sig_type = 'any' WHERE allowed_sig_type IS NULL")
 
     # One unique index replaces the redundant unique constraint plus plain index.
-    op.drop_constraint("onboarding_participants_portal_token_hash_key", "onboarding_participants", type_="unique")
-    op.drop_index("ix_onboarding_participants_portal_token_hash", table_name="onboarding_participants")
-    op.create_index("ix_onboarding_participants_portal_token_hash", "onboarding_participants", ["portal_token_hash"], unique=True)
+    _drop_constraint("onboarding_participants", "onboarding_participants_portal_token_hash_key", "unique")
+    _drop_index("ix_onboarding_participants_portal_token_hash", "onboarding_participants")
+    _create_index("ix_onboarding_participants_portal_token_hash", "onboarding_participants", ["portal_token_hash"], unique=True)
 
     # The revision pointers survive as plain columns; only the release-contract
     # foreign keys go, because their target tables are being retired.
-    op.drop_constraint("fk_onboarding_cases_current_revision", "onboarding_cases", type_="foreignkey")
-    op.drop_constraint("fk_onboarding_documents_revision", "onboarding_documents", type_="foreignkey")
-    op.drop_constraint("fk_onboarding_participants_revision", "onboarding_participants", type_="foreignkey")
-    op.drop_constraint("fk_onboarding_reviews_revision", "onboarding_reviews", type_="foreignkey")
-    op.drop_index("ix_onboarding_reviews_revision_id", table_name="onboarding_reviews")
-    op.drop_column("onboarding_reviews", "revision_id")
+    _drop_constraint("onboarding_cases", "fk_onboarding_cases_current_revision", "foreignkey")
+    _drop_constraint("onboarding_documents", "fk_onboarding_documents_revision", "foreignkey")
+    _drop_constraint("onboarding_participants", "fk_onboarding_participants_revision", "foreignkey")
+    _drop_constraint("onboarding_reviews", "fk_onboarding_reviews_revision", "foreignkey")
+    _drop_index("ix_onboarding_reviews_revision_id", "onboarding_reviews")
+    if _has_column("onboarding_reviews", "revision_id"):
+        op.drop_column("onboarding_reviews", "revision_id")
 
     for index, table in RETIRED_INDEXES:
-        op.drop_index(index, table_name=table)
-    op.drop_table("onboarding_evidence")
-    op.drop_table("onboarding_guardian_checks")
-    op.drop_table("onboarding_authorities")
-    op.drop_table("onboarding_template_versions")
+        _drop_index(index, table)
+    _drop_table("onboarding_evidence")
+    _drop_table("onboarding_guardian_checks")
+    _drop_table("onboarding_authorities")
+    _drop_table("onboarding_template_versions")
 
 
 def downgrade() -> None:
-    op.create_table(
+    _create_table(
         "onboarding_template_versions",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("document_key", sa.String(length=60), nullable=False),
@@ -166,7 +230,7 @@ def downgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("document_key", "version", name="uq_onboarding_template_version"),
     )
-    op.create_table(
+    _create_table(
         "onboarding_authorities",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("document_key", sa.String(length=60), nullable=False),
@@ -182,7 +246,7 @@ def downgrade() -> None:
         sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_table(
+    _create_table(
         "onboarding_guardian_checks",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("case_id", sa.Uuid(), nullable=False),
@@ -200,7 +264,7 @@ def downgrade() -> None:
         sa.ForeignKeyConstraint(["reviewer_id"], ["users.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_table(
+    _create_table(
         "onboarding_evidence",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("revision_id", sa.Uuid(), nullable=False),
@@ -216,24 +280,26 @@ def downgrade() -> None:
         sa.UniqueConstraint("revision_id", "document_id", "artifact_type", name="uq_onboarding_evidence_artifact"),
     )
     for index, table in RETIRED_INDEXES:
-        op.create_index(index, table, [index.replace(f"ix_{table}_", "")])
+        _create_index(index, table, [index.replace(f"ix_{table}_", "")])
 
-    op.add_column("onboarding_reviews", sa.Column("revision_id", sa.Uuid(), nullable=True))
-    op.create_index("ix_onboarding_reviews_revision_id", "onboarding_reviews", ["revision_id"])
-    op.create_foreign_key("fk_onboarding_reviews_revision", "onboarding_reviews", "onboarding_revisions", ["revision_id"], ["id"], ondelete="SET NULL")
-    op.create_foreign_key("fk_onboarding_participants_revision", "onboarding_participants", "onboarding_revisions", ["revision_id"], ["id"], ondelete="SET NULL")
-    op.create_foreign_key("fk_onboarding_documents_revision", "onboarding_documents", "onboarding_revisions", ["revision_id"], ["id"], ondelete="SET NULL")
-    op.create_foreign_key("fk_onboarding_cases_current_revision", "onboarding_cases", "onboarding_revisions", ["current_revision_id"], ["id"], ondelete="SET NULL")
+    if not _has_column("onboarding_reviews", "revision_id"):
+        op.add_column("onboarding_reviews", sa.Column("revision_id", sa.Uuid(), nullable=True))
+    _create_index("ix_onboarding_reviews_revision_id", "onboarding_reviews", ["revision_id"])
+    _create_foreign_key("fk_onboarding_reviews_revision", "onboarding_reviews", "onboarding_revisions", ["revision_id"], ["id"], ondelete="SET NULL")
+    _create_foreign_key("fk_onboarding_participants_revision", "onboarding_participants", "onboarding_revisions", ["revision_id"], ["id"], ondelete="SET NULL")
+    _create_foreign_key("fk_onboarding_documents_revision", "onboarding_documents", "onboarding_revisions", ["revision_id"], ["id"], ondelete="SET NULL")
+    _create_foreign_key("fk_onboarding_cases_current_revision", "onboarding_cases", "onboarding_revisions", ["current_revision_id"], ["id"], ondelete="SET NULL")
 
-    op.drop_index("ix_onboarding_participants_portal_token_hash", table_name="onboarding_participants")
-    op.create_index("ix_onboarding_participants_portal_token_hash", "onboarding_participants", ["portal_token_hash"])
-    op.create_unique_constraint("onboarding_participants_portal_token_hash_key", "onboarding_participants", ["portal_token_hash"])
+    _drop_index("ix_onboarding_participants_portal_token_hash", "onboarding_participants")
+    _create_index("ix_onboarding_participants_portal_token_hash", "onboarding_participants", ["portal_token_hash"])
+    _create_unique_constraint("onboarding_participants_portal_token_hash_key", "onboarding_participants", ["portal_token_hash"])
 
-    op.drop_column("signature_recipients", "allowed_sig_type")
-    op.drop_table("ca_events")
-    op.drop_table("ca_envelopes")
-    op.drop_table("ca_signatories")
-    op.drop_table("ca_findings")
-    op.drop_table("ca_clauses")
-    op.drop_index("ix_ca_contracts_message_id", table_name="ca_contracts")
-    op.drop_table("ca_contracts")
+    if _has_column("signature_recipients", "allowed_sig_type"):
+        op.drop_column("signature_recipients", "allowed_sig_type")
+    _drop_table("ca_events")
+    _drop_table("ca_envelopes")
+    _drop_table("ca_signatories")
+    _drop_table("ca_findings")
+    _drop_table("ca_clauses")
+    _drop_index("ix_ca_contracts_message_id", "ca_contracts")
+    _drop_table("ca_contracts")
