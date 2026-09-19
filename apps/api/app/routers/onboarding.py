@@ -32,9 +32,11 @@ from app.db.models import (
 )
 from app.dependencies import CurrentUserDep, DbSession
 from app.iam.policy import require_permission
+from app.iam.audit import write_audit_entry
 from app.schemas.onboarding import (
     OnboardingCaseCreate,
     OnboardingCaseResponse,
+    OnboardingCancelRequest,
     OnboardingCertificateCreate,
     OnboardingChangesRequest,
     OnboardingCompileRequest,
@@ -103,6 +105,7 @@ def _document_response(document: OnboardingDocument, request: SignatureRequest |
         evidence_hash=document.evidence_hash,
         canonical_hash=document.canonical_hash,
         completed_at=document.completed_at,
+        revision_id=document.revision_id,
         current_revision=document.current_revision,
         state_hash=document.state_hash,
         final_docx_hash=document.final_docx_hash,
@@ -173,6 +176,7 @@ def _case_response(case: OnboardingCase) -> OnboardingCaseResponse:
         case_data=case.case_data,
         created_by=case.created_by,
         reviewer_id=case.reviewer_id,
+        current_revision_id=case.current_revision_id,
         created_at=case.created_at,
         updated_at=case.updated_at,
         participants=participants,
@@ -373,16 +377,23 @@ async def create_case(
 
     if payload.fork_id and not await db.get(Fork, payload.fork_id):
         raise HTTPException(status_code=404, detail="Fork not found")
+    if payload.reviewer_id:
+        if payload.reviewer_id == current_user.user_id:
+            raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
+        if not await db.get(User, payload.reviewer_id):
+            raise HTTPException(status_code=404, detail="Assigned reviewer not found")
 
     case = OnboardingCase(
         kind=payload.kind,
         title=payload.title,
         created_by=current_user.user_id,
+        reviewer_id=payload.reviewer_id,
         fork_id=payload.fork_id,
         case_data={"fork_name": payload.fork_name, "participant_age": age, "parent_required": is_minor},
     )
     db.add(case)
     await db.flush()
+    case.current_revision_id = uuid.uuid4()
 
     token, token_hash = new_portal_token()
     participant = OnboardingParticipant(
@@ -418,7 +429,7 @@ async def create_case(
             "bnb.fork.agreement.fork_name": payload.fork_name or "",
         }
         allowed_ids = {field["id"] for field in fields_for(key)}
-        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, document_key=key, template_filename=manifest["template"], field_values={field_id: value for field_id, value in defaults.items() if field_id in allowed_ids and value}))
+        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, document_key=key, template_filename=manifest["template"], revision_id=case.current_revision_id, field_values={field_id: value for field_id, value in defaults.items() if field_id in allowed_ids and value}))
 
     parent_token = None
     if is_minor and payload.participant.parent:
@@ -437,6 +448,7 @@ async def create_case(
         db.add(OnboardingDocument(
             case_id=case.id,
             participant_id=parent.id,
+            revision_id=case.current_revision_id,
             document_key="parent_consent",
             template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"],
             field_values={
@@ -447,6 +459,14 @@ async def create_case(
             },
         ))
 
+    await write_audit_entry(
+        db,
+        current_user.user_id,
+        "onboarding.case_created",
+        "onboarding_case",
+        str(case.id),
+        {"kind": case.kind, "revision_id": str(case.current_revision_id) if case.current_revision_id else None},
+    )
     await db.commit()
     settings = get_settings()
     if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
@@ -564,6 +584,45 @@ async def resend_participant_invite(
         subject, body = _invite_email(participant.name, case.title, token)
         background_tasks.add_task(send_smtp_email, settings, [participant.email], subject, body)
     return {"participant_id": str(participant.id), "email": participant.email, "portal_url": _portal_url(token), "email_sent": email_sent}
+
+
+@router.post("/cases/{case_id}/cancel", response_model=OnboardingCaseResponse)
+async def cancel_case(
+    case_id: uuid.UUID,
+    payload: OnboardingCancelRequest,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> OnboardingCaseResponse:
+    """Revoke portal access and pending signature envelopes for a withdrawn case."""
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+    if case.status in {"approved", "rejected", "revoked", "completed"}:
+        raise HTTPException(status_code=409, detail="This onboarding case can no longer be cancelled")
+    now = datetime.now(timezone.utc)
+    for participant in case.participants:
+        participant.token_expires_at = now
+        if participant.status != "submitted":
+            participant.status = "revoked"
+    request_ids = [document.signature_request_id for document in case.documents if document.signature_request_id]
+    if request_ids:
+        requests = (await db.execute(select(SignatureRequest).options(selectinload(SignatureRequest.recipients)).where(SignatureRequest.id.in_(request_ids)))).scalars().all()
+        for request in requests:
+            if request.status not in {"completed", "voided", "expired"}:
+                request.status = "voided"
+                for recipient in request.recipients:
+                    if recipient.status not in {"signed", "declined"}:
+                        recipient.status = "declined"
+                    recipient.otp_code = recipient.otp_hash = None
+                    recipient.otp_attempts = 0
+                    recipient.otp_expires_at = recipient.otp_verified_at = None
+    for document in case.documents:
+        if document.status not in {"completed", "signed", "accepted"}:
+            document.status = "revoked"
+    case.status = "revoked"
+    case.case_data = {**(case.case_data or {}), "cancelled_at": now.isoformat(), "cancellation_reason": payload.reason}
+    await write_audit_entry(db, current_user.user_id, "onboarding.case_cancelled", "onboarding_case", str(case.id), {"reason": payload.reason, "revision_id": str(case.current_revision_id) if case.current_revision_id else None})
+    await db.commit()
+    return _case_response(await _load_case(db, case.id))
 
 
 @router.get("/public/{token}/documents/{document_id}/editor", response_model=OnboardingEditorResponse)
@@ -988,8 +1047,11 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
         raise HTTPException(status_code=403, detail="The case creator cannot review or approve their own case")
     if payload.document_id and not any(document.id == payload.document_id for document in case.documents):
         raise HTTPException(status_code=404, detail="Document is not part of this case")
+    if case.reviewer_id and case.reviewer_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Only the assigned reviewer can decide this case")
     review = OnboardingReview(case_id=case.id, document_id=payload.document_id, reviewer_id=current_user.user_id, decision=payload.decision, note=payload.note)
     db.add(review)
+    case.reviews.append(review)
     case.reviewer_id = current_user.user_id
     if payload.document_id:
         document = next(document for document in case.documents if document.id == payload.document_id)

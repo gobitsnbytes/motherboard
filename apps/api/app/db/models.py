@@ -1685,6 +1685,8 @@ class OnboardingCase(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # Case-level issuance pointer retained for the existing production API.
+    current_revision_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
     participants: Mapped[list["OnboardingParticipant"]] = relationship("OnboardingParticipant", back_populates="case", cascade="all, delete-orphan")
     documents: Mapped[list["OnboardingDocument"]] = relationship("OnboardingDocument", back_populates="case", cascade="all, delete-orphan")
@@ -1729,6 +1731,7 @@ class OnboardingDocument(Base):
     filled_docx_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_pdf_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     signature_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("signature_requests.id", ondelete="SET NULL"), nullable=True)
+    revision_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
     evidence_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     canonical_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     field_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
