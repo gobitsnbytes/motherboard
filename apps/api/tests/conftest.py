@@ -7,7 +7,9 @@ Two database modes, chosen from DATABASE_URL:
   built by running ``alembic upgrade head``, exactly like production. This is
   what catches migration drift and Postgres-only behaviour (JSONB operators,
   type strictness, constraint semantics) before it reaches the VPS.
-* **SQLite** (default for local runs) — the schema is built from
+  CI does not run the suite this way: it points the alembic drift checks at
+  Postgres and runs the tests on SQLite, which is minutes faster.
+* **SQLite** (default, and what CI uses) — the schema is built from
   ``Base.metadata.create_all`` and the Postgres-only column types are compiled
   down to SQLite equivalents. Fast, but it cannot see drift, so CI is the
   authority.

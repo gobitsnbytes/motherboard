@@ -46,11 +46,14 @@ jobs:
           args: format --check
 
   test:
-    name: Backend tests (Postgres)
+    name: Backend tests
     runs-on: ubuntu-latest
+    # A hung test used to burn the runner for hours; this caps it instead.
+    timeout-minutes: 15
 
-    # Production runs Postgres. Testing on SQLite hid migration drift and
-    # Postgres-only behaviour, so CI now runs the real thing.
+    # Postgres is here only for the migration steps: they are what production
+    # actually runs, and they finish in seconds. The suite itself runs on
+    # SQLite, which is minutes faster and is what the fixtures are built for.
     services:
       postgres:
         image: postgres:16-alpine
@@ -67,7 +70,6 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql+asyncpg://bnb:bnb@localhost:5432/motherboard_test
       DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID || 'mock_client_id' }}
       DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET || 'mock_client_secret' }}
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN || 'mock_bot_token' }}
@@ -93,22 +95,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --project apps/api --frozen
 
-      - name: Apply migrations
+      - name: Check migrations build, match the models, and roll back
         working-directory: apps/api
-        run: uv run alembic upgrade head
-
-      - name: Check migrations match the models
-        working-directory: apps/api
-        # Fails when app/db/models.py has changes no migration accounts for.
-        # Without this, deploy.sh used to paper over the gap with create_all
-        # and the drift only surfaced as a 500 in production.
-        run: uv run alembic check
-
-      - name: Verify migrations are reversible
-        working-directory: apps/api
-        # deploy.sh rolls back to the previous revision when a deploy fails.
-        # That only works if down-migrations actually run.
+        # `check` fails when app/db/models.py has changes no migration accounts
+        # for; without it, deploy.sh papered over the gap with create_all and
+        # the drift surfaced as a 500 in production. The downgrade matters
+        # because deploy.sh rolls back to the previous revision on failure.
+        env:
+          DATABASE_URL: postgresql+asyncpg://bnb:bnb@localhost:5432/motherboard_test
         run: |
+          uv run alembic upgrade head
+          uv run alembic check
           uv run alembic downgrade -1
           uv run alembic upgrade head
 
