@@ -390,14 +390,24 @@ def document_blocks(template_path: Path, document_key: str) -> list[dict[str, An
     return populated
 
 
-def validate_values(document_key: str, values: dict[str, Any], *, editor: str, final: bool = False) -> dict[str, str]:
-    allowed = {field.id: field for field in FORM_FIELDS[document_key] if field.editable_by == editor}
+def validate_values(document_key: str, values: dict[str, Any], *, editor: str = "all", final: bool = False) -> dict[str, str]:
+    all_fields = {field.id: field for field in FORM_FIELDS[document_key]}
+    if editor == "all":
+        allowed = all_fields
+    else:
+        allowed = {field.id: field for field in FORM_FIELDS[document_key] if field.editable_by == editor}
     errors: dict[str, str] = {}
     for key, value in values.items():
-        field = allowed.get(key)
-        if field is None:
-            errors[key] = "This field cannot be edited by this signer"
-            continue
+        if editor != "all" and not final:
+            field = allowed.get(key)
+            if field is None:
+                errors[key] = "This field cannot be edited by this signer"
+                continue
+        else:
+            field = all_fields.get(key)
+            if field is None:
+                errors[key] = "Unknown field"
+                continue
         if isinstance(value, str) and len(value) > (5000 if field.multiline else 500):
             errors[key] = "Value is too long"
         if field.type == "email" and value and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(value)):

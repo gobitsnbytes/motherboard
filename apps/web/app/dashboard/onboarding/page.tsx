@@ -64,6 +64,9 @@ export default function OnboardingDashboardPage() {
   const [resendingParticipantId, setResendingParticipantId] = useState<
     string | null
   >(null);
+  const [deletingCaseId, setDeletingCaseId] = useState<string | null>(null);
+  const [remindingCaseId, setRemindingCaseId] = useState<string | null>(null);
+
 
   const load = async () => {
     const response = await fetch("/api/onboarding/cases", {
@@ -168,6 +171,85 @@ export default function OnboardingDashboardPage() {
     }
   };
 
+  const deleteCase = async (caseId: string, caseTitle: string) => {
+    if (
+      !window.confirm(
+        `Permanently delete onboarding workflow "${caseTitle}"?\n\nThis will cancel any active signature requests, notify all signers by email, and completely remove the case.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setDeletingCaseId(caseId);
+    try {
+      const response = await fetch(`/api/onboarding/cases/${caseId}`, {
+        method: "DELETE",
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : "Could not delete the onboarding workflow.",
+        );
+      }
+      const notified =
+        Array.isArray(body.notified) && body.notified.length > 0
+          ? ` Signers notified: ${body.notified.join(", ")}.`
+          : "";
+      setMessage(`Deleted onboarding workflow "${caseTitle}".${notified}`);
+      await load();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not delete the onboarding workflow.",
+      );
+    } finally {
+      setDeletingCaseId(null);
+    }
+  };
+
+  const remindSigners = async (caseId: string, caseTitle: string) => {
+    setError(null);
+    setMessage(null);
+    setRemindingCaseId(caseId);
+    try {
+      const response = await fetch(`/api/onboarding/cases/${caseId}/remind`, {
+        method: "POST",
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : "Could not send reminders.",
+        );
+      }
+      if (body.reminded_count === 0) {
+        setMessage(`No pending signers or participants to remind for "${caseTitle}".`);
+      } else {
+        const emailStatus = body.email_sent
+          ? "Reminder email(s) sent"
+          : "Portal link(s) refreshed (SMTP disabled)";
+        setMessage(
+          `${emailStatus} for ${body.reminded_count} recipient(s): ${body.reminded.join(", ")}.`,
+        );
+      }
+      await load();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not send reminders.",
+      );
+    } finally {
+      setRemindingCaseId(null);
+    }
+  };
+
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       <header className="flex flex-col gap-3 border-2 border-black bg-[#3c0a12] p-6 text-white shadow-[6px_6px_0_#120f0a] sm:flex-row sm:items-end sm:justify-between">
@@ -271,10 +353,28 @@ export default function OnboardingDashboardPage() {
                       {item.kind} / {item.status}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="border-2 border-black bg-[#f7f4ef] px-2 py-1 font-mono text-[10px] uppercase">
                       {item.participants.length} participant(s)
                     </span>
+                    <button
+                      type="button"
+                      disabled={remindingCaseId === item.id || deletingCaseId === item.id}
+                      onClick={() => remindSigners(item.id, item.title)}
+                      className="border-2 border-black bg-[#fdb32b] px-2.5 py-1 font-mono text-[10px] font-black uppercase shadow-[2px_2px_0_#120f0a] hover:bg-[#fc920d] disabled:opacity-50"
+                      title="Send reminder emails to all pending participants and signers"
+                    >
+                      {remindingCaseId === item.id ? "Reminding…" : "Remind signers"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingCaseId === item.id || remindingCaseId === item.id}
+                      onClick={() => deleteCase(item.id, item.title)}
+                      className="border-2 border-black bg-rose-600 px-2.5 py-1 font-mono text-[10px] font-black uppercase text-white shadow-[2px_2px_0_#120f0a] hover:bg-rose-700 disabled:opacity-50"
+                      title="Permanently delete this onboarding workflow and notify all signers"
+                    >
+                      {deletingCaseId === item.id ? "Deleting…" : "Delete"}
+                    </button>
                   </div>
                 </div>
                 <div className="mt-3 space-y-2">

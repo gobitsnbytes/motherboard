@@ -54,3 +54,45 @@ def test_unpack_rejects_zip_traversal():
 def test_role_validation_rejects_participant_editing_hq_fields():
     errors = validate_values("fork_certificate", {"director_names": "Someone"}, editor="participant")
     assert errors["director_names"] == "This field cannot be edited by this signer"
+
+
+def test_validate_values_editor_all_validates_required_fields_across_roles():
+    # When validating whole document before compilation, all template fields are allowed
+    # and required fields across the entire document are checked
+    empty_errors = validate_values("volunteer", {}, editor="all", final=True)
+    assert "bnb.volunteer.full_name" in empty_errors
+    assert empty_errors["bnb.volunteer.full_name"] == "This field is required"
+
+    # All required fields filled
+    valid_values = {
+        "bnb.volunteer.full_name": "Test Volunteer",
+        "bnb.volunteer.date_of_birth": "2005-01-01",
+        "bnb.volunteer.phone": "+919876543210",
+        "bnb.volunteer.email": "test@example.com",
+        "bnb.volunteer.city": "Lucknow",
+        "bnb.volunteer.state": "UP",
+        "bnb.volunteer.primary_track": "Tech",
+        "bnb.volunteer.signed_place": "Lucknow",
+        "bnb.volunteer.assigned_role": "Core Tech",  # HQ field
+    }
+    no_errors = validate_values("volunteer", valid_values, editor="all", final=True)
+    assert no_errors == {}
+
+
+def test_validate_values_final_submission_ignores_other_role_existing_fields():
+    # When participant submits for review (final=True, editor='participant'), existing HQ fields
+    # must not trigger "This field cannot be edited by this signer"
+    values = {
+        "bnb.volunteer.full_name": "Test Volunteer",
+        "bnb.volunteer.date_of_birth": "2005-01-01",
+        "bnb.volunteer.phone": "+919876543210",
+        "bnb.volunteer.email": "test@example.com",
+        "bnb.volunteer.city": "Lucknow",
+        "bnb.volunteer.state": "UP",
+        "bnb.volunteer.primary_track": "Tech",
+        "bnb.volunteer.signed_place": "Lucknow",
+        "bnb.volunteer.assigned_role": "Core Tech",  # HQ field already present
+    }
+    participant_errors = validate_values("volunteer", values, editor="participant", final=True)
+    assert participant_errors == {}
+

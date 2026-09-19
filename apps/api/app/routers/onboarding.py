@@ -41,8 +41,10 @@ from app.schemas.onboarding import (
     OnboardingCertificateCreate,
     OnboardingChangesRequest,
     OnboardingCompileRequest,
+    OnboardingDeleteResponse,
     OnboardingDraftPatch,
     OnboardingDocumentResponse,
+    OnboardingRemindResponse,
     OnboardingDocumentSubmit,
     OnboardingEditorResponse,
     OnboardingHQFieldsPatch,
@@ -359,6 +361,37 @@ def _invite_email(name: str, title: str, token: str) -> tuple[str, str]:
     return subject, body
 
 
+def _cancellation_email(name: str, title: str, reason: str | None = None) -> tuple[str, str]:
+    subject = f"Onboarding workflow cancelled: {title}"
+    body = (
+        f"<p>Hello <strong>{html.escape(name)}</strong>,</p>"
+        f"<p>The onboarding workflow for <strong>{html.escape(title)}</strong> has been cancelled and removed by Bits&Bytes Foundation HQ.</p>"
+        + (f"<p><strong>Reason:</strong> {html.escape(reason)}</p>" if reason else "")
+        + "<p>Any pending signature requests, portal links, or document drafts associated with this workflow are now void. No further action is required from you.</p>"
+    )
+    return subject, body
+
+
+def _reminder_email(name: str, title: str, link: str, is_signing: bool = False) -> tuple[str, str]:
+    url = html.escape(link, quote=True)
+    if is_signing:
+        subject = f"Reminder: Signature required for {title}"
+        action_text = "Review and sign document"
+        desc = "Your signature is required to complete this onboarding document. Please review and sign at the link below:"
+    else:
+        subject = f"Reminder: Complete your onboarding for {title}"
+        action_text = "Open onboarding portal"
+        desc = "This is a friendly reminder to complete your onboarding packet securely:"
+    body = (
+        f"<p>Hello <strong>{html.escape(name)}</strong>,</p>"
+        f"<p>{desc}</p>"
+        f"<p><a href=\"{url}\" style=\"display:inline-block;background-color:#fc920d;color:#120f0a;padding:10px 18px;font-weight:bold;text-decoration:none;border:2px solid #120f0a;\">{action_text}</a></p>"
+        f"<p>Direct link: <a href=\"{url}\">{url}</a></p>"
+    )
+    return subject, body
+
+
+
 @router.post("/cases", response_model=OnboardingCaseResponse, status_code=status.HTTP_201_CREATED)
 async def create_case(
     payload: OnboardingCaseCreate,
@@ -634,6 +667,222 @@ async def cancel_case(
     await write_audit_entry(db, current_user.user_id, "onboarding.case_cancelled", "onboarding_case", str(case.id), {"reason": payload.reason, "revision_id": str(case.current_revision_id) if case.current_revision_id else None})
     await db.commit()
     return _case_response(await _load_case(db, case.id))
+
+
+@router.delete("/cases/{case_id}", response_model=OnboardingDeleteResponse)
+async def delete_case(
+    case_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> OnboardingDeleteResponse:
+    """Permanently delete an onboarding workflow, void pending envelopes, and notify/remind signers."""
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+
+    # 1. Void any associated signature requests
+    request_ids = [doc.signature_request_id for doc in case.documents if doc.signature_request_id]
+    signature_recipients: list[dict[str, str]] = []
+    if request_ids:
+        requests = (
+            await db.execute(
+                select(SignatureRequest)
+                .options(selectinload(SignatureRequest.recipients))
+                .where(SignatureRequest.id.in_(request_ids))
+            )
+        ).scalars().all()
+        for req in requests:
+            if req.status not in {"completed", "voided", "expired"}:
+                req.status = "voided"
+                for recipient in req.recipients:
+                    if recipient.status not in {"signed", "declined"}:
+                        recipient.status = "declined"
+                    recipient.otp_code = recipient.otp_hash = None
+                    recipient.otp_attempts = 0
+                    recipient.otp_expires_at = recipient.otp_verified_at = None
+                    if recipient.email:
+                        signature_recipients.append({"name": recipient.name, "email": recipient.email})
+
+    # 2. Collect unique signers/participants to notify of workflow deletion
+    seen_emails: set[str] = set()
+    signers_to_notify: list[dict[str, str]] = []
+    for participant in case.participants:
+        if participant.email and participant.email.lower() not in seen_emails:
+            seen_emails.add(participant.email.lower())
+            signers_to_notify.append({"name": participant.name, "email": participant.email})
+    for sig in signature_recipients:
+        if sig["email"].lower() not in seen_emails:
+            seen_emails.add(sig["email"].lower())
+            signers_to_notify.append(sig)
+
+    # 3. Notify signers via email if SMTP is configured
+    settings = get_settings()
+    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+        from app.routers.meetings import send_smtp_email
+        for signer in signers_to_notify:
+            subject, body = _cancellation_email(signer["name"], case.title)
+            background_tasks.add_task(send_smtp_email, settings, [signer["email"]], subject, body)
+
+    # 4. Clean up disk assets
+    case_dir = storage_root() / str(case.id)
+    if case_dir.exists():
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    # 5. Write audit entry
+    notified_list = [s["email"] for s in signers_to_notify]
+    await write_audit_entry(
+        db,
+        current_user.user_id,
+        "onboarding.case_deleted",
+        "onboarding_case",
+        str(case.id),
+        {"title": case.title, "kind": case.kind, "notified_signers": notified_list},
+    )
+
+    # 6. Delete case and cascade to all child records in DB
+    await db.delete(case)
+    await db.commit()
+
+    return OnboardingDeleteResponse(
+        ok=True,
+        message=f"Onboarding workflow '{case.title}' deleted.",
+        id=str(case_id),
+        notified=notified_list,
+    )
+
+
+@router.post("/cases/{case_id}/remind", response_model=OnboardingRemindResponse)
+async def remind_case_signers(
+    case_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> OnboardingRemindResponse:
+    """Send reminder emails to all pending participants and document signers."""
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    reminded: list[str] = []
+    seen: set[str] = set()
+
+    # 1. Pending invited participants
+    for participant in case.participants:
+        if participant.status == "invited" and participant.email and participant.email.lower() not in seen:
+            token, token_hash = new_portal_token()
+            participant.portal_token_hash = token_hash
+            participant.token_expires_at = now + timedelta(days=30)
+            seen.add(participant.email.lower())
+            reminded.append(participant.email)
+            if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+                from app.routers.meetings import send_smtp_email
+                subject, body = _reminder_email(participant.name, case.title, _portal_url(token), is_signing=False)
+                background_tasks.add_task(send_smtp_email, settings, [participant.email], subject, body)
+
+    # 2. Pending signature recipients
+    signing_docs = [doc for doc in case.documents if doc.status == "signing" and doc.signature_request_id]
+    if signing_docs:
+        req_ids = [doc.signature_request_id for doc in signing_docs]
+        requests = (
+            await db.execute(
+                select(SignatureRequest)
+                .options(selectinload(SignatureRequest.recipients))
+                .where(SignatureRequest.id.in_(req_ids))
+            )
+        ).scalars().all()
+        for req in requests:
+            for rec in req.recipients:
+                if rec.status == "pending" and rec.email and rec.email.lower() not in seen:
+                    seen.add(rec.email.lower())
+                    reminded.append(rec.email)
+                    sign_url = f"{settings.nextauth_url}/sign/{rec.access_token}"
+                    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+                        from app.routers.meetings import send_smtp_email
+                        subject, body = _reminder_email(rec.name, case.title, sign_url, is_signing=True)
+                        background_tasks.add_task(send_smtp_email, settings, [rec.email], subject, body)
+
+    if reminded:
+        await write_audit_entry(
+            db,
+            current_user.user_id,
+            "onboarding.reminders_sent",
+            "onboarding_case",
+            str(case.id),
+            {"reminded": reminded, "count": len(reminded)},
+        )
+        await db.commit()
+
+    return OnboardingRemindResponse(
+        ok=True,
+        reminded_count=len(reminded),
+        reminded=reminded,
+        email_sent=bool(settings.smtp_host and settings.smtp_user and settings.smtp_pass),
+    )
+
+
+@router.post("/cases/{case_id}/documents/{document_id}/remind", response_model=OnboardingRemindResponse)
+async def remind_document_signers(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> OnboardingRemindResponse:
+    """Send reminder emails to pending signers of a specific onboarding document."""
+    await require_permission(db, current_user, "onboarding.write")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    settings = get_settings()
+    reminded: list[str] = []
+    seen: set[str] = set()
+
+    if document.status == "signing" and document.signature_request_id:
+        request = (
+            await db.execute(
+                select(SignatureRequest)
+                .options(selectinload(SignatureRequest.recipients))
+                .where(SignatureRequest.id == document.signature_request_id)
+            )
+        ).scalar_one_or_none()
+        if request:
+            for rec in request.recipients:
+                if rec.status == "pending" and rec.email and rec.email.lower() not in seen:
+                    seen.add(rec.email.lower())
+                    reminded.append(rec.email)
+                    sign_url = f"{settings.nextauth_url}/sign/{rec.access_token}"
+                    if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+                        from app.routers.meetings import send_smtp_email
+                        subject, body = _reminder_email(rec.name, document.case.title, sign_url, is_signing=True)
+                        background_tasks.add_task(send_smtp_email, settings, [rec.email], subject, body)
+    elif document.participant and document.participant.status == "invited":
+        token, token_hash = new_portal_token()
+        document.participant.portal_token_hash = token_hash
+        document.participant.token_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+        reminded.append(document.participant.email)
+        if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+            from app.routers.meetings import send_smtp_email
+            subject, body = _reminder_email(document.participant.name, document.case.title, _portal_url(token), is_signing=False)
+            background_tasks.add_task(send_smtp_email, settings, [document.participant.email], subject, body)
+
+    if reminded:
+        await write_audit_entry(
+            db,
+            current_user.user_id,
+            "onboarding.document_reminded",
+            "onboarding_document",
+            str(document.id),
+            {"reminded": reminded, "document_key": document.document_key},
+        )
+        await db.commit()
+
+    return OnboardingRemindResponse(
+        ok=True,
+        reminded_count=len(reminded),
+        reminded=reminded,
+        email_sent=bool(settings.smtp_host and settings.smtp_user and settings.smtp_pass),
+    )
+
 
 
 @router.get("/public/{token}/documents/{document_id}/editor", response_model=OnboardingEditorResponse)
@@ -1001,9 +1250,7 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
         raise HTTPException(status_code=409, detail={"message": "Compile the latest approved revision", "current_revision": document.current_revision})
     if any(thread.status != "resolved" for thread in document.review_threads):
         raise HTTPException(status_code=409, detail="Resolve every review thread before compilation")
-    participant_errors = validate_values(document.document_key, document.field_values or {}, editor="participant", final=True)
-    hq_errors = validate_values(document.document_key, document.field_values or {}, editor="hq", final=True)
-    errors = {**participant_errors, **hq_errors}
+    errors = validate_values(document.document_key, document.field_values or {}, editor="all", final=True)
     if errors:
         raise HTTPException(status_code=422, detail={"message": "Complete required document fields before compilation", "fields": errors})
     participant = document.participant

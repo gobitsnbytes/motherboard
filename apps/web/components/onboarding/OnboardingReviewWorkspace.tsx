@@ -164,6 +164,39 @@ export default function OnboardingReviewWorkspace({
     });
   };
 
+  const deleteWorkflow = async () => {
+    if (
+      !window.confirm(
+        "Permanently delete this entire onboarding workflow?\n\nThis will void any active signature requests, notify all signers by email, and completely delete the case.",
+      )
+    ) {
+      return;
+    }
+    setBusy("delete");
+    try {
+      const response = await fetch(`/api/onboarding/cases/${caseId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : "Could not delete this workflow.",
+        );
+      }
+      window.location.href = "/dashboard/onboarding";
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not delete this workflow.",
+      );
+      setBusy(null);
+    }
+  };
+
+
   if (!editor)
     return (
       <main className="mx-auto max-w-6xl p-8" role={error ? "alert" : "status"}>
@@ -508,11 +541,40 @@ export default function OnboardingReviewWorkspace({
           {editor.document.signature_url ? (
             <a
               href={editor.document.signature_url}
-              className="block w-full border-2 border-black bg-[#97192c] px-3 py-3 text-center font-mono text-xs font-black uppercase text-white"
+              className="block w-full border-2 border-black bg-[#97192c] px-3 py-3 text-center font-mono text-xs font-black uppercase text-white shadow-[3px_3px_0_#120f0a]"
             >
               Open signing ceremony
             </a>
           ) : null}
+          {editor.document.status === "signing" ? (
+            <button
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={() =>
+                void mutate(
+                  `/documents/${documentId}/remind`,
+                  "POST",
+                  undefined,
+                  "Reminder sent to pending signers.",
+                )
+              }
+              className="w-full border-2 border-black bg-[#fdb32b] px-3 py-3 font-mono text-xs font-black uppercase shadow-[3px_3px_0_#120f0a] hover:bg-[#fc920d] disabled:opacity-50"
+            >
+              {busy === `/documents/${documentId}/remind`
+                ? "Reminding…"
+                : "Remind signers"}
+            </button>
+          ) : null}
+          <div className="border-t border-zinc-300 pt-3">
+            <button
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={deleteWorkflow}
+              className="w-full border-2 border-rose-800 bg-rose-50 px-3 py-2.5 font-mono text-xs font-black uppercase text-rose-900 shadow-[2px_2px_0_#120f0a] hover:bg-rose-100 disabled:opacity-50"
+            >
+              {busy === "delete" ? "Deleting…" : "Delete workflow"}
+            </button>
+          </div>
         </aside>
       </div>
     </main>

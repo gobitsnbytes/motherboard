@@ -284,3 +284,58 @@ async def test_staff_cannot_correct_email_after_packet_submission(super_admin):
             json={"email": "correct@example.com"},
         )
         assert updated.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_delete_case_and_remind_signers(super_admin, db_session):
+    get_settings().smtp_host = None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            "/api/onboarding/cases",
+            json={
+                "kind": "volunteer",
+                "title": "To be deleted packet",
+                "participant": {"name": "Delete Me", "email": "delete@example.com", "date_of_birth": "2005-04-02"},
+            },
+        )
+        assert created.status_code == 201, created.text
+        case_id = created.json()["id"]
+
+        # Remind pending signers
+        remind_resp = await request_as(
+            client,
+            super_admin.id,
+            "POST",
+            f"/api/onboarding/cases/{case_id}/remind",
+        )
+        assert remind_resp.status_code == 200, remind_resp.text
+        assert remind_resp.json()["reminded_count"] == 1
+        assert "delete@example.com" in remind_resp.json()["reminded"]
+
+        # Delete case
+        delete_resp = await request_as(
+            client,
+            super_admin.id,
+            "DELETE",
+            f"/api/onboarding/cases/{case_id}",
+        )
+        assert delete_resp.status_code == 200, delete_resp.text
+        assert delete_resp.json()["ok"] is True
+        assert "delete@example.com" in delete_resp.json()["notified"]
+
+        # Verify case is gone from DB
+        get_resp = await request_as(
+            client,
+            super_admin.id,
+            "GET",
+            f"/api/onboarding/cases/{case_id}",
+        )
+        assert get_resp.status_code == 404
+
+        # Verify audit log recorded
+        audit_actions = (await db_session.execute(select(AuditLog.action))).scalars().all()
+        assert "onboarding.case_deleted" in audit_actions
+

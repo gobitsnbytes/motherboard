@@ -202,3 +202,18 @@ class OnboardingPortalResponse(BaseModel):
     participant: OnboardingParticipantResponse
     documents: list[OnboardingDocumentResponse]
     field_manifest: dict[str, list[dict]]
+
+
+class OnboardingDeleteResponse(BaseModel):
+    ok: bool = True
+    message: str
+    id: str
+    notified: list[str] = Field(default_factory=list)
+
+
+class OnboardingRemindResponse(BaseModel):
+    ok: bool = True
+    reminded_count: int
+    reminded: list[str] = Field(default_factory=list)
+    email_sent: bool = False
+
