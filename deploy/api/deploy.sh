@@ -25,6 +25,8 @@ rollback() {
     git -C "$APP_DIR" reset --hard "$PREV_COMMIT"
     
     echo "--> Restoring dependencies..."
+    sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" --frozen-lockfile
+    sudo chown -R deploy:deploy "$APP_DIR"
     uv sync --project "$API_DIR" --frozen --no-dev --python python3.12
     
     echo "--> Restarting service..."
@@ -54,14 +56,22 @@ if ! command -v soffice >/dev/null 2>&1 && ! command -v libreoffice >/dev/null 2
     sudo apt-get install -y libreoffice-writer
 fi
 
-# 1.5. Install monorepo JS dependencies
-echo "--> Installing monorepo Node/Bun dependencies..."
-sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" || rollback
-sudo chown -R deploy:deploy "$APP_DIR"
+# 1.5. Install monorepo JS dependencies only when manifests changed or install state is missing
+if [ ! -d "$APP_DIR/node_modules" ] || ! git -C "$APP_DIR" diff --quiet "$PREV_COMMIT" "$NEW_COMMIT" -- package.json bun.lock apps/bot/package.json apps/bot/bun.lock; then
+    echo "--> JavaScript dependency manifests changed; installing with Bun..."
+    sudo /home/ubuntu/.bun/bin/bun install --cwd "$APP_DIR" --frozen-lockfile || rollback
+    sudo chown -R deploy:deploy "$APP_DIR"
+else
+    echo "--> JavaScript dependency manifests unchanged; skipping Bun install."
+fi
 
-# 2. Sync python dependencies
-echo "--> Syncing python dependencies..."
-uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
+# 2. Sync Python dependencies only when manifests changed or the environment is missing
+if [ ! -x "$API_DIR/.venv/bin/python" ] || ! git -C "$APP_DIR" diff --quiet "$PREV_COMMIT" "$NEW_COMMIT" -- apps/api/pyproject.toml apps/api/uv.lock; then
+    echo "--> Python dependency manifests changed; syncing with uv..."
+    uv sync --project "$API_DIR" --frozen --no-dev --python python3.12 || rollback
+else
+    echo "--> Python dependency manifests unchanged; skipping uv sync."
+fi
 
 # 3. Run database migrations & auto-sync missing tables
 echo "--> Running database migrations..."

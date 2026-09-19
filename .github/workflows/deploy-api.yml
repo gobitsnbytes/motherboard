@@ -7,14 +7,14 @@ on:
     paths:
       - 'apps/api/**'
       - 'apps/bot/**'
-      - 'apps/web/**'
+      - 'data/company-knowledge/**'
       - 'deploy/**'
-      - 'VERSION'
-      - 'CHANGELOG.md'
-      - 'MEMORY.md'
+      - 'docker/**'
+      - 'docker-compose*.yml'
+      - 'templates/**'
       - 'package.json'
       - 'bun.lock'
-      - '.github/workflows/**'
+      - '.github/workflows/deploy-api.yml'
 
 jobs:
   test:
