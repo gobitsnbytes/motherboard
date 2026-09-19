@@ -6,7 +6,7 @@
 
 ## 1. Outcome
 
-Replace the current evidence-append onboarding flow with a browser document editor backed by genuine OOXML round-tripping. Participants fill the original legal templates in place, add their electronic signatures, and submit them for HQ review. The final PDF is generated only after the required HQ signers countersign. The completed artifact includes a cryptographic seal, an append-only audit trail, and a verification certificate.
+Replace the current evidence-append onboarding flow with a browser document editor backed by genuine OOXML round-tripping. Participants fill the original legal templates in place, add their electronic signatures, and submit them for HQ review. Review follows a pull-request model: HQ opens field- or block-anchored threads, participants revise and resubmit, and prior revisions remain inspectable. The final PDF is generated only after HQ approves, countersigns, and explicitly requests compilation. The completed artifact includes a cryptographic seal, an append-only audit trail, and a verification certificate.
 
 The authoritative pre-finalization artifact is a versioned OOXML package plus typed field state. A PDF is a final output, not the draft source of truth.
 
@@ -14,7 +14,7 @@ The authoritative pre-finalization artifact is a versioned OOXML package plus ty
 
 1. `1_Volunteer_Form.docx` — Volunteer & Engagement Form
 2. `2_Parents_Consent_.docx` — Parent/Guardian Consent Form
-3. `3_Fork_Recognition_Certificate.docx` — Fork Recognition Certificate
+3. `3_Fork_Recognition_Certificate.docx` — HQ-issued Fork Recognition Certificate created only after the fork packet audit is approved
 4. `4_Fork_Agreement.docx` — Fork Recognition Agreement
 5. `5_Fork_Application_Form.docx` — Fork Onboarding Form
 
@@ -142,6 +142,8 @@ Only published versions may create document instances.
 - `final_docx_hash`
 - `final_pdf_hash`
 - `finalized_at`
+
+Review threads are first-class records anchored to a semantic field or stable document block. Each thread contains append-only comments and moves through `open`, `addressed`, and `resolved` without deleting history.
 
 Its existing onboarding-case and signature-request relationships remain intact.
 
@@ -278,13 +280,17 @@ Document status transitions are explicit:
 
 ```text
 draft
-  → participant_submitted
+  → review_requested
+  → changes_requested
+  → draft
+  → review_requested
+  → approved
   → participant_signing
   → participant_signed
-  → hq_review
   → hq_signing
   → hq_signed
-  → compiling
+  → ready_to_compile
+  → compiling (explicit HQ action)
   → completed
 ```
 
@@ -292,11 +298,17 @@ Exceptional states are `returned_for_correction`, `rejected`, `voided`, and `com
 
 Rules:
 
-- Submission freezes participant-editable fields for that revision.
-- Returning a document creates a new draft revision and invalidates signatures bound to the prior revision.
+- Submission freezes participant-editable fields for that review revision.
+- HQ may select a document block or target a field and open a review thread.
+- Requesting changes reopens the participant dashboard while preserving the reviewed revision and every thread.
+- Participant replies and edits create a new revision; resolved and unresolved threads remain visible.
+- Returning a signed document creates a new draft revision and invalidates signatures bound to the prior revision.
 - Every signature stores the signed revision hash.
 - Compilation starts only when every required signer has completed in policy order.
+- Compilation is never automatic: an authorized HQ reviewer explicitly chooses `Compile final PDF`.
 - Retrying a failed compilation is idempotent and does not create duplicate completed artifacts.
+
+Form 3 is not created with the initial fork packet. After Forms 1, 2 when applicable, 4, and 5 are approved and all review threads are resolved, HQ may issue Form 3 from the approved packet data. Form 3 then follows its own fork-lead acknowledgement and HQ countersigning steps before it can be compiled.
 
 ## 11. Final compilation and cryptographic evidence
 

@@ -1,5 +1,12 @@
 # Motherboard Operations Platform — Agent Memory
 
+## 2026-09-19 — Semantic OOXML onboarding editor
+
+- Implementation is being performed in the existing `D:\motherboard-prod` worktree on branch `prod`.
+- User refined the workflow to a GitHub PR model: HQ creates field/block review threads, requests changes, participants edit and resubmit from their portal, and all prior revisions remain auditable.
+- Form 3 is HQ-issued only after the fork packet audit and document review are approved. Final PDF compilation is an explicit HQ action after required signatures, never automatic.
+- Accessibility, faithful rendering, easy form completion, review state management, and robust final compilation are acceptance gates.
+
 Persistent log of tasks, architectural decisions, workspace status, and audit findings. Every agent invocation maintains this document.
 
 ---
@@ -295,3 +302,12 @@ Comprehensive read-only production audits (S62–S63) established the following 
 
 - Repaired the registered volunteer DOCX on the live `prod` checkout. The original form lacked the five exact onboarding markers, so submissions failed closed. Added a dedicated digital-record block containing every marker and the subject-signature anchor, pinned its new SHA-256 hash, and verified both materialization and PDF rendering before restarting `bnb-api`.
 - Confirmed the new CTO onboarding case now has a submitted participant and one pending signature envelope. The API health endpoint returns `ok`; GitHub `prod` includes the server hotfix as `0807615`.
+
+### 2026-09-19 — Semantic OOXML Onboarding Workflow
+
+- Implemented the approved architecture on the `prod` worktree for Forms 1–5; Qenlo and Form 6 remain intentionally out of scope.
+- Added safe DOCX unpacking, semantic `w:sdt` controls, typed field ownership, browser document projection, deterministic revision state hashes, package hashes, and valid DOCX repacking. All five real templates round-trip successfully with every declared semantic field anchored.
+- Added immutable document revisions and field/block-anchored review threads with open, addressed, and resolved states. Draft writes use optimistic revision checks; participant resubmission and HQ edits create new hashed revisions.
+- Added participant and HQ browser workspaces with autosave, conflict recovery, accessible labels/error summaries/keyboard navigation, review replies, request-changes, approval, and explicit compile/sign controls.
+- Form 3 is now issued only after the fork application/agreement audit is approved. Approval is distinct from cryptographic signing; compilation is blocked until HQ explicitly requests it and all review threads and required fields are complete.
+- Added OOXML security and regression coverage. Verification: 16 focused onboarding tests pass, web TypeScript checks pass, Python modules compile, Alembic has a single `p9q0r1s2t3u4` head, and `git diff --check` is clean.
