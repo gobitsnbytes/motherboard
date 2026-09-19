@@ -27,6 +27,7 @@ from app.db.models import (
     OnboardingReview,
     OnboardingReviewComment,
     OnboardingReviewThread,
+    OnboardingRevision,
     SignatureRequest,
     User,
 )
@@ -393,7 +394,15 @@ async def create_case(
     )
     db.add(case)
     await db.flush()
-    case.current_revision_id = uuid.uuid4()
+    case_revision = OnboardingRevision(
+        case_id=case.id,
+        number=1,
+        created_by=current_user.user_id,
+        template_snapshot={key: TEMPLATE_MANIFEST[key]["source_hash"] for key in (["volunteer"] if payload.kind == "volunteer" else ["fork_application", "fork_agreement"])},
+    )
+    db.add(case_revision)
+    await db.flush()
+    case.current_revision_id = case_revision.id
 
     token, token_hash = new_portal_token()
     participant = OnboardingParticipant(
@@ -405,6 +414,7 @@ async def create_case(
         is_minor=is_minor,
         portal_token_hash=token_hash,
         token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        revision_id=case_revision.id,
     )
     db.add(participant)
     await db.flush()
@@ -429,7 +439,7 @@ async def create_case(
             "bnb.fork.agreement.fork_name": payload.fork_name or "",
         }
         allowed_ids = {field["id"] for field in fields_for(key)}
-        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, document_key=key, template_filename=manifest["template"], revision_id=case.current_revision_id, field_values={field_id: value for field_id, value in defaults.items() if field_id in allowed_ids and value}))
+        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, document_key=key, template_filename=manifest["template"], revision_id=case_revision.id, field_values={field_id: value for field_id, value in defaults.items() if field_id in allowed_ids and value}))
 
     parent_token = None
     if is_minor and payload.participant.parent:
@@ -442,13 +452,14 @@ async def create_case(
             is_minor=False,
             portal_token_hash=parent_hash,
             token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            revision_id=case_revision.id,
         )
         db.add(parent)
         await db.flush()
         db.add(OnboardingDocument(
             case_id=case.id,
             participant_id=parent.id,
-            revision_id=case.current_revision_id,
+            revision_id=case_revision.id,
             document_key="parent_consent",
             template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"],
             field_values={
