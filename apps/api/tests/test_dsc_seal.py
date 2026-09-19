@@ -16,7 +16,9 @@ from app.services import dsc
 @pytest.fixture
 def configured_seal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "GOBITSNBYTES FOUNDATION Test Seal")])
+    name = x509.Name(
+        [x509.NameAttribute(NameOID.COMMON_NAME, "GOBITSNBYTES FOUNDATION Test Seal")]
+    )
     now = datetime.now(timezone.utc)
     cert = (
         x509.CertificateBuilder()
@@ -48,14 +50,18 @@ def _pdf(tmp_path: Path) -> bytes:
     return path.read_bytes()
 
 
-def test_unconfigured_seal_fails_loudly_rather_than_pretending(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unconfigured_seal_fails_loudly_rather_than_pretending(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("DSC_PFX_PATH", raising=False)
     assert not dsc.is_configured()
     with pytest.raises(dsc.DSCUnavailable):
         dsc.seal_pdf(b"%PDF-1.7\n", reason="test")
 
 
-def test_seal_embeds_a_verifiable_signature(tmp_path: Path, configured_seal: Path) -> None:
+def test_seal_embeds_a_verifiable_signature(
+    tmp_path: Path, configured_seal: Path
+) -> None:
     from pyhanko.pdf_utils.reader import PdfFileReader
     from pyhanko.sign.validation import validate_pdf_signature
 
@@ -73,18 +79,27 @@ def test_seal_embeds_a_verifiable_signature(tmp_path: Path, configured_seal: Pat
     assert status.coverage.name == "ENTIRE_FILE"
 
 
-def test_certificate_summary_reports_the_real_certificate(configured_seal: Path) -> None:
+def test_certificate_summary_reports_the_real_certificate(
+    configured_seal: Path,
+) -> None:
     summary = dsc.certificate_summary()
     assert "GOBITSNBYTES FOUNDATION Test Seal" in summary["common_name"]
     assert int(summary["serial"], 16) > 0
 
 
-def test_content_appended_after_sealing_falls_outside_the_signature(tmp_path: Path, configured_seal: Path) -> None:
+def test_content_appended_after_sealing_falls_outside_the_signature(
+    tmp_path: Path, configured_seal: Path
+) -> None:
     import io
 
     from pyhanko.pdf_utils.reader import PdfFileReader
     from pyhanko.sign.validation import validate_pdf_signature
 
-    sealed = dsc.seal_pdf(_pdf(tmp_path), reason="Execution of Test Agreement") + b"\n% appended after sealing\n"
-    status = validate_pdf_signature(PdfFileReader(io.BytesIO(sealed)).embedded_signatures[0])
+    sealed = (
+        dsc.seal_pdf(_pdf(tmp_path), reason="Execution of Test Agreement")
+        + b"\n% appended after sealing\n"
+    )
+    status = validate_pdf_signature(
+        PdfFileReader(io.BytesIO(sealed)).embedded_signatures[0]
+    )
     assert status.coverage.name != "ENTIRE_FILE"
