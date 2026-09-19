@@ -52,15 +52,6 @@ class OTPVerifyRequest(BaseModel):
     otp: str = Field(..., min_length=6, max_length=6)
 
 
-class DSCHardwareSealRequest(BaseModel):
-    signature_hex: str
-    certificate_pem: Optional[str] = None
-    issuer: Optional[str] = None
-    serial_number: Optional[str] = None
-    common_name: Optional[str] = None
-    fields: Optional[List["SignSubmissionFieldPayload"]] = []
-
-
 # ---------------------------------------------------------------------------
 # Field Schemas
 # ---------------------------------------------------------------------------

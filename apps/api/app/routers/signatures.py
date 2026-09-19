@@ -12,22 +12,20 @@ import secrets
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from cryptography import x509
-from cryptography.hazmat.primitives.serialization import pkcs12
 
 from app.config import get_settings
+from app.services import dsc
 from app.db.models import SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest
 from app.dependencies import DbSession, OptionalUserDep, get_current_user
 from app.iam.principal import ResolvedPrincipal
 from app.iam.policy import require_permission
 from app.schemas.signatures import (
-    DSCHardwareSealRequest,
     AuditTrailResponse,
     DocumentVerificationResponse,
     OTPRequestPayload,
@@ -747,169 +745,21 @@ async def get_dsc_document_digest(
 
 
 @router.post("/sign/{token}/dsc-hardware-seal")
-async def seal_hardware_dsc_signature(
-    token: str,
-    payload: DSCHardwareSealRequest,
-    db: DbSession = None,
-    req: Request = None,
-):
-    """Reserved until a validated PKCS#7/CAdES verifier is integrated."""
-    # Never label arbitrary client input as a legally meaningful DSC signature.
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Hardware DSC signing is disabled until verified PKCS#7/CAdES validation is available")
-    stmt = (
-        select(SignatureRecipient)
-        .options(
-            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.fields),
-            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.recipients),
-        )
-        .where(SignatureRecipient.access_token == token)
-    )
-    result = await db.execute(stmt)
-    recipient = result.scalar_one_or_none()
-
-    if not recipient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
-
-    sig_request = recipient.request
-    if sig_request.status in ("voided", "expired"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"This contract agreement has been {sig_request.status} and cannot be signed.")
-
-    if recipient.status == "signed":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recipient has already signed this contract")
-
-    if recipient.status in ("voided", "declined"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Your signature invitation for this contract has been revoked.")
-
-    client_ip = req.client.host if req and req.client else "127.0.0.1"
-    user_agent = req.headers.get("user-agent") if req else "Browser"
-
-    # Store DSC Certificate metadata
-    recipient.dsc_type = "hardware_token"
-    recipient.dsc_common_name = payload.common_name or recipient.name
-    recipient.dsc_issuer = payload.issuer or "Hardware USB Token Certificate Authority"
-    recipient.dsc_serial = payload.serial_number or hashlib.sha256(payload.signature_hex.encode()).hexdigest()[:16].upper()
-    recipient.status = "signed"
-    recipient.signed_at = datetime.now(timezone.utc)
-    recipient.ip_address = client_ip
-    recipient.user_agent = user_agent
-
-    # Render DSC Digital Stamp overlay on assigned fields
-    dsc_stamp = f"DIGITALLY SIGNED VIA HARDWARE DSC\nCN: {recipient.dsc_common_name}\nIssuer: {recipient.dsc_issuer}\nSerial: {recipient.dsc_serial}\nTimestamp: {recipient.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
-
-    for f_in in (payload.fields or []):
-        stmt_f = select(SignatureField).where(SignatureField.id == f_in.field_id, SignatureField.recipient_id == recipient.id)
-        res_f = await db.execute(stmt_f)
-        field_obj = res_f.scalar_one_or_none()
-        if field_obj:
-            field_obj.value = dsc_stamp
-
-    await _log_audit_event(
-        db,
-        request_id=sig_request.id,
-        recipient_id=recipient.id,
-        action="signed_dsc_hardware",
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details=f"Signatory {recipient.name} executed Hardware USB Token Digital Signature (CN: {recipient.dsc_common_name}, Serial: {recipient.dsc_serial})",
-    )
-
-    # Check envelope completion status
-    all_recipients = sig_request.recipients
-    completed = all(r.status == "signed" or r.id == recipient.id for r in all_recipients if r.role == "signer")
-
-    if completed:
-        sig_request.status = "completed"
-        sig_request.completed_at = datetime.now(timezone.utc)
-
-    await db.commit()
-    return {"status": "success", "message": "Hardware DSC Signature recorded successfully", "request_status": sig_request.status}
-
-
 @router.post("/sign/{token}/dsc-pfx-seal")
-async def seal_software_pfx_dsc_signature(
-    token: str,
-    file: UploadFile = File(...),
-    passphrase: str = Form(...),
-    db: DbSession = None,
-    req: Request = None,
-):
-    """Reserved until the PFX key creates and verifies an embedded PDF signature."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="PFX DSC signing is disabled until it creates a verifiable PDF signature")
-    stmt = (
-        select(SignatureRecipient)
-        .options(
-            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.fields),
-            selectinload(SignatureRecipient.request).selectinload(SignatureRequest.recipients),
-        )
-        .where(SignatureRecipient.access_token == token)
+async def seal_dsc_signature(token: str):
+    """Per-signer DSC is not offered, and never was.
+
+    A Class 2/3 USB token never releases its private key, so a server cannot
+    produce a signature with it — only verify one the token already made. The
+    previous handlers accepted certificate metadata from the client and stored it
+    as if it were a signature, which is worse than offering nothing. Completed
+    envelopes are sealed with the Foundation's own certificate instead; see
+    app.services.dsc.
+    """
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Per-signer DSC signing is not supported. Sign with an e-signature; the completed document is sealed with the Foundation's Digital Signature Certificate.",
     )
-    result = await db.execute(stmt)
-    recipient = result.scalar_one_or_none()
-
-    if not recipient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid signature token")
-
-    sig_request = recipient.request
-    if sig_request.status in ("voided", "expired"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"This contract agreement has been {sig_request.status} and cannot be signed.")
-
-    if recipient.status == "signed":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recipient has already signed this contract")
-
-    if recipient.status in ("voided", "declined"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Your signature invitation for this contract has been revoked.")
-
-    pfx_bytes = await file.read()
-
-    # Parse PFX/P12 certificate and private key using cryptography module
-    try:
-        private_key, cert, additional_certs = pkcs12.load_key_and_certificates(
-            pfx_bytes,
-            passphrase.encode("utf-8") if passphrase else None
-        )
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid PFX/P12 certificate file or incorrect passphrase")
-
-    if not cert:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No X.509 signing certificate found in PFX file")
-
-    cn_attributes = cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
-    common_name = cn_attributes[0].value if cn_attributes else recipient.name
-    issuer_attributes = cert.issuer.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
-    issuer_cn = issuer_attributes[0].value if issuer_attributes else "X.509 Certificate Authority"
-    serial_str = hex(cert.serial_number)[2:].upper()
-
-    client_ip = req.client.host if req and req.client else "127.0.0.1"
-    user_agent = req.headers.get("user-agent") if req else "Browser"
-
-    recipient.dsc_type = "software_pfx"
-    recipient.dsc_common_name = common_name
-    recipient.dsc_issuer = issuer_cn
-    recipient.dsc_serial = serial_str
-    recipient.status = "signed"
-    recipient.signed_at = datetime.now(timezone.utc)
-    recipient.ip_address = client_ip
-    recipient.user_agent = user_agent
-
-    await _log_audit_event(
-        db,
-        request_id=recipient.request_id,
-        recipient_id=recipient.id,
-        action="signed_dsc_pfx",
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details=f"Signatory {recipient.name} executed Software PFX Digital Signature (CN: {common_name}, Serial: {serial_str}, Issuer: {issuer_cn})",
-    )
-
-    all_recipients = recipient.request.recipients
-    completed = all(r.status == "signed" or r.id == recipient.id for r in all_recipients if r.role == "signer")
-
-    if completed:
-        recipient.request.status = "completed"
-        recipient.request.completed_at = datetime.now(timezone.utc)
-
-    await db.commit()
-    return {"status": "success", "message": "Software PFX DSC Signature recorded successfully", "request_status": recipient.request.status}
 
 
 @router.get("/sign/{token}/status")
@@ -1118,6 +968,18 @@ async def _finalize_request_if_complete(
         created_at=sig_request.created_at,
     )
 
+    seal_detail = "no Foundation DSC configured; the SHA-256 seal and audit certificate carry the integrity guarantee"
+    try:
+        signed_pdf_bytes = dsc.seal_pdf(signed_pdf_bytes, reason=f"Execution of {sig_request.title}")
+        sha256_hash = hashlib.sha256(signed_pdf_bytes).hexdigest()
+        summary = dsc.certificate_summary()
+        seal_detail = f"sealed with {summary['common_name']} (issuer {summary['issuer']}, serial {summary['serial']})"
+    except dsc.DSCUnavailable as exc:
+        logger.warning("Completed envelope %s was not DSC-sealed: %s", sig_request.id, exc)
+    except Exception:
+        logger.exception("DSC sealing failed for envelope %s", sig_request.id)
+        seal_detail = "DSC sealing failed; see server logs"
+
     signed_filename = f"signed_{sig_request.id}.pdf"
     signed_file_path = os.path.join(UPLOAD_DIR, signed_filename)
 
@@ -1126,6 +988,15 @@ async def _finalize_request_if_complete(
 
     sig_request.signed_file_path = signed_file_path
     sig_request.document_hash = sha256_hash
+    await _log_audit_event(
+        db,
+        request_id=sig_request.id,
+        recipient_id=None,
+        action="dsc_seal",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details=seal_detail,
+    )
     sig_request.status = "completed"
     sig_request.completed_at = datetime.now(timezone.utc)
 
