@@ -44,8 +44,8 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - Avoid `@bnb/ui` barrel imports in server-rendered code; direct imports prevent React context failures.
 - Finance requests at or above INR 1 lakh require two distinct approvers and prohibit self-approval.
 - Onboarding Forms 1-5 are the active package. Form 6 is a separate minor event-consent flow. Generated onboarding files live under `apps/api/data/onboarding/` and are never source assets.
-- Qenlo is an embedded local retrieval index for the legal agent, not a remote service or system of record. PostgreSQL remains the shared durable boundary.
-- The legal mailbox requires authenticated sender validation. Never trust the visible `From` header alone. Legal agent replies enforce anti-loop headers (`Auto-Submitted`, `X-Auto-Response-Suppress`, `Precedence: bulk`), drop self/daemon/bounce messages, strip raw Notion hashes, and synthesize policy answers via SparkCloud AI into responsive branded HTML email templates.
+- Qenlo vector DB is dropped in favor of native Open Knowledge Format (OKF) concept retrieval (`OKFKnowledgeStore.search_concepts`), matching titles, tags, descriptions, and Markdown bodies directly with zero external vector DB or embedding costs.
+- The legal mailbox parses both plain text and HTML email bodies (stripping reply quotes and signatures), enforces anti-loop headers (`Auto-Submitted`, `X-Auto-Response-Suppress`, `Precedence: bulk`), drops self/daemon/bounce messages, and synthesizes policy answers via SparkCloud AI into responsive branded HTML email templates.
 - The old Cal.com callback on `mail.gobitsnbytes.org` is stale. Current callbacks use `/api/calendar/webhooks/calcom/{connectionId}`.
 
 ## Production operations
