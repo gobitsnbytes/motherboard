@@ -39,7 +39,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
@@ -231,7 +231,7 @@ class CalendarWebhookEvent(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     connection_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("calendar_connections.id", ondelete="CASCADE"), nullable=False, index=True)
-    event_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    event_key: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     trigger: Mapped[str] = mapped_column(String(80), nullable=False)
     booking_uid: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
@@ -588,7 +588,7 @@ class Fork(Base):
     discord_contributor_role_id: Mapped[str | None] = mapped_column(String(25), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSON, name="metadata", default=dict, nullable=False
+        JSONB, name="metadata", default=dict, nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -666,7 +666,7 @@ class PluginRegistry(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # JSON config blob for plugin-specific settings
-    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     installed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -715,7 +715,7 @@ class AuditLog(Base):
     target_id: Mapped[str] = mapped_column(String(100), nullable=False)
     # Arbitrary JSON context blob
     metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        JSON, name="metadata", default=dict, nullable=False
+        JSONB, name="metadata", default=dict, nullable=False
     )
     # IP address of the request actor (optional, for web-triggered actions)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
@@ -759,7 +759,7 @@ class SyncRun(Base):
     members_added: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     members_removed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     errors: Mapped[list[Any]] = mapped_column(
-        JSON, default=list, nullable=False
+        JSONB, default=list, nullable=False
     )  # list[str]
     discord_member_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
@@ -1682,7 +1682,7 @@ class OnboardingCase(Base):
     status: Mapped[str] = mapped_column(String(50), default="collecting", nullable=False)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    fork_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("forks.id", ondelete="SET NULL"), nullable=True)
+    fork_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("forks.id", ondelete="SET NULL"), nullable=True, index=True)
     case_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
