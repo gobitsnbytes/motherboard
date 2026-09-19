@@ -1,15 +1,15 @@
 """Add semantic OOXML revisions and PR-style onboarding review threads.
 
-Revision ID: p9q0r1s2t3u4
-Revises: o8p9q0r1s2t3
+Revision ID: r1s2t3u4v5w6
+Revises: p9q0r1s2t3u4
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "p9q0r1s2t3u4"
-down_revision = "o8p9q0r1s2t3"
+revision = "r1s2t3u4v5w6"
+down_revision = "p9q0r1s2t3u4"
 branch_labels = None
 depends_on = None
 

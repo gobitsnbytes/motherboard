@@ -1,7 +1,7 @@
 """Store recipient-bound OTP hashes and bounded verification state.
 
 Revision ID: q0r1s2t3u4v5
-Revises: p9q0r1s2t3u4
+Revises: r1s2t3u4v5w6
 """
 
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 
 revision = "q0r1s2t3u4v5"
-down_revision = "p9q0r1s2t3u4"
+down_revision = "r1s2t3u4v5w6"
 branch_labels = None
 depends_on = None
 
