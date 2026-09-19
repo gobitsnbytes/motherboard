@@ -30,6 +30,7 @@ from app.db.models import (
     SignatureRequest,
     SignatureRecipient,
     SignatureAuditLog,
+    User,
 )
 from app.dependencies import DbSession, ResolvedPrincipal, get_current_user, get_optional_user
 from app.services.llm_client import get_llm_client
@@ -1269,18 +1270,29 @@ async def _build_ask_corpus(db: DbSession) -> List[Dict[str, str]]:
 async def ask_contract_knowledge_base(
     payload: AskQuestionRequest,
     db: DbSession,
-    current_user: Optional[ResolvedPrincipal] = Depends(get_optional_user),
+    current_user: ResolvedPrincipal = Depends(get_current_user),
 ):
     """RAG over the OKF knowledge base plus executed contracts, with source chips."""
+    user = await db.scalar(select(User).where(User.id == current_user.user_id))
+    if not user or not (user.email or "").lower().endswith("@gobitsnbytes.org"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Legal Agent access requires a verified @gobitsnbytes.org account")
+
     q_tokens = _ask_tokens(payload.question)
 
     corpus = await _build_ask_corpus(db)
     scored: List[tuple] = []
-    for idx, chunk in enumerate(corpus):
-        overlap = len(q_tokens & _ask_tokens(chunk["text"]))
-        if overlap > 0:
-            scored.append((overlap, -idx, chunk))
-    scored.sort(key=lambda pair: (pair[0], pair[1]), reverse=True)
+    try:
+        from app.services.legal_retrieval import LegalRetrievalService, keyword_search
+        semantic = (
+            LegalRetrievalService().search(corpus, payload.question, k=6)
+            if get_settings().legal_retrieval_backend.lower() == "qenlo"
+            else keyword_search(corpus, payload.question, k=6)
+        )
+        scored = [(1, -idx, chunk) for idx, chunk in enumerate(semantic)]
+    except Exception as err:
+        logger.warning("Qenlo retrieval unavailable; using keyword fallback: %s", err)
+        from app.services.legal_retrieval import keyword_search
+        scored = [(1, -idx, chunk) for idx, chunk in enumerate(keyword_search(corpus, payload.question, k=6))]
 
     # Per-label quotas keep executed contracts from being crowded out of the
     # context window by generic OKF-rule keyword matches.
@@ -1390,6 +1402,9 @@ async def get_legal_agent_stats(
 
     last_poll = get_last_poll_at()
 
+    from app.services.legal_retrieval import LegalRetrievalService
+    retrieval = LegalRetrievalService().status()
+    settings = get_settings()
     return {
         "inbox_processed_24h": inbox_processed_24h,
         "contracts_in_review": counts["in_review"],
@@ -1397,6 +1412,8 @@ async def get_legal_agent_stats(
         "dotted_count": counts["dotted"],
         "pending_nudges": pending_nudges,
         "last_poll_at": last_poll.isoformat() if last_poll else None,
+        "imap_configured": bool(settings.legal_inbox_imap_host and settings.legal_inbox_imap_user and settings.legal_inbox_imap_password),
+        "retrieval": retrieval,
     }
 
 
@@ -1404,4 +1421,3 @@ def _as_utc_safe(ts: Optional[datetime]) -> Optional[datetime]:
     if ts is None:
         return None
     return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
-

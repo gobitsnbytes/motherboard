@@ -30,6 +30,8 @@ from app.db.models import (
 from app.main import app
 from app.database import get_session
 from app.services.llm_client import SparkCloudAIClient
+from app.db.models import User
+from conftest import request_as
 
 
 pytestmark = pytest.mark.asyncio
@@ -169,6 +171,24 @@ async def test_parse_message_without_attachments_is_clean():
     parsed = legal_agent.parse_message(_build_mime(attach=False))
     assert parsed.attachments == []
     assert "review" in parsed.body_text
+
+
+async def test_internal_plain_email_receives_policy_reply(db_session, monkeypatch):
+    raw = _build_mime(attach=False).replace(
+        b"counsel@vendor.example", b"member@gobitsnbytes.org"
+    )
+    message = legal_agent.parse_message(raw)
+    sent = {}
+
+    def fake_reply(*args, **kwargs):
+        sent["body"] = args[3]
+        return True
+
+    monkeypatch.setattr(legal_agent, "send_reply", fake_reply)
+    handled = await legal_agent.handle_inbox_message(db_session, get_settings(), message)
+
+    assert handled is True
+    assert "policy" in sent["body"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +477,8 @@ async def test_ask_includes_executed_contract_hit(db_session: AsyncSession, monk
 
     monkeypatch.setattr(SparkCloudAIClient, "_chat_completion", fake_chat_completion)
 
+    user = User(display_name="Legal Member", email="member@gobitsnbytes.org")
+    db_session.add(user)
     contract = ContractAssistantContract(
         title="Master Services Agreement",
         status="dotted",
@@ -490,8 +512,8 @@ async def test_ask_includes_executed_contract_hit(db_session: AsyncSession, monk
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post(
-            "/api/contract-assistant/ask",
+        response = await request_as(
+            client, user.id, "POST", "/api/contract-assistant/ask",
             json={"question": "What is the liability cap in the Master Services Agreement?"},
         )
         assert response.status_code == 200
@@ -511,14 +533,29 @@ async def test_ask_returns_empty_sources_when_no_match(db_session: AsyncSession,
 
     monkeypatch.setattr(SparkCloudAIClient, "_chat_completion", fail_completion)
 
+    user = User(display_name="Legal Member", email="member@gobitsnbytes.org")
+    db_session.add(user)
+    await db_session.commit()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post(
-            "/api/contract-assistant/ask",
+        response = await request_as(
+            client, user.id, "POST", "/api/contract-assistant/ask",
             json={"question": "zzzzqqqq unrelated gibberish xyzzy"},
         )
         assert response.status_code == 200
         data = response.json()
     assert data["sources"] == []
+
+
+async def test_ask_rejects_non_organization_account(db_session: AsyncSession):
+    user = User(display_name="External", email="external@example.org")
+    db_session.add(user)
+    await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await request_as(
+            client, user.id, "POST", "/api/contract-assistant/ask",
+            json={"question": "What is the liability cap?"},
+        )
+    assert response.status_code == 403
 
 
 # ---------------------------------------------------------------------------

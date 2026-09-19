@@ -18,6 +18,7 @@ Storage constraints honoured (no schema changes):
 import asyncio
 import email
 import email.utils
+import html
 import imaplib
 import logging
 import os
@@ -216,10 +217,36 @@ async def handle_inbox_message(
         return True
 
     if not message.attachments:
-        logger.info(
-            "[LegalAgent] No contract attachments in message %s; marking seen.",
-            message.message_id,
-        )
+        if not message.from_addr.lower().endswith("@gobitsnbytes.org"):
+            await _send_policy_reply(
+                settings, message,
+                "This mailbox can review attached PDF or DOCX agreements. Policy-question answers are available to verified @gobitsnbytes.org senders."
+            )
+            return True
+        from app.services.okf_engine import get_okf_store
+        from app.services.legal_retrieval import LegalRetrievalService, keyword_search
+        corpus = [
+            {"label": "OKF Rule", "title": concept.title, "text": f"{concept.title}\n{concept.description}\n{concept.content[:1500]}"}
+            for concept in get_okf_store().concepts
+        ]
+        try:
+            hits = (
+                LegalRetrievalService().search(corpus, message.body_text, k=3)
+                if settings.legal_retrieval_backend.lower() == "qenlo"
+                else keyword_search(corpus, message.body_text, k=3)
+            )
+        except Exception as err:
+            logger.warning("[LegalAgent] Qenlo policy lookup failed: %s", err)
+            hits = keyword_search(corpus, message.body_text, k=3)
+        if hits:
+            references = "\n".join(f"- [{hit['title']}] {_truncate(hit['text'], 360)}" for hit in hits)
+            answer = (
+                "Based on the approved Foundation policy material:\n\n"
+                f"{references}\n\nThis is an internal policy summary, not final legal advice. Reply with a PDF or DOCX for contract-specific review."
+            )
+        else:
+            answer = "I could not find an approved policy source for that question. Please name the relevant policy topic or attach the agreement for review."
+        await _send_policy_reply(settings, message, answer)
         return True
 
     shared_meta = {
@@ -442,6 +469,16 @@ async def _send_ingestion_reply(
         )
     except Exception:
         logger.exception("[LegalAgent] Unexpected failure while sending ingestion reply.")
+
+
+async def _send_policy_reply(settings: Settings, message: LegalInboxMessage, body: str) -> None:
+    html_body = "<html><body><pre style='font-family:Arial,sans-serif;white-space:pre-wrap'>" + html.escape(body) + "</pre></body></html>"
+    delivered = await asyncio.to_thread(
+        send_reply, settings, message.from_addr, message.subject or "Legal Agent", body, html_body,
+        message.in_reply_to, message.references,
+    )
+    if not delivered:
+        logger.warning("[LegalAgent] Policy reply could not be delivered for message %s", message.message_id)
 
 
 # ---------------------------------------------------------------------------
