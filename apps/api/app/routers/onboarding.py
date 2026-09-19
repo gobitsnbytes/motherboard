@@ -7,39 +7,52 @@ existing IAM principal and never accept a portal token as reviewer authority.
 from datetime import datetime, timedelta, timezone
 import html
 import hashlib
+import json
+from pathlib import Path
 import shutil
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.db.models import (
     Fork,
     OnboardingCase,
     OnboardingDocument,
-    OnboardingRevision,
+    OnboardingDocumentRevision,
     OnboardingParticipant,
     OnboardingReview,
+    OnboardingReviewComment,
+    OnboardingReviewThread,
     SignatureRequest,
     User,
 )
 from app.dependencies import CurrentUserDep, DbSession
-from app.iam.audit import write_audit_entry
 from app.iam.policy import require_permission
 from app.schemas.onboarding import (
     OnboardingCaseCreate,
     OnboardingCaseResponse,
-    OnboardingCancelRequest,
     OnboardingCertificateCreate,
+    OnboardingChangesRequest,
+    OnboardingCompileRequest,
+    OnboardingDraftPatch,
     OnboardingDocumentResponse,
+    OnboardingDocumentSubmit,
+    OnboardingEditorResponse,
+    OnboardingHQFieldsPatch,
     OnboardingParticipantResponse,
     OnboardingParticipantEmailUpdate,
     OnboardingPortalResponse,
     OnboardingPortalSubmit,
     OnboardingReviewCreate,
+    OnboardingReviewThreadResponse,
     OnboardingTeammateCreate,
+    OnboardingThreadCreate,
+    OnboardingThreadReply,
+    OnboardingThreadStatusUpdate,
 )
 from app.services.onboarding_documents import (
     TEMPLATE_MANIFEST,
@@ -52,9 +65,22 @@ from app.services.onboarding_documents import (
     template_root,
     validate_age,
 )
+from app.services.semantic_ooxml import (
+    annotate_package,
+    document_blocks,
+    fields_for,
+    package_hash,
+    repack_docx,
+    state_hash,
+    template_hash,
+    unpack_docx,
+    validate_values,
+)
 
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
+
+PARTICIPANT_EDITABLE_STATUSES = {"awaiting_completion", "draft", "changes_requested"}
 
 
 def _portal_url(token: str) -> str:
@@ -64,7 +90,7 @@ def _portal_url(token: str) -> str:
 def _document_response(document: OnboardingDocument, request: SignatureRequest | None = None) -> OnboardingDocumentResponse:
     url = None
     if request:
-        signer = next((recipient for recipient in request.recipients if recipient.role in {"signer", "subject", "guardian", "lead"}), None)
+        signer = next((recipient for recipient in request.recipients if recipient.role != "organization"), None)
         if signer:
             url = f"{get_settings().nextauth_url}/sign/{signer.access_token}"
     return OnboardingDocumentResponse(
@@ -77,7 +103,10 @@ def _document_response(document: OnboardingDocument, request: SignatureRequest |
         evidence_hash=document.evidence_hash,
         canonical_hash=document.canonical_hash,
         completed_at=document.completed_at,
-        revision_id=document.revision_id,
+        current_revision=document.current_revision,
+        state_hash=document.state_hash,
+        final_docx_hash=document.final_docx_hash,
+        final_pdf_hash=document.final_pdf_hash,
     )
 
 
@@ -105,14 +134,16 @@ async def _sync_signature_states(db: DbSession, case: OnboardingCase) -> None:
         if not request:
             continue
         if request.status == "completed":
-            document.status = "signed"
+            document.status = "completed"
             document.canonical_hash = request.document_hash
             document.completed_at = request.completed_at
+            document.finalized_at = request.completed_at
+            if request.signed_file_path and Path(request.signed_file_path).is_file():
+                document.final_pdf_hash = hashlib.sha256(Path(request.signed_file_path).read_bytes()).hexdigest()
         elif request.status in {"voided", "expired"}:
             document.status = request.status
-    if case.documents and all(document.status in {"signed", "accepted"} for document in case.documents):
-        if case.status not in {"approved", "rejected"}:
-            case.status = "ready_for_review"
+    if case.documents and all(document.status == "completed" for document in case.documents):
+        case.status = "completed"
 
 
 def _case_response(case: OnboardingCase) -> OnboardingCaseResponse:
@@ -142,7 +173,6 @@ def _case_response(case: OnboardingCase) -> OnboardingCaseResponse:
         case_data=case.case_data,
         created_by=case.created_by,
         reviewer_id=case.reviewer_id,
-        current_revision_id=case.current_revision_id,
         created_at=case.created_at,
         updated_at=case.updated_at,
         participants=participants,
@@ -179,6 +209,144 @@ async def _find_portal_participant(db: DbSession, token: str) -> OnboardingParti
     return participant
 
 
+def _thread_response(thread: OnboardingReviewThread) -> OnboardingReviewThreadResponse:
+    return OnboardingReviewThreadResponse(
+        id=thread.id,
+        document_id=thread.document_id,
+        field_id=thread.field_id,
+        block_id=thread.block_id,
+        quote=thread.quote,
+        status=thread.status,
+        created_at=thread.created_at,
+        comments=[
+            {
+                "id": comment.id,
+                "author_kind": comment.author_kind,
+                "author_ref": comment.author_ref,
+                "body": comment.body,
+                "created_at": comment.created_at,
+            }
+            for comment in thread.comments
+        ],
+    )
+
+
+async def _load_document_for_editor(db: DbSession, document_id: uuid.UUID) -> OnboardingDocument:
+    document = (
+        await db.execute(
+            select(OnboardingDocument)
+            .options(
+                selectinload(OnboardingDocument.participant),
+                selectinload(OnboardingDocument.case),
+                selectinload(OnboardingDocument.review_threads).selectinload(OnboardingReviewThread.comments),
+            )
+            .where(OnboardingDocument.id == document_id)
+        )
+    ).scalar_one_or_none()
+    if not document:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    return document
+
+
+def _write_revision_package(
+    *,
+    document: OnboardingDocument,
+    revision: int,
+    values: dict,
+) -> tuple[str, str, list[str]]:
+    revision_root = storage_root() / str(document.case_id) / str(document.id) / "revisions" / str(revision)
+    package_dir = revision_root / "package"
+    if document.draft_package_path and Path(document.draft_package_path).is_dir():
+        shutil.copytree(document.draft_package_path, package_dir)
+    else:
+        template = template_root() / document.template_filename
+        if not template.is_file():
+            raise FileNotFoundError(f"Onboarding template is missing: {document.template_filename}")
+        unpack_docx(template, package_dir)
+    missing = annotate_package(package_dir, document.document_key, values)
+    return str(package_dir), package_hash(package_dir), missing
+
+
+def _compile_ooxml_source(document: OnboardingDocument, values: dict) -> tuple[Path, Path]:
+    if not document.draft_package_path or not Path(document.draft_package_path).is_dir():
+        raise RuntimeError("The document has no materialized OOXML draft")
+    root = storage_root().resolve()
+    final_root = (root / str(document.case_id) / str(document.id) / "final").resolve()
+    if root not in final_root.parents:
+        raise RuntimeError("Invalid onboarding storage path")
+    package_dir = final_root / "package"
+    if package_dir.exists():
+        shutil.rmtree(package_dir)
+    package_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(document.draft_package_path, package_dir)
+    missing = annotate_package(package_dir, document.document_key, values)
+    if missing:
+        raise RuntimeError(f"Template is missing semantic anchors: {', '.join(missing)}")
+    docx_path = final_root / f"{document.document_key}-revision-{document.current_revision}.docx"
+    repack_docx(package_dir, docx_path)
+    return package_dir, docx_path
+
+
+async def _persist_revision(
+    db: DbSession,
+    *,
+    document: OnboardingDocument,
+    values: dict,
+    actor_kind: str,
+    actor_ref: str | None,
+) -> OnboardingDocumentRevision:
+    revision_number = document.current_revision + 1
+    package_path, package_digest, missing = await run_in_threadpool(
+        _write_revision_package,
+        document=document,
+        revision=revision_number,
+        values=values,
+    )
+    if missing:
+        raise RuntimeError(f"Template is missing semantic anchors: {', '.join(missing)}")
+    digest = state_hash(
+        document_id=str(document.id),
+        revision=revision_number,
+        previous_hash=document.state_hash,
+        values=values,
+        package_digest=package_digest,
+    )
+    revision = OnboardingDocumentRevision(
+        document_id=document.id,
+        revision=revision_number,
+        field_values=values,
+        package_path=package_path,
+        package_hash=package_digest,
+        previous_state_hash=document.state_hash,
+        state_hash=digest,
+        actor_kind=actor_kind,
+        actor_ref=actor_ref,
+    )
+    db.add(revision)
+    document.current_revision = revision_number
+    document.field_values = values
+    document.draft_package_path = package_path
+    document.state_hash = digest
+    if not document.template_hash:
+        document.template_hash = template_hash(template_root() / document.template_filename)
+    return revision
+
+
+async def _ensure_initial_revision(db: DbSession, document: OnboardingDocument) -> None:
+    if document.current_revision > 0 and document.draft_package_path:
+        return
+    await _persist_revision(
+        db,
+        document=document,
+        values=dict(document.field_values or {}),
+        actor_kind="system",
+        actor_ref=None,
+    )
+    if document.status == "awaiting_completion":
+        document.status = "draft"
+    await db.commit()
+
+
 def _invite_email(name: str, title: str, token: str) -> tuple[str, str]:
     url = html.escape(_portal_url(token), quote=True)
     subject = f"Complete your onboarding: {title}"
@@ -205,26 +373,16 @@ async def create_case(
 
     if payload.fork_id and not await db.get(Fork, payload.fork_id):
         raise HTTPException(status_code=404, detail="Fork not found")
-    if payload.reviewer_id:
-        if payload.reviewer_id == current_user.user_id:
-            raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
-        if not await db.get(User, payload.reviewer_id):
-            raise HTTPException(status_code=404, detail="Assigned reviewer not found")
 
     case = OnboardingCase(
         kind=payload.kind,
         title=payload.title,
         created_by=current_user.user_id,
-        reviewer_id=payload.reviewer_id,
         fork_id=payload.fork_id,
         case_data={"fork_name": payload.fork_name, "participant_age": age, "parent_required": is_minor},
     )
     db.add(case)
     await db.flush()
-    revision = OnboardingRevision(case_id=case.id, number=1, created_by=current_user.user_id)
-    db.add(revision)
-    await db.flush()
-    case.current_revision_id = revision.id
 
     token, token_hash = new_portal_token()
     participant = OnboardingParticipant(
@@ -234,7 +392,6 @@ async def create_case(
         email=str(payload.participant.email),
         date_of_birth=payload.participant.date_of_birth,
         is_minor=is_minor,
-        revision_id=revision.id,
         portal_token_hash=token_hash,
         token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
     )
@@ -246,7 +403,22 @@ async def create_case(
         document_keys += ["fork_application", "fork_agreement"]
     for key in document_keys:
         manifest = TEMPLATE_MANIFEST[key]
-        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, revision_id=revision.id, document_key=key, template_filename=manifest["template"]))
+        defaults = {
+            "bnb.volunteer.full_name": participant.name,
+            "bnb.volunteer.date_of_birth": participant.date_of_birth,
+            "bnb.volunteer.email": participant.email,
+        } if key == "volunteer" else {
+            "bnb.fork.application.lead_name": participant.name,
+            "bnb.fork.application.date_of_birth": participant.date_of_birth,
+            "bnb.fork.application.email": participant.email,
+            "bnb.fork.application.fork_name": payload.fork_name or "",
+            "bnb.fork.agreement.lead_name": participant.name,
+            "bnb.fork.agreement.date_of_birth": participant.date_of_birth,
+            "bnb.fork.agreement.email": participant.email,
+            "bnb.fork.agreement.fork_name": payload.fork_name or "",
+        }
+        allowed_ids = {field["id"] for field in fields_for(key)}
+        db.add(OnboardingDocument(case_id=case.id, participant_id=participant.id, document_key=key, template_filename=manifest["template"], field_values={field_id: value for field_id, value in defaults.items() if field_id in allowed_ids and value}))
 
     parent_token = None
     if is_minor and payload.participant.parent:
@@ -257,29 +429,23 @@ async def create_case(
             name=payload.participant.parent.name,
             email=str(payload.participant.parent.email),
             is_minor=False,
-            revision_id=revision.id,
             portal_token_hash=parent_hash,
             token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         )
         db.add(parent)
         await db.flush()
-        db.add(OnboardingDocument(case_id=case.id, participant_id=parent.id, revision_id=revision.id, document_key="parent_consent", template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"]))
-
-    revision.template_snapshot = {
-        key: {
-            "template": TEMPLATE_MANIFEST[key]["template"],
-            "source_hash": TEMPLATE_MANIFEST[key]["source_hash"],
-        }
-        for key in document_keys + (["parent_consent"] if parent_token else [])
-    }
-    await write_audit_entry(
-        db,
-        current_user.user_id,
-        "onboarding.case_created",
-        "onboarding_case",
-        str(case.id),
-        {"kind": case.kind, "revision_id": str(revision.id)},
-    )
+        db.add(OnboardingDocument(
+            case_id=case.id,
+            participant_id=parent.id,
+            document_key="parent_consent",
+            template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"],
+            field_values={
+                "bnb.parent.minor_name": participant.name,
+                "bnb.parent.minor_dob": participant.date_of_birth,
+                "bnb.parent.guardian_name": parent.name,
+                "bnb.parent.guardian_email": parent.email,
+            },
+        ))
 
     await db.commit()
     settings = get_settings()
@@ -400,6 +566,119 @@ async def resend_participant_invite(
     return {"participant_id": str(participant.id), "email": participant.email, "portal_url": _portal_url(token), "email_sent": email_sent}
 
 
+@router.get("/public/{token}/documents/{document_id}/editor", response_model=OnboardingEditorResponse)
+async def get_public_document_editor(token: str, document_id: uuid.UUID, db: DbSession) -> OnboardingEditorResponse:
+    participant = await _find_portal_participant(db, token)
+    document = await _load_document_for_editor(db, document_id)
+    if document.participant_id != participant.id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    try:
+        await _ensure_initial_revision(db, document)
+        sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    editable = document.status in PARTICIPANT_EDITABLE_STATUSES
+    return OnboardingEditorResponse(
+        document=_document_response(document),
+        title=document.document_key.replace("_", " ").title(),
+        fields=fields_for(document.document_key, editor="participant"),
+        sections=sections,
+        values=document.field_values,
+        threads=[_thread_response(thread) for thread in document.review_threads],
+        editable=editable,
+        can_submit=editable,
+    )
+
+
+@router.patch("/public/{token}/documents/{document_id}/draft", response_model=OnboardingEditorResponse)
+async def patch_public_document_draft(token: str, document_id: uuid.UUID, payload: OnboardingDraftPatch, db: DbSession) -> OnboardingEditorResponse:
+    participant = await _find_portal_participant(db, token)
+    document = await _load_document_for_editor(db, document_id)
+    if document.participant_id != participant.id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.status not in PARTICIPANT_EDITABLE_STATUSES:
+        raise HTTPException(status_code=409, detail="This document is locked for review")
+    await _ensure_initial_revision(db, document)
+    if payload.base_revision != document.current_revision:
+        raise HTTPException(status_code=409, detail={"message": "The document changed in another session", "current_revision": document.current_revision})
+    errors = validate_values(document.document_key, payload.values, editor="participant")
+    if errors:
+        raise HTTPException(status_code=422, detail={"message": "Some fields are invalid", "fields": errors})
+    values = {**(document.field_values or {}), **payload.values}
+    if values != document.field_values:
+        try:
+            await _persist_revision(db, document=document, values=values, actor_kind="participant", actor_ref=str(participant.id))
+        except (FileNotFoundError, ValueError, RuntimeError) as exc:
+            await db.rollback()
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        changed = set(payload.values)
+        for thread in document.review_threads:
+            if thread.status == "open" and thread.field_id in changed:
+                thread.status = "addressed"
+        document.status = "draft"
+        await db.commit()
+        document = await _load_document_for_editor(db, document.id)
+    sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
+    return OnboardingEditorResponse(
+        document=_document_response(document), title=document.document_key.replace("_", " ").title(),
+        fields=fields_for(document.document_key, editor="participant"), sections=sections,
+        values=document.field_values, threads=[_thread_response(thread) for thread in document.review_threads],
+        editable=True, can_submit=True,
+    )
+
+
+@router.post("/public/{token}/documents/{document_id}/submit", response_model=OnboardingEditorResponse)
+async def submit_public_document(token: str, document_id: uuid.UUID, payload: OnboardingDocumentSubmit, db: DbSession) -> OnboardingEditorResponse:
+    participant = await _find_portal_participant(db, token)
+    document = await _load_document_for_editor(db, document_id)
+    if document.participant_id != participant.id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if not payload.confirmed_identity:
+        raise HTTPException(status_code=422, detail="Confirm your identity before requesting review")
+    if document.status not in PARTICIPANT_EDITABLE_STATUSES:
+        raise HTTPException(status_code=409, detail="This document is already under review")
+    await _ensure_initial_revision(db, document)
+    if payload.base_revision != document.current_revision:
+        raise HTTPException(status_code=409, detail={"message": "Save or reload the latest revision before submitting", "current_revision": document.current_revision})
+    errors = validate_values(document.document_key, document.field_values or {}, editor="participant", final=True)
+    if errors:
+        raise HTTPException(status_code=422, detail={"message": "Complete the required fields", "fields": errors})
+    document.status = "review_requested"
+    participant.status = "under_review"
+    participant.submitted_at = datetime.now(timezone.utc)
+    participant.verified_at = datetime.now(timezone.utc)
+    participant.answers = {**participant.answers, document.document_key: document.field_values}
+    await db.commit()
+    document = await _load_document_for_editor(db, document.id)
+    sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
+    return OnboardingEditorResponse(
+        document=_document_response(document), title=document.document_key.replace("_", " ").title(),
+        fields=fields_for(document.document_key, editor="participant"), sections=sections,
+        values=document.field_values, threads=[_thread_response(thread) for thread in document.review_threads],
+        editable=False, can_submit=False,
+    )
+
+
+@router.post("/public/{token}/review-threads/{thread_id}/comments", response_model=OnboardingReviewThreadResponse)
+async def reply_to_review_thread(token: str, thread_id: uuid.UUID, payload: OnboardingThreadReply, db: DbSession) -> OnboardingReviewThreadResponse:
+    participant = await _find_portal_participant(db, token)
+    thread = (
+        await db.execute(
+            select(OnboardingReviewThread)
+            .options(selectinload(OnboardingReviewThread.document), selectinload(OnboardingReviewThread.comments))
+            .where(OnboardingReviewThread.id == thread_id)
+        )
+    ).scalar_one_or_none()
+    if not thread or thread.document.participant_id != participant.id:
+        raise HTTPException(status_code=404, detail="Review thread not found")
+    db.add(OnboardingReviewComment(thread_id=thread.id, author_kind="participant", author_ref=str(participant.id), body=payload.body))
+    if thread.status == "open":
+        thread.status = "addressed"
+    await db.commit()
+    thread = (await db.execute(select(OnboardingReviewThread).options(selectinload(OnboardingReviewThread.comments)).where(OnboardingReviewThread.id == thread.id))).scalar_one()
+    return _thread_response(thread)
+
+
 @router.get("/public/{token}", response_model=OnboardingPortalResponse)
 async def get_portal(token: str, db: DbSession) -> OnboardingPortalResponse:
     participant = await _find_portal_participant(db, token)
@@ -431,49 +710,36 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
     participant = await _find_portal_participant(db, token)
     if not payload.confirmed_identity:
         raise HTTPException(status_code=422, detail="Confirm that the information belongs to you before submitting")
-    if participant.status == "submitted" and participant.submitted_at:
-        raise HTTPException(status_code=409, detail="This onboarding packet has already been submitted")
-    document_keys = {document.document_key for document in participant.documents}
-    if set(payload.document_answers) - document_keys:
-        raise HTTPException(status_code=422, detail="Answers include a document not assigned to this portal")
-    for document_key, answers in payload.document_answers.items():
-        allowed = {field["key"] for field in TEMPLATE_MANIFEST[document_key]["fields"]}
-        if set(answers) - allowed:
-            raise HTTPException(status_code=422, detail="Answers include an unknown template field")
-    all_answers = [item for answers in payload.document_answers.values() for item in answers.items()]
-    if len(payload.answers) + len(all_answers) > 120 or any(len(key) > 100 or (isinstance(value, str) and len(value) > 2000) for key, value in [*payload.answers.items(), *all_answers]):
-        raise HTTPException(status_code=422, detail="Onboarding answers exceed the allowed size")
-    participant.answers = payload.document_answers or payload.answers
-    participant.status = "submitted"
+    answer_sets = payload.document_answers or ({participant.documents[0].document_key: payload.answers} if len(participant.documents) == 1 and payload.answers else {})
+    expected_keys = {document.document_key for document in participant.documents if document.status in PARTICIPANT_EDITABLE_STATUSES}
+    if set(answer_sets) != expected_keys:
+        raise HTTPException(status_code=422, detail="Submit answers for every editable onboarding document")
+    document_errors: dict[str, dict[str, str]] = {}
+    for document in participant.documents:
+        if document.document_key not in answer_sets:
+            continue
+        values = {**(document.field_values or {}), **answer_sets[document.document_key]}
+        errors = validate_values(document.document_key, values, editor="participant", final=True)
+        if errors:
+            document_errors[document.document_key] = errors
+    if document_errors:
+        raise HTTPException(status_code=422, detail={"message": "Complete the required fields", "documents": document_errors})
     participant.verified_at = datetime.now(timezone.utc)
     participant.submitted_at = datetime.now(timezone.utc)
-    revision = await db.get(OnboardingRevision, participant.revision_id) if participant.revision_id else None
-    if not revision:
-        raise HTTPException(status_code=409, detail="This onboarding case has no active revision")
-    revision.answer_snapshot = {str(participant.id): participant.answers}
     try:
         for document in participant.documents:
-            if document.status == "awaiting_completion":
-                values = dict(payload.document_answers.get(document.document_key, payload.answers))
-                values.setdefault("full_name", participant.name)
-                values.setdefault("lead_name", participant.name)
-                values.setdefault("date_of_birth", participant.date_of_birth)
-                if participant.role == "parent":
-                    values.setdefault("parent_name", participant.name)
-                    values.setdefault("parent_email", participant.email)
-                await materialize_document(db, case=participant.case, document=document, participant=participant, values=values)
-        participant.case.status = "awaiting_signatures"
-        revision.status = "awaiting_signatures"
-        await write_audit_entry(
-            db,
-            None,
-            "onboarding.revision_submitted",
-            "onboarding_revision",
-            str(revision.id),
-            {"case_id": str(participant.case_id), "participant_id": str(participant.id)},
-        )
+            if document.document_key not in answer_sets:
+                continue
+            await _ensure_initial_revision(db, document)
+            values = {**(document.field_values or {}), **answer_sets[document.document_key]}
+            if values != document.field_values:
+                await _persist_revision(db, document=document, values=values, actor_kind="participant", actor_ref=str(participant.id))
+            document.status = "review_requested"
+        participant.answers = answer_sets
+        participant.status = "under_review"
+        participant.case.status = "under_review"
         await db.commit()
-    except (FileNotFoundError, RuntimeError) as exc:
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
         await db.rollback()
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return await get_portal(token, db)
@@ -513,63 +779,204 @@ async def add_teammate(token: str, payload: OnboardingTeammateCreate, db: DbSess
     return await get_portal(token, db)
 
 
-@router.post("/cases/{case_id}/cancel", response_model=OnboardingCaseResponse)
-async def cancel_case(
-    case_id: uuid.UUID,
-    payload: OnboardingCancelRequest,
-    db: DbSession,
-    current_user: CurrentUserDep,
-) -> OnboardingCaseResponse:
-    """Cancel a non-terminal case, revoke its portal links, and void pending signing envelopes."""
-    await require_permission(db, current_user, "onboarding.write")
-    case = await _load_case(db, case_id)
-    if case.status in {"approved", "rejected", "revoked"}:
-        raise HTTPException(status_code=409, detail="This onboarding case can no longer be cancelled")
-
-    now = datetime.now(timezone.utc)
-    for participant in case.participants:
-        participant.token_expires_at = now
-        if participant.status != "submitted":
-            participant.status = "revoked"
-    request_ids = [document.signature_request_id for document in case.documents if document.signature_request_id]
-    if request_ids:
-        requests = (
-            await db.execute(
-                select(SignatureRequest)
-                .options(selectinload(SignatureRequest.recipients))
-                .where(SignatureRequest.id.in_(request_ids))
-            )
-        ).scalars().all()
-        for request in requests:
-            if request.status not in {"completed", "voided", "expired"}:
-                request.status = "voided"
-                for recipient in request.recipients:
-                    if recipient.status not in {"signed", "declined"}:
-                        recipient.status = "declined"
-                    recipient.otp_code = None
-                    recipient.otp_hash = None
-                    recipient.otp_attempts = 0
-                    recipient.otp_expires_at = None
-                    recipient.otp_verified_at = None
-    for document in case.documents:
-        if document.status not in {"signed", "accepted"}:
-            document.status = "revoked"
-    if case.current_revision_id:
-        revision = await db.get(OnboardingRevision, case.current_revision_id)
-        if revision:
-            revision.status = "revoked"
-    case.status = "revoked"
-    case.case_data = {**(case.case_data or {}), "cancelled_at": now.isoformat(), "cancellation_reason": payload.reason}
-    await write_audit_entry(
-        db,
-        current_user.user_id,
-        "onboarding.case_cancelled",
-        "onboarding_case",
-        str(case.id),
-        {"reason": payload.reason, "revision_id": str(case.current_revision_id) if case.current_revision_id else None},
+@router.get("/cases/{case_id}/documents/{document_id}/editor", response_model=OnboardingEditorResponse)
+async def get_staff_document_editor(case_id: uuid.UUID, document_id: uuid.UUID, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    await _ensure_initial_revision(db, document)
+    sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
+    return OnboardingEditorResponse(
+        document=_document_response(document), title=document.document_key.replace("_", " ").title(),
+        fields=fields_for(document.document_key), sections=sections, values=document.field_values,
+        threads=[_thread_response(thread) for thread in document.review_threads],
+        editable=document.status not in {"signing", "compiling", "completed", "voided"}, can_submit=False,
+        can_compile=document.status == "approved" and not any(thread.status != "resolved" for thread in document.review_threads),
     )
+
+
+@router.patch("/cases/{case_id}/documents/{document_id}/draft", response_model=OnboardingEditorResponse)
+async def patch_staff_document_fields(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingHQFieldsPatch, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.status in {"signing", "compiling", "completed", "voided"}:
+        raise HTTPException(status_code=409, detail="This document can no longer be edited")
+    await _ensure_initial_revision(db, document)
+    if payload.base_revision != document.current_revision:
+        raise HTTPException(status_code=409, detail={"message": "The document changed in another session", "current_revision": document.current_revision})
+    errors = validate_values(document.document_key, payload.values, editor="hq")
+    if errors:
+        raise HTTPException(status_code=422, detail={"message": "Some fields are invalid", "fields": errors})
+    values = {**(document.field_values or {}), **payload.values}
+    if values != document.field_values:
+        try:
+            await _persist_revision(db, document=document, values=values, actor_kind="hq", actor_ref=str(current_user.user_id))
+        except (FileNotFoundError, ValueError, RuntimeError) as exc:
+            await db.rollback()
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        await db.commit()
+    return await get_staff_document_editor(case_id, document_id, db, current_user)
+
+
+@router.post("/cases/{case_id}/documents/{document_id}/review-threads", response_model=OnboardingReviewThreadResponse, status_code=status.HTTP_201_CREATED)
+async def create_review_thread(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingThreadCreate, db: DbSession, current_user: CurrentUserDep) -> OnboardingReviewThreadResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.status not in {"review_requested", "changes_requested"}:
+        raise HTTPException(status_code=409, detail="Review comments can only be added during an active review")
+    if not payload.field_id and not payload.block_id:
+        raise HTTPException(status_code=422, detail="Anchor the review to a field or document block")
+    valid_fields = {field["id"] for field in fields_for(document.document_key)}
+    sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
+    valid_blocks = {block["id"] for section in sections for block in section["blocks"]}
+    if payload.field_id and payload.field_id not in valid_fields:
+        raise HTTPException(status_code=422, detail="Unknown document field")
+    if payload.block_id and payload.block_id not in valid_blocks:
+        raise HTTPException(status_code=422, detail="Unknown document block")
+    thread = OnboardingReviewThread(document_id=document.id, field_id=payload.field_id, block_id=payload.block_id, quote=payload.quote, created_by=current_user.user_id)
+    db.add(thread)
+    await db.flush()
+    db.add(OnboardingReviewComment(thread_id=thread.id, author_kind="hq", author_ref=str(current_user.user_id), body=payload.body))
     await db.commit()
-    return _case_response(await _load_case(db, case.id))
+    thread = (await db.execute(select(OnboardingReviewThread).options(selectinload(OnboardingReviewThread.comments)).where(OnboardingReviewThread.id == thread.id))).scalar_one()
+    return _thread_response(thread)
+
+
+@router.post("/cases/{case_id}/review-threads/{thread_id}/comments", response_model=OnboardingReviewThreadResponse)
+async def reply_to_review_thread_as_staff(case_id: uuid.UUID, thread_id: uuid.UUID, payload: OnboardingThreadReply, db: DbSession, current_user: CurrentUserDep) -> OnboardingReviewThreadResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    thread = (await db.execute(select(OnboardingReviewThread).options(selectinload(OnboardingReviewThread.document), selectinload(OnboardingReviewThread.comments)).where(OnboardingReviewThread.id == thread_id))).scalar_one_or_none()
+    if not thread or thread.document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Review thread not found")
+    db.add(OnboardingReviewComment(thread_id=thread.id, author_kind="hq", author_ref=str(current_user.user_id), body=payload.body))
+    await db.commit()
+    thread = (await db.execute(select(OnboardingReviewThread).options(selectinload(OnboardingReviewThread.comments)).where(OnboardingReviewThread.id == thread.id))).scalar_one()
+    return _thread_response(thread)
+
+
+@router.patch("/cases/{case_id}/review-threads/{thread_id}", response_model=OnboardingReviewThreadResponse)
+async def update_review_thread_status(case_id: uuid.UUID, thread_id: uuid.UUID, payload: OnboardingThreadStatusUpdate, db: DbSession, current_user: CurrentUserDep) -> OnboardingReviewThreadResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    thread = (await db.execute(select(OnboardingReviewThread).options(selectinload(OnboardingReviewThread.document), selectinload(OnboardingReviewThread.comments)).where(OnboardingReviewThread.id == thread_id))).scalar_one_or_none()
+    if not thread or thread.document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Review thread not found")
+    thread.status = payload.status
+    thread.resolved_by = current_user.user_id if payload.status == "resolved" else None
+    thread.resolved_at = datetime.now(timezone.utc) if payload.status == "resolved" else None
+    await db.commit()
+    return _thread_response(thread)
+
+
+@router.post("/cases/{case_id}/documents/{document_id}/request-changes", response_model=OnboardingEditorResponse)
+async def request_document_changes(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingChangesRequest, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.status != "review_requested":
+        raise HTTPException(status_code=409, detail="Only a submitted review can be returned")
+    if payload.note:
+        thread = OnboardingReviewThread(document_id=document.id, block_id="document", quote=None, created_by=current_user.user_id)
+        db.add(thread)
+        await db.flush()
+        db.add(OnboardingReviewComment(thread_id=thread.id, author_kind="hq", author_ref=str(current_user.user_id), body=payload.note))
+    elif not any(thread.status == "open" for thread in document.review_threads):
+        raise HTTPException(status_code=422, detail="Add an open review comment before requesting changes")
+    document.status = "changes_requested"
+    if document.participant:
+        document.participant.status = "changes_requested"
+    await db.commit()
+    return await get_staff_document_editor(case_id, document_id, db, current_user)
+
+
+@router.post("/cases/{case_id}/documents/{document_id}/approve", response_model=OnboardingEditorResponse)
+async def approve_document_review(case_id: uuid.UUID, document_id: uuid.UUID, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.case.created_by == current_user.user_id:
+        raise HTTPException(status_code=403, detail="The case creator cannot approve their own onboarding case")
+    if document.status != "review_requested":
+        raise HTTPException(status_code=409, detail="Only a submitted review can be approved")
+    unresolved = [thread for thread in document.review_threads if thread.status != "resolved"]
+    if unresolved:
+        raise HTTPException(status_code=409, detail="Resolve every review thread before approval")
+    document.status = "approved"
+    case = await _load_case(db, case_id)
+    packet_documents = [item for item in case.documents if item.document_key != "fork_certificate"]
+    if packet_documents and all(item.status == "approved" for item in packet_documents):
+        case.status = "audit_approved" if case.kind == "fork" else "approved"
+        case.approved_at = datetime.now(timezone.utc)
+        case.approved_by = current_user.user_id
+    await db.commit()
+    return await get_staff_document_editor(case_id, document_id, db, current_user)
+
+
+@router.post("/cases/{case_id}/documents/{document_id}/compile", response_model=OnboardingEditorResponse)
+async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingCompileRequest, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
+    """Freeze an approved revision, render it, and open its cryptographic signing request."""
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.status != "approved":
+        raise HTTPException(status_code=409, detail="Only an approved document can be compiled")
+    if payload.base_revision != document.current_revision:
+        raise HTTPException(status_code=409, detail={"message": "Compile the latest approved revision", "current_revision": document.current_revision})
+    if any(thread.status != "resolved" for thread in document.review_threads):
+        raise HTTPException(status_code=409, detail="Resolve every review thread before compilation")
+    participant_errors = validate_values(document.document_key, document.field_values or {}, editor="participant", final=True)
+    hq_errors = validate_values(document.document_key, document.field_values or {}, editor="hq", final=True)
+    errors = {**participant_errors, **hq_errors}
+    if errors:
+        raise HTTPException(status_code=422, detail={"message": "Complete required document fields before compilation", "fields": errors})
+    participant = document.participant
+    if not participant:
+        raise HTTPException(status_code=409, detail="The document has no participant signer")
+    hq_user = await db.get(User, current_user.user_id)
+    if not hq_user or not hq_user.email:
+        raise HTTPException(status_code=409, detail="The HQ signer needs an email address")
+
+    role = "guardian" if participant.role == "parent" else "lead" if document.document_key.startswith("fork_") else "subject"
+    marker_values = dict(document.field_values or {})
+    signature_fields = [field for field in fields_for(document.document_key) if field["type"] == "signature"]
+    for field in signature_fields:
+        marker_role = "organization" if field["editable_by"] == "hq" else role
+        marker_values[field["id"]] = f"[[signature_{marker_role}]]"
+    try:
+        _, docx_path = await run_in_threadpool(_compile_ooxml_source, document, marker_values)
+        pdf_path = await run_in_threadpool(render_docx_to_pdf, docx_path, docx_path.parent)
+        anchor_roles = {anchor["recipient_role"] for anchor in TEMPLATE_MANIFEST[document.document_key]["signature_anchors"]}
+        signer_specs = [{"name": participant.name, "email": participant.email, "role": role}]
+        if "organization" in anchor_roles:
+            signer_specs.append({"name": hq_user.display_name, "email": hq_user.email, "role": "organization", "allowed_sig_type": "email_only"})
+        request = await create_signature_request(
+            db,
+            case=document.case,
+            document=document,
+            pdf_path=pdf_path,
+            signer_specs=signer_specs,
+            values=document.field_values,
+            include_legal=False,
+        )
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    document.source_docx_path = str(docx_path)
+    document.filled_docx_path = str(docx_path)
+    document.source_pdf_path = str(pdf_path)
+    document.final_docx_hash = hashlib.sha256(docx_path.read_bytes()).hexdigest()
+    document.signature_request_id = request.id
+    document.status = "signing"
+    document.hq_signed_at = None
+    await db.commit()
+    return await get_staff_document_editor(case_id, document_id, db, current_user)
 
 
 @router.post("/cases/{case_id}/review", response_model=OnboardingCaseResponse)
@@ -581,11 +988,8 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
         raise HTTPException(status_code=403, detail="The case creator cannot review or approve their own case")
     if payload.document_id and not any(document.id == payload.document_id for document in case.documents):
         raise HTTPException(status_code=404, detail="Document is not part of this case")
-    if case.reviewer_id and case.reviewer_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Only the assigned reviewer can decide this case")
-    review = OnboardingReview(case_id=case.id, document_id=payload.document_id, reviewer_id=current_user.user_id, decision=payload.decision, note=payload.note, revision_id=case.current_revision_id)
+    review = OnboardingReview(case_id=case.id, document_id=payload.document_id, reviewer_id=current_user.user_id, decision=payload.decision, note=payload.note)
     db.add(review)
-    case.reviews.append(review)
     case.reviewer_id = current_user.user_id
     if payload.document_id:
         document = next(document for document in case.documents if document.id == payload.document_id)
@@ -600,18 +1004,53 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
         case.status = "approved"
         case.approved_at = datetime.now(timezone.utc)
         case.approved_by = current_user.user_id
-    await write_audit_entry(
-        db,
-        current_user.user_id,
-        "onboarding.review_recorded",
-        "onboarding_case",
-        str(case.id),
-        {"decision": payload.decision, "revision_id": str(case.current_revision_id) if case.current_revision_id else None},
-    )
     await db.commit()
     return _case_response(await _load_case(db, case.id))
 
 
 @router.post("/cases/{case_id}/certificate")
 async def create_certificate(case_id: uuid.UUID, payload: OnboardingCertificateCreate, db: DbSession, current_user: CurrentUserDep) -> dict:
-    raise HTTPException(status_code=409, detail="Fork recognition requires a registered template version and Board authority record")
+    await require_permission(db, current_user, "onboarding.certificate")
+    case = await _load_case(db, case_id)
+    if case.kind != "fork" or case.status != "audit_approved":
+        raise HTTPException(status_code=409, detail="The full fork packet audit must be approved before issuing Form 3")
+    if any(item.document_key == "fork_certificate" for item in case.documents):
+        raise HTTPException(status_code=409, detail="Form 3 has already been issued for this case")
+    lead = next((item for item in case.participants if item.role == "participant"), None)
+    if not lead:
+        raise HTTPException(status_code=409, detail="Fork lead is missing")
+    application = next((item for item in case.documents if item.document_key == "fork_application"), None)
+    agreement = next((item for item in case.documents if item.document_key == "fork_agreement"), None)
+    document = OnboardingDocument(
+        case_id=case.id,
+        participant_id=lead.id,
+        document_key="fork_certificate",
+        template_filename=TEMPLATE_MANIFEST["fork_certificate"]["template"],
+        status="draft",
+    )
+    db.add(document)
+    await db.flush()
+    values = {
+        "bnb.fork.certificate.certificate_no": f"FRC-{datetime.now(timezone.utc).year}-{str(case.id)[:8].upper()}",
+        "bnb.fork.certificate.fork_name": case.case_data.get("fork_name") or (application.field_values.get("bnb.fork.application.fork_name") if application else "Fork"),
+        "bnb.fork.certificate.lead_name": lead.name,
+        "bnb.fork.certificate.location": application.field_values.get("bnb.fork.application.location", "") if application else "",
+        "bnb.fork.certificate.recognition_date": datetime.now(timezone.utc).date().isoformat(),
+        "bnb.fork.certificate.agreement_ref": agreement.field_values.get("bnb.fork.agreement.agreement_ref", "") if agreement else "",
+        "bnb.fork.certificate.director_names": f"{payload.director_one_name}; {payload.director_two_name}",
+    }
+    try:
+        await _persist_revision(db, document=document, values=values, actor_kind="hq", actor_ref=str(current_user.user_id))
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    case.case_data = {
+        **case.case_data,
+        "certificate_signers": [
+            {"name": payload.director_one_name, "email": str(payload.director_one_email)},
+            {"name": payload.director_two_name, "email": str(payload.director_two_email)},
+        ],
+    }
+    case.status = "certificate_issued"
+    await db.commit()
+    return {"case_id": str(case.id), "document_id": str(document.id), "status": document.status}

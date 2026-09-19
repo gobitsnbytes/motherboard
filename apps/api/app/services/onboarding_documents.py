@@ -14,7 +14,7 @@ import fitz
 from lxml import etree
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import OnboardingCase, OnboardingDocument, OnboardingEvidence, OnboardingParticipant, SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest
+from app.db.models import OnboardingCase, OnboardingDocument, OnboardingParticipant, SignatureAuditLog, SignatureField, SignatureRecipient, SignatureRequest
 
 
 ORG_LEGAL_EMAIL = "legal@gobitsnbytes.org"
@@ -25,10 +25,10 @@ def _manifest(template: str, source_hash: str, fields: list[tuple[str, str, str]
 
 
 TEMPLATE_MANIFEST: dict[str, dict[str, Any]] = {
-    "volunteer": _manifest("1_Volunteer_Form.docx", "cfa524f594d955607c611caaa102b825cd36ca816485eb4c2232d4e14ce66a6c", [("full_name", "Full name", "text"), ("date_of_birth", "Date of birth", "date"), ("volunteer_role", "Volunteer role", "text"), ("track", "Track", "text"), ("consent", "Volunteer consent", "checkbox")], [{"recipient_role": "subject", "anchor": "[[signature_subject]]", "type": "signature", "required": True}]),
+    "volunteer": _manifest("1_Volunteer_Form.docx", "e1420c8e009a04cedb25e76a0675b8f31f3ef6c393b5f2ce52206f0f8c67e854", [("full_name", "Full name", "text"), ("date_of_birth", "Date of birth", "date"), ("volunteer_role", "Volunteer role", "text"), ("track", "Track", "text"), ("consent", "Volunteer consent", "checkbox")], [{"recipient_role": "subject", "anchor": "[[signature_subject]]", "type": "signature", "required": True}, {"recipient_role": "organization", "anchor": "[[signature_organization]]", "type": "signature", "required": True}]),
     "parent_consent": _manifest("2_Parents_Consent_Fork.docx", "a6e0c10f25aadc24213bcd738fd6ea913f8d74deaf9672b409bc3bd6d387fb76", [("minor_name", "Minor name", "text"), ("parent_name", "Parent or guardian name", "text"), ("parent_email", "Parent email", "text"), ("consent", "Parent consent", "checkbox")], [{"recipient_role": "guardian", "anchor": "[[signature_guardian]]", "type": "signature", "required": True}]),
     "fork_application": _manifest("5_Fork_Application_Form.docx", "ff9113e4500c889edf688bd0620d643673730badcb669ab0d515f5e3811e2876", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("summary", "Fork summary", "text")], [{"recipient_role": "lead", "anchor": "[[signature_lead]]", "type": "signature", "required": True}]),
-    "fork_agreement": _manifest("4_Fork_Agreement.docx", "e7e43a74ff5decc7d0ceefd29ab065b6bebe25b7f0c35b2f467dc5394a5ae4aa", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("agreement", "Agreement accepted", "checkbox")], [{"recipient_role": "lead", "anchor": "[[signature_lead]]", "type": "signature", "required": True}]),
+    "fork_agreement": _manifest("4_Fork_Agreement.docx", "e7e43a74ff5decc7d0ceefd29ab065b6bebe25b7f0c35b2f467dc5394a5ae4aa", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("agreement", "Agreement accepted", "checkbox")], [{"recipient_role": "lead", "anchor": "[[signature_lead]]", "type": "signature", "required": True}, {"recipient_role": "organization", "anchor": "[[signature_organization]]", "type": "signature", "required": True}]),
     "fork_certificate": _manifest("3_Fork_Recognition_Certificate.docx", "b22a28dc775615b85c2759dfdbac08df0549419e3b9c4dd09a7297238e74994c", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("certificate_date", "Certificate date", "date")], [{"recipient_role": "lead", "anchor": "[[signature_lead]]", "type": "signature", "required": True}, {"recipient_role": "organization", "anchor": "[[signature_organization]]", "type": "signature", "required": True}]),
     "minor_event_consent": _manifest("6_Minor_Consent_Event.docx", "13a5616bc2396f97d358da78bcb0da5a9d15b72a13a88bf599464256928597e2", [("minor_name", "Minor name", "text"), ("parent_name", "Parent or guardian name", "text"), ("consent", "Event consent", "checkbox")], [{"recipient_role": "guardian", "anchor": "[[signature_guardian]]", "type": "signature", "required": True}]),
 }
@@ -150,21 +150,6 @@ async def materialize_document(db: AsyncSession, *, case: OnboardingCase, docume
     pdf_path = render_docx_to_pdf(filled_path, folder)
     document.source_docx_path = str(source_path); document.filled_docx_path = str(filled_path); document.source_pdf_path = str(pdf_path)
     document.evidence_hash = hashlib.sha256(filled_path.read_bytes()).hexdigest(); document.field_values = values; document.status = "awaiting_signatures"
-    if document.revision_id:
-        for artifact_type, artifact_path in (
-            ("source_docx", source_path),
-            ("filled_docx", filled_path),
-            ("pre_sign_pdf", pdf_path),
-        ):
-            db.add(
-                OnboardingEvidence(
-                    revision_id=document.revision_id,
-                    document_id=document.id,
-                    artifact_type=artifact_type,
-                    storage_key=str(artifact_path),
-                    sha256=hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
-                )
-            )
     signer_role = "guardian" if participant.role == "parent" else "lead" if document.document_key.startswith("fork_") else "subject"
     request = await create_signature_request(db, case=case, document=document, pdf_path=pdf_path, signer_specs=[{"name": participant.name, "email": participant.email, "role": signer_role}], values=values)
     document.signature_request_id = request.id

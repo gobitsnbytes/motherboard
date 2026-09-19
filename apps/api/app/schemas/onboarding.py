@@ -25,7 +25,6 @@ class OnboardingCaseCreate(BaseModel):
     participant: OnboardingParticipantCreate
     fork_id: uuid.UUID | None = None
     fork_name: str | None = Field(default=None, max_length=100)
-    reviewer_id: uuid.UUID | None = None
 
 
 class OnboardingTeammateCreate(BaseModel):
@@ -45,14 +44,48 @@ class OnboardingPortalSubmit(BaseModel):
     confirmed_identity: bool = False
 
 
+class OnboardingDraftPatch(BaseModel):
+    base_revision: int = Field(ge=0)
+    values: dict[str, str | bool | int | dict | list | None] = Field(default_factory=dict)
+
+
+class OnboardingDocumentSubmit(BaseModel):
+    base_revision: int = Field(ge=0)
+    confirmed_identity: bool = False
+
+
+class OnboardingThreadCreate(BaseModel):
+    field_id: str | None = Field(default=None, max_length=160)
+    block_id: str | None = Field(default=None, max_length=160)
+    quote: str | None = Field(default=None, max_length=1000)
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class OnboardingThreadReply(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class OnboardingThreadStatusUpdate(BaseModel):
+    status: str = Field(pattern=r"^(addressed|resolved|open)$")
+
+
+class OnboardingChangesRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=4000)
+
+
+class OnboardingHQFieldsPatch(BaseModel):
+    base_revision: int = Field(ge=0)
+    values: dict[str, str | bool | int | dict | list | None] = Field(default_factory=dict)
+
+
+class OnboardingCompileRequest(BaseModel):
+    base_revision: int = Field(ge=0)
+
+
 class OnboardingReviewCreate(BaseModel):
     decision: str = Field(pattern=r"^(accepted|changes_requested|rejected)$")
     document_id: uuid.UUID | None = None
     note: str | None = Field(default=None, max_length=2000)
-
-
-class OnboardingCancelRequest(BaseModel):
-    reason: str = Field(min_length=10, max_length=2000)
 
 
 class OnboardingCertificateCreate(BaseModel):
@@ -74,7 +107,41 @@ class OnboardingDocumentResponse(BaseModel):
     evidence_hash: str | None = None
     canonical_hash: str | None = None
     completed_at: datetime | None = None
-    revision_id: uuid.UUID | None = None
+    current_revision: int = 0
+    state_hash: str | None = None
+    final_docx_hash: str | None = None
+    final_pdf_hash: str | None = None
+
+
+class OnboardingReviewCommentResponse(BaseModel):
+    id: uuid.UUID
+    author_kind: str
+    author_ref: str
+    body: str
+    created_at: datetime
+
+
+class OnboardingReviewThreadResponse(BaseModel):
+    id: uuid.UUID
+    document_id: uuid.UUID
+    field_id: str | None = None
+    block_id: str | None = None
+    quote: str | None = None
+    status: str
+    created_at: datetime
+    comments: list[OnboardingReviewCommentResponse] = Field(default_factory=list)
+
+
+class OnboardingEditorResponse(BaseModel):
+    document: OnboardingDocumentResponse
+    title: str
+    fields: list[dict] = Field(default_factory=list)
+    sections: list[dict] = Field(default_factory=list)
+    values: dict = Field(default_factory=dict)
+    threads: list[OnboardingReviewThreadResponse] = Field(default_factory=list)
+    editable: bool
+    can_submit: bool
+    can_compile: bool = False
 
 
 class OnboardingParticipantResponse(BaseModel):
@@ -114,7 +181,6 @@ class OnboardingCaseResponse(BaseModel):
     case_data: dict = {}
     created_by: uuid.UUID | None = None
     reviewer_id: uuid.UUID | None = None
-    current_revision_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
     participants: list[OnboardingParticipantResponse] = []

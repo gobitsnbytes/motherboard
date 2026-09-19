@@ -250,9 +250,31 @@ async def test_staff_cannot_correct_email_after_packet_submission(super_admin):
         )
         body = created.json()
         token = body["participants"][0]["portal_url"].rsplit("/", 1)[-1]
-        submitted = await client.post(f"/api/onboarding/public/{token}/submit", json={"answers": {}, "confirmed_identity": True})
-        if submitted.status_code == 503:
-            pytest.skip("DOCX renderer is unavailable in this test environment")
+        document_id = body["documents"][0]["id"]
+        editor = (await client.get(f"/api/onboarding/public/{token}/documents/{document_id}/editor")).json()
+        values = {}
+        for field in editor["fields"]:
+            if field["type"] == "signature":
+                continue
+            if field["type"] == "checkbox":
+                values[field["id"]] = True
+            elif field["type"] == "choice":
+                values[field["id"]] = field["options"][0]
+            elif field["type"] == "email":
+                values[field["id"]] = "asha@example.com"
+            elif field["type"] == "date":
+                values[field["id"]] = "2026-09-19"
+            else:
+                values[field["id"]] = "Test value"
+        saved = await client.patch(
+            f"/api/onboarding/public/{token}/documents/{document_id}/draft",
+            json={"base_revision": editor["document"]["current_revision"], "values": values},
+        )
+        assert saved.status_code == 200, saved.text
+        submitted = await client.post(
+            f"/api/onboarding/public/{token}/documents/{document_id}/submit",
+            json={"base_revision": saved.json()["document"]["current_revision"], "confirmed_identity": True},
+        )
         assert submitted.status_code == 200, submitted.text
         updated = await request_as(
             client,
