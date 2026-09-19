@@ -32,12 +32,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # `src` defaults to the whole workspace, so it must be set: passing the
+      # path in `args` alone still lints every other Python file in the repo.
+      # The version is pinned to the one in apps/api so CI and local agree.
       - uses: astral-sh/ruff-action@v3
         with:
-          args: check apps/api
+          version: "0.12.10"
+          src: apps/api
       - uses: astral-sh/ruff-action@v3
         with:
-          args: format --check apps/api/tests
+          version: "0.12.10"
+          src: apps/api/tests
+          args: format --check
 
   test:
     name: Backend tests (Postgres)
