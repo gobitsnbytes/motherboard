@@ -1,81 +1,62 @@
-# dependencies (bun install)
-node_modules
-
-.turbo
-.code
-
-# output
-out
-dist
-*.tgz
-
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# caches
+# JavaScript dependencies and caches
+node_modules/
+.turbo/
+.code/
+.cache/
 .eslintcache
-.cache
 *.tsbuildinfo
 
-# Python artifacts
+# Build and test output
+.next/
+next-env.d.ts
+out/
+dist/
+coverage/
+*.lcov
+*.tgz
+
+# Logs
+logs/
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Python environments, caches, and local databases
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
-# IntelliJ based IDEs
-.idea
-
-# Finder (MacOS) folder config
-.DS_Store
-
-# Next.js output
-.next/
-.next
-next-env.d.ts
-
-# Local env backups and scratch databases from local test runs
-.env.*backup
-*.env.backup
-apps/api/*.db
-apps/api/*.db-journal
-apps/api/*.db-wal
-apps/api/*.db-shm
-
-.vercel
-
-# Local signature uploads & test artifacts
-data/signatures/
-apps/api/data/signatures/
-apps/api/data/*.db*
-
-# Generated onboarding OOXML packages and rendered document artifacts
-data/onboarding/
-apps/api/data/onboarding/
-
-# Security & Secret safeguarding (SSH keys, tokens, environment files)
+# Local environment and credentials
+.env*
+!.env.example
 *.key
 *.pem
 *.id_rsa
 *.id_ed25519
-.env*
-!.env.example
 
+# IDE and OS metadata
+.idea/
+.DS_Store
 
-.vercel
+# Provider and agent-local state
+.vercel/
+/.superpowers/
+/opencode.json
 
-opencode.json
+# Runtime uploads and generated documents
+/data/signatures/
+/data/onboarding/
+/apps/api/data/signatures/
+/apps/api/data/onboarding/
+/output/
+
+# Local scratch, campaign exports, and one-off operators
+/tmp/
+/tools/
+/*.jsonl
