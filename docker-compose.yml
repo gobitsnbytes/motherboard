@@ -29,8 +29,6 @@ services:
     depends_on:
       - postgres
       - redis
-    volumes:
-      - legal_qenlo_data:/app/data/legal-qenlo
 
   web:
     build:
@@ -47,4 +45,3 @@ services:
 
 volumes:
   postgres_data:
-  legal_qenlo_data:

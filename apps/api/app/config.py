@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     legal_nudge_enabled: bool = Field(default=True, validation_alias="LEGAL_NUDGE_ENABLED")
     legal_org_mailbox: str = Field(default="legal@gobitsnbytes.org", validation_alias="LEGAL_ORG_MAILBOX")
     legal_retrieval_backend: str = Field(default="qenlo", validation_alias="LEGAL_RETRIEVAL_BACKEND")
-    legal_qenlo_data_dir: str = Field(default="/app/data/legal-qenlo", validation_alias="LEGAL_QENLO_DATA_DIR")
+    legal_qenlo_data_dir: str = Field(default="/var/lib/bnb/legal-qenlo", validation_alias="LEGAL_QENLO_DATA_DIR")
     legal_qenlo_dimension: int = Field(default=256, validation_alias="LEGAL_QENLO_DIMENSION")
 
     # Notion Sync Settings
