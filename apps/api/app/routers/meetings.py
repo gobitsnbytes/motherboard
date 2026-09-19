@@ -1,7 +1,10 @@
 """FastAPI router for Meetings, Scheduling, and Transcript Handling."""
 
+import hashlib
+import hmac
 import json
 import logging
+import random
 import time
 import os
 import tempfile
@@ -11,10 +14,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from typing import Annotated, Any, List, Optional, Union
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, BackgroundTasks, Header, Request
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from app.dependencies import DbSession, get_current_user
 from app.iam.principal import ResolvedPrincipal
@@ -54,8 +59,6 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 # ---------------------------------------------------------------------------
 # ICS and Email Notification Helpers (Unified in Python)
 # ---------------------------------------------------------------------------
-
-from urllib.parse import quote
 
 def get_google_cal_url(title: str, start_time_ms: int, end_time_ms: int, description: str, location: str) -> str:
     dt_start = datetime.datetime.fromtimestamp(start_time_ms / 1000, tz=datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1443,11 +1446,6 @@ async def get_availability_slots(
     utc_slots.sort()
     return utc_slots
 
-
-from pydantic import BaseModel
-import random
-import hmac
-import hashlib
 
 # OTP expiry: 10 minutes. Verified session tokens expire after 1 hour.
 GUEST_OTP_TTL_SECONDS = 600

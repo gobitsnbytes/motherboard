@@ -66,7 +66,7 @@ async def run_sync(
         sync_run.discord_member_count = len(discord_members)
 
         # 3. Fetch active role mappings
-        mappings_stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.sync_enabled == True)
+        mappings_stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.sync_enabled.is_(True))
         mappings_res = await db.execute(mappings_stmt)
         role_mappings = mappings_res.scalars().all()
 

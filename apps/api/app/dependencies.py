@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator
 import hashlib
 import hmac
 import time
+import uuid
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.database import get_session
+from app.iam.principal import ResolvedPrincipal, resolve_principal
 
 
 async def get_db_session(session: AsyncSession = Depends(get_session)) -> AsyncIterator[AsyncSession]:
@@ -31,9 +33,6 @@ DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
 DbDep = DbSession
-
-from app.iam.principal import ResolvedPrincipal, resolve_principal
-import uuid
 
 INTERNAL_AUTH_MAX_AGE_SECONDS = 300
 
@@ -161,7 +160,7 @@ async def get_current_user(
     if x_internal_user_id in ("system", "discord_bot"):
         from sqlalchemy import select
         from app.db.models import User
-        res = await db.execute(select(User).where(User.is_super_admin == True).limit(1))
+        res = await db.execute(select(User).where(User.is_super_admin.is_(True)).limit(1))
         sys_user = res.scalar_one_or_none()
         if not sys_user:
             res = await db.execute(select(User).order_by(User.created_at).limit(1))

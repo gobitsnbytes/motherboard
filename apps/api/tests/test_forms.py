@@ -145,7 +145,7 @@ async def test_form_uploads_require_token_and_are_idempotent(
 
     monkeypatch.setattr(forms, "UPLOAD_DIR", str(tmp_path))
     blocks = [{"id": "proof", "type": "file", "label": "Proof", "required": True}]
-    created = await request_as(
+    await request_as(
         client,
         super_admin.id,
         "POST",

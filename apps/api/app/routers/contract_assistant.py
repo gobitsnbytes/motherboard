@@ -4,14 +4,14 @@ Powered by SparkCloud AI (auto model) and OKF Knowledge Base.
 Full Database Persistence & bnb-signatures Integration.
 """
 
+import hmac
+import logging
 import os
 import re
+import secrets
 import uuid
-import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, timezone
-
-logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
@@ -35,6 +35,8 @@ from app.dependencies import DbSession, ResolvedPrincipal, get_current_user, get
 from app.services.llm_client import get_llm_client
 from app.services.okf_engine import DeterministicRuleEngine, get_okf_store
 from app.services.signature_engine import prepare_document_pdf, render_pdf_page_previews
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contract-assistant", tags=["contract-assistant"])
 
@@ -772,9 +774,6 @@ async def generate_autofix(
     )
 
 
-import hmac
-import secrets
-
 @router.post("/inbound-email")
 async def handle_inbound_email_webhook(
     req: Request,
@@ -1275,8 +1274,6 @@ async def ask_contract_knowledge_base(
     user = await db.scalar(select(User).where(User.id == current_user.user_id))
     if not user or not (user.email or "").lower().endswith("@gobitsnbytes.org"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Legal Agent access requires a verified @gobitsnbytes.org account")
-
-    q_tokens = _ask_tokens(payload.question)
 
     corpus = await _build_ask_corpus(db)
     scored: List[tuple] = []

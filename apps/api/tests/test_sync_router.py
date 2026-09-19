@@ -114,9 +114,7 @@ async def test_trigger_sync_authorized(db_session: AsyncSession, client):
     await db_session.commit()
 
     # Patch background task execution
-    with patch(
-        "app.provisioning.sync.run_sync", new_callable=AsyncMock
-    ) as mock_run_sync:
+    with patch("app.provisioning.sync.run_sync", new_callable=AsyncMock):
         response = await request_as(client, user.id, "POST", "/api/sync/trigger")
         assert response.status_code == 202
         data = response.json()

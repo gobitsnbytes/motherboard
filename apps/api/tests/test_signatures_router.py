@@ -586,7 +586,6 @@ async def test_org_countersign_flow(
     roles = {r["role"]: r for r in req_data["recipients"]}
     assert "org_signer" in roles
     assert roles["org_signer"]["email"] == "legal@gobitsnbytes.org"
-    org_recipient = roles["org_signer"]
     partner = roles["signer"]
 
     # Countersign before external party -> permitted but not finalizing
