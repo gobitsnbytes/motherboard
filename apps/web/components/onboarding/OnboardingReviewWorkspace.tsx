@@ -43,6 +43,8 @@ type Editor = {
   threads: Thread[];
   editable: boolean;
   can_compile: boolean;
+  can_approve: boolean;
+  review_block_reason?: string | null;
 };
 
 const inputClass =
@@ -489,9 +491,14 @@ export default function OnboardingReviewWorkspace({
           ) : null}
           {editor.document.status === "review_requested" ? (
             <>
+              {!editor.can_approve && editor.review_block_reason ? (
+                <p className="border-2 border-amber-800 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                  {editor.review_block_reason}
+                </p>
+              ) : null}
               <button
                 type="button"
-                disabled={Boolean(busy)}
+                disabled={Boolean(busy) || !editor.can_approve}
                 onClick={() =>
                   void mutate(
                     `/documents/${documentId}/request-changes`,
@@ -500,13 +507,13 @@ export default function OnboardingReviewWorkspace({
                     "Changes requested; the participant can edit again.",
                   )
                 }
-                className="w-full border-2 border-black bg-white px-3 py-3 font-mono text-xs font-black uppercase"
+                className="w-full border-2 border-black bg-white px-3 py-3 font-mono text-xs font-black uppercase disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Request changes
               </button>
               <button
                 type="button"
-                disabled={Boolean(busy) || openThreads > 0}
+                disabled={Boolean(busy) || openThreads > 0 || !editor.can_approve}
                 onClick={() =>
                   void mutate(
                     `/documents/${documentId}/approve`,

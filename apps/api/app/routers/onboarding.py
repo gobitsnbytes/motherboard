@@ -31,7 +31,8 @@ from app.db.models import (
     User,
 )
 from app.dependencies import CurrentUserDep, DbSession
-from app.iam.policy import require_permission
+from app.iam.policy import can, require_permission
+from app.iam.principal import resolve_principal
 from app.iam.audit import write_audit_entry
 from app.schemas.onboarding import (
     OnboardingCaseCreate,
@@ -52,8 +53,11 @@ from app.schemas.onboarding import (
     OnboardingPortalResponse,
     OnboardingPortalSubmit,
     OnboardingReviewCreate,
+    OnboardingReviewerAssign,
+    OnboardingReviewerResponse,
     OnboardingReviewThreadResponse,
     OnboardingTeammateCreate,
+    OnboardingTeammateInviteResponse,
     OnboardingThreadCreate,
     OnboardingThreadReply,
     OnboardingThreadStatusUpdate,
@@ -391,6 +395,36 @@ def _reminder_email(name: str, title: str, link: str, is_signing: bool = False) 
     return subject, body
 
 
+def _changes_requested_email(name: str, case_title: str, document_key: str, link: str, note: str | None) -> tuple[str, str]:
+    subject = f"Changes requested — {case_title}"
+    document_name = document_key.replace("_", " ").title()
+    note_html = (
+        f'<div style="margin:20px 0;border:2px solid #120f0a;background:#fff4dd;padding:16px;">'
+        f'<p style="margin:0 0 6px;font:700 12px/1.4 Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:#97192c;">Reviewer note</p>'
+        f'<p style="margin:0;font:15px/1.6 Georgia,serif;color:#120f0a;">{html.escape(note)}</p></div>'
+        if note else ""
+    )
+    body = f"""
+    <div style="margin:0;background:#f7f4ef;padding:32px 16px;color:#120f0a;">
+      <div style="margin:0 auto;max-width:620px;border:2px solid #120f0a;background:#ffffff;box-shadow:6px 6px 0 #120f0a;">
+        <div style="background:#3c0a12;padding:24px 28px;color:#ffffff;">
+          <p style="margin:0 0 8px;font:700 11px/1.4 Arial,sans-serif;text-transform:uppercase;letter-spacing:.14em;color:#fc920d;">bits&amp;bytes onboarding</p>
+          <h1 style="margin:0;font:800 28px/1.15 Georgia,serif;color:#ffffff;">Changes requested</h1>
+        </div>
+        <div style="padding:28px;">
+          <p style="margin:0 0 16px;font:16px/1.65 Georgia,serif;">Hi {html.escape(name)},</p>
+          <p style="margin:0 0 16px;font:16px/1.65 Georgia,serif;">Your reviewer has requested updates to <strong>{html.escape(document_name)}</strong> in <strong>{html.escape(case_title)}</strong>.</p>
+          {note_html}
+          <p style="margin:0 0 22px;font:15px/1.6 Georgia,serif;color:#413f3b;">Open your onboarding workspace to review the comments, update the document, and submit a new revision.</p>
+          <a href="{html.escape(link, quote=True)}" style="display:inline-block;border:2px solid #120f0a;background:#fc920d;padding:13px 20px;box-shadow:3px 3px 0 #120f0a;font:800 12px/1 Arial,sans-serif;text-transform:uppercase;letter-spacing:.05em;color:#120f0a;text-decoration:none;">Review requested changes</a>
+          <p style="margin:24px 0 0;font:12px/1.55 Arial,sans-serif;color:#716f6c;">This private link is intended only for you and expires in 30 days. If you did not expect this message, contact your bits&amp;bytes coordinator.</p>
+        </div>
+      </div>
+    </div>
+    """
+    return subject, body
+
+
 
 @router.post("/cases", response_model=OnboardingCaseResponse, status_code=status.HTTP_201_CREATED)
 async def create_case(
@@ -414,8 +448,12 @@ async def create_case(
     if payload.reviewer_id:
         if payload.reviewer_id == current_user.user_id:
             raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
-        if not await db.get(User, payload.reviewer_id):
+        reviewer = await db.get(User, payload.reviewer_id)
+        if not reviewer or not reviewer.is_active:
             raise HTTPException(status_code=404, detail="Assigned reviewer not found")
+        reviewer_principal = await resolve_principal(db, reviewer.id)
+        if not await can(db, reviewer_principal, "onboarding.review"):
+            raise HTTPException(status_code=422, detail="The assigned user does not have onboarding review permission")
 
     case = OnboardingCase(
         kind=payload.kind,
@@ -489,6 +527,13 @@ async def create_case(
         )
         db.add(parent)
         await db.flush()
+        case.case_data = {
+            **(case.case_data or {}),
+            "guardian_links": {
+                **((case.case_data or {}).get("guardian_links") or {}),
+                str(parent.id): str(participant.id),
+            },
+        }
         db.add(OnboardingDocument(
             case_id=case.id,
             participant_id=parent.id,
@@ -541,6 +586,39 @@ async def list_cases(db: DbSession, current_user: CurrentUserDep) -> list[Onboar
         await _sync_signature_states(db, case)
     await db.commit()
     return [_case_response(case) for case in cases]
+
+
+@router.get("/reviewers", response_model=list[OnboardingReviewerResponse])
+async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep) -> list[OnboardingReviewerResponse]:
+    """Return active independent users who can make onboarding decisions."""
+    await require_permission(db, current_user, "onboarding.write")
+    users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))).scalars().all()
+    reviewers: list[OnboardingReviewerResponse] = []
+    for user in users:
+        if user.id == current_user.user_id:
+            continue
+        principal = await resolve_principal(db, user.id)
+        if await can(db, principal, "onboarding.review"):
+            reviewers.append(OnboardingReviewerResponse(id=user.id, display_name=user.display_name, email=user.email))
+    return reviewers
+
+
+@router.patch("/cases/{case_id}/reviewer", response_model=OnboardingCaseResponse)
+async def assign_onboarding_reviewer(case_id: uuid.UUID, payload: OnboardingReviewerAssign, db: DbSession, current_user: CurrentUserDep) -> OnboardingCaseResponse:
+    await require_permission(db, current_user, "onboarding.write")
+    case = await _load_case(db, case_id)
+    if payload.reviewer_id == case.created_by:
+        raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
+    reviewer = await db.get(User, payload.reviewer_id)
+    if not reviewer or not reviewer.is_active:
+        raise HTTPException(status_code=404, detail="Assigned reviewer not found")
+    reviewer_principal = await resolve_principal(db, reviewer.id)
+    if not await can(db, reviewer_principal, "onboarding.review"):
+        raise HTTPException(status_code=422, detail="The assigned user does not have onboarding review permission")
+    case.reviewer_id = reviewer.id
+    await write_audit_entry(db, current_user.user_id, "onboarding.reviewer_assigned", "onboarding_case", str(case.id), {"reviewer_id": str(reviewer.id)})
+    await db.commit()
+    return _case_response(await _load_case(db, case.id))
 
 
 @router.get("/cases/{case_id}", response_model=OnboardingCaseResponse)
@@ -1070,28 +1148,73 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
     return await get_portal(token, db)
 
 
-@router.post("/public/{token}/teammates", response_model=OnboardingPortalResponse, status_code=status.HTTP_201_CREATED)
-async def add_teammate(token: str, payload: OnboardingTeammateCreate, db: DbSession, background_tasks: BackgroundTasks) -> OnboardingPortalResponse:
+@router.post("/public/{token}/teammates", response_model=OnboardingTeammateInviteResponse, status_code=status.HTTP_201_CREATED)
+async def add_teammate(token: str, payload: OnboardingTeammateCreate, db: DbSession, background_tasks: BackgroundTasks) -> OnboardingTeammateInviteResponse:
     lead = await _find_portal_participant(db, token)
-    if lead.role != "participant" or lead.case.kind != "fork" or lead.status != "submitted":
-        raise HTTPException(status_code=403, detail="Only a submitted fork lead can invite teammates")
+    if lead.role != "participant" or lead.case.kind != "fork":
+        raise HTTPException(status_code=403, detail="Only the fork lead can invite teammates")
+    if not lead.documents or any(document.status in PARTICIPANT_EDITABLE_STATUSES for document in lead.documents):
+        raise HTTPException(status_code=403, detail="Complete and submit the fork lead packet before inviting teammates")
     try:
         _, is_minor = validate_age(payload.date_of_birth)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if is_minor and not payload.parent:
         raise HTTPException(status_code=422, detail="A parent or guardian is required for a minor teammate")
+    duplicate = (
+        await db.execute(
+            select(OnboardingParticipant.id).where(
+                OnboardingParticipant.case_id == lead.case_id,
+                OnboardingParticipant.email.in_([
+                    str(payload.email),
+                    *([str(payload.parent.email)] if payload.parent else []),
+                ]),
+            )
+        )
+    ).scalar_one_or_none()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="That teammate or guardian email is already used in this case")
     teammate_token, teammate_hash = new_portal_token()
     teammate = OnboardingParticipant(case_id=lead.case_id, role="teammate", name=payload.name, email=str(payload.email), date_of_birth=payload.date_of_birth, is_minor=is_minor, portal_token_hash=teammate_hash, token_expires_at=datetime.now(timezone.utc) + timedelta(days=30))
     db.add(teammate)
     await db.flush()
-    db.add(OnboardingDocument(case_id=lead.case_id, participant_id=teammate.id, document_key="volunteer", template_filename=TEMPLATE_MANIFEST["volunteer"]["template"]))
+    db.add(OnboardingDocument(
+        case_id=lead.case_id,
+        participant_id=teammate.id,
+        document_key="volunteer",
+        template_filename=TEMPLATE_MANIFEST["volunteer"]["template"],
+        field_values={
+            "bnb.volunteer.full_name": teammate.name,
+            "bnb.volunteer.date_of_birth": teammate.date_of_birth,
+            "bnb.volunteer.email": teammate.email,
+        },
+    ))
+    parent_token = None
     if is_minor and payload.parent:
         parent_token, parent_hash = new_portal_token()
         parent = OnboardingParticipant(case_id=lead.case_id, role="parent", name=payload.parent.name, email=str(payload.parent.email), is_minor=False, portal_token_hash=parent_hash, token_expires_at=datetime.now(timezone.utc) + timedelta(days=30))
         db.add(parent)
         await db.flush()
-        db.add(OnboardingDocument(case_id=lead.case_id, participant_id=parent.id, document_key="parent_consent", template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"]))
+        lead.case.case_data = {
+            **(lead.case.case_data or {}),
+            "guardian_links": {
+                **((lead.case.case_data or {}).get("guardian_links") or {}),
+                str(parent.id): str(teammate.id),
+            },
+        }
+        db.add(OnboardingDocument(
+            case_id=lead.case_id,
+            participant_id=parent.id,
+            document_key="parent_consent",
+            template_filename=TEMPLATE_MANIFEST["parent_consent"]["template"],
+            field_values={
+                "bnb.parent.minor_name": teammate.name,
+                "bnb.parent.minor_dob": teammate.date_of_birth,
+                "bnb.parent.guardian_name": parent.name,
+                "bnb.parent.guardian_email": parent.email,
+                "bnb.parent.fork_name": lead.case.case_data.get("fork_name") or "",
+            },
+        ))
     await db.commit()
     settings = get_settings()
     if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
@@ -1101,7 +1224,14 @@ async def add_teammate(token: str, payload: OnboardingTeammateCreate, db: DbSess
         if is_minor and payload.parent:
             parent_subject, parent_body = _invite_email(payload.parent.name, lead.case.title, parent_token)
             background_tasks.add_task(send_smtp_email, settings, [str(payload.parent.email)], parent_subject, parent_body)
-    return await get_portal(token, db)
+    invitees = [{"role": "teammate", "name": teammate.name, "email": teammate.email, "portal_url": _portal_url(teammate_token)}]
+    if is_minor and payload.parent and parent_token:
+        invitees.append({"role": "parent", "name": payload.parent.name, "email": str(payload.parent.email), "portal_url": _portal_url(parent_token)})
+    return OnboardingTeammateInviteResponse(
+        portal=await get_portal(token, db),
+        invitees=invitees,
+        email_sent=bool(settings.smtp_host and settings.smtp_user and settings.smtp_pass),
+    )
 
 
 @router.get("/cases/{case_id}/documents/{document_id}/editor", response_model=OnboardingEditorResponse)
@@ -1115,12 +1245,22 @@ async def get_staff_document_editor(case_id: uuid.UUID, document_id: uuid.UUID, 
     await db.refresh(document)
     await _ensure_initial_revision(db, document)
     sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
+    can_approve = document.case.created_by != current_user.user_id and document.case.reviewer_id == current_user.user_id
+    review_block_reason = None
+    if document.case.created_by == current_user.user_id:
+        review_block_reason = "You created this case. An independent assigned reviewer must approve it."
+    elif document.case.reviewer_id is None:
+        review_block_reason = "Assign an independent reviewer before approval."
+    elif document.case.reviewer_id != current_user.user_id:
+        review_block_reason = "Only the assigned reviewer can approve this case."
     return OnboardingEditorResponse(
         document=_document_response(document), title=document.document_key.replace("_", " ").title(),
         fields=fields_for(document.document_key), sections=sections, values=document.field_values,
         threads=[_thread_response(thread) for thread in document.review_threads],
         editable=document.status not in {"signing", "compiling", "completed", "voided"}, can_submit=False,
         can_compile=document.status == "approved" and not any(thread.status != "resolved" for thread in document.review_threads),
+        can_approve=can_approve,
+        review_block_reason=review_block_reason,
     )
 
 
@@ -1201,11 +1341,17 @@ async def update_review_thread_status(case_id: uuid.UUID, thread_id: uuid.UUID, 
 
 
 @router.post("/cases/{case_id}/documents/{document_id}/request-changes", response_model=OnboardingEditorResponse)
-async def request_document_changes(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingChangesRequest, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
+async def request_document_changes(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingChangesRequest, background_tasks: BackgroundTasks, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
     await require_permission(db, current_user, "onboarding.review")
     document = await _load_document_for_editor(db, document_id)
     if document.case_id != case_id:
         raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.case.created_by == current_user.user_id:
+        raise HTTPException(status_code=403, detail="The case creator cannot decide their own onboarding case")
+    if document.case.reviewer_id is None:
+        raise HTTPException(status_code=409, detail="Assign an independent reviewer before making a review decision")
+    if document.case.reviewer_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Only the assigned reviewer can decide this case")
     if document.status != "review_requested":
         raise HTTPException(status_code=409, detail="Only a submitted review can be returned")
     if payload.note:
@@ -1218,6 +1364,20 @@ async def request_document_changes(case_id: uuid.UUID, document_id: uuid.UUID, p
     document.status = "changes_requested"
     if document.participant:
         document.participant.status = "changes_requested"
+        settings = get_settings()
+        if settings.smtp_host and settings.smtp_user and settings.smtp_pass:
+            token, token_hash = new_portal_token()
+            document.participant.portal_token_hash = token_hash
+            document.participant.token_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            from app.routers.meetings import send_smtp_email
+            subject, body = _changes_requested_email(
+                document.participant.name,
+                document.case.title,
+                document.document_key,
+                _portal_url(token),
+                payload.note,
+            )
+            background_tasks.add_task(send_smtp_email, settings, [document.participant.email], subject, body)
     await db.commit()
     return await get_staff_document_editor(case_id, document_id, db, current_user)
 
@@ -1230,6 +1390,10 @@ async def approve_document_review(case_id: uuid.UUID, document_id: uuid.UUID, db
         raise HTTPException(status_code=404, detail="Onboarding document not found")
     if document.case.created_by == current_user.user_id:
         raise HTTPException(status_code=403, detail="The case creator cannot approve their own onboarding case")
+    if document.case.reviewer_id is None:
+        raise HTTPException(status_code=409, detail="Assign an independent reviewer before approval")
+    if document.case.reviewer_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Only the assigned reviewer can approve this case")
     if document.status != "review_requested":
         raise HTTPException(status_code=409, detail="Only a submitted review can be approved")
     unresolved = [thread for thread in document.review_threads if thread.status != "resolved"]
@@ -1280,6 +1444,14 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
         _, docx_path = await run_in_threadpool(_compile_ooxml_source, document, marker_values)
         pdf_path = await run_in_threadpool(render_docx_to_pdf, docx_path, docx_path.parent)
         signer_specs = [{"name": participant.name, "email": participant.email, "role": role}]
+        if document.document_key == "parent_consent":
+            ward_id = ((document.case.case_data or {}).get("guardian_links") or {}).get(str(participant.id))
+            ward = await db.get(OnboardingParticipant, uuid.UUID(ward_id)) if ward_id else None
+            if not ward or not ward.date_of_birth:
+                raise HTTPException(status_code=409, detail="The parent consent form is not linked to its minor participant")
+            ward_age, _ = validate_age(ward.date_of_birth)
+            if ward_age >= 16:
+                signer_specs.append({"name": ward.name, "email": ward.email, "role": "minor"})
         if any(field["editable_by"] == "hq" for field in signature_fields):
             signer_specs.append({"name": hq_user.display_name, "email": hq_user.email, "role": "organization", "allowed_sig_type": "email_only"})
         request = await create_signature_request(

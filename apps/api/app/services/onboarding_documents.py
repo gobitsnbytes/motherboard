@@ -22,7 +22,7 @@ def _manifest(template: str, source_hash: str, fields: list[tuple[str, str, str]
 
 TEMPLATE_MANIFEST: dict[str, dict[str, Any]] = {
     "volunteer": _manifest("1_Volunteer_Form.docx", "71add5790bde909e31fd2d76065848f4ac5255b41910984dfacccc7bce914c75", [("full_name", "Full name", "text"), ("date_of_birth", "Date of birth", "date"), ("volunteer_role", "Volunteer role", "text"), ("track", "Track", "text"), ("consent", "Volunteer consent", "checkbox")]),
-    "parent_consent": _manifest("2_Parents_Consent_Fork.docx", "a6e0c10f25aadc24213bcd738fd6ea913f8d74deaf9672b409bc3bd6d387fb76", [("minor_name", "Minor name", "text"), ("parent_name", "Parent or guardian name", "text"), ("parent_email", "Parent email", "text"), ("consent", "Parent consent", "checkbox")]),
+    "parent_consent": _manifest("2_Parents_Consent_.docx", "a6e0c10f25aadc24213bcd738fd6ea913f8d74deaf9672b409bc3bd6d387fb76", [("minor_name", "Minor name", "text"), ("parent_name", "Parent or guardian name", "text"), ("parent_email", "Parent email", "text"), ("consent", "Parent consent", "checkbox")]),
     "fork_application": _manifest("5_Fork_Application_Form.docx", "ff9113e4500c889edf688bd0620d643673730badcb669ab0d515f5e3811e2876", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("summary", "Fork summary", "text")]),
     "fork_agreement": _manifest("4_Fork_Agreement.docx", "e7e43a74ff5decc7d0ceefd29ab065b6bebe25b7f0c35b2f467dc5394a5ae4aa", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("agreement", "Agreement accepted", "checkbox")]),
     "fork_certificate": _manifest("3_Fork_Recognition_Certificate.docx", "b22a28dc775615b85c2759dfdbac08df0549419e3b9c4dd09a7297238e74994c", [("fork_name", "Fork name", "text"), ("lead_name", "Fork lead", "text"), ("certificate_date", "Certificate date", "date")]),
@@ -53,7 +53,13 @@ def new_portal_token() -> tuple[str, str]:
 
 
 def template_root() -> Path:
-    return Path(os.getenv("ONBOARDING_TEMPLATES_DIR", str(Path(__file__).resolve().parents[2] / "templates")))
+    configured = os.getenv("ONBOARDING_TEMPLATES_DIR")
+    if configured:
+        return Path(configured)
+    repository_templates = Path(__file__).resolve().parents[4] / "templates"
+    if repository_templates.exists():
+        return repository_templates
+    return Path(__file__).resolve().parents[2] / "templates"
 
 
 def storage_root() -> Path:
@@ -150,11 +156,14 @@ async def create_signature_request(db: AsyncSession, *, case: OnboardingCase, do
         await db.flush()
         recipients[recipient.role] = recipient
     organization = recipients.get("organization")
+    minor = recipients.get("minor")
     signer = next((recipient for role, recipient in recipients.items() if role != "organization"), None)
     if signer is None:
         raise RuntimeError("Onboarding signature request has no participant signer")
     for field, placement in resolve_signature_anchors(pdf_path, document.document_key):
-        recipient = organization if field["editable_by"] == "hq" else signer
+        if field["id"] == "bnb.parent.minor_cosignature" and minor is None:
+            continue
+        recipient = organization if field["editable_by"] == "hq" else minor if field["id"] == "bnb.parent.minor_cosignature" else signer
         if recipient is None:
             raise RuntimeError(f"Onboarding signature anchor contract failed: no signer for {field['label']}")
         db.add(SignatureField(request_id=request.id, recipient_id=recipient.id, type="signature", required=field["required"], **placement))

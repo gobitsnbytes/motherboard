@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from app.config import get_settings
-from app.db.models import AuditLog, User
+from app.db.models import AuditLog, OnboardingCase, OnboardingDocument, OnboardingParticipant, User
 from conftest import request_as
 
 
@@ -135,6 +135,75 @@ async def test_minor_requires_parent_and_underage_is_rejected(super_admin, clien
         },
     )
     assert underage.status_code == 422
+
+
+async def test_fork_lead_invites_minor_teammate_with_separate_guardian_packet(
+    super_admin, db_session, client
+):
+    get_settings().smtp_host = None
+    created = await request_as(
+        client,
+        super_admin.id,
+        "POST",
+        "/api/onboarding/cases",
+        json={
+            "kind": "fork",
+            "title": "Chennai fork onboarding",
+            "fork_name": "Chennai",
+            "participant": {
+                "name": "Adult Lead",
+                "email": "lead@example.com",
+                "date_of_birth": "2000-01-01",
+            },
+        },
+    )
+    assert created.status_code == 201, created.text
+    token = created.json()["participants"][0]["portal_url"].rsplit("/", 1)[-1]
+    invite_payload = {
+        "name": "Minor Teammate",
+        "email": "minor-teammate@example.com",
+        "date_of_birth": "2010-08-02",
+        "parent": {"name": "Guardian Example", "email": "guardian@example.com"},
+    }
+    blocked = await client.post(f"/api/onboarding/public/{token}/teammates", json=invite_payload)
+    assert blocked.status_code == 403
+
+    lead = (
+        await db_session.execute(
+            select(OnboardingParticipant).where(OnboardingParticipant.email == "lead@example.com")
+        )
+    ).scalar_one()
+    documents = (
+        await db_session.execute(
+            select(OnboardingDocument).where(OnboardingDocument.participant_id == lead.id)
+        )
+    ).scalars().all()
+    for document in documents:
+        document.status = "review_requested"
+    lead.status = "under_review"
+    await db_session.commit()
+
+    invited = await client.post(f"/api/onboarding/public/{token}/teammates", json=invite_payload)
+    assert invited.status_code == 201, invited.text
+    body = invited.json()
+    assert body["email_sent"] is False
+    assert {invitee["role"] for invitee in body["invitees"]} == {"teammate", "parent"}
+
+    guardian = (
+        await db_session.execute(
+            select(OnboardingParticipant).where(OnboardingParticipant.email == "guardian@example.com")
+        )
+    ).scalar_one()
+    guardian_document = (
+        await db_session.execute(
+            select(OnboardingDocument).where(OnboardingDocument.participant_id == guardian.id)
+        )
+    ).scalar_one()
+    assert guardian_document.template_filename == "2_Parents_Consent_.docx"
+    assert guardian_document.field_values["bnb.parent.minor_name"] == "Minor Teammate"
+    assert guardian_document.field_values["bnb.parent.fork_name"] == "Chennai"
+    onboarding_case = await db_session.get(OnboardingCase, guardian.case_id)
+    assert onboarding_case.case_data["guardian_links"][str(guardian.id)]
 
 
 async def test_staff_can_correct_untouched_volunteer_email_and_rotates_portal_link(

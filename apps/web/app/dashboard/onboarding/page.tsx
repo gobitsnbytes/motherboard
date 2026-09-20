@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { ageOnDate } from "../../../lib/onboarding-age";
+
 type ParticipantRow = {
   id: string;
   role: string;
@@ -22,9 +24,12 @@ type CaseRow = {
   title: string;
   kind: string;
   status: string;
+  created_by?: string | null;
+  reviewer_id?: string | null;
   documents: Array<{ id: string; status: string; document_key: string }>;
   participants: ParticipantRow[];
 };
+type Reviewer = { id: string; display_name: string; email?: string | null };
 
 function apiErrorMessage(detail: unknown, fallback: string): string {
   if (typeof detail === "string") return detail;
@@ -51,7 +56,11 @@ export default function OnboardingDashboardPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [dob, setDob] = useState("");
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianEmail, setGuardianEmail] = useState("");
   const [forkName, setForkName] = useState("");
+  const [reviewerId, setReviewerId] = useState("");
+  const [reviewers, setReviewers] = useState<Reviewer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [editingParticipantId, setEditingParticipantId] = useState<
@@ -67,12 +76,18 @@ export default function OnboardingDashboardPage() {
   const [deletingCaseId, setDeletingCaseId] = useState<string | null>(null);
   const [remindingCaseId, setRemindingCaseId] = useState<string | null>(null);
 
+  const participantAge = ageOnDate(dob);
+  const isMinor = participantAge !== null && participantAge < 18;
+  const isTooYoung = participantAge !== null && participantAge < 13;
+
 
   const load = async () => {
-    const response = await fetch("/api/onboarding/cases", {
-      cache: "no-store",
-    });
-    if (response.ok) setCases(await response.json());
+    const [casesResponse, reviewersResponse] = await Promise.all([
+      fetch("/api/onboarding/cases", { cache: "no-store" }),
+      fetch("/api/onboarding/reviewers", { cache: "no-store" }),
+    ]);
+    if (casesResponse.ok) setCases(await casesResponse.json());
+    if (reviewersResponse.ok) setReviewers(await reviewersResponse.json());
   };
   useEffect(() => {
     load().catch(() => setError("Could not load onboarding cases."));
@@ -88,7 +103,16 @@ export default function OnboardingDashboardPage() {
         kind,
         title,
         fork_name: kind === "fork" ? forkName : undefined,
-        participant: { name, email, date_of_birth: dob, is_volunteer: true },
+        reviewer_id: reviewerId || undefined,
+        participant: {
+          name,
+          email,
+          date_of_birth: dob,
+          is_volunteer: true,
+          parent: isMinor
+            ? { name: guardianName, email: guardianEmail }
+            : undefined,
+        },
       }),
     });
     const body = await response.json().catch(() => ({}));
@@ -100,7 +124,25 @@ export default function OnboardingDashboardPage() {
     setName("");
     setEmail("");
     setDob("");
+    setGuardianName("");
+    setGuardianEmail("");
     setForkName("");
+    setReviewerId("");
+    await load();
+  };
+
+  const assignReviewer = async (caseId: string, assignedReviewerId: string) => {
+    setError(null);
+    const response = await fetch(`/api/onboarding/cases/${caseId}/reviewer`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewer_id: assignedReviewerId }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(apiErrorMessage(body.detail, "Could not assign the reviewer."));
+      return;
+    }
     await load();
   };
 
@@ -321,6 +363,49 @@ export default function OnboardingDashboardPage() {
             onChange={(e) => setDob(e.target.value)}
             className="w-full border-2 border-black px-3 py-2 font-mono text-sm"
           />
+          {isMinor && (
+            <fieldset className="space-y-3 border-2 border-black bg-[#fff4dd] p-4">
+              <legend className="px-2 font-mono text-xs font-black uppercase">
+                Parent or legal guardian
+              </legend>
+              <p className="font-mono text-xs leading-relaxed text-zinc-700">
+                This participant is under 18. Their guardian receives a separate
+                portal link to complete the required consent form.
+              </p>
+              <label className="block space-y-1 font-mono text-xs font-bold">
+                <span>Guardian full name</span>
+                <input
+                  required
+                  autoComplete="name"
+                  placeholder="Parent or guardian name"
+                  value={guardianName}
+                  onChange={(e) => setGuardianName(e.target.value)}
+                  className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm font-normal"
+                />
+              </label>
+              <label className="block space-y-1 font-mono text-xs font-bold">
+                <span>Guardian email</span>
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  placeholder="guardian@example.com"
+                  value={guardianEmail}
+                  onChange={(e) => setGuardianEmail(e.target.value)}
+                  className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm font-normal"
+                />
+              </label>
+            </fieldset>
+          )}
+          {isTooYoung && (
+            <p
+              role="alert"
+              className="border-2 border-red-700 bg-red-50 p-3 font-mono text-xs font-bold text-red-800"
+            >
+              Participants must be at least 13 years old for this onboarding
+              workflow.
+            </p>
+          )}
           {kind === "fork" && (
             <input
               required
@@ -330,7 +415,31 @@ export default function OnboardingDashboardPage() {
               className="w-full border-2 border-black px-3 py-2 font-mono text-sm"
             />
           )}
-          <button className="w-full border-2 border-black bg-[#fc920d] px-4 py-3 font-mono text-xs font-black uppercase shadow-[3px_3px_0_#120f0a]">
+          <label className="block space-y-1 font-mono text-xs font-bold">
+            <span>Independent reviewer</span>
+            <select
+              required
+              value={reviewerId}
+              onChange={(event) => setReviewerId(event.target.value)}
+              className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm font-normal"
+            >
+              <option value="">Select a reviewer</option>
+              {reviewers.map((reviewer) => (
+                <option key={reviewer.id} value={reviewer.id}>
+                  {reviewer.display_name}{reviewer.email ? ` — ${reviewer.email}` : ""}
+                </option>
+              ))}
+            </select>
+            {reviewers.length === 0 ? (
+              <span className="block text-amber-800">
+                No other active user currently has onboarding.review permission.
+              </span>
+            ) : null}
+          </label>
+          <button
+            disabled={isTooYoung}
+            className="w-full border-2 border-black bg-[#fc920d] px-4 py-3 font-mono text-xs font-black uppercase shadow-[3px_3px_0_#120f0a] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600 disabled:shadow-none"
+          >
             Create and send portal link
           </button>
         </form>
@@ -351,6 +460,11 @@ export default function OnboardingDashboardPage() {
                     <h3 className="font-black uppercase">{item.title}</h3>
                     <p className="font-mono text-xs text-zinc-600">
                       {item.kind} / {item.status}
+                    </p>
+                    <p className="mt-1 font-mono text-[10px] uppercase text-zinc-500">
+                      {item.reviewer_id
+                        ? `Reviewer: ${reviewers.find((reviewer) => reviewer.id === item.reviewer_id)?.display_name ?? "assigned"}`
+                        : "Reviewer not assigned"}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -377,6 +491,23 @@ export default function OnboardingDashboardPage() {
                     </button>
                   </div>
                 </div>
+                {!item.reviewer_id && reviewers.length > 0 ? (
+                  <label className="mt-4 block max-w-sm space-y-1 font-mono text-xs font-bold">
+                    <span>Assign independent reviewer</span>
+                    <select
+                      defaultValue=""
+                      onChange={(event) => {
+                        if (event.target.value) void assignReviewer(item.id, event.target.value);
+                      }}
+                      className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-xs font-normal"
+                    >
+                      <option value="">Select reviewer</option>
+                      {reviewers.map((reviewer) => (
+                        <option key={reviewer.id} value={reviewer.id}>{reviewer.display_name}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <div className="mt-3 space-y-2">
                   {item.participants.map((person) => {
                     const canResendInvite =

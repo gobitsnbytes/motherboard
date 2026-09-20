@@ -28,6 +28,16 @@ class OnboardingCaseCreate(BaseModel):
     reviewer_id: uuid.UUID | None = None
 
 
+class OnboardingReviewerAssign(BaseModel):
+    reviewer_id: uuid.UUID
+
+
+class OnboardingReviewerResponse(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    email: EmailStr | None = None
+
+
 class OnboardingTeammateCreate(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr
@@ -148,6 +158,8 @@ class OnboardingEditorResponse(BaseModel):
     editable: bool
     can_submit: bool
     can_compile: bool = False
+    can_approve: bool = False
+    review_block_reason: str | None = None
 
 
 class OnboardingParticipantResponse(BaseModel):
@@ -204,6 +216,19 @@ class OnboardingPortalResponse(BaseModel):
     field_manifest: dict[str, list[dict]]
 
 
+class OnboardingInviteLink(BaseModel):
+    role: str
+    name: str
+    email: EmailStr
+    portal_url: str
+
+
+class OnboardingTeammateInviteResponse(BaseModel):
+    portal: OnboardingPortalResponse
+    invitees: list[OnboardingInviteLink]
+    email_sent: bool = False
+
+
 class OnboardingDeleteResponse(BaseModel):
     ok: bool = True
     message: str
@@ -216,4 +241,3 @@ class OnboardingRemindResponse(BaseModel):
     reminded_count: int
     reminded: list[str] = Field(default_factory=list)
     email_sent: bool = False
-
