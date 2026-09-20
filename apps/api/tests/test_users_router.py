@@ -114,9 +114,7 @@ async def test_list_members_only_returns_active_discord_users_with_synced_roles(
     assert response.status_code == 200
     members = response.json()
     aero = next(
-        member
-        for member in members
-        if member["discord_id"] == "905658967005495356"
+        member for member in members if member["discord_id"] == "905658967005495356"
     )
     assert aero["display_name"] == "Aero"
     assert aero["email"] == "discord@example.com"
