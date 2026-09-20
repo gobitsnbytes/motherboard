@@ -18,8 +18,10 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import Grant, Group, Permission
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +192,16 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
     {"key": "onboarding.write", "description": "Create onboarding cases and invite participants."},
     {"key": "onboarding.review", "description": "Review onboarding documents and record acceptance decisions."},
     {"key": "onboarding.certificate", "description": "Initiate fork recognition certificates after approval."},
+]
+
+# Baseline IAM policy. Keep onboarding authors and reviewers in separate groups;
+# endpoint-level checks additionally prevent a case creator from reviewing it.
+DEFAULT_GROUP_GRANTS: list[tuple[str, str]] = [
+    ("sg_hq", "onboarding.read"),
+    ("sg_hq", "onboarding.write"),
+    ("sg_executive", "onboarding.read"),
+    ("sg_executive", "onboarding.review"),
+    ("sg_executive", "onboarding.certificate"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -558,6 +570,33 @@ async def seed_core_permissions(session: AsyncSession) -> None:
     logger.info("Seeded %d core permissions.", len(CORE_PERMISSIONS))
 
 
+async def seed_default_group_grants(session: AsyncSession) -> None:
+    """Apply the least-privilege baseline grants, idempotently."""
+    for group_slug, permission_key in DEFAULT_GROUP_GRANTS:
+        group_id = await session.scalar(select(Group.id).where(Group.slug == group_slug))
+        permission_exists = await session.scalar(select(Permission.key).where(Permission.key == permission_key))
+        if group_id is None or permission_exists is None:
+            continue
+        existing = await session.scalar(
+            select(Grant.id).where(
+                Grant.principal_type == "group",
+                Grant.principal_id == group_id,
+                Grant.permission_key == permission_key,
+                Grant.resource_scope.is_(None),
+            )
+        )
+        if existing is None:
+            session.add(
+                Grant(
+                    principal_type="group",
+                    principal_id=group_id,
+                    permission_key=permission_key,
+                )
+            )
+            await session.flush()
+    logger.info("Seeded %d default group grants.", len(DEFAULT_GROUP_GRANTS))
+
+
 async def seed_discord_role_mappings(session: AsyncSession) -> None:
     """Insert Discord role -> group mappings — idempotent on discord_role_id conflict."""
     for discord_role_id, discord_role_name, group_slug, sync_enabled, priority in DISCORD_ROLE_MAPPINGS:
@@ -668,6 +707,7 @@ async def run_seeds(session: AsyncSession) -> None:
     logger.info("Running system configuration seeds…")
     await seed_system_groups(session)
     await seed_core_permissions(session)
+    await seed_default_group_grants(session)
     await seed_discord_role_mappings(session)
     await seed_chart_of_accounts(session)
     seed_okf_rules()
