@@ -1,9 +1,8 @@
 """
 System configuration seeder for bnb-motherboard (bootstrap only).
 
-Seeds contain NO operational data. Forks and team members are pulled live from
-Notion (fork registry + team DB) at startup and via POST /api/sync/notion; user
-identities arrive through Discord OAuth upserts. This module provides:
+Seeds contain NO operational data. People and authority arrive only through
+Discord OAuth and Discord role sync. This module provides:
 
 1. System Groups and Discord Role Mappings
 2. Core permission registry
@@ -152,20 +151,41 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
     {"key": "iam.permissions.write", "description": "Register and manage permissions."},
     {"key": "iam.grants.read", "description": "View permission grants."},
     {"key": "iam.grants.write", "description": "Create, update, and revoke grants."},
-    {"key": "iam.delegations.write", "description": "Delegate permissions to other users."},
-    {"key": "iam.role_mappings.read", "description": "View Discord role -> group mappings."},
-    {"key": "iam.role_mappings.write", "description": "Manage Discord role -> group mappings."},
+    {
+        "key": "iam.delegations.write",
+        "description": "Delegate permissions to other users.",
+    },
+    {
+        "key": "iam.role_mappings.read",
+        "description": "View Discord role -> group mappings.",
+    },
+    {
+        "key": "iam.role_mappings.write",
+        "description": "Manage Discord role -> group mappings.",
+    },
     # Forks
     {"key": "forks.read", "description": "View all city forks and their metadata."},
     {"key": "forks.write", "description": "Create, update, and archive forks."},
     {"key": "forks.members.read", "description": "View fork member lists."},
-    {"key": "forks.members.write", "description": "Add, update, and remove fork members."},
+    {
+        "key": "forks.members.write",
+        "description": "Add, update, and remove fork members.",
+    },
     # Provisioning
-    {"key": "provisioning.sync.trigger", "description": "Manually trigger a Discord member sync."},
-    {"key": "provisioning.sync.read", "description": "View sync run history and status."},
+    {
+        "key": "provisioning.sync.trigger",
+        "description": "Manually trigger a Discord member sync.",
+    },
+    {
+        "key": "provisioning.sync.read",
+        "description": "View sync run history and status.",
+    },
     # Plugins
     {"key": "plugins.read", "description": "View the plugin registry."},
-    {"key": "plugins.write", "description": "Install, enable, disable, and configure plugins."},
+    {
+        "key": "plugins.write",
+        "description": "Install, enable, disable, and configure plugins.",
+    },
     # Audit
     {"key": "audit.read", "description": "Read the audit log."},
     {"key": "audit.export", "description": "Export the audit log."},
@@ -173,25 +193,73 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
     {"key": "admin.settings.read", "description": "View platform-wide settings."},
     {"key": "admin.settings.write", "description": "Change platform-wide settings."},
     # Finance
-    {"key": "finance.accounts.read", "description": "View all virtual accounts and their balances."},
-    {"key": "finance.accounts.create", "description": "Create new virtual accounts and assign owners."},
-    {"key": "finance.accounts.manage", "description": "Edit, deactivate, and adjust balances on virtual accounts."},
-    {"key": "finance.cards.read", "description": "View virtual cards across all accounts."},
-    {"key": "finance.cards.create", "description": "Issue virtual cards for an account."},
-    {"key": "finance.cards.manage", "description": "Deactivate or edit any virtual card."},
+    {
+        "key": "finance.accounts.read",
+        "description": "View all virtual accounts and their balances.",
+    },
+    {
+        "key": "finance.accounts.create",
+        "description": "Create new virtual accounts and assign owners.",
+    },
+    {
+        "key": "finance.accounts.manage",
+        "description": "Edit, deactivate, and adjust balances on virtual accounts.",
+    },
+    {
+        "key": "finance.cards.read",
+        "description": "View virtual cards across all accounts.",
+    },
+    {
+        "key": "finance.cards.create",
+        "description": "Issue virtual cards for an account.",
+    },
+    {
+        "key": "finance.cards.manage",
+        "description": "Deactivate or edit any virtual card.",
+    },
     {"key": "finance.requests.read", "description": "View all money requests."},
-    {"key": "finance.requests.create", "description": "Submit a money request from pool or another account."},
-    {"key": "finance.requests.approve", "description": "Approve or reject pending money requests."},
-    {"key": "finance.admin", "description": "Full finance admin access — supersedes all individual finance permissions."},
+    {
+        "key": "finance.requests.create",
+        "description": "Submit a money request from pool or another account.",
+    },
+    {
+        "key": "finance.requests.approve",
+        "description": "Approve or reject pending money requests.",
+    },
+    {
+        "key": "finance.admin",
+        "description": "Full finance admin access — supersedes all individual finance permissions.",
+    },
     # Meetings
-    {"key": "meetings.read", "description": "View scheduled meetings, transcripts, and preferences."},
-    {"key": "meetings.write", "description": "Schedule, reschedule, start, stop, and configure meetings."},
+    {
+        "key": "meetings.read",
+        "description": "View scheduled meetings, transcripts, and preferences.",
+    },
+    {
+        "key": "meetings.write",
+        "description": "Schedule, reschedule, start, stop, and configure meetings.",
+    },
     # Signatures
-    {"key": "signatures.countersign", "description": "Execute organizational counter-signatures as legal@gobitsnbytes.org (Authority Matrix delegation required)."},
-    {"key": "onboarding.read", "description": "View onboarding cases and their document status."},
-    {"key": "onboarding.write", "description": "Create onboarding cases and invite participants."},
-    {"key": "onboarding.review", "description": "Review onboarding documents and record acceptance decisions."},
-    {"key": "onboarding.certificate", "description": "Initiate fork recognition certificates after approval."},
+    {
+        "key": "signatures.countersign",
+        "description": "Execute organizational counter-signatures as legal@gobitsnbytes.org (Authority Matrix delegation required).",
+    },
+    {
+        "key": "onboarding.read",
+        "description": "View onboarding cases and their document status.",
+    },
+    {
+        "key": "onboarding.write",
+        "description": "Create onboarding cases and invite participants.",
+    },
+    {
+        "key": "onboarding.review",
+        "description": "Review onboarding documents and record acceptance decisions.",
+    },
+    {
+        "key": "onboarding.certificate",
+        "description": "Initiate fork recognition certificates after approval.",
+    },
 ]
 
 # Baseline IAM policy. Keep onboarding authors and reviewers in separate groups;
@@ -527,6 +595,7 @@ OKF_LEGAL_RULES: list[dict[str, Any]] = [
 # Seeding Functions
 # ---------------------------------------------------------------------------
 
+
 async def seed_system_groups(session: AsyncSession) -> None:
     """Insert system groups — idempotent on slug conflict."""
     for g in SYSTEM_GROUPS:
@@ -573,8 +642,12 @@ async def seed_core_permissions(session: AsyncSession) -> None:
 async def seed_default_group_grants(session: AsyncSession) -> None:
     """Apply the least-privilege baseline grants, idempotently."""
     for group_slug, permission_key in DEFAULT_GROUP_GRANTS:
-        group_id = await session.scalar(select(Group.id).where(Group.slug == group_slug))
-        permission_exists = await session.scalar(select(Permission.key).where(Permission.key == permission_key))
+        group_id = await session.scalar(
+            select(Group.id).where(Group.slug == group_slug)
+        )
+        permission_exists = await session.scalar(
+            select(Permission.key).where(Permission.key == permission_key)
+        )
         if group_id is None or permission_exists is None:
             continue
         existing = await session.scalar(
@@ -599,7 +672,13 @@ async def seed_default_group_grants(session: AsyncSession) -> None:
 
 async def seed_discord_role_mappings(session: AsyncSession) -> None:
     """Insert Discord role -> group mappings — idempotent on discord_role_id conflict."""
-    for discord_role_id, discord_role_name, group_slug, sync_enabled, priority in DISCORD_ROLE_MAPPINGS:
+    for (
+        discord_role_id,
+        discord_role_name,
+        group_slug,
+        sync_enabled,
+        priority,
+    ) in DISCORD_ROLE_MAPPINGS:
         await session.execute(
             text(
                 """
@@ -632,10 +711,16 @@ async def seed_discord_role_mappings(session: AsyncSession) -> None:
 async def seed_chart_of_accounts(session: AsyncSession) -> None:
     """Insert Section 8 Chart of Accounts into virtual_accounts."""
     # Find an owner user ID (CEO or super admin)
-    res = await session.execute(text("SELECT id FROM users ORDER BY is_super_admin DESC, created_at ASC LIMIT 1"))
+    res = await session.execute(
+        text(
+            "SELECT id FROM users ORDER BY is_super_admin DESC, created_at ASC LIMIT 1"
+        )
+    )
     owner_row = res.fetchone()
     if not owner_row:
-        logger.warning("No user found to assign as virtual account owner. Skipping chart of accounts seed.")
+        logger.warning(
+            "No user found to assign as virtual account owner. Skipping chart of accounts seed."
+        )
         return
     owner_id = owner_row[0]
 
@@ -665,11 +750,21 @@ async def seed_chart_of_accounts(session: AsyncSession) -> None:
 
 def seed_okf_rules() -> None:
     """Write 35 OKF Legal Rules to data/company-knowledge/legal/rules/ and refresh store."""
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
-    repo_rules_dir = os.path.join(base_dir, "data", "company-knowledge", "legal", "rules")
-    cwd_rules_dir = os.path.join(os.getcwd(), "data", "company-knowledge", "legal", "rules")
+    base_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    )
+    repo_rules_dir = os.path.join(
+        base_dir, "data", "company-knowledge", "legal", "rules"
+    )
+    cwd_rules_dir = os.path.join(
+        os.getcwd(), "data", "company-knowledge", "legal", "rules"
+    )
 
-    rules_dir = repo_rules_dir if os.path.exists(os.path.dirname(repo_rules_dir)) else cwd_rules_dir
+    rules_dir = (
+        repo_rules_dir
+        if os.path.exists(os.path.dirname(repo_rules_dir))
+        else cwd_rules_dir
+    )
     os.makedirs(rules_dir, exist_ok=True)
 
     for rule in OKF_LEGAL_RULES:
@@ -694,6 +789,7 @@ timestamp: 2026-08-04T00:00:00Z
     # Refresh OKF Knowledge Store in memory if initialized
     try:
         from app.services.okf_engine import get_okf_store
+
         store = get_okf_store()
         store.load_bundle()
     except Exception as err:
@@ -702,8 +798,7 @@ timestamp: 2026-08-04T00:00:00Z
 
 async def run_seeds(session: AsyncSession) -> None:
     """Seed system configuration only (groups, permissions, role mappings,
-    chart-of-accounts structure, OKF rules). Operational data (forks, team)
-    is pulled live from Notion via app.provisioning.notion_sync — never seeded."""
+    chart-of-accounts structure, OKF rules). People are never seeded."""
     logger.info("Running system configuration seeds…")
     await seed_system_groups(session)
     await seed_core_permissions(session)

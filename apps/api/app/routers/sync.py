@@ -65,11 +65,15 @@ async def get_sync_run(
     await require_permission(db, current_user, "provisioning.sync.read")
     run = await db.get(SyncRun, run_id)
     if not run:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sync run not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Sync run not found."
+        )
     return run
 
 
-@router.post("/trigger", response_model=SyncRunOut, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/trigger", response_model=SyncRunOut, status_code=status.HTTP_202_ACCEPTED
+)
 async def trigger_sync(
     db: DbDep,
     current_user: CurrentUserDep,
@@ -106,19 +110,3 @@ async def trigger_sync(
     )
 
     return run
-
-
-@router.post("/notion")
-async def trigger_notion_sync(
-    db: DbDep,
-    current_user: CurrentUserDep,
-):
-    """
-    Synchronize real forks and team members from Notion databases into motherboard.
-    Forks sync from the Fork Registry; team members sync when NOTION_TEAM_DB is configured.
-    """
-    await require_permission(db, current_user, "provisioning.sync.trigger")
-    from app.provisioning.notion_sync import sync_forks_from_notion, sync_team_from_notion
-    fork_result = await sync_forks_from_notion(db)
-    team_result = await sync_team_from_notion(db)
-    return {"forks": fork_result, "team": team_result}

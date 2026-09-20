@@ -1,7 +1,7 @@
 """
 Database seeder wrapper — re-exports seeding logic from app.db.seed.
-Operational data (forks, team) is intentionally NOT seeded; it is pulled
-live from Notion via app.provisioning.notion_sync.
+People are intentionally never seeded. Discord OAuth and role sync are the
+only identity and authority source.
 """
 
 from app.db.seed import (

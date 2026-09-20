@@ -67,28 +67,15 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         async with session_factory() as session:
             await run_seeds(session)
 
-        # Pull live operational data from Notion (forks + team). Best-effort:
-        # skipped when NOTION_TOKEN/NOTION_TEAM_DB are not configured.
-        try:
-            from app.provisioning.notion_sync import sync_forks_from_notion, sync_team_from_notion
-
-            async with session_factory() as session:
-                fork_sync = await sync_forks_from_notion(session)
-                team_sync = await sync_team_from_notion(session)
-            logger.info(
-                "Startup Notion sync: forks=%s (%s), team=%s (%s)",
-                fork_sync.get("status"),
-                fork_sync.get("synced_count", 0),
-                team_sync.get("status"),
-                team_sync.get("synced_count", 0),
-            )
-        except Exception as notion_err:
-            logger.warning("Startup Notion sync failed (non-fatal): %s", notion_err)
     except Exception as db_err:
-        logger.warning("Primary DB migration/seed failed (%s). Initializing local SQLite engine fallback...", db_err)
+        logger.warning(
+            "Primary DB migration/seed failed (%s). Initializing local SQLite engine fallback...",
+            db_err,
+        )
         try:
             from app.database import get_sqlite_engine, clear_db_cache
             from app.db.models import Base
+
             sqlite_engine = get_sqlite_engine()
             async with sqlite_engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -97,7 +84,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             session_factory = get_sessionmaker()
             async with session_factory() as session:
                 await run_seeds(session)
-            logger.info("Local SQLite database fallback initialized & seeded successfully.")
+            logger.info(
+                "Local SQLite database fallback initialized & seeded successfully."
+            )
         except Exception as sqlite_err:
             logger.error("Failed to initialize SQLite fallback: %s", sqlite_err)
 
@@ -110,6 +99,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Initialize and run dynamic PluginLoader
     try:
         from app.plugin_sdk.loader import PluginLoader
+
         plugin_loader = PluginLoader(application, session_factory)
         application.state.plugin_loader = plugin_loader
         await plugin_loader.discover_and_load()
@@ -119,6 +109,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Start periodic Discord sync scheduler if enabled
     if settings.enable_sync_scheduler:
         from app.provisioning.scheduler import start_scheduler
+
         await start_scheduler(
             interval_minutes=settings.sync_interval_minutes,
             guild_id=settings.discord_guild_id,
@@ -128,15 +119,19 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Start Legal Agent jobs (inbox poller + signature nudge sequencer)
     try:
         from app.services.legal_agent import start_legal_agent_jobs
+
         await start_legal_agent_jobs()
     except Exception as legal_agent_err:
         logger.warning(f"Legal Agent scheduler startup skipped: {legal_agent_err}")
 
     try:
         from app.routers.forms import start_form_cleanup
+
         await start_form_cleanup()
     except Exception as form_cleanup_err:
-        logger.warning(f"Public form upload cleanup scheduler skipped: {form_cleanup_err}")
+        logger.warning(
+            f"Public form upload cleanup scheduler skipped: {form_cleanup_err}"
+        )
 
     async def _calendar_reconciliation_loop() -> None:
         from app.services.calendar_routing import reconcile_unknown_bookings
@@ -151,7 +146,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             except asyncio.CancelledError:
                 raise
             except Exception as reconciliation_err:
-                logger.warning("Cal.com reconciliation failed (non-fatal): %s", reconciliation_err)
+                logger.warning(
+                    "Cal.com reconciliation failed (non-fatal): %s", reconciliation_err
+                )
 
     global _calendar_reconciliation_task
     _calendar_reconciliation_task = asyncio.create_task(_calendar_reconciliation_loop())
@@ -163,16 +160,21 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Stop sync scheduler if enabled
     if settings.enable_sync_scheduler:
         from app.provisioning.scheduler import stop_scheduler
+
         await stop_scheduler()
 
     # Stop Legal Agent scheduler
     try:
         from app.services.legal_agent import stop_legal_agent_jobs
+
         await stop_legal_agent_jobs()
     except Exception as legal_agent_stop_err:
-        logger.warning(f"Legal Agent scheduler shutdown skipped: {legal_agent_stop_err}")
+        logger.warning(
+            f"Legal Agent scheduler shutdown skipped: {legal_agent_stop_err}"
+        )
 
     from app.routers.forms import stop_form_cleanup
+
     await stop_form_cleanup()
 
     if _calendar_reconciliation_task:
@@ -193,7 +195,6 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     # Dispose the engine connection pool
     await get_engine().dispose()
     logger.info("bnb-api shut down cleanly.")
-
 
 
 def create_app() -> FastAPI:
@@ -219,7 +220,28 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    from app.routers import auth, health, users, groups, forks, audit, sync, plugins, finance, iam, admin, meetings, calendar, dyslexic, cloud, signatures, contract_assistant, forms, onboarding
+    from app.routers import (
+        auth,
+        health,
+        users,
+        groups,
+        forks,
+        audit,
+        sync,
+        plugins,
+        finance,
+        iam,
+        admin,
+        meetings,
+        calendar,
+        dyslexic,
+        cloud,
+        signatures,
+        contract_assistant,
+        forms,
+        onboarding,
+    )
+
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(users.router)
@@ -239,7 +261,6 @@ def create_app() -> FastAPI:
     application.include_router(contract_assistant.router)
     application.include_router(forms.router)
     application.include_router(onboarding.router)
-
 
     return application
 
