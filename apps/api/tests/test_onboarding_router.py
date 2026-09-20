@@ -1,7 +1,13 @@
 from sqlalchemy import select
 
 from app.config import get_settings
-from app.db.models import AuditLog, OnboardingCase, OnboardingDocument, OnboardingParticipant, User
+from app.db.models import (
+    AuditLog,
+    OnboardingCase,
+    OnboardingDocument,
+    OnboardingParticipant,
+    User,
+)
 from conftest import request_as
 
 
@@ -165,25 +171,37 @@ async def test_fork_lead_invites_minor_teammate_with_separate_guardian_packet(
         "date_of_birth": "2010-08-02",
         "parent": {"name": "Guardian Example", "email": "guardian@example.com"},
     }
-    blocked = await client.post(f"/api/onboarding/public/{token}/teammates", json=invite_payload)
+    blocked = await client.post(
+        f"/api/onboarding/public/{token}/teammates", json=invite_payload
+    )
     assert blocked.status_code == 403
 
     lead = (
         await db_session.execute(
-            select(OnboardingParticipant).where(OnboardingParticipant.email == "lead@example.com")
+            select(OnboardingParticipant).where(
+                OnboardingParticipant.email == "lead@example.com"
+            )
         )
     ).scalar_one()
     documents = (
-        await db_session.execute(
-            select(OnboardingDocument).where(OnboardingDocument.participant_id == lead.id)
+        (
+            await db_session.execute(
+                select(OnboardingDocument).where(
+                    OnboardingDocument.participant_id == lead.id
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for document in documents:
         document.status = "review_requested"
     lead.status = "under_review"
     await db_session.commit()
 
-    invited = await client.post(f"/api/onboarding/public/{token}/teammates", json=invite_payload)
+    invited = await client.post(
+        f"/api/onboarding/public/{token}/teammates", json=invite_payload
+    )
     assert invited.status_code == 201, invited.text
     body = invited.json()
     assert body["email_sent"] is False
@@ -191,12 +209,16 @@ async def test_fork_lead_invites_minor_teammate_with_separate_guardian_packet(
 
     guardian = (
         await db_session.execute(
-            select(OnboardingParticipant).where(OnboardingParticipant.email == "guardian@example.com")
+            select(OnboardingParticipant).where(
+                OnboardingParticipant.email == "guardian@example.com"
+            )
         )
     ).scalar_one()
     guardian_document = (
         await db_session.execute(
-            select(OnboardingDocument).where(OnboardingDocument.participant_id == guardian.id)
+            select(OnboardingDocument).where(
+                OnboardingDocument.participant_id == guardian.id
+            )
         )
     ).scalar_one()
     assert guardian_document.template_filename == "2_Parents_Consent_.docx"
