@@ -143,7 +143,10 @@ async def _require_reviewer(db: DbSession, user_id: uuid.UUID) -> User:
     if not reviewer or not reviewer.is_active:
         raise HTTPException(status_code=404, detail="Assigned reviewer not found")
     linked = await db.scalar(
-        select(DiscordAccount.id).where(DiscordAccount.user_id == user_id)
+        select(DiscordAccount.id).where(
+            DiscordAccount.user_id == user_id,
+            DiscordAccount.last_synced_at.is_not(None),
+        )
     )
     principal = await resolve_principal(db, user_id)
     reviewer_group_ids = set(
@@ -630,7 +633,10 @@ async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep)
         await db.execute(
             select(User, DiscordAccount)
             .join(DiscordAccount, DiscordAccount.user_id == User.id)
-            .where(User.is_active.is_(True))
+            .where(
+                User.is_active.is_(True),
+                DiscordAccount.last_synced_at.is_not(None),
+            )
             .order_by(User.display_name)
         )
     ).all()

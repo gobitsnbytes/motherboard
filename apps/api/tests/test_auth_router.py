@@ -66,7 +66,9 @@ async def test_upsert_discord_identity_creates_and_updates_user(
     assert account.access_token == "new-oauth-token"
 
 
-async def test_upsert_does_not_reconcile_unlinked_user_by_email(db_session: AsyncSession, client):
+async def test_upsert_does_not_reconcile_unlinked_user_by_email(
+    db_session: AsyncSession, client
+):
     seeded = User(
         display_name="Yash Singh",
         email="yash@gobitsnbytes.org",

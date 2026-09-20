@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 
 from app.config import get_settings
@@ -69,14 +71,20 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
                 user_id=super_admin.id,
                 discord_id="123456789012345670",
                 username="casecreator",
+                last_synced_at=datetime.now(timezone.utc),
             ),
             DiscordAccount(
                 user_id=reviewer.id,
                 discord_id="123456789012345671",
                 username="reviewer",
+                last_synced_at=datetime.now(timezone.utc),
             ),
-            Membership(user_id=super_admin.id, group_id=executive.id, source="discord_sync"),
-            Membership(user_id=reviewer.id, group_id=executive.id, source="discord_sync"),
+            Membership(
+                user_id=super_admin.id, group_id=executive.id, source="discord_sync"
+            ),
+            Membership(
+                user_id=reviewer.id, group_id=executive.id, source="discord_sync"
+            ),
         ]
     )
     db_session.add(
@@ -134,6 +142,8 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
     )
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["reviews"][0]["decision"] == "changes_requested"
+
+
 async def test_reviewer_list_requires_permission_and_discord_link(
     super_admin, db_session, client
 ):
@@ -163,13 +173,17 @@ async def test_reviewer_list_requires_permission_and_discord_link(
                 user_id=clushed.id,
                 discord_id="123456789012345678",
                 username="wellitsclushed",
+                last_synced_at=datetime.now(timezone.utc),
             ),
             DiscordAccount(
                 user_id=aero.id,
                 discord_id="223456789012345678",
                 username="a3rodev",
+                last_synced_at=datetime.now(timezone.utc),
             ),
-            Membership(user_id=clushed.id, group_id=executive.id, source="discord_sync"),
+            Membership(
+                user_id=clushed.id, group_id=executive.id, source="discord_sync"
+            ),
             Membership(user_id=aero.id, group_id=executive.id, source="discord_sync"),
         ]
     )
