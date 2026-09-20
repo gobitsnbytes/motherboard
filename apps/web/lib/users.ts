@@ -9,3 +9,13 @@ export async function getUsers() {
 
   return response.json();
 }
+
+export async function getMembers() {
+  const response = await fetch("/api/users/members");
+
+  if (!response.ok) {
+    throw new Error("Failed to load members");
+  }
+
+  return response.json();
+}

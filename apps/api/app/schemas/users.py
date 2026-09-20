@@ -43,3 +43,22 @@ class UserOut(UserBase):
     profile_completed: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+class MemberRoleOut(BaseModel):
+    slug: str
+    name: str
+    color_hex: str | None = None
+
+
+class MemberDirectoryOut(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    email: EmailStr | None
+    title: str | None
+    avatar_url: str | None
+    discord_id: str
+    discord_username: str
+    last_synced_at: datetime | None
+    roles: list[MemberRoleOut]
+    created_at: datetime

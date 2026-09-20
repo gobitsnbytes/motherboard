@@ -1,8 +1,9 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import User
+from app.db.models import DiscordAccount, Group, Membership, User
 from conftest import request_as
 
 
@@ -67,6 +68,62 @@ async def test_list_users(db_session: AsyncSession, super_admin: User, client):
     display_names = [u["display_name"] for u in data]
     assert "User One" in display_names
     assert "User Two" in display_names
+
+
+async def test_list_members_only_returns_active_discord_users_with_synced_roles(
+    db_session: AsyncSession, super_admin: User, client
+):
+    linked = User(display_name="Aero", email="discord@example.com", title="Lead")
+    unlinked = User(display_name="Manual Record", email="manual@example.com")
+    inactive = User(display_name="Inactive Discord", is_active=False)
+    db_session.add_all([linked, unlinked, inactive])
+    await db_session.flush()
+    leadership = Group(slug="leadership", name="Executive Leadership")
+    manual_group = Group(slug="manual", name="Manual Group")
+    db_session.add_all([leadership, manual_group])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            DiscordAccount(
+                user_id=linked.id,
+                discord_id="905658967005495356",
+                username="a3rodev",
+            ),
+            DiscordAccount(
+                user_id=inactive.id,
+                discord_id="905658967005495357",
+                username="inactive",
+            ),
+            Membership(
+                user_id=linked.id,
+                group_id=leadership.id,
+                source="discord_sync",
+                expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+            ),
+            Membership(
+                user_id=linked.id,
+                group_id=manual_group.id,
+                source="manual",
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await request_as(client, super_admin.id, "GET", "/api/users/members")
+
+    assert response.status_code == 200
+    members = response.json()
+    aero = next(
+        member
+        for member in members
+        if member["discord_id"] == "905658967005495356"
+    )
+    assert aero["display_name"] == "Aero"
+    assert aero["email"] == "discord@example.com"
+    assert aero["discord_username"] == "a3rodev"
+    assert [role["slug"] for role in aero["roles"]] == ["leadership"]
+    assert all(member["display_name"] != "Manual Record" for member in members)
+    assert all(member["display_name"] != "Inactive Discord" for member in members)
 
 
 async def test_get_user_by_id(db_session: AsyncSession, super_admin: User, client):
