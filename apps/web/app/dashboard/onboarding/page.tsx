@@ -29,7 +29,14 @@ type CaseRow = {
   documents: Array<{ id: string; status: string; document_key: string }>;
   participants: ParticipantRow[];
 };
-type Reviewer = { id: string; display_name: string; email?: string | null };
+type Reviewer = {
+  id: string;
+  display_name: string;
+  email?: string | null;
+  avatar_url?: string | null;
+  title?: string | null;
+  discord_username: string;
+};
 
 function apiErrorMessage(detail: unknown, fallback: string): string {
   if (typeof detail === "string") return detail;
@@ -426,13 +433,15 @@ export default function OnboardingDashboardPage() {
               <option value="">Select a reviewer</option>
               {reviewers.map((reviewer) => (
                 <option key={reviewer.id} value={reviewer.id}>
-                  {reviewer.display_name}{reviewer.email ? ` — ${reviewer.email}` : ""}
+                  {reviewer.display_name} (@{reviewer.discord_username})
+                  {reviewer.title ? ` — ${reviewer.title}` : ""}
+                  {reviewer.email ? ` — ${reviewer.email}` : ""}
                 </option>
               ))}
             </select>
             {reviewers.length === 0 ? (
               <span className="block text-amber-800">
-                No other active user currently has onboarding.review permission.
+                No Discord-linked user currently has onboarding.review permission.
               </span>
             ) : null}
           </label>
@@ -503,7 +512,9 @@ export default function OnboardingDashboardPage() {
                     >
                       <option value="">Select reviewer</option>
                       {reviewers.map((reviewer) => (
-                        <option key={reviewer.id} value={reviewer.id}>{reviewer.display_name}</option>
+                        <option key={reviewer.id} value={reviewer.id}>
+                          {reviewer.display_name} (@{reviewer.discord_username})
+                        </option>
                       ))}
                     </select>
                   </label>

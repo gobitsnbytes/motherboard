@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.db.models import (
     DiscordAccount,
     Fork,
+    Group,
     OnboardingCase,
     OnboardingDocument,
     OnboardingDocumentRevision,
@@ -90,13 +91,6 @@ from app.services.semantic_ooxml import (
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
-REVIEWER_IDENTITY_ALIASES = {
-    "yashsinghv2770@gmail.com": "yash@gobitsnbytes.org",
-    "yash@gobitsnbytes.org": "yash@gobitsnbytes.org",
-    "akshatsingh14372@outlook.com": "akshat@gobitsnbytes.org",
-    "akshat@gobitsnbytes.org": "akshat@gobitsnbytes.org",
-}
-
 PARTICIPANT_EDITABLE_STATUSES = {"awaiting_completion", "draft", "changes_requested"}
 
 
@@ -142,6 +136,36 @@ async def _load_case(db: DbSession, case_id: uuid.UUID) -> OnboardingCase:
     if not case:
         raise HTTPException(status_code=404, detail="Onboarding case not found")
     return case
+
+
+async def _require_reviewer(db: DbSession, user_id: uuid.UUID) -> User:
+    reviewer = await db.get(User, user_id)
+    if not reviewer or not reviewer.is_active:
+        raise HTTPException(status_code=404, detail="Assigned reviewer not found")
+    linked = await db.scalar(
+        select(DiscordAccount.id).where(DiscordAccount.user_id == user_id)
+    )
+    principal = await resolve_principal(db, user_id)
+    reviewer_group_ids = set(
+        (
+            await db.execute(
+                select(Group.id).where(
+                    Group.slug.in_(("sg_executive", "sg_department_lead"))
+                )
+            )
+        ).scalars()
+    )
+    explicit_principal = principal.model_copy(update={"is_super_admin": False})
+    if (
+        not linked
+        or reviewer_group_ids.isdisjoint(principal.group_ids)
+        or not await can(db, explicit_principal, "onboarding.review")
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Reviewer must be a Discord-linked Executive Leadership or Department Lead member with onboarding review permission",
+        )
+    return reviewer
 
 
 async def _sync_signature_states(db: DbSession, case: OnboardingCase) -> None:
@@ -454,15 +478,7 @@ async def create_case(
     if payload.fork_id and not await db.get(Fork, payload.fork_id):
         raise HTTPException(status_code=404, detail="Fork not found")
     if payload.reviewer_id:
-        if payload.reviewer_id == current_user.user_id:
-            raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
-        reviewer = await db.get(User, payload.reviewer_id)
-        if not reviewer or not reviewer.is_active:
-            raise HTTPException(status_code=404, detail="Assigned reviewer not found")
-        reviewer_principal = await resolve_principal(db, reviewer.id)
-        explicit_reviewer = reviewer_principal.model_copy(update={"is_super_admin": False})
-        if not await can(db, explicit_reviewer, "onboarding.review"):
-            raise HTTPException(status_code=422, detail="The assigned user does not have onboarding review permission")
+        await _require_reviewer(db, payload.reviewer_id)
 
     case = OnboardingCase(
         kind=payload.kind,
@@ -599,47 +615,41 @@ async def list_cases(db: DbSession, current_user: CurrentUserDep) -> list[Onboar
 
 @router.get("/reviewers", response_model=list[OnboardingReviewerResponse])
 async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep) -> list[OnboardingReviewerResponse]:
-    """Return canonical active users with an explicit onboarding review grant."""
+    """Return Discord-linked users whose synced IAM principal can review onboarding."""
     await require_permission(db, current_user, "onboarding.write")
-    users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))).scalars().all()
-    linked_user_ids = set((await db.execute(select(DiscordAccount.user_id))).scalars().all())
-    reviewers_by_identity: dict[str, list[tuple[bool, User]]] = {}
-    for user in users:
-        if user.id == current_user.user_id:
-            continue
+    reviewer_group_ids = set(
+        (
+            await db.execute(
+                select(Group.id).where(
+                    Group.slug.in_(("sg_executive", "sg_department_lead"))
+                )
+            )
+        ).scalars()
+    )
+    rows = (
+        await db.execute(
+            select(User, DiscordAccount)
+            .join(DiscordAccount, DiscordAccount.user_id == User.id)
+            .where(User.is_active.is_(True))
+            .order_by(User.display_name)
+        )
+    ).all()
+    reviewers: list[OnboardingReviewerResponse] = []
+    for user, discord_account in rows:
         principal = await resolve_principal(db, user.id)
+        if reviewer_group_ids.isdisjoint(principal.group_ids):
+            continue
         explicit_principal = principal.model_copy(update={"is_super_admin": False})
         if not await can(db, explicit_principal, "onboarding.review"):
             continue
-        normalized_email = user.email.strip().casefold() if user.email else None
-        identity_key = REVIEWER_IDENTITY_ALIASES.get(
-            normalized_email or "",
-            normalized_email or f"user:{user.id}",
-        )
-        reviewers_by_identity.setdefault(identity_key, []).append(
-            (user.id in linked_user_ids, user)
-        )
-
-    reviewers: list[OnboardingReviewerResponse] = []
-    for candidates in reviewers_by_identity.values():
-        assignment_user = max(
-            candidates,
-            key=lambda candidate: (
-                candidate[0],
-                bool(candidate[1].email and candidate[1].email.casefold().endswith("@gobitsnbytes.org")),
-            ),
-        )[1]
-        presentation_user = max(
-            candidates,
-            key=lambda candidate: bool(
-                candidate[1].email and candidate[1].email.casefold().endswith("@gobitsnbytes.org")
-            ),
-        )[1]
         reviewers.append(
             OnboardingReviewerResponse(
-                id=assignment_user.id,
-                display_name=presentation_user.display_name,
-                email=presentation_user.email,
+                id=user.id,
+                display_name=user.display_name,
+                email=user.email,
+                avatar_url=user.avatar_url,
+                title=user.title,
+                discord_username=discord_account.username,
             )
         )
     return sorted(
@@ -652,15 +662,7 @@ async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep)
 async def assign_onboarding_reviewer(case_id: uuid.UUID, payload: OnboardingReviewerAssign, db: DbSession, current_user: CurrentUserDep) -> OnboardingCaseResponse:
     await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
-    if payload.reviewer_id == case.created_by:
-        raise HTTPException(status_code=422, detail="The case creator cannot be the assigned reviewer")
-    reviewer = await db.get(User, payload.reviewer_id)
-    if not reviewer or not reviewer.is_active:
-        raise HTTPException(status_code=404, detail="Assigned reviewer not found")
-    reviewer_principal = await resolve_principal(db, reviewer.id)
-    explicit_reviewer = reviewer_principal.model_copy(update={"is_super_admin": False})
-    if not await can(db, explicit_reviewer, "onboarding.review"):
-        raise HTTPException(status_code=422, detail="The assigned user does not have onboarding review permission")
+    reviewer = await _require_reviewer(db, payload.reviewer_id)
     case.reviewer_id = reviewer.id
     await write_audit_entry(db, current_user.user_id, "onboarding.reviewer_assigned", "onboarding_case", str(case.id), {"reviewer_id": str(reviewer.id)})
     await db.commit()
@@ -1291,11 +1293,9 @@ async def get_staff_document_editor(case_id: uuid.UUID, document_id: uuid.UUID, 
     await db.refresh(document)
     await _ensure_initial_revision(db, document)
     sections = await run_in_threadpool(document_blocks, template_root() / document.template_filename, document.document_key)
-    can_approve = document.case.created_by != current_user.user_id and document.case.reviewer_id == current_user.user_id
+    can_approve = document.case.reviewer_id == current_user.user_id
     review_block_reason = None
-    if document.case.created_by == current_user.user_id:
-        review_block_reason = "You created this case. An independent assigned reviewer must approve it."
-    elif document.case.reviewer_id is None:
+    if document.case.reviewer_id is None:
         review_block_reason = "Assign an independent reviewer before approval."
     elif document.case.reviewer_id != current_user.user_id:
         review_block_reason = "Only the assigned reviewer can approve this case."
@@ -1392,8 +1392,6 @@ async def request_document_changes(case_id: uuid.UUID, document_id: uuid.UUID, p
     document = await _load_document_for_editor(db, document_id)
     if document.case_id != case_id:
         raise HTTPException(status_code=404, detail="Onboarding document not found")
-    if document.case.created_by == current_user.user_id:
-        raise HTTPException(status_code=403, detail="The case creator cannot decide their own onboarding case")
     if document.case.reviewer_id is None:
         raise HTTPException(status_code=409, detail="Assign an independent reviewer before making a review decision")
     if document.case.reviewer_id != current_user.user_id:
@@ -1434,8 +1432,6 @@ async def approve_document_review(case_id: uuid.UUID, document_id: uuid.UUID, db
     document = await _load_document_for_editor(db, document_id)
     if document.case_id != case_id:
         raise HTTPException(status_code=404, detail="Onboarding document not found")
-    if document.case.created_by == current_user.user_id:
-        raise HTTPException(status_code=403, detail="The case creator cannot approve their own onboarding case")
     if document.case.reviewer_id is None:
         raise HTTPException(status_code=409, detail="Assign an independent reviewer before approval")
     if document.case.reviewer_id != current_user.user_id:
@@ -1526,8 +1522,6 @@ async def review_case(case_id: uuid.UUID, payload: OnboardingReviewCreate, db: D
     await require_permission(db, current_user, "onboarding.review")
     case = await _load_case(db, case_id)
     await _sync_signature_states(db, case)
-    if case.created_by == current_user.user_id:
-        raise HTTPException(status_code=403, detail="The case creator cannot review or approve their own case")
     if payload.document_id and not any(document.id == payload.document_id for document in case.documents):
         raise HTTPException(status_code=404, detail="Document is not part of this case")
     if case.reviewer_id and case.reviewer_id != current_user.user_id:

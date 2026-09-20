@@ -66,9 +66,7 @@ async def test_upsert_discord_identity_creates_and_updates_user(
     assert account.access_token == "new-oauth-token"
 
 
-async def test_upsert_reconciles_seeded_user_by_email(db_session: AsyncSession, client):
-    """A bootstrap-seeded user (placeholder Discord ID) must adopt the real Discord
-    identity on first login, preserving the existing user row (groups/grants intact)."""
+async def test_upsert_does_not_reconcile_unlinked_user_by_email(db_session: AsyncSession, client):
     seeded = User(
         display_name="Yash Singh",
         email="yash@gobitsnbytes.org",
@@ -89,19 +87,17 @@ async def test_upsert_reconciles_seeded_user_by_email(db_session: AsyncSession, 
     response = await client.post("/api/auth/upsert", json=payload, headers=headers)
 
     assert response.status_code == 200
-    assert uuid.UUID(response.json()["user_id"]) == seeded.id
-
-    await db_session.refresh(seeded)
-    assert seeded.display_name == "Yash Singh"
+    linked_user_id = uuid.UUID(response.json()["user_id"])
+    assert linked_user_id != seeded.id
 
     result = await db_session.execute(
         select(DiscordAccount).where(DiscordAccount.discord_id == "999888777666555444")
     )
     account = result.scalar_one()
-    assert account.user_id == seeded.id
+    assert account.user_id == linked_user_id
 
-    # No duplicate user row may be created for the same email.
+    # An unlinked profile is never treated as the Discord principal.
     result = await db_session.execute(
         select(User).where(func.lower(User.email) == "yash@gobitsnbytes.org")
     )
-    assert len(result.scalars().all()) == 1
+    assert len(result.scalars().all()) == 2

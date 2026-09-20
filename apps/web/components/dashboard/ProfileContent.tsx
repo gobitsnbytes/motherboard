@@ -63,6 +63,7 @@ export function ProfileContent() {
 
     const payload = {
       display_name: form.display_name,
+      email: form.email,
       title: form.title,
       bio: form.bio,
       timezone: form.timezone,
@@ -157,6 +158,18 @@ export function ProfileContent() {
                 id="display_name"
                 value={form.display_name}
                 onChange={(e) => setForm((prev) => ({ ...prev, display_name: e.target.value }))}
+                required
+                className="bg-background border-2 border-border text-foreground text-xs font-mono shadow-light"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-mono font-bold uppercase text-muted-foreground">Contact Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
                 required
                 className="bg-background border-2 border-border text-foreground text-xs font-mono shadow-light"
               />

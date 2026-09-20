@@ -58,31 +58,16 @@ async def upsert_discord_identity(
                 detail="Discord account is linked to a missing user",
             )
     else:
-        # Identity reconciliation: match an existing user by verified email so
-        # bootstrap-seeded profiles (placeholder Discord IDs) converge with the
-        # real Discord identity on first login, preserving groups and grants.
-        payload_email = (payload.email or "").strip().lower()
-        existing_user: User | None = None
-        if payload_email:
-            res = await db.execute(
-                select(User).where(func.lower(User.email) == payload_email)
-            )
-            existing_user = res.scalar_one_or_none()
-
         user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
         is_first_user = user_count == 0
-
-        if existing_user is not None:
-            user = existing_user
-        else:
-            user = User(
-                display_name=_display_name(payload),
-                email=payload.email,
-                avatar_url=_avatar_url(payload.discord_id, payload.avatar),
-                is_super_admin=is_first_user,
-            )
-            db.add(user)
-            await db.flush()
+        user = User(
+            display_name=_display_name(payload),
+            email=payload.email,
+            avatar_url=_avatar_url(payload.discord_id, payload.avatar),
+            is_super_admin=is_first_user,
+        )
+        db.add(user)
+        await db.flush()
         discord_account = DiscordAccount(
             user_id=user.id,
             discord_id=payload.discord_id,
@@ -90,8 +75,9 @@ async def upsert_discord_identity(
         )
         db.add(discord_account)
 
-    user.display_name = _display_name(payload)
-    user.email = payload.email
+    if not user.profile_completed:
+        user.display_name = _display_name(payload)
+        user.email = payload.email
     user.avatar_url = _avatar_url(payload.discord_id, payload.avatar)
     discord_account.username = payload.username or discord_account.username
     discord_account.global_name = payload.global_name
@@ -108,4 +94,3 @@ async def upsert_discord_identity(
         ) from exc
 
     return DiscordUpsertResponse(user_id=user.id)
-

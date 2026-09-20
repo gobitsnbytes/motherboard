@@ -36,6 +36,9 @@ class OnboardingReviewerResponse(BaseModel):
     id: uuid.UUID
     display_name: str
     email: EmailStr | None = None
+    avatar_url: str | None = None
+    title: str | None = None
+    discord_username: str
 
 
 class OnboardingTeammateCreate(BaseModel):

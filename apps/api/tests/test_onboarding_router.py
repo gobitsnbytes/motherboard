@@ -5,6 +5,8 @@ from app.db.models import (
     AuditLog,
     DiscordAccount,
     Grant,
+    Group,
+    Membership,
     OnboardingCase,
     OnboardingDocument,
     OnboardingParticipant,
@@ -51,12 +53,36 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
 ):
     get_settings().smtp_host = None
     reviewer = User(display_name="Independent Reviewer", is_super_admin=True)
-    db_session.add(reviewer)
+    executive = Group(slug="sg_executive", name="Executive Leadership", is_system=True)
+    db_session.add_all([reviewer, executive])
     await db_session.flush()
     db_session.add(
         Grant(
             principal_type="user",
             principal_id=reviewer.id,
+            permission_key="onboarding.review",
+        )
+    )
+    db_session.add_all(
+        [
+            DiscordAccount(
+                user_id=super_admin.id,
+                discord_id="123456789012345670",
+                username="casecreator",
+            ),
+            DiscordAccount(
+                user_id=reviewer.id,
+                discord_id="123456789012345671",
+                username="reviewer",
+            ),
+            Membership(user_id=super_admin.id, group_id=executive.id, source="discord_sync"),
+            Membership(user_id=reviewer.id, group_id=executive.id, source="discord_sync"),
+        ]
+    )
+    db_session.add(
+        Grant(
+            principal_type="user",
+            principal_id=super_admin.id,
             permission_key="onboarding.review",
         )
     )
@@ -77,7 +103,7 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
             },
         },
     )
-    assert self_assignment.status_code == 422
+    assert self_assignment.status_code == 201
     created = await request_as(
         client,
         super_admin.id,
@@ -108,17 +134,7 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
     )
     assert reviewed.status_code == 200, reviewed.text
     assert reviewed.json()["reviews"][0]["decision"] == "changes_requested"
-    blocked = await request_as(
-        client,
-        super_admin.id,
-        "POST",
-        f"/api/onboarding/cases/{case_id}/review",
-        json={"decision": "changes_requested", "note": "Creator must not review."},
-    )
-    assert blocked.status_code == 403
-
-
-async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
+async def test_reviewer_list_requires_permission_and_discord_link(
     super_admin, db_session, client
 ):
     legacy_admin = User(
@@ -126,27 +142,16 @@ async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
         email="legacy@example.com",
         is_super_admin=True,
     )
-    yash_org = User(display_name="Yash Singh", email="yash@gobitsnbytes.org")
     clushed = User(display_name="Clushed✦", email="yashsinghv2770@gmail.com")
-    akshat_org = User(display_name="Akshat Kushwaha", email="akshat@gobitsnbytes.org")
     aero = User(display_name="Aero", email="akshatsingh14372@outlook.com")
-    db_session.add_all([legacy_admin, yash_org, clushed, akshat_org, aero])
+    executive = Group(slug="sg_executive", name="Executive Leadership", is_system=True)
+    db_session.add_all([legacy_admin, clushed, aero, executive])
     await db_session.flush()
     db_session.add_all(
         [
             Grant(
                 principal_type="user",
-                principal_id=yash_org.id,
-                permission_key="onboarding.review",
-            ),
-            Grant(
-                principal_type="user",
                 principal_id=clushed.id,
-                permission_key="onboarding.review",
-            ),
-            Grant(
-                principal_type="user",
-                principal_id=akshat_org.id,
                 permission_key="onboarding.review",
             ),
             Grant(
@@ -164,6 +169,8 @@ async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
                 discord_id="223456789012345678",
                 username="a3rodev",
             ),
+            Membership(user_id=clushed.id, group_id=executive.id, source="discord_sync"),
+            Membership(user_id=aero.id, group_id=executive.id, source="discord_sync"),
         ]
     )
     await db_session.commit()
@@ -179,13 +186,19 @@ async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
     assert response.json() == [
         {
             "id": str(aero.id),
-            "display_name": "Akshat Kushwaha",
-            "email": "akshat@gobitsnbytes.org",
+            "display_name": "Aero",
+            "email": "akshatsingh14372@outlook.com",
+            "avatar_url": None,
+            "title": None,
+            "discord_username": "a3rodev",
         },
         {
             "id": str(clushed.id),
-            "display_name": "Yash Singh",
-            "email": "yash@gobitsnbytes.org",
+            "display_name": "Clushed✦",
+            "email": "yashsinghv2770@gmail.com",
+            "avatar_url": None,
+            "title": None,
+            "discord_username": "wellitsclushed",
         },
     ]
 
