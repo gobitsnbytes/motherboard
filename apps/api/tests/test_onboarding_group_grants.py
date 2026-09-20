@@ -25,7 +25,9 @@ async def test_default_onboarding_grants_are_separated_and_idempotent(
         group.slug: group
         for group in (
             await db_session.execute(
-                select(Group).where(Group.slug.in_(("sg_hq", "sg_executive")))
+                select(Group).where(
+                    Group.slug.in_(("sg_hq", "sg_executive", "sg_department_lead"))
+                )
             )
         ).scalars()
     }
@@ -55,6 +57,11 @@ async def test_default_onboarding_grants_are_separated_and_idempotent(
         group_ids=[groups["sg_executive"].id],
         is_super_admin=False,
     )
+    department_lead = ResolvedPrincipal(
+        user_id=groups["sg_department_lead"].id,
+        group_ids=[groups["sg_department_lead"].id],
+        is_super_admin=False,
+    )
 
     assert await can(db_session, hq, "onboarding.read")
     assert await can(db_session, hq, "onboarding.write")
@@ -65,3 +72,8 @@ async def test_default_onboarding_grants_are_separated_and_idempotent(
     assert not await can(db_session, executive, "onboarding.write")
     assert await can(db_session, executive, "onboarding.review")
     assert await can(db_session, executive, "onboarding.certificate")
+
+    assert await can(db_session, department_lead, "onboarding.read")
+    assert not await can(db_session, department_lead, "onboarding.write")
+    assert await can(db_session, department_lead, "onboarding.review")
+    assert not await can(db_session, department_lead, "onboarding.certificate")
