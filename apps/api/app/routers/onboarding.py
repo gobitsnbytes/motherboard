@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.db.models import (
+    DiscordAccount,
     Fork,
     OnboardingCase,
     OnboardingDocument,
@@ -452,7 +453,8 @@ async def create_case(
         if not reviewer or not reviewer.is_active:
             raise HTTPException(status_code=404, detail="Assigned reviewer not found")
         reviewer_principal = await resolve_principal(db, reviewer.id)
-        if not await can(db, reviewer_principal, "onboarding.review"):
+        explicit_reviewer = reviewer_principal.model_copy(update={"is_super_admin": False})
+        if not await can(db, explicit_reviewer, "onboarding.review"):
             raise HTTPException(status_code=422, detail="The assigned user does not have onboarding review permission")
 
     case = OnboardingCase(
@@ -590,17 +592,28 @@ async def list_cases(db: DbSession, current_user: CurrentUserDep) -> list[Onboar
 
 @router.get("/reviewers", response_model=list[OnboardingReviewerResponse])
 async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep) -> list[OnboardingReviewerResponse]:
-    """Return active independent users who can make onboarding decisions."""
+    """Return canonical active users with an explicit onboarding review grant."""
     await require_permission(db, current_user, "onboarding.write")
     users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))).scalars().all()
-    reviewers: list[OnboardingReviewerResponse] = []
+    linked_user_ids = set((await db.execute(select(DiscordAccount.user_id))).scalars().all())
+    reviewers_by_identity: dict[str, tuple[bool, OnboardingReviewerResponse]] = {}
     for user in users:
         if user.id == current_user.user_id:
             continue
         principal = await resolve_principal(db, user.id)
-        if await can(db, principal, "onboarding.review"):
-            reviewers.append(OnboardingReviewerResponse(id=user.id, display_name=user.display_name, email=user.email))
-    return reviewers
+        explicit_principal = principal.model_copy(update={"is_super_admin": False})
+        if not await can(db, explicit_principal, "onboarding.review"):
+            continue
+        identity_key = user.email.strip().casefold() if user.email else f"user:{user.id}"
+        response = OnboardingReviewerResponse(id=user.id, display_name=user.display_name, email=user.email)
+        candidate = (user.id in linked_user_ids, response)
+        existing = reviewers_by_identity.get(identity_key)
+        if existing is None or candidate[0] > existing[0]:
+            reviewers_by_identity[identity_key] = candidate
+    return sorted(
+        (candidate[1] for candidate in reviewers_by_identity.values()),
+        key=lambda reviewer: (reviewer.display_name.casefold(), str(reviewer.id)),
+    )
 
 
 @router.patch("/cases/{case_id}/reviewer", response_model=OnboardingCaseResponse)
@@ -613,7 +626,8 @@ async def assign_onboarding_reviewer(case_id: uuid.UUID, payload: OnboardingRevi
     if not reviewer or not reviewer.is_active:
         raise HTTPException(status_code=404, detail="Assigned reviewer not found")
     reviewer_principal = await resolve_principal(db, reviewer.id)
-    if not await can(db, reviewer_principal, "onboarding.review"):
+    explicit_reviewer = reviewer_principal.model_copy(update={"is_super_admin": False})
+    if not await can(db, explicit_reviewer, "onboarding.review"):
         raise HTTPException(status_code=422, detail="The assigned user does not have onboarding review permission")
     case.reviewer_id = reviewer.id
     await write_audit_entry(db, current_user.user_id, "onboarding.reviewer_assigned", "onboarding_case", str(case.id), {"reviewer_id": str(reviewer.id)})

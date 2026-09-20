@@ -3,6 +3,8 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db.models import (
     AuditLog,
+    DiscordAccount,
+    Grant,
     OnboardingCase,
     OnboardingDocument,
     OnboardingParticipant,
@@ -50,6 +52,14 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
     get_settings().smtp_host = None
     reviewer = User(display_name="Independent Reviewer", is_super_admin=True)
     db_session.add(reviewer)
+    await db_session.flush()
+    db_session.add(
+        Grant(
+            principal_type="user",
+            principal_id=reviewer.id,
+            permission_key="onboarding.review",
+        )
+    )
     await db_session.commit()
     self_assignment = await request_as(
         client,
@@ -106,6 +116,56 @@ async def test_assigned_reviewer_is_independent_and_records_the_active_revision(
         json={"decision": "changes_requested", "note": "Creator must not review."},
     )
     assert blocked.status_code == 403
+
+
+async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
+    super_admin, db_session, client
+):
+    legacy_admin = User(
+        display_name="Legacy Admin",
+        email="legacy@example.com",
+        is_super_admin=True,
+    )
+    duplicate = User(display_name="Duplicate Profile", email="reviewer@example.com")
+    canonical = User(display_name="Canonical Reviewer", email="REVIEWER@example.com")
+    db_session.add_all([legacy_admin, duplicate, canonical])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            Grant(
+                principal_type="user",
+                principal_id=duplicate.id,
+                permission_key="onboarding.review",
+            ),
+            Grant(
+                principal_type="user",
+                principal_id=canonical.id,
+                permission_key="onboarding.review",
+            ),
+            DiscordAccount(
+                user_id=canonical.id,
+                discord_id="123456789012345678",
+                username="canonical-reviewer",
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await request_as(
+        client,
+        super_admin.id,
+        "GET",
+        "/api/onboarding/reviewers",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": str(canonical.id),
+            "display_name": "Canonical Reviewer",
+            "email": "REVIEWER@example.com",
+        }
+    ]
 
 
 async def test_minor_requires_parent_and_underage_is_rejected(super_admin, client):
