@@ -126,26 +126,43 @@ async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
         email="legacy@example.com",
         is_super_admin=True,
     )
-    duplicate = User(display_name="Duplicate Profile", email="reviewer@example.com")
-    canonical = User(display_name="Canonical Reviewer", email="REVIEWER@example.com")
-    db_session.add_all([legacy_admin, duplicate, canonical])
+    yash_org = User(display_name="Yash Singh", email="yash@gobitsnbytes.org")
+    clushed = User(display_name="Clushed✦", email="yashsinghv2770@gmail.com")
+    akshat_org = User(display_name="Akshat Kushwaha", email="akshat@gobitsnbytes.org")
+    aero = User(display_name="Aero", email="akshatsingh14372@outlook.com")
+    db_session.add_all([legacy_admin, yash_org, clushed, akshat_org, aero])
     await db_session.flush()
     db_session.add_all(
         [
             Grant(
                 principal_type="user",
-                principal_id=duplicate.id,
+                principal_id=yash_org.id,
                 permission_key="onboarding.review",
             ),
             Grant(
                 principal_type="user",
-                principal_id=canonical.id,
+                principal_id=clushed.id,
+                permission_key="onboarding.review",
+            ),
+            Grant(
+                principal_type="user",
+                principal_id=akshat_org.id,
+                permission_key="onboarding.review",
+            ),
+            Grant(
+                principal_type="user",
+                principal_id=aero.id,
                 permission_key="onboarding.review",
             ),
             DiscordAccount(
-                user_id=canonical.id,
+                user_id=clushed.id,
                 discord_id="123456789012345678",
-                username="canonical-reviewer",
+                username="wellitsclushed",
+            ),
+            DiscordAccount(
+                user_id=aero.id,
+                discord_id="223456789012345678",
+                username="a3rodev",
             ),
         ]
     )
@@ -161,10 +178,15 @@ async def test_reviewer_list_requires_explicit_grant_and_deduplicates_identity(
     assert response.status_code == 200
     assert response.json() == [
         {
-            "id": str(canonical.id),
-            "display_name": "Canonical Reviewer",
-            "email": "REVIEWER@example.com",
-        }
+            "id": str(aero.id),
+            "display_name": "Akshat Kushwaha",
+            "email": "akshat@gobitsnbytes.org",
+        },
+        {
+            "id": str(clushed.id),
+            "display_name": "Yash Singh",
+            "email": "yash@gobitsnbytes.org",
+        },
     ]
 
 

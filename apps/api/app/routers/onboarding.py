@@ -90,6 +90,13 @@ from app.services.semantic_ooxml import (
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
+REVIEWER_IDENTITY_ALIASES = {
+    "yashsinghv2770@gmail.com": "yash@gobitsnbytes.org",
+    "yash@gobitsnbytes.org": "yash@gobitsnbytes.org",
+    "akshatsingh14372@outlook.com": "akshat@gobitsnbytes.org",
+    "akshat@gobitsnbytes.org": "akshat@gobitsnbytes.org",
+}
+
 PARTICIPANT_EDITABLE_STATUSES = {"awaiting_completion", "draft", "changes_requested"}
 
 
@@ -596,7 +603,7 @@ async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep)
     await require_permission(db, current_user, "onboarding.write")
     users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))).scalars().all()
     linked_user_ids = set((await db.execute(select(DiscordAccount.user_id))).scalars().all())
-    reviewers_by_identity: dict[str, tuple[bool, OnboardingReviewerResponse]] = {}
+    reviewers_by_identity: dict[str, list[tuple[bool, User]]] = {}
     for user in users:
         if user.id == current_user.user_id:
             continue
@@ -604,14 +611,39 @@ async def list_onboarding_reviewers(db: DbSession, current_user: CurrentUserDep)
         explicit_principal = principal.model_copy(update={"is_super_admin": False})
         if not await can(db, explicit_principal, "onboarding.review"):
             continue
-        identity_key = user.email.strip().casefold() if user.email else f"user:{user.id}"
-        response = OnboardingReviewerResponse(id=user.id, display_name=user.display_name, email=user.email)
-        candidate = (user.id in linked_user_ids, response)
-        existing = reviewers_by_identity.get(identity_key)
-        if existing is None or candidate[0] > existing[0]:
-            reviewers_by_identity[identity_key] = candidate
+        normalized_email = user.email.strip().casefold() if user.email else None
+        identity_key = REVIEWER_IDENTITY_ALIASES.get(
+            normalized_email or "",
+            normalized_email or f"user:{user.id}",
+        )
+        reviewers_by_identity.setdefault(identity_key, []).append(
+            (user.id in linked_user_ids, user)
+        )
+
+    reviewers: list[OnboardingReviewerResponse] = []
+    for candidates in reviewers_by_identity.values():
+        assignment_user = max(
+            candidates,
+            key=lambda candidate: (
+                candidate[0],
+                bool(candidate[1].email and candidate[1].email.casefold().endswith("@gobitsnbytes.org")),
+            ),
+        )[1]
+        presentation_user = max(
+            candidates,
+            key=lambda candidate: bool(
+                candidate[1].email and candidate[1].email.casefold().endswith("@gobitsnbytes.org")
+            ),
+        )[1]
+        reviewers.append(
+            OnboardingReviewerResponse(
+                id=assignment_user.id,
+                display_name=presentation_user.display_name,
+                email=presentation_user.email,
+            )
+        )
     return sorted(
-        (candidate[1] for candidate in reviewers_by_identity.values()),
+        reviewers,
         key=lambda reviewer: (reviewer.display_name.casefold(), str(reviewer.id)),
     )
 

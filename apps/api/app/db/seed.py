@@ -202,8 +202,6 @@ DEFAULT_GROUP_GRANTS: list[tuple[str, str]] = [
     ("sg_executive", "onboarding.read"),
     ("sg_executive", "onboarding.review"),
     ("sg_executive", "onboarding.certificate"),
-    ("sg_department_lead", "onboarding.read"),
-    ("sg_department_lead", "onboarding.review"),
 ]
 
 # ---------------------------------------------------------------------------

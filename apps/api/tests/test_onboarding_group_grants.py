@@ -73,7 +73,7 @@ async def test_default_onboarding_grants_are_separated_and_idempotent(
     assert await can(db_session, executive, "onboarding.review")
     assert await can(db_session, executive, "onboarding.certificate")
 
-    assert await can(db_session, department_lead, "onboarding.read")
+    assert not await can(db_session, department_lead, "onboarding.read")
     assert not await can(db_session, department_lead, "onboarding.write")
-    assert await can(db_session, department_lead, "onboarding.review")
+    assert not await can(db_session, department_lead, "onboarding.review")
     assert not await can(db_session, department_lead, "onboarding.certificate")
