@@ -88,7 +88,9 @@ def test_repeated_annotation_replaces_multiline_value_instead_of_appending():
             f'.//w:sdt[w:sdtPr/w:tag[@w:val="{field_id}"]]', namespaces=NS
         )
         assert len(controls) == 1
-        assert "".join(controls[0].xpath(".//w:t/text()", namespaces=NS)) == "replacement"
+        assert (
+            "".join(controls[0].xpath(".//w:t/text()", namespaces=NS)) == "replacement"
+        )
 
 
 def test_normalize_values_canonicalizes_indian_phone_fields():

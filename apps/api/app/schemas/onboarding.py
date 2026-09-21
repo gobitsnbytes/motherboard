@@ -54,13 +54,17 @@ class OnboardingParticipantEmailUpdate(BaseModel):
 
 class OnboardingPortalSubmit(BaseModel):
     answers: dict[str, str | bool | int | None] = Field(default_factory=dict)
-    document_answers: dict[str, dict[str, str | bool | int | None]] = Field(default_factory=dict)
+    document_answers: dict[str, dict[str, str | bool | int | None]] = Field(
+        default_factory=dict
+    )
     confirmed_identity: bool = False
 
 
 class OnboardingDraftPatch(BaseModel):
     base_revision: int = Field(ge=0)
-    values: dict[str, str | bool | int | dict | list | None] = Field(default_factory=dict)
+    values: dict[str, str | bool | int | dict | list | None] = Field(
+        default_factory=dict
+    )
 
 
 class OnboardingDocumentSubmit(BaseModel):
@@ -89,7 +93,9 @@ class OnboardingChangesRequest(BaseModel):
 
 class OnboardingHQFieldsPatch(BaseModel):
     base_revision: int = Field(ge=0)
-    values: dict[str, str | bool | int | dict | list | None] = Field(default_factory=dict)
+    values: dict[str, str | bool | int | dict | list | None] = Field(
+        default_factory=dict
+    )
 
 
 class OnboardingCompileRequest(BaseModel):
