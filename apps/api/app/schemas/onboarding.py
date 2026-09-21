@@ -96,6 +96,10 @@ class OnboardingCompileRequest(BaseModel):
     base_revision: int = Field(ge=0)
 
 
+class OnboardingSigningRollbackRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=1000)
+
+
 class OnboardingReviewCreate(BaseModel):
     decision: str = Field(pattern=r"^(accepted|changes_requested|rejected)$")
     document_id: uuid.UUID | None = None

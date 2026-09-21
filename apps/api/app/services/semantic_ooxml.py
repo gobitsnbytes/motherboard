@@ -304,6 +304,10 @@ def _find_anchor(root: etree._Element, field: Field) -> etree._Element | None:
 def _set_text(node: etree._Element, value: str) -> None:
     """Write a value into a ``w:t``, turning newlines into real OOXML breaks."""
     run = node.getparent()
+    # Revisions reuse the existing content control. Remove text/break nodes left
+    # by the previous value or multiline fields grow another copy on every save.
+    for sibling in node.xpath("following-sibling::*"):
+        run.remove(sibling)
     for sibling in run.xpath("following-sibling::*"):
         run.remove(sibling)
     node.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
@@ -472,6 +476,10 @@ def validate_values(document_key: str, values: dict[str, Any], *, editor: str = 
             errors[key] = "Value is too long"
         if field.type == "email" and value and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(value)):
             errors[key] = "Enter a valid email address"
+        if field.type == "tel" and value:
+            digits = re.sub(r"\D", "", str(value))
+            if not (len(digits) == 12 and digits.startswith("91")):
+                errors[key] = "Enter a 10-digit Indian mobile number with or without +91"
         if field.type == "choice" and value and value not in field.options:
             errors[key] = "Select one of the allowed options"
     if final:
@@ -479,3 +487,19 @@ def validate_values(document_key: str, values: dict[str, Any], *, editor: str = 
             if field.required and field.type != "signature" and values.get(field.id) in (None, "", False, []):
                 errors[field.id] = "This field is required"
     return errors
+
+
+def normalize_values(document_key: str, values: dict[str, Any]) -> dict[str, Any]:
+    """Return canonical form values without mutating the caller's mapping."""
+    normalized = dict(values)
+    fields = {field.id: field for field in FORM_FIELDS[document_key]}
+    for key, value in normalized.items():
+        field = fields.get(key)
+        if field is None or field.type != "tel" or not value:
+            continue
+        digits = re.sub(r"\D", "", str(value))
+        if len(digits) == 10:
+            normalized[key] = f"+91{digits}"
+        elif len(digits) == 12 and digits.startswith("91"):
+            normalized[key] = f"+{digits}"
+    return normalized

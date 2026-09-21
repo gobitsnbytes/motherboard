@@ -12,6 +12,7 @@ from app.services.semantic_ooxml import (
     NS,
     annotate_package,
     repack_docx,
+    normalize_values,
     signature_markers,
     state_hash,
     unpack_docx,
@@ -72,6 +73,36 @@ def test_each_signature_marker_appears_exactly_once_in_the_compiled_document(
     for marker in markers.values():
         assert text.count(marker) == 1, f"{marker} appears {text.count(marker)} times"
         assert " " not in marker
+
+
+def test_repeated_annotation_replaces_multiline_value_instead_of_appending():
+    source = template_root() / TEMPLATE_MANIFEST["volunteer"]["template"]
+    field_id = "bnb.volunteer.skills"
+    with tempfile.TemporaryDirectory() as directory:
+        package = Path(directory) / "package"
+        unpack_docx(source, package)
+        assert annotate_package(package, "volunteer", {field_id: "first\nsecond"}) == []
+        assert annotate_package(package, "volunteer", {field_id: "replacement"}) == []
+        xml = etree.parse(str(package / "word" / "document.xml"))
+        controls = xml.xpath(
+            f'.//w:sdt[w:sdtPr/w:tag[@w:val="{field_id}"]]', namespaces=NS
+        )
+        assert len(controls) == 1
+        assert "".join(controls[0].xpath(".//w:t/text()", namespaces=NS)) == "replacement"
+
+
+def test_normalize_values_canonicalizes_indian_phone_fields():
+    values = normalize_values(
+        "volunteer",
+        {
+            "bnb.volunteer.phone": "86551 51440",
+            "bnb.volunteer.whatsapp": "91-8655151440",
+            "bnb.volunteer.full_name": "Niyati Dhandhukia",
+        },
+    )
+    assert values["bnb.volunteer.phone"] == "+918655151440"
+    assert values["bnb.volunteer.whatsapp"] == "+918655151440"
+    assert values["bnb.volunteer.full_name"] == "Niyati Dhandhukia"
 
 
 def test_state_hash_chains_revision_and_values():

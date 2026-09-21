@@ -30,6 +30,7 @@ from app.db.models import (
     OnboardingReviewThread,
     OnboardingRevision,
     SignatureRequest,
+    SignatureAuditLog,
     User,
 )
 from app.dependencies import CurrentUserDep, DbSession
@@ -58,6 +59,7 @@ from app.schemas.onboarding import (
     OnboardingReviewerAssign,
     OnboardingReviewerResponse,
     OnboardingReviewThreadResponse,
+    OnboardingSigningRollbackRequest,
     OnboardingTeammateCreate,
     OnboardingTeammateInviteResponse,
     OnboardingThreadCreate,
@@ -85,6 +87,7 @@ from app.services.semantic_ooxml import (
     state_hash,
     template_hash,
     unpack_docx,
+    normalize_values,
     validate_values,
 )
 
@@ -341,6 +344,7 @@ async def _persist_revision(
     actor_kind: str,
     actor_ref: str | None,
 ) -> OnboardingDocumentRevision:
+    values = normalize_values(document.document_key, values)
     revision_number = document.current_revision + 1
     package_path, package_digest, missing = await run_in_threadpool(
         _write_revision_package,
@@ -1058,10 +1062,11 @@ async def patch_public_document_draft(token: str, document_id: uuid.UUID, payloa
     await _ensure_initial_revision(db, document)
     if payload.base_revision != document.current_revision:
         raise HTTPException(status_code=409, detail={"message": "The document changed in another session", "current_revision": document.current_revision})
-    errors = validate_values(document.document_key, payload.values, editor="participant")
+    patch_values = normalize_values(document.document_key, payload.values)
+    errors = validate_values(document.document_key, patch_values, editor="participant")
     if errors:
         raise HTTPException(status_code=422, detail={"message": "Some fields are invalid", "fields": errors})
-    values = {**(document.field_values or {}), **payload.values}
+    values = {**(document.field_values or {}), **patch_values}
     if values != document.field_values:
         try:
             await _persist_revision(db, document=document, values=values, actor_kind="participant", actor_ref=str(participant.id))
@@ -1097,9 +1102,18 @@ async def submit_public_document(token: str, document_id: uuid.UUID, payload: On
     await _ensure_initial_revision(db, document)
     if payload.base_revision != document.current_revision:
         raise HTTPException(status_code=409, detail={"message": "Save or reload the latest revision before submitting", "current_revision": document.current_revision})
-    errors = validate_values(document.document_key, document.field_values or {}, editor="participant", final=True)
+    values = normalize_values(document.document_key, document.field_values or {})
+    errors = validate_values(document.document_key, values, editor="participant", final=True)
     if errors:
         raise HTTPException(status_code=422, detail={"message": "Complete the required fields", "fields": errors})
+    if values != document.field_values:
+        await _persist_revision(
+            db,
+            document=document,
+            values=values,
+            actor_kind="system",
+            actor_ref="phone-normalization",
+        )
     document.status = "review_requested"
     participant.status = "under_review"
     participant.submitted_at = datetime.now(timezone.utc)
@@ -1175,7 +1189,10 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
     for document in participant.documents:
         if document.document_key not in answer_sets:
             continue
-        values = {**(document.field_values or {}), **answer_sets[document.document_key]}
+        values = normalize_values(
+            document.document_key,
+            {**(document.field_values or {}), **answer_sets[document.document_key]},
+        )
         errors = validate_values(document.document_key, values, editor="participant", final=True)
         if errors:
             document_errors[document.document_key] = errors
@@ -1188,7 +1205,10 @@ async def submit_portal(token: str, payload: OnboardingPortalSubmit, db: DbSessi
             if document.document_key not in answer_sets:
                 continue
             await _ensure_initial_revision(db, document)
-            values = {**(document.field_values or {}), **answer_sets[document.document_key]}
+            values = normalize_values(
+                document.document_key,
+                {**(document.field_values or {}), **answer_sets[document.document_key]},
+            )
             if values != document.field_values:
                 await _persist_revision(db, document=document, values=values, actor_kind="participant", actor_ref=str(participant.id))
             document.status = "review_requested"
@@ -1327,10 +1347,11 @@ async def patch_staff_document_fields(case_id: uuid.UUID, document_id: uuid.UUID
     await _ensure_initial_revision(db, document)
     if payload.base_revision != document.current_revision:
         raise HTTPException(status_code=409, detail={"message": "The document changed in another session", "current_revision": document.current_revision})
-    errors = validate_values(document.document_key, payload.values, editor="hq")
+    patch_values = normalize_values(document.document_key, payload.values)
+    errors = validate_values(document.document_key, patch_values, editor="hq")
     if errors:
         raise HTTPException(status_code=422, detail={"message": "Some fields are invalid", "fields": errors})
-    values = {**(document.field_values or {}), **payload.values}
+    values = {**(document.field_values or {}), **patch_values}
     if values != document.field_values:
         try:
             await _persist_revision(db, document=document, values=values, actor_kind="hq", actor_ref=str(current_user.user_id))
@@ -1458,6 +1479,74 @@ async def approve_document_review(case_id: uuid.UUID, document_id: uuid.UUID, db
     return await get_staff_document_editor(case_id, document_id, db, current_user)
 
 
+@router.post("/cases/{case_id}/documents/{document_id}/rollback-signing", response_model=OnboardingEditorResponse)
+async def rollback_unsigned_document(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    payload: OnboardingSigningRollbackRequest,
+    db: DbSession,
+    current_user: CurrentUserDep,
+) -> OnboardingEditorResponse:
+    """Void an unsigned request and return its document to the compile step."""
+    await require_permission(db, current_user, "onboarding.review")
+    document = await _load_document_for_editor(db, document_id)
+    if document.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Onboarding document not found")
+    if document.status != "signing" or not document.signature_request_id:
+        raise HTTPException(status_code=409, detail="Only a document awaiting signatures can be rolled back")
+    request = (
+        await db.execute(
+            select(SignatureRequest)
+            .options(selectinload(SignatureRequest.recipients))
+            .where(SignatureRequest.id == document.signature_request_id)
+        )
+    ).scalar_one_or_none()
+    if request is None:
+        raise HTTPException(status_code=409, detail="The linked signature request no longer exists")
+    if request.status == "completed" or any(
+        recipient.status == "signed" or recipient.signed_at is not None
+        for recipient in request.recipients
+    ):
+        raise HTTPException(status_code=409, detail="A document with signatures cannot be rolled back")
+
+    request.status = "voided"
+    for recipient in request.recipients:
+        if recipient.status not in {"signed", "declined"}:
+            recipient.status = "declined"
+        recipient.otp_code = None
+        recipient.otp_hash = None
+        recipient.otp_attempts = 0
+        recipient.otp_expires_at = None
+        recipient.otp_verified_at = None
+    db.add(
+        SignatureAuditLog(
+            request_id=request.id,
+            action="voided",
+            details=f"Onboarding signing rolled back by {current_user.user_id}: {payload.reason}",
+        )
+    )
+    old_request_id = document.signature_request_id
+    document.signature_request_id = None
+    document.status = "approved"
+    document.participant_signed_at = None
+    document.hq_signed_at = None
+    document.finalized_at = None
+    document.completed_at = None
+    document.canonical_hash = None
+    document.final_pdf_hash = None
+    await write_audit_entry(
+        db,
+        current_user.user_id,
+        "onboarding.signing_rolled_back",
+        "onboarding_document",
+        str(document.id),
+        {"signature_request_id": str(old_request_id), "reason": payload.reason},
+    )
+    await db.commit()
+    db.expunge(document)
+    return await get_staff_document_editor(case_id, document_id, db, current_user)
+
+
 @router.post("/cases/{case_id}/documents/{document_id}/compile", response_model=OnboardingEditorResponse)
 async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, payload: OnboardingCompileRequest, db: DbSession, current_user: CurrentUserDep) -> OnboardingEditorResponse:
     """Freeze an approved revision, render it, and open its cryptographic signing request."""
@@ -1467,11 +1556,17 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
         raise HTTPException(status_code=404, detail="Onboarding document not found")
     if document.status != "approved":
         raise HTTPException(status_code=409, detail="Only an approved document can be compiled")
+    if document.signature_request_id:
+        linked_request = await db.get(SignatureRequest, document.signature_request_id)
+        if linked_request and linked_request.status not in {"voided", "expired"}:
+            raise HTTPException(status_code=409, detail="This document already has an active signature request")
+        document.signature_request_id = None
     if payload.base_revision != document.current_revision:
         raise HTTPException(status_code=409, detail={"message": "Compile the latest approved revision", "current_revision": document.current_revision})
     if any(thread.status != "resolved" for thread in document.review_threads):
         raise HTTPException(status_code=409, detail="Resolve every review thread before compilation")
-    errors = validate_values(document.document_key, document.field_values or {}, editor="all", final=True)
+    normalized_values = normalize_values(document.document_key, document.field_values or {})
+    errors = validate_values(document.document_key, normalized_values, editor="all", final=True)
     if errors:
         raise HTTPException(status_code=422, detail={"message": "Complete required document fields before compilation", "fields": errors})
     participant = document.participant
@@ -1481,17 +1576,30 @@ async def compile_approved_document(case_id: uuid.UUID, document_id: uuid.UUID, 
     if not hq_user or not hq_user.email:
         raise HTTPException(status_code=409, detail="The HQ signer needs an email address")
 
+    if normalized_values != document.field_values:
+        await _persist_revision(
+            db,
+            document=document,
+            values=normalized_values,
+            actor_kind="system",
+            actor_ref="phone-normalization",
+        )
+    signer_name = str(
+        normalized_values.get(f"bnb.{document.document_key}.full_name")
+        or normalized_values.get("bnb.volunteer.full_name")
+        or participant.name
+    )
     role = "guardian" if participant.role == "parent" else "lead" if document.document_key.startswith("fork_") else "subject"
     signature_fields = [field for field in fields_for(document.document_key) if field["type"] == "signature"]
     marker_values = (
-        dict(document.field_values or {})
-        | derived_values(document.document_key, participant_name=participant.name)
+        normalized_values
+        | derived_values(document.document_key, participant_name=signer_name)
         | signature_markers(document.document_key)
     )
     try:
         _, docx_path = await run_in_threadpool(_compile_ooxml_source, document, marker_values)
         pdf_path = await run_in_threadpool(render_docx_to_pdf, docx_path, docx_path.parent)
-        signer_specs = [{"name": participant.name, "email": participant.email, "role": role}]
+        signer_specs = [{"name": signer_name, "email": participant.email, "role": role}]
         if document.document_key == "parent_consent":
             ward_id = ((document.case.case_data or {}).get("guardian_links") or {}).get(str(participant.id))
             ward = await db.get(OnboardingParticipant, uuid.UUID(ward_id)) if ward_id else None

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid
 
 from sqlalchemy import select
 
@@ -12,6 +13,9 @@ from app.db.models import (
     OnboardingCase,
     OnboardingDocument,
     OnboardingParticipant,
+    SignatureAuditLog,
+    SignatureRecipient,
+    SignatureRequest,
     User,
 )
 from conftest import request_as
@@ -490,6 +494,8 @@ async def test_staff_cannot_correct_email_after_packet_submission(super_admin, c
             values[field["id"]] = "asha@example.com"
         elif field["type"] == "date":
             values[field["id"]] = "2026-09-19"
+        elif field["type"] == "tel":
+            values[field["id"]] = "9876543210"
         else:
             values[field["id"]] = "Test value"
     saved = await client.patch(
@@ -516,6 +522,79 @@ async def test_staff_cannot_correct_email_after_packet_submission(super_admin, c
         json={"email": "correct@example.com"},
     )
     assert updated.status_code == 409
+
+
+async def test_staff_can_rollback_an_unsigned_onboarding_signature_request(
+    super_admin, db_session, client
+):
+    get_settings().smtp_host = None
+    created = await request_as(
+        client,
+        super_admin.id,
+        "POST",
+        "/api/onboarding/cases",
+        json={
+            "kind": "volunteer",
+            "title": "Signing repair",
+            "participant": {
+                "name": "Asha Example",
+                "email": "asha@example.com",
+                "date_of_birth": "2005-04-02",
+            },
+        },
+    )
+    body = created.json()
+    document = await db_session.get(
+        OnboardingDocument, uuid.UUID(body["documents"][0]["id"])
+    )
+    request = SignatureRequest(
+        title="Signing repair",
+        status="pending",
+        original_file_path="/tmp/signing-repair.pdf",
+    )
+    db_session.add(request)
+    await db_session.flush()
+    recipient = SignatureRecipient(
+        request_id=request.id,
+        name="Asha Example",
+        email="asha@example.com",
+        role="subject",
+        status="pending",
+        access_token="rollback-token",
+        otp_hash="temporary",
+    )
+    db_session.add(recipient)
+    await db_session.flush()
+    document.status = "signing"
+    document.signature_request_id = request.id
+    document_id = document.id
+    request_id = request.id
+    recipient_id = recipient.id
+    await db_session.commit()
+
+    rolled_back = await request_as(
+        client,
+        super_admin.id,
+        "POST",
+        f"/api/onboarding/cases/{body['id']}/documents/{document_id}/rollback-signing",
+        json={"reason": "The generated PDF repeated a multiline response."},
+    )
+
+    assert rolled_back.status_code == 200, rolled_back.text
+    assert rolled_back.json()["document"]["status"] == "approved"
+    document = await db_session.get(OnboardingDocument, document_id)
+    request = await db_session.get(SignatureRequest, request_id)
+    recipient = await db_session.get(SignatureRecipient, recipient_id)
+    assert document.signature_request_id is None
+    assert request.status == "voided"
+    assert recipient.status == "declined"
+    assert recipient.otp_hash is None
+    audit = (
+        await db_session.execute(
+            select(SignatureAuditLog).where(SignatureAuditLog.request_id == request_id)
+        )
+    ).scalar_one()
+    assert audit.action == "voided"
 
 
 async def test_delete_case_and_remind_signers(super_admin, db_session, client):
