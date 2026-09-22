@@ -26,6 +26,7 @@ from app.events import event_bus
 
 logger = logging.getLogger(__name__)
 _calendar_reconciliation_task: asyncio.Task | None = None
+_background_startup_task: asyncio.Task | None = None
 _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 # Env vars the Alembic env.py needs access to — pydantic-settings reads from
@@ -41,101 +42,63 @@ def _ensure_alembic_env(settings) -> None:
             os.environ[key] = str(val)
 
 
-@asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Application startup / shutdown lifecycle."""
-    settings = get_settings()
+async def _initialize_application_services(
+    application, settings, session_factory
+) -> None:
+    """Initialize remote-backed services without blocking process liveness."""
+    failures: list[str] = []
 
-    # Ensure Alembic can discover DATABASE_URL from the environment
-    _ensure_alembic_env(settings)
-
-    # Session factory for DB access
-    session_factory = get_sessionmaker()
-
-    # Run Alembic migrations programmatically (graceful fallback if DB is offline/quota exceeded)
     try:
-        logger.info("Running Alembic migrations…")
-        import asyncio
-        from alembic import command
-        from alembic.config import Config as AlembicConfig
-
-        def _run_migrations() -> None:
-            alembic_cfg = AlembicConfig("alembic.ini")
-            alembic_cfg.set_main_option("skip_logging_config", "True")
-            command.upgrade(alembic_cfg, "head")
-
-        await asyncio.to_thread(_run_migrations)
-        logger.info("Migrations complete.")
-
-        # Seed system configuration (no operational data)
         async with session_factory() as session:
-            await run_seeds(session)
+            await asyncio.wait_for(run_seeds(session), timeout=10)
+    except Exception as exc:
+        failures.append("database_seed")
+        logger.warning("Database seed startup skipped: %s", exc)
 
-    except Exception as db_err:
-        logger.warning(
-            "Primary DB migration/seed failed (%s). Initializing local SQLite engine fallback...",
-            db_err,
-        )
-        try:
-            from app.database import get_sqlite_engine, clear_db_cache
-            from app.db.models import Base
-
-            sqlite_engine = get_sqlite_engine()
-            async with sqlite_engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            os.environ["USE_LOCAL_SQLITE"] = "true"
-            clear_db_cache()
-            session_factory = get_sessionmaker()
-            async with session_factory() as session:
-                await run_seeds(session)
-            logger.info(
-                "Local SQLite database fallback initialized & seeded successfully."
-            )
-        except Exception as sqlite_err:
-            logger.error("Failed to initialize SQLite fallback: %s", sqlite_err)
-
-    # Start the event bus so that plugins can publish/subscribe during on_load
     try:
-        await event_bus.start(settings.redis_url)
-    except Exception as redis_err:
-        logger.warning(f"EventBus startup skipped: {redis_err}")
+        await asyncio.wait_for(event_bus.start(settings.redis_url), timeout=2)
+    except Exception as exc:
+        failures.append("event_bus")
+        logger.warning("EventBus startup skipped: %s", exc)
 
-    # Initialize and run dynamic PluginLoader
     try:
         from app.plugin_sdk.loader import PluginLoader
 
         plugin_loader = PluginLoader(application, session_factory)
         application.state.plugin_loader = plugin_loader
-        await plugin_loader.discover_and_load()
-    except Exception as plugin_err:
-        logger.warning(f"PluginLoader startup skipped: {plugin_err}")
+        await asyncio.wait_for(plugin_loader.discover_and_load(), timeout=5)
+    except Exception as exc:
+        failures.append("plugins")
+        logger.warning("PluginLoader startup skipped: %s", exc)
 
-    # Start periodic Discord sync scheduler if enabled
     if settings.enable_sync_scheduler:
-        from app.provisioning.scheduler import start_scheduler
+        try:
+            from app.provisioning.scheduler import start_scheduler
 
-        await start_scheduler(
-            interval_minutes=settings.sync_interval_minutes,
-            guild_id=settings.discord_guild_id,
-            bot_token=settings.discord_bot_token,
-        )
+            await start_scheduler(
+                interval_minutes=settings.sync_interval_minutes,
+                guild_id=settings.discord_guild_id,
+                bot_token=settings.discord_bot_token,
+            )
+        except Exception as exc:
+            failures.append("discord_scheduler")
+            logger.warning("Discord scheduler startup skipped: %s", exc)
 
-    # Start Legal Agent jobs (inbox poller + signature nudge sequencer)
     try:
         from app.services.legal_agent import start_legal_agent_jobs
 
         await start_legal_agent_jobs()
-    except Exception as legal_agent_err:
-        logger.warning(f"Legal Agent scheduler startup skipped: {legal_agent_err}")
+    except Exception as exc:
+        failures.append("legal_agent")
+        logger.warning("Legal Agent scheduler startup skipped: %s", exc)
 
     try:
         from app.routers.forms import start_form_cleanup
 
         await start_form_cleanup()
-    except Exception as form_cleanup_err:
-        logger.warning(
-            f"Public form upload cleanup scheduler skipped: {form_cleanup_err}"
-        )
+    except Exception as exc:
+        failures.append("form_cleanup")
+        logger.warning("Public form cleanup scheduler startup skipped: %s", exc)
 
     async def _calendar_reconciliation_loop() -> None:
         from app.services.calendar_routing import reconcile_unknown_bookings
@@ -149,18 +112,51 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
                     logger.info("Reconciled %s uncertain Cal.com booking(s).", repaired)
             except asyncio.CancelledError:
                 raise
-            except Exception as reconciliation_err:
-                logger.warning(
-                    "Cal.com reconciliation failed (non-fatal): %s", reconciliation_err
-                )
+            except Exception as exc:
+                logger.warning("Cal.com reconciliation failed (non-fatal): %s", exc)
 
     global _calendar_reconciliation_task
     _calendar_reconciliation_task = asyncio.create_task(_calendar_reconciliation_loop())
+    application.state.startup_status = "degraded" if failures else "ready"
+    application.state.startup_failures = failures
+    logger.info(
+        "Background startup finished with status=%s failures=%s",
+        application.state.startup_status,
+        failures,
+    )
 
-    logger.info("bnb-api is ready.")
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Application startup / shutdown lifecycle."""
+    global _background_startup_task, _calendar_reconciliation_task
+    settings = get_settings()
+
+    # Ensure Alembic can discover DATABASE_URL from the environment
+    _ensure_alembic_env(settings)
+
+    # Session factory for DB access
+    session_factory = get_sessionmaker()
+
+    application.state.startup_status = "starting"
+    application.state.startup_failures = []
+    _background_startup_task = asyncio.create_task(
+        _initialize_application_services(application, settings, session_factory)
+    )
+
+    logger.info(
+        "bnb-api is accepting requests; dependency startup continues in background."
+    )
     yield
 
     # Shutdown lifecycle
+    if _background_startup_task and not _background_startup_task.done():
+        _background_startup_task.cancel()
+        try:
+            await _background_startup_task
+        except asyncio.CancelledError:
+            pass
+    _background_startup_task = None
     # Stop sync scheduler if enabled
     if settings.enable_sync_scheduler:
         from app.provisioning.scheduler import stop_scheduler

@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 
 import httpx
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select, func
 
 from app.config import get_settings
@@ -39,7 +39,7 @@ async def health_check() -> dict[str, str]:
 
 
 @router.get("/health/ready")
-async def health_ready(db: DbDep) -> dict[str, str]:
+async def health_ready(request: Request, db: DbDep) -> dict[str, str]:
     """Readiness check that verifies database and redis connectivity."""
     db_ok = False
     try:
@@ -56,13 +56,15 @@ async def health_ready(db: DbDep) -> dict[str, str]:
         logger.error("Redis readiness check failed: %s", e)
         redis_ok = False
 
-    if not db_ok or not redis_ok:
+    startup_status = getattr(request.app.state, "startup_status", "ready")
+    if not db_ok or not redis_ok or startup_status == "starting":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "status": "degraded",
                 "database": "healthy" if db_ok else "unhealthy",
                 "redis": "healthy" if redis_ok else "unhealthy",
+                "startup": startup_status,
             },
         )
 
@@ -70,6 +72,7 @@ async def health_ready(db: DbDep) -> dict[str, str]:
         "status": "ok",
         "database": "healthy",
         "redis": "healthy",
+        "startup": startup_status,
     }
 
 
