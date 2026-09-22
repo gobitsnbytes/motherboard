@@ -311,7 +311,9 @@ async def _load_document_for_editor(
         await db.execute(
             select(OnboardingDocument)
             .options(
-                selectinload(OnboardingDocument.participant),
+                selectinload(OnboardingDocument.participant).selectinload(
+                    OnboardingParticipant.documents
+                ),
                 selectinload(OnboardingDocument.case),
                 selectinload(OnboardingDocument.review_threads).selectinload(
                     OnboardingReviewThread.comments
@@ -2149,6 +2151,10 @@ async def approve_document_review(
             status_code=409, detail="Resolve every review thread before approval"
         )
     document.status = "approved"
+    if document.participant and all(
+        item.status == "approved" for item in document.participant.documents
+    ):
+        document.participant.status = "approved"
     case = await _load_case(db, case_id)
     packet_documents = [
         item for item in case.documents if item.document_key != "fork_certificate"
@@ -2220,6 +2226,8 @@ async def rollback_unsigned_document(
     old_request_id = document.signature_request_id
     document.signature_request_id = None
     document.status = "approved"
+    if document.participant:
+        document.participant.status = "approved"
     document.participant_signed_at = None
     document.hq_signed_at = None
     document.finalized_at = None

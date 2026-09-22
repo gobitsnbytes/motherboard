@@ -582,10 +582,13 @@ async def test_staff_can_rollback_an_unsigned_onboarding_signature_request(
 
     assert rolled_back.status_code == 200, rolled_back.text
     assert rolled_back.json()["document"]["status"] == "approved"
+    assert rolled_back.json()["document"]["signature_request_id"] is None
     document = await db_session.get(OnboardingDocument, document_id)
+    participant = await db_session.get(OnboardingParticipant, document.participant_id)
     request = await db_session.get(SignatureRequest, request_id)
     recipient = await db_session.get(SignatureRecipient, recipient_id)
     assert document.signature_request_id is None
+    assert participant.status == "approved"
     assert request.status == "voided"
     assert recipient.status == "declined"
     assert recipient.otp_hash is None
