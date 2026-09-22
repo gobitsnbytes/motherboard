@@ -152,6 +152,10 @@ if [ -f "$ACTIVE_PORT_FILE" ]; then
 else
     ACTIVE_PORT=8000
 fi
+if [ "$ACTIVE_PORT" != "8000" ] && [ "$ACTIVE_PORT" != "8001" ]; then
+    echo "--> Invalid active API port state: $ACTIVE_PORT"
+    rollback
+fi
 if [ "$ACTIVE_PORT" = "8000" ]; then
     CANDIDATE_PORT=8001
 else
@@ -196,7 +200,8 @@ fi
 # 6. Atomically switch Nginx, verify public traffic, then retire the old worker
 NGINX_BACKUP=$(mktemp)
 sudo cp "$NGINX_SITE" "$NGINX_BACKUP"
-sudo sed -E -i "s#proxy_pass http://127\.0\.0\.1:(8000|8001)#proxy_pass http://127.0.0.1:${CANDIDATE_PORT}#g" "$NGINX_SITE"
+sudo sed -E -i "s#proxy_pass http://127\.0\.0\.1:(8000|8001)#proxy_pass http://127.0.0.1:${CANDIDATE_PORT}#g" "$NGINX_SITE" || rollback
+sudo grep -q "proxy_pass http://127.0.0.1:${CANDIDATE_PORT}" "$NGINX_SITE" || rollback
 sudo nginx -t || rollback
 sudo systemctl reload nginx || rollback
 SWITCHED=1
@@ -210,7 +215,7 @@ fi
 echo "--> Restarting bnb-bot systemd service..."
 sudo systemctl restart bnb-bot || rollback
 
-echo "$CANDIDATE_PORT" | sudo tee "$ACTIVE_PORT_FILE" >/dev/null
+echo "$CANDIDATE_PORT" | sudo tee "$ACTIVE_PORT_FILE" >/dev/null || rollback
 
 if [ "$ACTIVE_PORT" = "8000" ]; then
     sudo systemctl stop "$LEGACY_SERVICE_NAME" || true
