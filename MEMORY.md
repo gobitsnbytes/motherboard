@@ -52,7 +52,7 @@ Focused API tests should run from `apps/api` when their imports or relative data
 
 ## Production operations
 
-- `deploy/api/deploy.sh` hard-resets the VPS checkout to `origin/prod`, runs migrations, restarts `bnb-api` and `bnb-bot`, then checks `http://127.0.0.1:8000/health` with rollback on failure.
+- `deploy/api/deploy.sh` hard-resets the VPS checkout to `origin/prod`, runs migrations, starts the replacement API on the idle port (8000/8001), waits for liveness and readiness, switches Nginx, verifies public health, and only then retires the old worker. Failed candidates leave the previous worker serving traffic.
 - Dependency installation is conditional on lockfile/manifest changes or a missing environment.
 - Database migrations must remain backward compatible with the running application during rollout.
 - Never force-push `prod`, discard a dirty production worktree, or deploy without a verified rollback commit.
