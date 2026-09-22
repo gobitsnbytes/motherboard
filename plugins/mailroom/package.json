@@ -1,0 +1,10 @@
+{
+  "name": "@bnb-plugins/mailroom",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@bnb/ui": "workspace:*",
+    "lucide-react": "^1.20.0",
+    "react": "^19.0.0"
+  }
+}

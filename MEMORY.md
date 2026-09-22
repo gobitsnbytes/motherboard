@@ -45,8 +45,11 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - Finance requests at or above INR 1 lakh require two distinct approvers and prohibit self-approval.
 - Onboarding Forms 1-5 are the active package. Form 6 is a separate minor event-consent flow. Generated onboarding files live under `apps/api/data/onboarding/` and are never source assets.
 - Onboarding telephone fields are stored in canonical Indian E.164 form. Unsigned signing requests may be audited and voided back to `approved`; signed requests cannot be rolled back, and compilation refuses duplicate active signature requests. OOXML multiline controls must replace prior run content rather than append across revisions.
+- Onboarding reviewers are real Discord-linked users whose synced IAM principal has `onboarding.review`; no seed profiles, email aliases, or Super Admin bypass populate the picker. Executive Leadership and Department Leads receive that permission through Discord-synced groups. A permissioned case creator may assign themself. Reviewer name, email, avatar, and title come from that linked user's profile. Ages 13-17 require a separately scoped guardian portal using `2_Parents_Consent_.docx`, and ages 16-17 add the minor as a consent co-signer. Fork leads may invite teammates only after submitting their full lead packet; minor teammates receive the same linked guardian flow.
+- The Members page is a signed-in people directory: it lists only active users linked through Discord OAuth, displays profile identity alongside Discord identity, and derives role badges only from active `discord_sync` IAM memberships. The generic users API remains available for operational selectors.
 - Qenlo vector DB is dropped in favor of native Open Knowledge Format (OKF) concept retrieval (`OKFKnowledgeStore.search_concepts`), matching titles, tags, descriptions, and Markdown bodies directly with zero external vector DB or embedding costs.
 - The legal mailbox parses both plain text and HTML email bodies (stripping reply quotes and signatures), enforces anti-loop headers (`Auto-Submitted`, `X-Auto-Response-Suppress`, `Precedence: bulk`), drops self/daemon/bounce messages, and synthesizes policy answers via SparkCloud AI into responsive branded HTML email templates following Humanizer anti-AI guidelines.
+- Mailroom is the end user webmail plugin. Dovecot IMAP remains the only message store; Motherboard keeps encrypted mailbox credentials, OTP challenges, and writing preferences, but never a durable copy of message content. It reuses the Motherboard session rather than issuing its own cookie, so the design doc's `mailroom_sessions` table was not built.
 - The legal knowledge base synchronizes directly with the active Notion Wiki, e-AOA, and e-MOA, indexed with rich OKF frontmatter for zero-cost deterministic search.
 - The old Cal.com callback on `mail.gobitsnbytes.org` is stale. Current callbacks use `/api/calendar/webhooks/calcom/{connectionId}`.
 
@@ -56,6 +59,8 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - Dependency installation is conditional on lockfile/manifest changes or a missing environment.
 - Database migrations must remain backward compatible with the running application during rollout.
 - Never force-push `prod`, discard a dirty production worktree, or deploy without a verified rollback commit.
+- On `bnb-backend`, `mail.gobitsnbytes.org` TLS is managed by Certbot's Nginx plugin under the `mail.gobitsnbytes.org-0001` lineage; the unsuffixed live path is a symlink. Certbot's twice-daily timer is enabled, and `/etc/letsencrypt/renewal-hooks/deploy/reload-mail-tls` reloads Postfix and Dovecot after each successful renewal.
+- On `bnb-backend`, the `bnb-bot` uses `hello@gobitsnbytes.org` for SMTP. Any reset of that mailbox must update `SMTP_PASS` in `/opt/bits-bytes-bot/.env` and restart `bnb-bot`.
 
 ## Active work
 
@@ -63,6 +68,7 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - Legal email policy replies and attachment review are implemented. Production mailbox secrets and end-to-end mail verification remain operational prerequisites when absent.
 - Public scheduling needs server-side slot verification and rate limiting; historical Cal.com duplicates are hidden non-destructively.
 - Finance still needs the live RazorpayX boundary and immutable double-entry journal enforcement before it can be treated as a complete banking ledger.
+- TypeSafe AI use-case assessment: the lowest-friction integration point is the existing contract-assistant/legal-agent pipeline (classification, risk scoring, routing/escalation, retrieval, and verification); finance authorization must remain deterministic, with semantic scoring limited to triage/explanations until separately validated.
 
 ## Maintenance rule
 

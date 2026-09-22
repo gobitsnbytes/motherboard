@@ -93,6 +93,20 @@ class Settings(BaseSettings):
     smtp_cc: str | None = Field(default=None, validation_alias="SMTP_CC")
     smtp_bcc: str | None = Field(default=None, validation_alias="SMTP_BCC")
 
+    mailroom_imap_host: str = Field(
+        default="mail.gobitsnbytes.org", validation_alias="MAILROOM_IMAP_HOST"
+    )
+    mailroom_imap_port: int = Field(default=993, validation_alias="MAILROOM_IMAP_PORT")
+    mailroom_domain: str = Field(
+        default="gobitsnbytes.org", validation_alias="MAILROOM_DOMAIN"
+    )
+    mailroom_hello_password: str | None = Field(
+        default=None, validation_alias="MAILROOM_HELLO_PASSWORD"
+    )
+    mailroom_legal_password: str | None = Field(
+        default=None, validation_alias="MAILROOM_LEGAL_PASSWORD"
+    )
+
     # SparkCloud Verification settings
     discord_cloud_approval_webhook_url: str | None = Field(
         default=None, validation_alias="DISCORD_CLOUD_APPROVAL_WEBHOOK_URL"
