@@ -10,10 +10,13 @@ Lifespan:
 import logging
 import os
 import asyncio
+import re
+import time
+import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
@@ -23,6 +26,7 @@ from app.events import event_bus
 
 logger = logging.getLogger(__name__)
 _calendar_reconciliation_task: asyncio.Task | None = None
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 # Env vars the Alembic env.py needs access to — pydantic-settings reads from
 # .env but does NOT export to os.environ, so we propagate them here so that
@@ -218,6 +222,38 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @application.middleware("http")
+    async def log_server_errors(request: Request, call_next):
+        inbound_request_id = request.headers.get("x-request-id", "")
+        request_id = (
+            inbound_request_id
+            if _REQUEST_ID_PATTERN.fullmatch(inbound_request_id)
+            else uuid.uuid4().hex
+        )
+        started_at = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception(
+                "request_failed method=%s path=%s request_id=%s duration_ms=%d",
+                request.method,
+                request.url.path,
+                request_id,
+                round((time.perf_counter() - started_at) * 1000),
+            )
+            raise
+        response.headers["X-Request-ID"] = request_id
+        if response.status_code >= 500:
+            logger.error(
+                "request_failed method=%s path=%s status=%d request_id=%s duration_ms=%d",
+                request.method,
+                request.url.path,
+                response.status_code,
+                request_id,
+                round((time.perf_counter() - started_at) * 1000),
+            )
+        return response
 
     # Include routers
     from app.routers import (

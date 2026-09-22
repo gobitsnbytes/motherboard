@@ -12,6 +12,15 @@ async def test_health_check(client):
     response = await client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert response.headers["x-request-id"]
+
+
+async def test_request_id_accepts_only_safe_values(client):
+    response = await client.get("/health", headers={"X-Request-ID": "login-check-42"})
+    assert response.headers["x-request-id"] == "login-check-42"
+
+    response = await client.get("/health", headers={"X-Request-ID": "bad value"})
+    assert response.headers["x-request-id"] != "bad value"
 
 
 async def test_finance_endpoints(client):
