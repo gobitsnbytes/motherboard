@@ -8,10 +8,14 @@ set -euo pipefail
 
 APP_DIR="/opt/bnb-api"
 API_DIR="$APP_DIR/apps/api"
-SERVICE_NAME="bnb-api"
-HEALTH_CHECK_URL="http://127.0.0.1:8000/health"
+LEGACY_SERVICE_NAME="bnb-api"
+NGINX_SITE="/etc/nginx/sites-available/api.gobitsnbytes.org"
+ACTIVE_PORT_FILE="/var/lib/bnb-api/active-port"
 MAX_HEALTH_ATTEMPTS=15
-HEALTH_DELAY_SECONDS=5
+HEALTH_DELAY_SECONDS=2
+CANDIDATE_SERVICE=""
+NGINX_BACKUP=""
+SWITCHED=0
 
 echo "=== Deployment Started: $(date) ==="
 
@@ -22,6 +26,13 @@ echo "Current commit: $PREV_COMMIT"
 # Helper function to rollback
 rollback() {
     echo "!!! DEPLOYMENT FAILED. Rolling back to commit $PREV_COMMIT !!!"
+    if [ "$SWITCHED" -eq 1 ] && [ -n "$NGINX_BACKUP" ] && [ -f "$NGINX_BACKUP" ]; then
+        sudo cp "$NGINX_BACKUP" "$NGINX_SITE"
+        sudo nginx -t && sudo systemctl reload nginx
+    fi
+    if [ -n "$CANDIDATE_SERVICE" ]; then
+        sudo systemctl stop "$CANDIDATE_SERVICE" || true
+    fi
     git -C "$APP_DIR" reset --hard "$PREV_COMMIT"
     
     echo "--> Restoring dependencies..."
@@ -29,10 +40,7 @@ rollback() {
     sudo chown -R deploy:deploy "$APP_DIR"
     uv sync --project "$API_DIR" --frozen --no-dev --python python3.12
     
-    echo "--> Restarting service..."
-    sudo systemctl restart "$SERVICE_NAME"
-    
-    echo "--> Rollback complete."
+    echo "--> Rollback complete; the previous API process remained active."
     exit 1
 }
 
@@ -129,32 +137,49 @@ else:
     print('--> SMTP credentials not specified in .env, skipping live auth test.')
 ") || true
 
-# 4. Set runtime ownership & restart services
+# 4. Set runtime ownership and install the dual-port service template
 echo "--> Ensuring runtime directory permissions..."
 sudo chown -R deploy:deploy "$APP_DIR"
 sudo chown -R $(whoami):$(id -gn) "$APP_DIR/.git"
 sudo chmod -R u+rwX "$APP_DIR/.git"
 
-echo "--> Restarting bnb-api systemd service..."
-sudo systemctl restart "$SERVICE_NAME" || rollback
-echo "--> Restarting bnb-bot systemd service..."
-sudo systemctl restart bnb-bot || rollback
+sudo cp "$APP_DIR/deploy/api/bnb-api@.service" /etc/systemd/system/bnb-api@.service
+sudo systemctl daemon-reload
+sudo mkdir -p "$(dirname "$ACTIVE_PORT_FILE")"
 
-# 5. Health check loop
-echo "--> Performing health checks..."
+if [ -f "$ACTIVE_PORT_FILE" ]; then
+    ACTIVE_PORT=$(cat "$ACTIVE_PORT_FILE")
+else
+    ACTIVE_PORT=8000
+fi
+if [ "$ACTIVE_PORT" = "8000" ]; then
+    CANDIDATE_PORT=8001
+else
+    CANDIDATE_PORT=8000
+fi
+CANDIDATE_SERVICE="bnb-api@${CANDIDATE_PORT}.service"
+CANDIDATE_HEALTH_URL="http://127.0.0.1:${CANDIDATE_PORT}/health"
+CANDIDATE_READY_URL="http://127.0.0.1:${CANDIDATE_PORT}/health/ready"
+
+echo "--> Starting replacement API on port $CANDIDATE_PORT..."
+sudo systemctl restart "$CANDIDATE_SERVICE" || rollback
+
+# 5. Verify the replacement before switching Nginx
+echo "--> Performing replacement health checks..."
 ATTEMPT=1
 SUCCESS=0
 
 while [ $ATTEMPT -le $MAX_HEALTH_ATTEMPTS ]; do
     echo "Health check attempt $ATTEMPT/$MAX_HEALTH_ATTEMPTS..."
-    STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_CHECK_URL" || echo "000")
+    LIVE_CODE=$(curl --max-time 2 -s -o /dev/null -w "%{http_code}" "$CANDIDATE_HEALTH_URL" || true)
+    READY_CODE=$(curl --max-time 3 -s -o /dev/null -w "%{http_code}" "$CANDIDATE_READY_URL" || true)
     
-    if [ "$STATUS_CODE" = "200" ]; then
-        echo "--> Health check passed! Application is running."
+    if [ "$LIVE_CODE" = "200" ] && [ "$READY_CODE" = "200" ]; then
+        echo "--> Replacement passed liveness and readiness checks."
         SUCCESS=1
         break
     else
-        echo "Health check returned status $STATUS_CODE. Retrying in ${HEALTH_DELAY_SECONDS}s..."
+        echo "Health checks returned live=${LIVE_CODE:-000} ready=${READY_CODE:-000}. Retrying in ${HEALTH_DELAY_SECONDS}s..."
         sleep "$HEALTH_DELAY_SECONDS"
         ATTEMPT=$((ATTEMPT + 1))
     fi
@@ -164,12 +189,38 @@ if [ $SUCCESS -ne 1 ]; then
     echo "--> Health check failed after $MAX_HEALTH_ATTEMPTS attempts."
     # Dump journalctl logs for context before rollback
     echo "--> Last 30 lines of service logs:"
-    journalctl -u "$SERVICE_NAME" -n 30
+    journalctl -u "$CANDIDATE_SERVICE" -n 30
     rollback
 fi
 
-# 6. Reload Nginx (in case configuration changed)
-echo "--> Reloading Nginx configuration..."
-sudo systemctl reload nginx
+# 6. Atomically switch Nginx, verify public traffic, then retire the old worker
+NGINX_BACKUP=$(mktemp)
+sudo cp "$NGINX_SITE" "$NGINX_BACKUP"
+sudo sed -E -i "s#proxy_pass http://127\.0\.0\.1:(8000|8001)#proxy_pass http://127.0.0.1:${CANDIDATE_PORT}#g" "$NGINX_SITE"
+sudo nginx -t || rollback
+sudo systemctl reload nginx || rollback
+SWITCHED=1
+
+PUBLIC_CODE=$(curl --max-time 5 -s -o /dev/null -w "%{http_code}" https://api.gobitsnbytes.org/health || true)
+if [ "$PUBLIC_CODE" != "200" ]; then
+    echo "--> Public health check failed with ${PUBLIC_CODE:-000}."
+    rollback
+fi
+
+echo "--> Restarting bnb-bot systemd service..."
+sudo systemctl restart bnb-bot || rollback
+
+echo "$CANDIDATE_PORT" | sudo tee "$ACTIVE_PORT_FILE" >/dev/null
+
+if [ "$ACTIVE_PORT" = "8000" ]; then
+    sudo systemctl stop "$LEGACY_SERVICE_NAME" || true
+    sudo systemctl stop bnb-api@8000.service || true
+else
+    sudo systemctl stop bnb-api@8001.service || true
+fi
+
+if [ -f "$NGINX_BACKUP" ]; then
+    rm -f "$NGINX_BACKUP"
+fi
 
 echo "=== Deployment Completed Successfully! ==="
