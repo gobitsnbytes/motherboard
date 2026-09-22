@@ -29,8 +29,17 @@ export default function CockpitDebugger({ isOpen, onClose }: CockpitDebuggerProp
       setLatency(Math.round(end - start));
       if (res.ok) {
         const data = await res.json();
-        setApiStatus(data.database === "healthy" ? "Online (200 OK)" : "Degraded");
+        setApiStatus(data.status === "ok" ? "Online (200 OK)" : "Degraded");
         setDbStatus(data.database);
+      } else if (res.status === 504) {
+        setApiStatus("Slow (timeout)");
+        setDbStatus("Unknown");
+      } else if (res.status === 503) {
+        setApiStatus("Unavailable");
+        setDbStatus("Unknown");
+      } else if (res.status === 401) {
+        setApiStatus("Session expired");
+        setDbStatus("Unknown");
       } else {
         setApiStatus(`HTTP ${res.status}`);
       }
@@ -124,7 +133,7 @@ export default function CockpitDebugger({ isOpen, onClose }: CockpitDebuggerProp
           <div className="grid grid-cols-2 gap-2 pt-2 text-[11px] font-mono">
             <div className="flex flex-col bg-black p-2 rounded-base border border-border">
               <span className="text-zinc-500 text-[10px]">API Latency</span>
-              <span className="font-bold text-emerald-400">{latency ? `${latency}ms` : "Offline"}</span>
+              <span className="font-bold text-emerald-400">{latency !== null ? `${latency}ms` : "Offline"}</span>
             </div>
             <div className="flex flex-col bg-black p-2 rounded-base border border-border">
               <span className="text-zinc-500 text-[10px]">API Status</span>

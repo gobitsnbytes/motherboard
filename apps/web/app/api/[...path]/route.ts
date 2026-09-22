@@ -21,6 +21,8 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ]);
 
+const UPSTREAM_TIMEOUT_MS = 8_000;
+
 function getApiBase() {
   return process.env.API_URL ?? "http://localhost:8000";
 }
@@ -61,13 +63,32 @@ async function proxy(request: Request, context: RouteContext) {
   }
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
-  const upstreamResponse = await fetch(upstreamUrl, {
-    method: request.method,
-    headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
-    redirect: "follow",
-    cache: "no-store",
-  });
+  let upstreamResponse: Response;
+  try {
+    upstreamResponse = await fetch(upstreamUrl, {
+      method: request.method,
+      headers,
+      body: hasBody ? await request.arrayBuffer() : undefined,
+      redirect: "follow",
+      cache: "no-store",
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const timedOut = error instanceof Error && error.name === "TimeoutError";
+    console.error("[api-proxy] upstream request failed", {
+      path: upstreamPath,
+      reason: timedOut ? "timeout" : "connection",
+    });
+    return Response.json(
+      {
+        detail: timedOut
+          ? "The backend is responding slowly. Please retry."
+          : "The backend is temporarily unreachable. Please retry.",
+        code: timedOut ? "upstream_timeout" : "upstream_unreachable",
+      },
+      { status: timedOut ? 504 : 503 },
+    );
+  }
 
   const responseHeaders = new Headers(upstreamResponse.headers);
   for (const header of HOP_BY_HOP_HEADERS) {

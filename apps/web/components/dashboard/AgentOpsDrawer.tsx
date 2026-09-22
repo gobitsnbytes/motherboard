@@ -169,7 +169,7 @@ export default function AgentOpsDrawer({ isOpen, onClose }: AgentOpsDrawerProps)
 
           {agentOnline === "offline" ? (
             <div className="rounded-base border-2 border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] font-bold text-red-300 flex items-center justify-between">
-              <span>Agent stats unreachable (API offline).</span>
+              <span>Agent stats are temporarily unavailable.</span>
               <button
                 type="button"
                 onClick={pollAgentStats}
