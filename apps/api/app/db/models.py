@@ -1074,6 +1074,71 @@ class WebSession(Base):
     avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
+class MailroomAccount(Base):
+    """Mailbox credentials attached to a Motherboard identity.
+
+    Email content stays in Dovecot. Only the credential required to open an
+    IMAP connection is persisted here, encrypted by ``EncryptedString``.
+    """
+
+    __tablename__ = "mailroom_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(EncryptedString(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_authenticated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    # Writing tone, signature handling, automatic triage. No mail content.
+    ai_preferences: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
+
+
+class MailroomOtpChallenge(Base):
+    """One live sign-in code per mailbox, stored as a keyed digest.
+
+    Resend throttling reads ``created_at`` and verification throttling reads
+    ``attempts``, so a single row covers both limits.
+    """
+
+    __tablename__ = "mailroom_otp_challenges"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("mailroom_accounts.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class BotJobRun(Base):
     __tablename__ = "bot_job_runs"
 
