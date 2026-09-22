@@ -81,7 +81,9 @@ def test_mailroom_falls_back_to_html_when_there_is_no_plain_part():
     )
 
     assert plugin._plain_text(message) == ""
-    assert plugin._html_to_text("<p>Only a formatted body</p>") == "Only a formatted body"
+    assert (
+        plugin._html_to_text("<p>Only a formatted body</p>") == "Only a formatted body"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +105,14 @@ def test_mailroom_sanitizer_drops_active_content():
 
     html, _, _ = plugin._sanitize_html(hostile, {}, allow_remote=False)
 
-    for forbidden in ("script", "iframe", "<form", "onclick", "javascript:", "position"):
+    for forbidden in (
+        "script",
+        "iframe",
+        "<form",
+        "onclick",
+        "javascript:",
+        "position",
+    ):
         assert forbidden not in html
     assert "color:red" in html
 
@@ -125,7 +134,9 @@ def test_mailroom_serves_inline_images_through_the_attachment_route():
     plugin = _mailroom()
     body = '<img src="cid:logo"><a href="cid:logo">x</a>'
 
-    html, _, links = plugin._sanitize_html(body, {"logo": "/api/att/3"}, allow_remote=False)
+    html, _, links = plugin._sanitize_html(
+        body, {"logo": "/api/att/3"}, allow_remote=False
+    )
 
     assert 'src="/api/att/3"' in html
     # A cid: reference is only ever an image source, never a link target.
@@ -228,7 +239,9 @@ def _use_fake(plugin, monkeypatch, fake):
 
 def test_mailroom_pages_newest_first(monkeypatch):
     plugin = _mailroom()
-    messages = {str(index).encode(): _message(f"Message {index}") for index in range(1, 11)}
+    messages = {
+        str(index).encode(): _message(f"Message {index}") for index in range(1, 11)
+    }
     fake = FakeIMAP(messages)
     _use_fake(plugin, monkeypatch, fake)
 
@@ -236,8 +249,16 @@ def test_mailroom_pages_newest_first(monkeypatch):
     second = plugin._load_messages(_account(), "INBOX", limit=3, offset=3)
 
     assert first.total == 10
-    assert [row.subject for row in first.messages] == ["Message 10", "Message 9", "Message 8"]
-    assert [row.subject for row in second.messages] == ["Message 7", "Message 6", "Message 5"]
+    assert [row.subject for row in first.messages] == [
+        "Message 10",
+        "Message 9",
+        "Message 8",
+    ]
+    assert [row.subject for row in second.messages] == [
+        "Message 7",
+        "Message 6",
+        "Message 5",
+    ]
     assert second.offset == 3
 
 
@@ -363,9 +384,11 @@ async def test_regular_user_cannot_name_someone_elses_mailbox(db_session):
     other = User(display_name="Other", is_super_admin=False)
     db_session.add_all([owner, other])
     await db_session.flush()
-    db_session.add(MailroomAccount(
-        user_id=owner.id, email="owner@gobitsnbytes.org", password="secret"
-    ))
+    db_session.add(
+        MailroomAccount(
+            user_id=owner.id, email="owner@gobitsnbytes.org", password="secret"
+        )
+    )
     await db_session.commit()
     principal = await resolve_principal(db_session, other.id)
 
@@ -396,11 +419,13 @@ async def _signed_in(db_session, email_address):
 
 async def _challenge(db_session, account, code, ttl=timedelta(minutes=5)):
     plugin = _mailroom()
-    db_session.add(MailroomOtpChallenge(
-        account_id=account.id,
-        code_hash=plugin._hash_code(code),
-        expires_at=datetime.now(timezone.utc) + ttl,
-    ))
+    db_session.add(
+        MailroomOtpChallenge(
+            account_id=account.id,
+            code_hash=plugin._hash_code(code),
+            expires_at=datetime.now(timezone.utc) + ttl,
+        )
+    )
     await db_session.commit()
 
 
@@ -415,7 +440,9 @@ async def test_mailroom_otp_is_stored_only_as_a_keyed_digest(db_session, monkeyp
     await plugin.request_otp(plugin.OtpRequest(email=account.email), db_session)
 
     challenge = await db_session.scalar(
-        select(MailroomOtpChallenge).where(MailroomOtpChallenge.account_id == account.id)
+        select(MailroomOtpChallenge).where(
+            MailroomOtpChallenge.account_id == account.id
+        )
     )
     code = sent[0][1]
     assert len(code) == plugin.OTP_LENGTH and code.isdigit()
@@ -487,7 +514,9 @@ async def test_mailroom_otp_works_once_and_only_once(db_session):
     principal = await resolve_principal(db_session, user.id)
 
     session = await plugin.verify_otp(
-        plugin.OtpVerifyRequest(email=account.email, code="654321"), db_session, principal
+        plugin.OtpVerifyRequest(email=account.email, code="654321"),
+        db_session,
+        principal,
     )
     assert session.authenticated is True
 
@@ -545,9 +574,20 @@ async def test_mailroom_otp_throttles_resends(db_session, monkeypatch):
 
 def test_mailroom_tables_hold_no_mail_content():
     mail_content = {
-        "subject", "sender", "recipient", "recipients", "snippet", "body",
-        "html", "text", "attachment", "attachments", "message", "transcript",
-        "headers", "preview",
+        "subject",
+        "sender",
+        "recipient",
+        "recipients",
+        "snippet",
+        "body",
+        "html",
+        "text",
+        "attachment",
+        "attachments",
+        "message",
+        "transcript",
+        "headers",
+        "preview",
     }
     for table in (MailroomAccount.__table__, MailroomOtpChallenge.__table__):
         overlap = {column.name for column in table.columns} & mail_content
