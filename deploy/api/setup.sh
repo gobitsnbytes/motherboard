@@ -71,6 +71,23 @@ else
     echo "--> 'deploy' user already exists."
 fi
 
+# 5b. Passwordless sudo for the deploy pipeline.
+#
+# Rewritten on every run, not just at user creation. deploy.sh gains privileged
+# steps over time (the dual-port rollout added cp, mkdir, sed, tee, and nginx);
+# an existing host would otherwise keep the original grant and fail mid-rollout,
+# where there is no TTY to prompt on and the release stops half-applied.
+echo "--> Refreshing deploy sudo grants..."
+cat > /tmp/deploy-nopasswd <<'SUDOERS'
+# bnb-api deploy pipeline. deploy/api/deploy.sh runs these unattended over SSH
+# with no TTY, so each one needs NOPASSWD. Keep in sync with that script.
+deploy ALL=(ALL) NOPASSWD: /home/ubuntu/.bun/bin/bun, /bin/chown, /usr/bin/chown, /bin/chmod, /usr/bin/chmod, /usr/bin/systemctl, /usr/bin/cp, /usr/bin/mkdir, /usr/bin/rm, /usr/bin/sed, /usr/bin/grep, /usr/bin/tee, /usr/sbin/nginx, /usr/bin/apt-get
+SUDOERS
+# Never install an unparsed sudoers file; a bad one locks the host out of sudo.
+visudo -c -f /tmp/deploy-nopasswd
+install -m 0440 -o root -g root /tmp/deploy-nopasswd /etc/sudoers.d/deploy-nopasswd
+rm -f /tmp/deploy-nopasswd
+
 # 6. Clone Repository
 echo "--> Setting up application directory..."
 mkdir -p /opt/bnb-api
