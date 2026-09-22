@@ -1,4 +1,6 @@
 import uuid
+import asyncio
+from types import SimpleNamespace
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -150,7 +152,18 @@ async def test_health_ready(client):
     assert data["redis"] == "healthy"
 
 
-async def test_detailed_status(super_admin: User, client):
+async def test_detailed_status(super_admin: User, client, monkeypatch):
+    from app.routers import health
+
+    monkeypatch.setattr(
+        health,
+        "get_settings",
+        lambda: SimpleNamespace(
+            discord_bot_token="",
+            discord_guild_id="",
+            app_version="test",
+        ),
+    )
     response = await request_as(client, super_admin.id, "GET", "/api/health/status")
     assert response.status_code == 200
     data = response.json()
@@ -159,3 +172,36 @@ async def test_detailed_status(super_admin: User, client):
     assert "redis" in data
     assert "discord" in data
     assert "sync" in data
+
+
+async def test_detailed_status_returns_partial_result_when_database_times_out(
+    monkeypatch,
+):
+    from app.routers import health
+
+    class SlowDb:
+        async def execute(self, _statement):
+            await asyncio.sleep(0.05)
+
+        async def scalar(self, _statement):
+            await asyncio.sleep(0.05)
+
+    monkeypatch.setattr(health, "DB_TIMEOUT_SECONDS", 0.001)
+    monkeypatch.setattr(health.event_bus, "redis", None)
+    monkeypatch.setattr(
+        health,
+        "get_settings",
+        lambda: SimpleNamespace(
+            discord_bot_token="",
+            discord_guild_id="",
+            app_version="test",
+        ),
+    )
+
+    data = await health.get_detailed_status(SlowDb())
+
+    assert data["status"] == "degraded"
+    assert data["database"] == "unhealthy"
+    assert data["redis"] == "unconfigured"
+    assert data["discord"] == "unconfigured"
+    assert data["sync"] == "unknown"
