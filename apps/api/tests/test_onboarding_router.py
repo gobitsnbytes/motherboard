@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import uuid
+from types import SimpleNamespace
 
 from sqlalchemy import select
 
@@ -19,6 +20,55 @@ from app.db.models import (
     User,
 )
 from conftest import request_as
+
+
+async def test_list_cases_serializes_before_commit(monkeypatch):
+    """A commit expires ORM state in production, so responses must exist first."""
+    from app.routers import onboarding
+
+    events: list[str] = []
+    case = SimpleNamespace(id=uuid.uuid4())
+
+    class _Scalars:
+        def all(self):
+            return [case]
+
+    class _Result:
+        def scalars(self):
+            return _Scalars()
+
+    class _Db:
+        async def execute(self, _statement):
+            return _Result()
+
+        async def flush(self):
+            events.append("flush")
+
+        async def commit(self):
+            events.append("commit")
+
+    async def _allow(*_args):
+        return None
+
+    async def _load(_db, _case_id):
+        return case
+
+    async def _sync(_db, _case):
+        return None
+
+    def _serialize(_case):
+        events.append("serialize")
+        return "response"
+
+    monkeypatch.setattr(onboarding, "require_permission", _allow)
+    monkeypatch.setattr(onboarding, "_load_case", _load)
+    monkeypatch.setattr(onboarding, "_sync_signature_states", _sync)
+    monkeypatch.setattr(onboarding, "_case_response", _serialize)
+
+    result = await onboarding.list_cases(_Db(), SimpleNamespace(user_id=uuid.uuid4()))
+
+    assert result == ["response"]
+    assert events == ["flush", "serialize", "commit"]
 
 
 async def test_volunteer_case_creates_scoped_portal(super_admin, db_session, client):

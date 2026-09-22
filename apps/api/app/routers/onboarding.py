@@ -740,8 +740,10 @@ async def list_cases(
     cases = [await _load_case(db, row.id) for row in rows]
     for case in cases:
         await _sync_signature_states(db, case)
+    await db.flush()
+    responses = [_case_response(case) for case in cases]
     await db.commit()
-    return [_case_response(case) for case in cases]
+    return responses
 
 
 @router.get("/reviewers", response_model=list[OnboardingReviewerResponse])
