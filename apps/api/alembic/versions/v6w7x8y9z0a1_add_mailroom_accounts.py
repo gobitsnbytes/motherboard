@@ -42,9 +42,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
-        sa.UniqueConstraint("user_id"),
     )
-    op.create_index("ix_mailroom_accounts_user_id", "mailroom_accounts", ["user_id"])
+    # One mailbox per identity. The model declares unique and indexed on the
+    # same column, which is a unique index rather than a separate constraint.
+    op.create_index(
+        "ix_mailroom_accounts_user_id", "mailroom_accounts", ["user_id"], unique=True
+    )
 
     op.create_table(
         "mailroom_otp_challenges",
@@ -64,12 +67,13 @@ def upgrade() -> None:
             ["account_id"], ["mailroom_accounts.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("account_id"),
     )
+    # One live challenge per mailbox, for the same reason.
     op.create_index(
         "ix_mailroom_otp_challenges_account_id",
         "mailroom_otp_challenges",
         ["account_id"],
+        unique=True,
     )
 
 
