@@ -225,7 +225,7 @@ else
 fi
 
 if [ -f "$NGINX_BACKUP" ]; then
-    rm -f "$NGINX_BACKUP"
+    sudo rm -f "$NGINX_BACKUP"
 fi
 
 echo "=== Deployment Completed Successfully! ==="
