@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ChevronRight,
   Inbox,
+  AlertCircle,
 } from "lucide-react";
 
 interface PipelineContract {
@@ -35,19 +36,25 @@ interface PipelineContract {
 export default function ContractAssistantPage() {
   const [contracts, setContracts] = useState<PipelineContract[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [rulesCount, setRulesCount] = useState<number>(35);
   const [analyzing, setAnalyzing] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (signal?: AbortSignal) => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const [rulesRes, contractsRes] = await Promise.all([
-        fetch("/api/contract-assistant/rules").catch(() => null),
-        fetch("/api/contract-assistant/contracts").catch(() => null),
+        fetch("/api/contract-assistant/rules", { signal }).catch(() => null),
+        fetch("/api/contract-assistant/contracts", { signal }).catch(() => null),
       ]);
 
       if (rulesRes && rulesRes.ok) {
@@ -60,11 +67,17 @@ export default function ContractAssistantPage() {
         if (Array.isArray(contractsData)) {
           setContracts(contractsData);
         }
+      } else if (contractsRes && !contractsRes.ok) {
+        setLoadError(`Failed to load contracts (HTTP ${contractsRes.status}).`);
+      } else if (!contractsRes) {
+        setLoadError("Could not reach the contract assistant service.");
       }
     } catch (err) {
+      if ((err as any)?.name === "AbortError") return;
       console.error("Failed to load contracts data", err);
+      setLoadError("Could not reach the contract assistant service.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
@@ -73,6 +86,7 @@ export default function ContractAssistantPage() {
     const uploadedFile = e.target.files[0];
 
     setAnalyzing(true);
+    setUploadError(null);
     const formData = new FormData();
     formData.append("file", uploadedFile);
 
@@ -88,11 +102,16 @@ export default function ContractAssistantPage() {
         if (data.contract_id) {
           window.location.href = `/dashboard/contract-assistant/${data.contract_id}`;
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setUploadError(errData.detail || `Upload failed (HTTP ${res.status}).`);
       }
     } catch (err) {
       console.error("Analysis error", err);
+      setUploadError("Could not reach the contract assistant service.");
     } finally {
       setAnalyzing(false);
+      e.target.value = "";
     }
   };
 
@@ -152,17 +171,54 @@ export default function ContractAssistantPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/dashboard/contract-assistant/rules"
-            className="flex items-center gap-1.5 px-4 py-2 bg-secondary-background text-foreground text-xs font-mono font-bold border-2 border-border rounded-base shadow-light hover:bg-muted"
+            className="flex min-h-11 items-center gap-1.5 px-4 py-2 bg-secondary-background text-foreground text-xs font-mono font-bold border-2 border-border rounded-base shadow-light hover:bg-muted"
           >
             <BookOpen className="w-3.5 h-3.5 text-orange" /> OKF Rules ({rulesCount})
           </Link>
-          <label className="flex items-center gap-1.5 px-4 py-2 bg-orange text-black text-xs font-heading font-black uppercase tracking-wider border-2 border-black rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none cursor-pointer transition-all">
+          <label className="flex min-h-11 items-center gap-1.5 px-4 py-2 bg-orange text-black text-xs font-heading font-black uppercase tracking-wider border-2 border-black rounded-base shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none cursor-pointer transition-all">
             {analyzing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
             Upload Contract
             <input type="file" accept=".pdf,.docx" onChange={handleFileUpload} disabled={analyzing} className="hidden" />
           </label>
         </div>
       </div>
+
+      {uploadError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-base border-2 border-red-800 bg-red-100 p-3 text-red-900 shadow-light"
+        >
+          <span className="flex items-center gap-2 text-xs font-bold font-heading">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {uploadError}
+          </span>
+          <button
+            type="button"
+            onClick={() => setUploadError(null)}
+            className="min-h-11 min-w-11 flex items-center justify-center text-red-900 hover:text-black"
+            aria-label="Dismiss upload error"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-base border-2 border-red-800 bg-red-100 p-3 text-red-900 shadow-light"
+        >
+          <span className="flex items-center gap-2 text-xs font-bold font-heading">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {loadError}
+          </span>
+          <button
+            type="button"
+            onClick={() => fetchData()}
+            className="min-h-11 inline-flex items-center gap-1.5 rounded-base border-2 border-border bg-secondary-background px-4 text-xs font-bold font-heading shadow-light hover:bg-muted"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
+        </div>
+      )}
 
       {/* Global Search & Filters */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -185,6 +241,17 @@ export default function ContractAssistantPage() {
       </div>
 
       {/* Kanban Pipeline Board */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-secondary-background border-2 border-border rounded-base p-4 shadow-dark space-y-4 animate-pulse">
+              <div className="h-4 w-1/2 bg-muted rounded-base" />
+              <div className="h-20 w-full bg-muted rounded-base" />
+              <div className="h-20 w-full bg-muted rounded-base" />
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Column 1: In Review */}
         <div className="bg-secondary-background border-2 border-border rounded-base p-4 shadow-dark space-y-4">
@@ -336,6 +403,7 @@ export default function ContractAssistantPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

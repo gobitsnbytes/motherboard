@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   Stamp,
   Timer,
+  WifiOff,
 } from "lucide-react";
 import {
   askLegalAgent,
@@ -124,10 +125,23 @@ export default function LegalAgentPanel() {
           <button
             type="button"
             onClick={loadAll}
-            className="inline-flex items-center gap-1.5 rounded-base border border-border px-2 py-1 hover:bg-white/5"
+            className="min-h-11 inline-flex items-center gap-1.5 rounded-base border border-border px-2 py-1 hover:bg-white/5"
           >
             <RefreshCw className="size-3" /> Retry
           </button>
+        </div>
+      )}
+
+      {!loading && stats && stats.imap_configured === false && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-base border-2 border-orange/40 bg-orange/10 px-4 py-3 text-xs font-bold text-orange"
+        >
+          <WifiOff className="size-3.5 shrink-0" />
+          <span>
+            Legal inbox is not configured (LEGAL_INBOX_IMAP_HOST / _USER / _PASSWORD missing). Inbound email
+            polling is paused; policy Q&amp;A and dispatch still work normally.
+          </span>
         </div>
       )}
 
@@ -143,7 +157,7 @@ export default function LegalAgentPanel() {
               type="button"
               onClick={loadAll}
               title="Refresh inbox"
-              className="rounded-base border border-border p-1 text-muted-foreground hover:bg-white/5"
+              className="min-h-11 min-w-11 flex items-center justify-center rounded-base border border-border text-muted-foreground hover:bg-white/5"
             >
               <RefreshCw className={`size-3 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -265,7 +279,7 @@ export default function LegalAgentPanel() {
             <button
               type="submit"
               disabled={asking || !question.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-base border-2 border-border bg-burgundy px-3 py-2 font-heading text-[11px] font-bold uppercase tracking-wider text-main-foreground shadow-shadow transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 inline-flex items-center justify-center gap-2 rounded-base border-2 border-border bg-burgundy px-3 py-2 font-heading text-[11px] font-bold uppercase tracking-wider text-main-foreground shadow-shadow transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-40"
             >
               {asking ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
               {asking ? "Thinking…" : "Ask"}

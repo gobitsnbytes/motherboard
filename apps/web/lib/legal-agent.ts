@@ -3,6 +3,12 @@
  * All calls go through the Next.js /api proxy to apps/api.
  */
 
+export interface AgentRetrievalStatus {
+  backend: string;
+  ready: boolean;
+  indexed_chunks: number;
+}
+
 export interface AgentStats {
   inbox_processed_24h: number;
   contracts_in_review: number;
@@ -10,6 +16,8 @@ export interface AgentStats {
   dotted_count: number;
   pending_nudges: number;
   last_poll_at: string | null;
+  imap_configured?: boolean;
+  retrieval?: AgentRetrievalStatus;
 }
 
 export interface PipelineContractItem {
