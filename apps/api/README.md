@@ -58,3 +58,9 @@ uv run pytest
 ## Environment Variables
 
 All secrets are loaded via `app/config.py` using Pydantic Settings with `Field(validation_alias=...)`. See root `.env.example` for the full list.
+
+### Sentry
+
+Error reporting is set up in `app/observability.py` and is off unless `SENTRY_DSN` is set. `SENTRY_ENVIRONMENT` defaults to `production`, so local `.env` files should set `development`. The release is `bnb-api@<APP_VERSION>+<git sha>` unless you set `SENTRY_RELEASE`. Traces are sampled at 2% in production and not at all elsewhere, unless you set `SENTRY_TRACES_SAMPLE_RATE`.
+
+Background jobs that catch an unexpected exception report it with `capture_background_exception(exc, subsystem=..., operation=...)`. Log a warning next to it, not an error: error-level logs already become Sentry events, so logging at error would report the failure twice. Expected 4xx responses, validation errors, and missing optional configuration are not reported. The test suite forces `SENTRY_DSN` to empty.

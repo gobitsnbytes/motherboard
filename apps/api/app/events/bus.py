@@ -4,6 +4,8 @@ import logging
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 import redis.asyncio as aioredis
 
+from app.observability import capture_background_exception
+
 logger = logging.getLogger("event_bus")
 
 class EventBus:
@@ -52,10 +54,12 @@ class EventBus:
 
     async def _redis_listener(self):
         import redis.exceptions
+        reported_outage = False
         while self.redis:
             try:
                 self._pubsub = self.redis.pubsub()
                 await self._pubsub.subscribe("motherboard_events")
+                reported_outage = False
                 while self.redis:
                     try:
                         async for message in self._pubsub.listen():
@@ -63,8 +67,11 @@ class EventBus:
                                 try:
                                     data = json.loads(message["data"])
                                     await self._trigger_local(data["type"], data["payload"])
-                                except json.JSONDecodeError:
-                                    logger.error("Failed to decode event message from Redis")
+                                except json.JSONDecodeError as exc:
+                                    logger.warning("Failed to decode event message from Redis")
+                                    capture_background_exception(
+                                        exc, subsystem="event_bus", operation="decode"
+                                    )
                     except (redis.exceptions.TimeoutError, asyncio.TimeoutError):
                         # Normal socket timeout due to inactivity. Ping to keep alive and continue listening.
                         logger.debug("EventBus listener socket idle timeout. Pinging Redis...")
@@ -73,7 +80,11 @@ class EventBus:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"EventBus Redis listener error: {e}. Reconnecting in 2s...")
+                logger.warning(f"EventBus Redis listener error: {e}. Reconnecting in 2s...")
+                # Report once per outage; the loop retries every 2s.
+                if not reported_outage:
+                    capture_background_exception(e, subsystem="event_bus", operation="listen")
+                    reported_outage = True
                 await asyncio.sleep(2)
 
     def subscribe(self, event_type: str, callback: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]]):
@@ -91,15 +102,20 @@ class EventBus:
             try:
                 await self.redis.publish("motherboard_events", json.dumps(event_data))
             except Exception as e:
-                logger.error(f"Failed to publish event to Redis: {e}")
+                logger.warning(f"Failed to publish event to Redis: {e}")
+                capture_background_exception(e, subsystem="event_bus", operation="publish")
 
     async def _trigger_local(self, event_type: str, payload: Dict[str, Any]):
         callbacks = self._listeners.get(event_type, [])
         for cb in callbacks:
-            try:
-                # Fire and forget execution locally
-                asyncio.create_task(cb(payload))
-            except Exception as e:
-                logger.error(f"Error executing subscriber callback for {event_type}: {e}")
+            # Fire and forget execution locally
+            asyncio.create_task(self._run_callback(event_type, cb, payload))
+
+    async def _run_callback(self, event_type: str, cb, payload: Dict[str, Any]):
+        try:
+            await cb(payload)
+        except Exception as e:
+            logger.warning(f"Error executing subscriber callback for {event_type}: {e}")
+            capture_background_exception(e, subsystem="event_bus", operation=event_type)
 
 event_bus = EventBus()

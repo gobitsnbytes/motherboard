@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +34,21 @@ class Settings(BaseSettings):
     )
     app_version: str = Field(default="0.86.0-beta.1", validation_alias="APP_VERSION")
     sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
+    sentry_environment: str = Field(
+        default="production", validation_alias="SENTRY_ENVIRONMENT"
+    )
+    # Unset: 2% in production, 0 elsewhere. Health checks are never traced.
+    sentry_traces_sample_rate: float | None = Field(
+        default=None, validation_alias="SENTRY_TRACES_SAMPLE_RATE"
+    )
+    # Unset: bnb-api@<APP_VERSION>+<git sha> when the checkout has a .git dir.
+    sentry_release: str | None = Field(default=None, validation_alias="SENTRY_RELEASE")
+
+    @field_validator("sentry_traces_sample_rate", "sentry_release", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
     # Comma-separated list of allowed CORS origins (overrides nextauth_url for multi-origin setups)
     cors_origins: str = Field(default="", validation_alias="CORS_ORIGINS")
     sync_interval_minutes: int = Field(

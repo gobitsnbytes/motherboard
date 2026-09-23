@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import DiscordAccount, DiscordRoleMapping, Membership, SyncRun
+from app.observability import capture_background_exception
 from app.provisioning.client import DiscordClient
 
 import uuid
@@ -56,7 +57,8 @@ async def run_sync(
         try:
             discord_members = await discord_client.get_guild_members(guild_id)
         except Exception as e:
-            logger.error("Failed to fetch Discord members: %s", e)
+            logger.warning("Failed to fetch Discord members: %s", e)
+            capture_background_exception(e, subsystem="discord_sync", operation="fetch_members")
             sync_run.status = "failed"
             sync_run.finished_at = datetime.now(timezone.utc)
             sync_run.errors = [f"Failed to fetch Discord members: {e}"]
@@ -193,6 +195,8 @@ async def run_sync(
             sync_run.errors = [f"Unexpected error: {e}"]
             await db.commit()
         except Exception as db_err:
-            logger.critical("Failed to write failed status to database: %s", db_err)
+            logger.critical(
+                "Failed to write failed status to database: %s", db_err, exc_info=True
+            )
 
         raise e

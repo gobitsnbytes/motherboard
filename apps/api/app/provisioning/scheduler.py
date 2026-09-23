@@ -25,7 +25,8 @@ async def run_sync_job(guild_id: str, bot_token: str) -> None:
                 trigger="scheduled",
             )
         except Exception as e:
-            logger.error("Scheduled Discord sync job failed: %s", e)
+            # run_sync already reported unexpected failures with a traceback.
+            logger.warning("Scheduled Discord sync job failed: %s", e)
 
 
 async def start_scheduler(interval_minutes: int, guild_id: str, bot_token: str) -> None:
@@ -36,7 +37,7 @@ async def start_scheduler(interval_minutes: int, guild_id: str, bot_token: str) 
         return
 
     if not guild_id or not bot_token:
-        logger.error("Cannot start Discord sync scheduler: missing guild_id or bot_token configuration.")
+        logger.warning("Cannot start Discord sync scheduler: missing guild_id or bot_token configuration.")
         return
 
     logger.info("Starting Discord sync scheduler (interval: %d minutes)", interval_minutes)

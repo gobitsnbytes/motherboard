@@ -30,6 +30,8 @@ os.environ.setdefault("DISCORD_CLIENT_SECRET", "mock_client_secret")
 os.environ.setdefault("DISCORD_BOT_TOKEN", "mock_bot_token")
 os.environ.setdefault("DISCORD_GUILD_ID", "mock_guild_id")
 os.environ["TESTING"] = "True"
+# Never report test failures to a real project from a developer .env.
+os.environ["SENTRY_DSN"] = ""
 os.environ.setdefault("SESSION_SECRET", "mock_session_secret_32_bytes_long_secret_123")
 os.environ.setdefault("API_INTERNAL_SECRET", "mock_internal_secret")
 os.environ.setdefault("NEXTAUTH_SECRET", "mock_nextauth_secret")

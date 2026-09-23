@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import Settings, get_settings
+from app.observability import capture_background_exception
 from app.db.models import (
     ContractAssistantContract,
     ContractAssistantEnvelope,
@@ -830,7 +831,7 @@ def send_reply(
     brevo_user = os.getenv("BREVO_SMTP_USER", settings.smtp_user)
     brevo_pass = os.getenv("BREVO_SMTP_PASS", settings.smtp_pass)
     if not brevo_user or not brevo_pass:
-        logger.error("[LegalAgent] Brevo fallback credentials not configured; reply dropped.")
+        logger.warning("[LegalAgent] Brevo fallback credentials not configured; reply dropped.")
         return False
     try:
         _send_mime_sync(
@@ -846,7 +847,8 @@ def send_reply(
         logger.info("[LegalAgent] Reply delivered via Brevo relay fallback to %s", to_addr)
         return True
     except Exception as fallback_err:
-        logger.error("[LegalAgent] All reply transports failed for %s: %s", to_addr, fallback_err)
+        logger.warning("[LegalAgent] All reply transports failed: %s", fallback_err)
+        capture_background_exception(fallback_err, subsystem="legal_agent", operation="send_reply")
         return False
 
 
@@ -1237,7 +1239,8 @@ async def legal_inbox_poll_job() -> None:
         try:
             await LegalInboxPoller().poll_once(session)
         except Exception as err:
-            logger.error("Scheduled legal inbox poll failed: %s", err)
+            logger.warning("Scheduled legal inbox poll failed: %s", err)
+            capture_background_exception(err, subsystem="legal_agent", operation="inbox_poll")
 
 
 async def signature_nudge_job() -> None:
@@ -1248,7 +1251,10 @@ async def signature_nudge_job() -> None:
         try:
             await run_nudge_cycle(session)
         except Exception as err:
-            logger.error("Scheduled signature nudge job failed: %s", err)
+            logger.warning("Scheduled signature nudge job failed: %s", err)
+            capture_background_exception(
+                err, subsystem="legal_agent", operation="signature_nudge"
+            )
 
 
 _scheduler: Any = None

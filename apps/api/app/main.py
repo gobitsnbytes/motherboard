@@ -24,8 +24,14 @@ from app.config import get_settings
 from app.database import get_engine, get_sessionmaker
 from app.db.seeder import run_seeds
 from app.events import event_bus
+from app.observability import (
+    REQUEST_LOGGER,
+    capture_background_exception,
+    init_sentry,
+)
 
 logger = logging.getLogger(__name__)
+request_logger = logging.getLogger(REQUEST_LOGGER)
 _calendar_reconciliation_task: asyncio.Task | None = None
 _background_startup_task: asyncio.Task | None = None
 _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
@@ -55,12 +61,14 @@ async def _initialize_application_services(
     except Exception as exc:
         failures.append("database_seed")
         logger.warning("Database seed startup skipped: %s", exc)
+        capture_background_exception(exc, subsystem="startup", operation="database_seed")
 
     try:
         await asyncio.wait_for(event_bus.start(settings.redis_url), timeout=2)
     except Exception as exc:
         failures.append("event_bus")
         logger.warning("EventBus startup skipped: %s", exc)
+        capture_background_exception(exc, subsystem="startup", operation="event_bus")
 
     try:
         from app.plugin_sdk.loader import PluginLoader
@@ -71,6 +79,7 @@ async def _initialize_application_services(
     except Exception as exc:
         failures.append("plugins")
         logger.warning("PluginLoader startup skipped: %s", exc)
+        capture_background_exception(exc, subsystem="startup", operation="plugins")
 
     if settings.enable_sync_scheduler:
         try:
@@ -84,6 +93,7 @@ async def _initialize_application_services(
         except Exception as exc:
             failures.append("discord_scheduler")
             logger.warning("Discord scheduler startup skipped: %s", exc)
+            capture_background_exception(exc, subsystem="startup", operation="discord_scheduler")
 
     try:
         from app.services.legal_agent import start_legal_agent_jobs
@@ -92,6 +102,7 @@ async def _initialize_application_services(
     except Exception as exc:
         failures.append("legal_agent")
         logger.warning("Legal Agent scheduler startup skipped: %s", exc)
+        capture_background_exception(exc, subsystem="startup", operation="legal_agent")
 
     try:
         from app.routers.forms import start_form_cleanup
@@ -100,6 +111,7 @@ async def _initialize_application_services(
     except Exception as exc:
         failures.append("form_cleanup")
         logger.warning("Public form cleanup scheduler startup skipped: %s", exc)
+        capture_background_exception(exc, subsystem="startup", operation="form_cleanup")
 
     async def _calendar_reconciliation_loop() -> None:
         from app.services.calendar_routing import reconcile_unknown_bookings
@@ -115,6 +127,9 @@ async def _initialize_application_services(
                 raise
             except Exception as exc:
                 logger.warning("Cal.com reconciliation failed (non-fatal): %s", exc)
+                capture_background_exception(
+                    exc, subsystem="calendar", operation="reconcile_unknown_bookings"
+                )
 
     global _calendar_reconciliation_task
     _calendar_reconciliation_task = asyncio.create_task(_calendar_reconciliation_loop())
@@ -200,15 +215,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    if settings.sentry_dsn:
-        sentry_sdk.init(
-            dsn=settings.sentry_dsn,
-            release=f"bnb-api@{settings.app_version}",
-            send_default_pii=False,
-            max_request_body_size="never",
-            traces_sample_rate=0.0,
-            profiles_sample_rate=0.0,
-        )
+    init_sentry(settings)
 
     application = FastAPI(
         title="bnb-motherboard API",
@@ -237,11 +244,12 @@ def create_app() -> FastAPI:
             if _REQUEST_ID_PATTERN.fullmatch(inbound_request_id)
             else uuid.uuid4().hex
         )
+        sentry_sdk.get_isolation_scope().set_tag("request_id", request_id)
         started_at = time.perf_counter()
         try:
             response = await call_next(request)
         except Exception:
-            logger.exception(
+            request_logger.exception(
                 "request_failed method=%s path=%s request_id=%s duration_ms=%d",
                 request.method,
                 request.url.path,
@@ -251,7 +259,7 @@ def create_app() -> FastAPI:
             raise
         response.headers["X-Request-ID"] = request_id
         if response.status_code >= 500:
-            logger.error(
+            request_logger.error(
                 "request_failed method=%s path=%s status=%d request_id=%s duration_ms=%d",
                 request.method,
                 request.url.path,

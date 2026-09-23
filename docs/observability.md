@@ -2,9 +2,22 @@
 
 The web app uses `@sentry/nextjs` in browser, Node.js, and Edge runtimes. Set `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` in the web deployment environment and in an ignored local `apps/web/.env.local` for local testing. `NEXT_PUBLIC_SENTRY_DSN` is embedded at build time. Set `SENTRY_PROJECT` and a secret `SENTRY_AUTH_TOKEN` during production builds to upload source maps; the organization is `gobitsnbytes-foundation`. The SDK samples 10% of traces and leaves default PII collection off. The bot uses `@sentry/node`; set `SENTRY_DSN` in `/opt/bits-bytes-bot/.env` to capture handled bot errors through its logger.
 
-The FastAPI service can send unhandled errors to Sentry. Set `SENTRY_DSN` in the API service environment to enable it. Keep the DSN in the deployment secret store, not in Git. With the variable unset, the SDK does not initialize.
+## API (`motherboard-backend`)
 
-The API uses `bnb-api@<APP_VERSION>` as its Sentry release. Default PII collection, request body capture, tracing, and profiling are disabled. This fits the small `bnb-backend` host and limits event volume. Request IDs remain in the API response header and structured server logs for correlation.
+`apps/api/app/observability.py` initializes the SDK from `create_app()`, before `FastAPI()` is built. It stays off when `SENTRY_DSN` is blank, and calling `create_app()` again reuses the existing client.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SENTRY_DSN` | blank (disabled) | Secret. `/opt/bnb-api/.env` on the VPS, ignored `apps/api/.env` locally. |
+| `SENTRY_ENVIRONMENT` | `production` | Set `development` in local `.env` files. |
+| `SENTRY_TRACES_SAMPLE_RATE` | 0.02 in production, else 0 | Health checks are never traced. |
+| `SENTRY_RELEASE` | `bnb-api@<APP_VERSION>+<sha12>` | The SHA is read from the checkout's `.git` directory. |
+
+What is sent: unhandled request exceptions, via the FastAPI integration; 5xx `HTTPException`s; error-level logs; and caught background failures that call `capture_background_exception()`. That helper covers startup services, EventBus listeners and publish, Cal.com reconciliation, and final legal-reply delivery. Each event is tagged with `service`, plus `subsystem` and `operation` where set. Request events carry the validated `request_id`, which is also returned in the `X-Request-ID` header.
+
+What is not sent: 4xx responses, validation errors, and missing optional configuration. The `app.request` access logger is also ignored, because the integration already captures those failures. Default PII, request bodies, query strings, cookies, local variables, and all headers except a small allowlist are dropped. URLs use the route template (`/sign/{token}`), and `before_send` redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named keys in context.
+
+Profiling is off, and so are Sentry logs and metrics. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events are flushed on shutdown with a 2-second limit.
 
 The Sentry agent plugin is separate from API event reporting. Installing the plugin gives coding agents access to Sentry; it does not configure the running application.
 
