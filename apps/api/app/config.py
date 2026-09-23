@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     razorpayx_secret: str | None = Field(
         default=None, validation_alias="RAZORPAYX_SECRET"
     )
+    # HMAC secret for verifying inbound RazorpayX payout webhooks. Unset (default)
+    # means the webhook route rejects everything with 503 — see
+    # app.finance.payout_provider (placeholder seam, no live payouts yet).
+    razorpayx_webhook_secret: str | None = Field(
+        default=None, validation_alias="RAZORPAYX_WEBHOOK_SECRET"
+    )
 
     # Gemini API settings
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
