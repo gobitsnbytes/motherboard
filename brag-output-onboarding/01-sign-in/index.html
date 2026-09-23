@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>Motherboard onboarding 01: Signing in</title>
+<script src="assets/gsap.min.js"></script>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+@font-face { font-family: "Anton"; src: url("assets/fonts/anton-latin-400-normal.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2"); font-weight: 500; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="39">
+  <header id="topbar">
+    <div class="brand"><b>bits&amp;bytes™</b> Motherboard · Onboarding 01/05</div>
+    <div class="rail"><span id="rail-what">What</span><span id="rail-why">Why</span><span id="rail-how">How</span></div>
+  </header>
+  <div id="progress"><div id="progress-fill"></div></div>
+
+  <section id="s-title" class="clip scene" data-start="0" data-duration="4" data-section="" data-track-index="1"><div class="inner">
+    <div class="titlecard">
+      <div class="kicker" data-in="0.2">Onboarding 01 / 05</div>
+      <h1 data-in="0.4">Signing in</h1>
+      <p class="sub" data-in="0.9">No passwords. Your Discord account is your ID.</p>
+      <div class="outline" data-in="1.5"><span>What it is</span><span>Why we use it</span><span>How it works</span></div>
+    </div></div></section>
+
+  <section id="s-what" class="clip scene" data-start="4" data-duration="8" data-section="what" data-track-index="1"><div class="inner">
+    <div class="split">
+      <div class="col">
+        <div class="kicker" data-in="0.2">What</div>
+        <h2 data-in="0.4">You sign in to Motherboard with your <em>Discord</em> account. There is no separate password.</h2>
+      </div>
+      <div class="col mockcol">
+      <div class="mock login" data-in="1.2">
+        <div class="chip">Member sign-in</div>
+        <div class="mh">Motherboard</div>
+        <div class="sk w90"></div><div class="sk w70"></div>
+        <div class="btn discord" data-in="2.0">Continue with Discord</div>
+        <div class="tiny">Private access · Verified Discord identity required</div>
+      </div></div>
+    </div></div></section>
+
+  <section id="s-why" class="clip scene" data-start="12" data-duration="8" data-section="why" data-track-index="1"><div class="inner">
+    <div class="kicker" data-in="0.2">Why</div>
+    <div class="cards">
+      <div class="card" data-in="0.6"><div class="num">1</div><h3>Nothing to leak</h3><p>No passwords stored, none to forget.</p></div>
+      <div class="card" data-in="2.3"><div class="num">2</div><h3>One identity</h3><p>Your Discord roles already say who you are.</p></div>
+      <div class="card" data-in="4"><div class="num">3</div><h3>Logged</h3><p>Every sign-in is recorded for audit.</p></div>
+    </div></div></section>
+
+  <section id="s-how" class="clip scene" data-start="20" data-duration="15" data-section="how" data-track-index="1"><div class="inner">
+    <div class="split how">
+      <div class="col">
+        <div class="kicker" data-in="0.2">How</div>
+        <ol class="steps">
+          <li class="step" data-in="0.6" data-active="0.6"><span class="n">1</span><div><h4>Click “Continue with Discord”</h4><p>On the Motherboard login page.</p></div></li>
+          <li class="step" data-in="4" data-active="4"><span class="n">2</span><div><h4>Allow on Discord</h4><p>It shares your profile, email and servers.</p></div></li>
+          <li class="step" data-in="7.4" data-active="7.4"><span class="n">3</span><div><h4>We match your account</h4><p>Motherboard finds or creates your member record.</p></div></li>
+          <li class="step" data-in="10.8" data-active="10.8"><span class="n">4</span><div><h4>You land on your dashboard</h4><p>You stay signed in with a secure session.</p></div></li>
+        </ol>
+      </div>
+      <div class="col mockcol">
+      <div class="flow">
+        <div class="node" data-in="0.6"><span class="mono">/login</span><div class="btn discord sm">Continue with Discord</div></div>
+        <div class="arrow" data-in="4">↓</div>
+        <div class="node" data-in="4"><span class="mono">discord.com</span><div class="sk w80"></div><div class="btn sm">Authorize</div></div>
+        <div class="arrow" data-in="7.4">↓</div>
+        <div class="node" data-in="7.4"><span class="mono">Motherboard API</span><div class="line">Member found ✓</div></div>
+        <div class="arrow" data-in="10.8">↓</div>
+        <div class="node dark" data-in="10.8"><span class="mono">/dashboard/overview</span><div class="sk w70 onDark"></div></div>
+      </div></div>
+    </div></div></section>
+
+  <section id="s-recap" class="clip scene" data-start="35" data-duration="4" data-section="" data-track-index="1"><div class="inner">
+    <div class="titlecard">
+      <div class="kicker" data-in="0.2">Remember</div>
+      <h2 class="big" data-in="0.4">Your Discord account is your Motherboard account. Protect it with two-factor login.</h2>
+      <div class="where mono" data-in="1.0">Find it: Motherboard → /login</div>
+    </div></div></section>
+
+  <audio id="bgm" data-start="0" data-duration="39" data-track-index="10" data-volume="1" src="assets/music/bed.mp3"></audio>
+  <audio id="sfx-11" data-start="0.25" data-track-index="11" data-volume="0.45" src="assets/sfx/bong_001.ogg"></audio>
+  <audio id="sfx-12" data-start="4.05" data-track-index="12" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-13" data-start="12.05" data-track-index="13" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-14" data-start="20.05" data-track-index="14" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-15" data-start="35.05" data-track-index="15" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-16" data-start="12.55" data-track-index="16" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+  <audio id="sfx-17" data-start="14.25" data-track-index="17" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+  <audio id="sfx-18" data-start="15.95" data-track-index="18" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+  <audio id="sfx-19" data-start="20.55" data-track-index="19" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+  <audio id="sfx-20" data-start="23.95" data-track-index="20" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+  <audio id="sfx-21" data-start="27.35" data-track-index="21" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+  <audio id="sfx-22" data-start="30.75" data-track-index="22" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  const INK = "#120f0a", CREAM = "#f8f1e7", BURG = "#97192c";
+  tl.fromTo("#progress-fill", { scaleX: 0 }, { scaleX: 1, duration: 39, ease: "none" }, 0);
+  tl.fromTo("#bgm", { volume: 0 }, { volume: 0.22, duration: 1.2 }, 0);
+  tl.to("#bgm", { volume: 0, duration: 1.8 }, 37);
+
+  document.querySelectorAll(".scene").forEach((scene) => {
+    const start = +scene.dataset.start, dur = +scene.dataset.duration;
+    scene.querySelectorAll("[data-in]").forEach((el) => {
+      tl.fromTo(el, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, start + +el.dataset.in);
+    });
+    // Highlight the current step; previous ones settle back.
+    const steps = [...scene.querySelectorAll("[data-active]")];
+    steps.forEach((el, i) => {
+      const t = start + +el.dataset.active;
+      tl.fromTo(el, { backgroundColor: "rgba(255,255,255,0)", boxShadow: "0px 0px 0px #120f0a" },
+        { backgroundColor: "rgba(255,255,255,1)", boxShadow: "6px 6px 0px #120f0a", duration: 0.3 }, t);
+      if (i > 0) tl.to(steps[i - 1], { backgroundColor: "rgba(255,255,255,0)", boxShadow: "0px 0px 0px #120f0a", duration: 0.3 }, t);
+    });
+    // Skeleton rail: light up What / Why / How.
+    const sec = scene.dataset.section;
+    ["what", "why", "how"].forEach((k) => {
+      const on = k === sec;
+      tl.to("#rail-" + k, { backgroundColor: on ? BURG : "rgba(0,0,0,0)", color: on ? CREAM : INK, duration: 0.25 }, start);
+    });
+    tl.to(scene.querySelector(".inner"), { opacity: 0, duration: 0.35 }, start + dur - 0.45);
+  });
+  window.__timelines["main"] = tl;
+</script>
+</body>
+</html>

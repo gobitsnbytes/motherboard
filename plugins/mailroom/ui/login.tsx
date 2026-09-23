@@ -141,6 +141,18 @@ export default function Login({ onSignedIn }: { onSignedIn: (session: Session) =
           </form>
         ) : (
           <div className="mt-6">
+            <p className="mb-5 rounded-lg border border-border px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Codes only work on a mailbox you have already opened once with its
+              password. Until then, use the{" "}
+              <button
+                type="button"
+                onClick={() => setMode("password")}
+                className="underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                mailbox password
+              </button>{" "}
+              tab.
+            </p>
             <form onSubmit={requestCode} className="space-y-2">
               <Label htmlFor="mailroom-code-email">Email</Label>
               <div className="flex gap-2">
@@ -181,10 +193,6 @@ export default function Login({ onSignedIn }: { onSignedIn: (session: Session) =
 
             {notice && <p className="mt-4 text-sm text-muted-foreground">{notice}</p>}
             {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-            <p className="mt-4 text-xs leading-5 text-muted-foreground">
-              Codes are delivered to the mailbox itself, so they only work once you have
-              signed in with your password at least once.
-            </p>
           </div>
         )}
       </div>

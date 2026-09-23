@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>Motherboard onboarding 03: Onboarding</title>
+<script src="assets/gsap.min.js"></script>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+@font-face { font-family: "Anton"; src: url("assets/fonts/anton-latin-400-normal.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Inter"; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2"); font-weight: 500; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="39">
+  <header id="topbar">
+    <div class="brand"><b>bits&amp;bytes™</b> Motherboard · Onboarding 03/05</div>
+    <div class="rail"><span id="rail-what">What</span><span id="rail-why">Why</span><span id="rail-how">How</span></div>
+  </header>
+  <div id="progress"><div id="progress-fill"></div></div>
+
+  <section id="s-title" class="clip scene" data-start="0" data-duration="4" data-section="" data-track-index="1"><div class="inner">
+    <div class="titlecard">
+      <div class="kicker" data-in="0.2">Onboarding 03 / 05</div>
+      <h1 data-in="0.4">Onboarding</h1>
+      <p class="sub" data-in="0.9">How a new volunteer or fork lead joins.</p>
+      <div class="outline" data-in="1.5"><span>What it is</span><span>Why we use it</span><span>How it works</span></div>
+    </div></div></section>
+
+  <section id="s-what" class="clip scene" data-start="4" data-duration="8" data-section="what" data-track-index="1"><div class="inner">
+    <div class="split">
+      <div class="col">
+        <div class="kicker" data-in="0.2">What</div>
+        <h2 data-in="0.4">HQ opens a <em>case</em> for each new person. They get a private link to fill in and sign their documents.</h2>
+      </div>
+      <div class="col mockcol">
+      <div class="stack">
+        <div class="mock" data-in="1.2">
+          <div class="mh">Start a case</div>
+          <div class="tabs"><span class="on">Volunteer</span><span>Fork lead</span></div>
+          <div class="sk w90"></div><div class="sk w70"></div>
+        </div>
+        <div class="mock" data-in="2.2">
+          <div class="mh sm">bits&amp;bytes onboarding workspace</div>
+          <div class="line">1. Fill and submit.</div>
+          <div class="line">2. Address comments.</div>
+          <div class="line">3. HQ finalizes.</div>
+        </div>
+      </div></div>
+    </div></div></section>
+
+  <section id="s-why" class="clip scene" data-start="12" data-duration="8" data-section="why" data-track-index="1"><div class="inner">
+    <div class="kicker" data-in="0.2">Why</div>
+    <div class="cards">
+      <div class="card" data-in="0.6"><div class="num">1</div><h3>One place</h3><p>All joining paperwork lives in one workspace.</p></div>
+      <div class="card" data-in="2.3"><div class="num">2</div><h3>Safe for minors</h3><p>Under-18s get guardian consent built in.</p></div>
+      <div class="card" data-in="4"><div class="num">3</div><h3>Reviewed</h3><p>HQ checks every document before it counts.</p></div>
+    </div></div></section>
+
+  <section id="s-how" class="clip scene" data-start="20" data-duration="15" data-section="how" data-track-index="1"><div class="inner">
+    <div class="split how">
+      <div class="col">
+        <div class="kicker" data-in="0.2">How</div>
+        <ol class="steps">
+          <li class="step" data-in="0.6" data-active="0.6"><span class="n">1</span><div><h4>HQ clicks “Start a case”</h4><p>Volunteer or Fork lead, name and email.</p></div></li>
+          <li class="step" data-in="4" data-active="4"><span class="n">2</span><div><h4>The person fills and submits</h4><p>From their private link. No login needed.</p></div></li>
+          <li class="step" data-in="7.4" data-active="7.4"><span class="n">3</span><div><h4>A reviewer approves</h4><p>Or asks for changes, and they fix and resend.</p></div></li>
+          <li class="step" data-in="10.8" data-active="10.8"><span class="n">4</span><div><h4>Everyone signs, HQ finalizes</h4><p>The case is marked approved.</p></div></li>
+        </ol>
+      </div>
+      <div class="col mockcol">
+      <div class="mock doc">
+        <div class="mh sm">Code of Conduct.pdf</div>
+        <div class="sk w90"></div><div class="sk w80"></div><div class="sk w60"></div>
+        <div class="states">
+          <span data-in="0.6">awaiting completion</span>
+          <span data-in="4">review requested</span>
+          <span data-in="7.4">approved</span>
+          <span data-in="10.8">signed ✓</span>
+        </div>
+      </div></div>
+    </div></div></section>
+
+  <section id="s-recap" class="clip scene" data-start="35" data-duration="4" data-section="" data-track-index="1"><div class="inner">
+    <div class="titlecard">
+      <div class="kicker" data-in="0.2">Remember</div>
+      <h2 class="big" data-in="0.4">Everyone must be 13 or older. Under 18? A guardian consents in their own workspace.</h2>
+      <div class="where mono" data-in="1.0">Find it: /dashboard/onboarding</div>
+    </div></div></section>
+
+  <audio id="bgm" data-start="0" data-duration="39" data-track-index="10" data-volume="1" src="assets/music/bed.mp3"></audio>
+  <audio id="sfx-11" data-start="0.25" data-track-index="11" data-volume="0.45" src="assets/sfx/bong_001.ogg"></audio>
+  <audio id="sfx-12" data-start="4.05" data-track-index="12" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-13" data-start="12.05" data-track-index="13" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-14" data-start="20.05" data-track-index="14" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-15" data-start="35.05" data-track-index="15" data-volume="0.4" src="assets/sfx/drop_002.ogg"></audio>
+  <audio id="sfx-16" data-start="12.55" data-track-index="16" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+  <audio id="sfx-17" data-start="14.25" data-track-index="17" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+  <audio id="sfx-18" data-start="15.95" data-track-index="18" data-volume="0.55" src="assets/sfx/drop_001.ogg"></audio>
+  <audio id="sfx-19" data-start="20.55" data-track-index="19" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+  <audio id="sfx-20" data-start="23.95" data-track-index="20" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+  <audio id="sfx-21" data-start="27.35" data-track-index="21" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+  <audio id="sfx-22" data-start="30.75" data-track-index="22" data-volume="0.5" src="assets/sfx/mouseclick1.ogg"></audio>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  const INK = "#120f0a", CREAM = "#f8f1e7", BURG = "#97192c";
+  tl.fromTo("#progress-fill", { scaleX: 0 }, { scaleX: 1, duration: 39, ease: "none" }, 0);
+  tl.fromTo("#bgm", { volume: 0 }, { volume: 0.22, duration: 1.2 }, 0);
+  tl.to("#bgm", { volume: 0, duration: 1.8 }, 37);
+
+  document.querySelectorAll(".scene").forEach((scene) => {
+    const start = +scene.dataset.start, dur = +scene.dataset.duration;
+    scene.querySelectorAll("[data-in]").forEach((el) => {
+      tl.fromTo(el, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, start + +el.dataset.in);
+    });
+    // Highlight the current step; previous ones settle back.
+    const steps = [...scene.querySelectorAll("[data-active]")];
+    steps.forEach((el, i) => {
+      const t = start + +el.dataset.active;
+      tl.fromTo(el, { backgroundColor: "rgba(255,255,255,0)", boxShadow: "0px 0px 0px #120f0a" },
+        { backgroundColor: "rgba(255,255,255,1)", boxShadow: "6px 6px 0px #120f0a", duration: 0.3 }, t);
+      if (i > 0) tl.to(steps[i - 1], { backgroundColor: "rgba(255,255,255,0)", boxShadow: "0px 0px 0px #120f0a", duration: 0.3 }, t);
+    });
+    // Skeleton rail: light up What / Why / How.
+    const sec = scene.dataset.section;
+    ["what", "why", "how"].forEach((k) => {
+      const on = k === sec;
+      tl.to("#rail-" + k, { backgroundColor: on ? BURG : "rgba(0,0,0,0)", color: on ? CREAM : INK, duration: 0.25 }, start);
+    });
+    tl.to(scene.querySelector(".inner"), { opacity: 0, duration: 0.35 }, start + dur - 0.45);
+  });
+  window.__timelines["main"] = tl;
+</script>
+</body>
+</html>
