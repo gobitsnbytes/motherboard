@@ -96,7 +96,7 @@ else
     echo "--> Python dependency manifests unchanged; skipping uv sync."
 fi
 
-# 3. Run database migrations & auto-sync missing tables
+# 3. Run reviewed database migrations
 echo "--> Running database migrations..."
 if [ -f "$APP_DIR/.env" ]; then
     echo "--> Loading environment variables from .env..."
@@ -112,21 +112,6 @@ fi
 # Set path to include virtualenv bin
 export PATH="$API_DIR/.venv/bin:$PATH"
 (cd "$API_DIR" && alembic upgrade head) || rollback
-
-echo "--> Auto-syncing missing database table schemas..."
-(cd "$API_DIR" && PYTHONPATH=. "$API_DIR/.venv/bin/python" -c "
-import asyncio
-from app.database import get_engine
-from app.db.models import Base
-
-async def sync_db():
-    engine = get_engine()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print('--> Database schema metadata synced successfully.')
-
-asyncio.run(sync_db())
-") || rollback
 
 # 3.5 Pre-flight SMTP Credential Check
 echo "--> Verifying SMTP mail server credentials..."
