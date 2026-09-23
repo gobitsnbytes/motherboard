@@ -14,8 +14,10 @@ ExecStart=/opt/bnb-api/apps/api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 
 Restart=always
 RestartSec=10
 RestartForceExitStatus=0
-MemoryMax=180M
-MemoryHigh=140M
+# Finance and observability modules are imported at startup. Keep enough headroom
+# for a second worker during blue/green rollout on the 1 GB host.
+MemoryMax=256M
+MemoryHigh=192M
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=bnb-api-%i

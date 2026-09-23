@@ -14,6 +14,7 @@ ACTIVE_PORT_FILE="/var/lib/bnb-api/active-port"
 MAX_HEALTH_ATTEMPTS=15
 HEALTH_DELAY_SECONDS=2
 CANDIDATE_SERVICE=""
+CANDIDATE_STARTED_AT=""
 NGINX_BACKUP=""
 SWITCHED=0
 
@@ -178,6 +179,8 @@ CANDIDATE_HEALTH_URL="http://127.0.0.1:${CANDIDATE_PORT}/health"
 CANDIDATE_READY_URL="http://127.0.0.1:${CANDIDATE_PORT}/health/ready"
 
 echo "--> Starting replacement API on port $CANDIDATE_PORT..."
+CANDIDATE_STARTED_AT=$(date --iso-8601=seconds)
+sudo systemctl reset-failed "$CANDIDATE_SERVICE" || true
 sudo systemctl restart "$CANDIDATE_SERVICE" || rollback
 
 # 5. Verify the replacement before switching Nginx
@@ -203,9 +206,10 @@ done
 
 if [ $SUCCESS -ne 1 ]; then
     echo "--> Health check failed after $MAX_HEALTH_ATTEMPTS attempts."
-    # Dump journalctl logs for context before rollback
-    echo "--> Last 30 lines of service logs:"
-    journalctl -u "$CANDIDATE_SERVICE" -n 30
+    echo "--> Candidate service status:"
+    sudo systemctl status "$CANDIDATE_SERVICE" --no-pager --full || true
+    echo "--> Candidate logs from this rollout:"
+    sudo journalctl -u "$CANDIDATE_SERVICE" --since "$CANDIDATE_STARTED_AT" --no-pager -n 100 || true
     rollback
 fi
 
