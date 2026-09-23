@@ -66,6 +66,7 @@ from app.services.razorpayx_adapter import (
     CardIssueRequest,
     LedgerAccountRequest,
 )
+from app.finance import mapping as finance_ledger_mapping
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
 
@@ -641,6 +642,19 @@ async def approve_request(
     )
     db.add(transaction)
 
+    # Mirror onto the immutable double-entry journal (docs/finance_ledger_design.md).
+    # Same transaction as the paper-ledger balance update above; raises 409 if the
+    # target financial year is closed for posting.
+    await finance_ledger_mapping.post_for_money_request_approval(
+        db,
+        from_account=from_account,
+        to_account=to_account,
+        amount_paise=req.amount_paise,
+        description=req.description,
+        request_id=req.id,
+        approved_by=current_user.user_id,
+    )
+
     req.status = "approved"
     req.reviewed_by = current_user.user_id
     req.reviewed_at = datetime.now(timezone.utc)
@@ -878,6 +892,19 @@ async def simulate_card_charge(
         description=f"Card charge: {payload.merchant} - {payload.description}",
     )
     db.add(transaction)
+    await db.flush()  # assign transaction.id before it's used as the journal source_id
+
+    # Mirror onto the immutable double-entry journal (docs/finance_ledger_design.md).
+    await finance_ledger_mapping.post_for_card_charge(
+        db,
+        card=card,
+        account=account,
+        amount_paise=payload.amount_paise,
+        merchant=payload.merchant,
+        description=payload.description,
+        transaction_id=transaction.id,
+        charged_by=current_user.user_id,
+    )
 
     await write_audit_entry(
         db,
