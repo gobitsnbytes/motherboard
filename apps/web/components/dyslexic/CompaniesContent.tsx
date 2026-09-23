@@ -70,7 +70,7 @@ export default function CompaniesContent() {
             <button
               type="button"
               onClick={() => setShowAdd(true)}
-              className="flex items-center gap-2 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              className="flex min-h-11 items-center gap-2 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
             >
               <Plus className="size-4" />
               Add Company
@@ -235,12 +235,12 @@ function AddCompanyDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
       <div className="fixed inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
 
       <form
         onSubmit={submit}
-        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-secondary-background p-5"
+        className="relative z-10 my-8 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-base border-2 border-border bg-secondary-background p-5"
       >
         <h2 className="font-heading text-lg font-bold">Add a company</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -286,14 +286,14 @@ function AddCompanyDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5"
+            className="min-h-11 rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving || !name.trim()}
-            className="rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
+            className="min-h-11 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
           >
             {saving ? "Adding…" : "Add company"}
           </button>

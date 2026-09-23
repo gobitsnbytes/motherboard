@@ -60,7 +60,7 @@ export default function LeaderboardContent() {
             key={value}
             type="button"
             onClick={() => setPeriod(value)}
-            className={`rounded-base border-2 px-3 py-1.5 text-sm font-medium transition-all ${
+            className={`min-h-11 rounded-base border-2 px-3 py-1.5 text-sm font-medium transition-all ${
               period === value
                 ? "border-border bg-main text-main-foreground shadow-light"
                 : "border-border hover:bg-white/5"

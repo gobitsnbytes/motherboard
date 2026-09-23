@@ -98,6 +98,16 @@ class DraftResult:
     error: str | None = None
 
 
+# Drafting sits in the request path (unlike background research), so a hang
+# here would hang the "Generate" button. Bounded timeout and retries are the
+# SDK's own knobs — no custom retry loop needed.
+MODEL_TIMEOUT_MS = 20_000
+MODEL_RETRY_ATTEMPTS = 2
+# Backstop above the SDK's own timeout — see research.py's MODEL_CALL_TIMEOUT_S
+# for why this is a separate, directly-monkeypatchable constant.
+MODEL_CALL_TIMEOUT_S = 50
+
+
 def _call_model(prompt: str, model: str, api_key: str) -> str:
     """
     The single seam through which drafting reaches Gemini.
@@ -108,7 +118,13 @@ def _call_model(prompt: str, model: str, api_key: str) -> str:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(
+            timeout=MODEL_TIMEOUT_MS,
+            retry_options=types.HttpRetryOptions(attempts=MODEL_RETRY_ATTEMPTS),
+        ),
+    )
     response = client.models.generate_content(
         model=model,
         contents=prompt,
@@ -166,9 +182,7 @@ async def generate_email(
             "You can write the email yourself and still log it as sent.",
         )
 
-    tone_line = (
-        f"Tone: {tone}." if tone else "Tone: warm and straightforward."
-    )
+    tone_line = f"Tone: {tone}." if tone else "Tone: warm and straightforward."
     extra = f"The volunteer added: {extra_context}" if extra_context else ""
 
     if kind == "follow_up":
@@ -195,8 +209,17 @@ async def generate_email(
         )
 
     try:
-        text = await asyncio.to_thread(
-            _call_model, prompt, model, settings.gemini_api_key
+        # Backstop above the SDK's own `http_options.timeout` — see _call_model.
+        text = await asyncio.wait_for(
+            asyncio.to_thread(_call_model, prompt, model, settings.gemini_api_key),
+            timeout=MODEL_CALL_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Draft generation timed out for %s", company_name)
+        return DraftResult(
+            ok=False,
+            model=model,
+            error="Drafting timed out. You can write it yourself.",
         )
     except Exception as exc:
         logger.warning("Draft generation failed for %s: %s", company_name, exc)

@@ -118,7 +118,21 @@ def _extract_sources(response: Any) -> list[dict[str, str]]:
     return sources
 
 
-def _call_model(prompt: str, model: str, api_key: str) -> tuple[str, list[dict[str, str]]]:
+# A research call must never hang a background task forever, and a bad network
+# blip shouldn't fail the whole company. Both knobs are the SDK's own — no
+# custom retry loop needed.
+MODEL_TIMEOUT_MS = 30_000
+MODEL_RETRY_ATTEMPTS = 2
+# Backstop above the SDK's own timeout, covering every retry attempt plus
+# slack — in case a hang happens below the layer the SDK timeout reaches (DNS,
+# a stuck thread). A separate constant, not derived from the two above, so a
+# test can shrink it without also changing the real per-attempt timeout.
+MODEL_CALL_TIMEOUT_S = 70
+
+
+def _call_model(
+    prompt: str, model: str, api_key: str
+) -> tuple[str, list[dict[str, str]]]:
     """
     The single seam through which research reaches Gemini.
 
@@ -128,7 +142,13 @@ def _call_model(prompt: str, model: str, api_key: str) -> tuple[str, list[dict[s
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(
+            timeout=MODEL_TIMEOUT_MS,
+            retry_options=types.HttpRetryOptions(attempts=MODEL_RETRY_ATTEMPTS),
+        ),
+    )
     response = client.models.generate_content(
         model=model,
         contents=prompt,
@@ -157,12 +177,24 @@ async def research_company(name: str, website: str | None) -> ResearchResult:
     prompt = RESEARCH_PROMPT.format(name=name, website=website or "not provided")
 
     try:
-        text, sources = await asyncio.to_thread(
-            _call_model, prompt, model, settings.gemini_api_key
+        # `http_options.timeout` bounds the request itself; this outer bound is
+        # a backstop so a stuck worker thread can never hang the caller — for
+        # research that's a background task, but the same seam is reused
+        # nowhere it would matter less.
+        text, sources = await asyncio.wait_for(
+            asyncio.to_thread(_call_model, prompt, model, settings.gemini_api_key),
+            timeout=MODEL_CALL_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Research call timed out for %s", name)
+        return ResearchResult(
+            ok=False, model=model, error="Research timed out. Try again."
         )
     except Exception as exc:
         logger.warning("Research call failed for %s: %s", name, exc)
-        return ResearchResult(ok=False, model=model, error=f"Research call failed: {exc}")
+        return ResearchResult(
+            ok=False, model=model, error=f"Research call failed: {exc}"
+        )
 
     if not text.strip():
         return ResearchResult(

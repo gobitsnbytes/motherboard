@@ -62,7 +62,7 @@ export default function ResearchPanel({
             type="button"
             onClick={retry}
             disabled={retrying}
-            className="flex shrink-0 items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
           >
             <RefreshCw className={`size-3 ${retrying ? "animate-spin" : ""}`} />
             Retry

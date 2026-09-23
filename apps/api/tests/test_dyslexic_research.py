@@ -121,6 +121,27 @@ async def test_model_exception_is_caught(monkeypatch):
     assert "503" in result.error
 
 
+async def test_model_hang_times_out_instead_of_blocking_forever(monkeypatch):
+    """
+    A stuck worker thread (e.g. a network hang the SDK's own timeout didn't
+    catch) must still return, not hang the background task indefinitely.
+    """
+    monkeypatch.setattr(research, "MODEL_CALL_TIMEOUT_S", 0.05)
+
+    def _hang(prompt, model, key):
+        import time
+
+        time.sleep(1)
+        return "{}", []
+
+    monkeypatch.setattr(research, "_call_model", _hang)
+
+    result = await research.research_company("Zomato", None)
+
+    assert not result.ok
+    assert "timed out" in result.error.lower()
+
+
 async def test_missing_api_key_is_explained_not_raised(monkeypatch):
     """Without a key the module still works — research just isn't available."""
     settings = get_settings()

@@ -185,6 +185,29 @@ async def test_draft_missing_a_field_fails(monkeypatch):
     assert "missing a subject or body" in result.error
 
 
+async def test_model_hang_times_out_instead_of_blocking_the_request(monkeypatch):
+    """A stuck drafting call must not hang the "Generate" button forever."""
+    monkeypatch.setattr(emails, "MODEL_CALL_TIMEOUT_S", 0.05)
+
+    def _hang(prompt, model, key):
+        import time
+
+        time.sleep(1)
+        return json.dumps(GOOD_DRAFT)
+
+    monkeypatch.setattr(emails, "_call_model", _hang)
+
+    result = await emails.generate_email(
+        company_name="Zomato",
+        research_json={},
+        contact_name="Priya",
+        contact_role=None,
+    )
+
+    assert not result.ok
+    assert "timed out" in result.error.lower()
+
+
 async def test_missing_api_key_is_explained(monkeypatch):
     monkeypatch.setattr(get_settings(), "gemini_api_key", None, raising=False)
 

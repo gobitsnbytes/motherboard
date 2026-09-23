@@ -136,7 +136,7 @@ export default function GenerateEmailDialog({
               type="button"
               onClick={generate}
               disabled={generating}
-              className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
             >
               {generating ? (
                 <>
@@ -189,7 +189,7 @@ export default function GenerateEmailDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5"
+            className="min-h-11 rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5"
           >
             Cancel
           </button>
@@ -199,7 +199,7 @@ export default function GenerateEmailDialog({
               type="button"
               onClick={copy}
               disabled={!body.trim()}
-              className="flex items-center gap-2 rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5 disabled:opacity-50"
+              className="flex min-h-11 items-center gap-2 rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-white/5 disabled:opacity-50"
             >
               {copied ? <Check className="size-4 text-green-400" /> : <Copy className="size-4" />}
               {copied ? "Copied" : "Copy for Gmail"}
@@ -209,7 +209,7 @@ export default function GenerateEmailDialog({
               type="button"
               onClick={confirmSent}
               disabled={sending}
-              className="rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
+              className="min-h-11 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
             >
               {sending ? "Recording…" : "I've Sent Email"}
             </button>
