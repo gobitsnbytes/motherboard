@@ -6,6 +6,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
+const Sentry = require('@sentry/node');
 
 class Logger {
     constructor() {
@@ -124,6 +125,9 @@ class Logger {
     }
 
     error(message, error = null) {
+        if (error instanceof Error && process.env.SENTRY_DSN) {
+            Sentry.captureException(error, { tags: { source: 'bot' } });
+        }
         const details = error instanceof Error ? error.stack : error;
         this._sendToDiscord({ type: 'ERROR', message, details, color: config.COLORS.error });
     }

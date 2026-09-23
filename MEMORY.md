@@ -63,7 +63,7 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - On `bnb-backend`, `mail.gobitsnbytes.org` TLS is managed by Certbot's Nginx plugin under the `mail.gobitsnbytes.org-0001` lineage; the unsuffixed live path is a symlink. Certbot's twice-daily timer is enabled, and `/etc/letsencrypt/renewal-hooks/deploy/reload-mail-tls` reloads Postfix and Dovecot after each successful renewal.
 - On `bnb-backend`, the `bnb-bot` uses `hello@gobitsnbytes.org` for SMTP. Any reset of that mailbox must update `SMTP_PASS` in `/opt/bits-bytes-bot/.env` and restart `bnb-bot`.
 - `seed_okf_rules()` previously rewrote 35 tracked legal-rule files at API startup, changing CRLF to LF on the VPS. It now creates only missing rules. Deployment/setup preflight guards stop on dirty checkouts; the existing VPS line-ending changes still need byte-preserving backup and reconciliation before the next deploy.
-- `SENTRY_DSN` is configured in the VPS API `.env` (not Git). A controlled local SDK exception was sent as event `706fec2b776a4211b75e5c9d60858c1c`; confirm it in Sentry after deployment. The API SDK integration is not deployed yet.
+- `SENTRY_DSN` is configured in the VPS API `.env` (not Git). A controlled local SDK exception was sent as event `706fec2b776a4211b75e5c9d60858c1c`; the API SDK integration is not deployed yet. The Next.js SDK now covers browser, Node, and Edge runtimes, with DSNs in ignored `apps/web/.env.local`; its production build passes. A direct frontend ingest test was accepted as event `a1777cf78a3c400e9ae9998cb063d07e`. Vercel CLI currently authenticates as `a3ro-dev` and cannot retrieve the linked `web` project settings, so production web environment variables are not yet configured.
 
 ## Active work
 

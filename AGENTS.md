@@ -1,5 +1,12 @@
 # bnb-motherboard — Agent Build Instructions
 
+## Sentry observability
+
+- The Next.js app initializes Sentry in `apps/web/instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts`; `instrumentation.ts` registers server and Edge hooks. The FastAPI app initializes Sentry before `FastAPI()` in `apps/api/app/main.py`. The Discord bot initializes Sentry at the start of `apps/bot/index.js` and captures handled errors through its logger.
+- Configure `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` for the web app, and `SENTRY_DSN` for the API and bot, through each deployment environment. Never hardcode DSNs or auth tokens in source. `SENTRY_AUTH_TOKEN` and `SENTRY_PROJECT` are build-time settings for web source maps; keep the token secret.
+- Sentry project slugs and runtime boundaries must be checked before release. The API project is `motherboard-backend`; the web project is identified by its configured frontend DSN. Verify a controlled exception through the running application after deployment, then remove any temporary test route.
+- Keep request bodies, default PII, and local variables out of error events unless there is a reviewed need. Avoid public error-trigger endpoints in production.
+
 > **Before starting any phase:** Run `bunx skills find <topic>` to locate relevant skill documentation for the task at hand (e.g. `bunx skills find drizzle orm`, `bunx skills find nextjs app router`, `bunx skills find discord oauth`). For Python/FastAPI backend tasks, verify with `bunx skills find fastapi` and `bunx skills find fastapi-patterns`. Use the outputs to guide implementation — do not guess at APIs.
 >
 > **Anti-hallucination rule:** After every 3–4 files created or every major subsystem completed, stop and search your context window (context 7 or equivalent) for the latest state of relevant interfaces, schemas, and type contracts before continuing. Write code against what actually exists in the codebase, not against memory.
