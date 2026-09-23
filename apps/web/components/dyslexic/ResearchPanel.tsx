@@ -76,6 +76,11 @@ export default function ResearchPanel({
     <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
       <Header onRetry={retry} retrying={retrying} />
 
+      <p className="mb-3 text-xs text-muted-foreground">
+        AI-generated from the model&apos;s own knowledge, not a web search — treat this as a
+        starting point and verify anything important before contacting a sponsor.
+      </p>
+
       {research.summary && <p className="mb-4 text-sm leading-relaxed">{research.summary}</p>}
 
       <dl className="grid gap-3 sm:grid-cols-2">
@@ -107,7 +112,7 @@ export default function ResearchPanel({
       {!!research.sources?.length && (
         <div className="mt-4 border-t border-border/50 pt-3">
           <p className="mb-2 font-heading text-xs uppercase tracking-wider text-muted-foreground">
-            Sources
+            Sources (unverified — the model can&apos;t browse the web)
           </p>
           <ul className="flex flex-col gap-1">
             {research.sources.map((source) => (

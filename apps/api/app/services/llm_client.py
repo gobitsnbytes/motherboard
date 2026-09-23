@@ -28,7 +28,16 @@ class SparkCloudAIClient:
         self.base_url = (base_url or settings.sparkcloud_base_url).rstrip("/")
         self.model = model or settings.sparkcloud_model
 
-    def _chat_completion(self, messages: List[Dict[str, str]], json_response: bool = False) -> str:
+    def chat(self, messages: List[Dict[str, str]], timeout: int = 30) -> str:
+        """Public entry point for a plain chat completion (no clause/redline post-processing)."""
+        return self._chat_completion(messages, timeout=timeout)
+
+    def _chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        json_response: bool = False,
+        timeout: int = 30,
+    ) -> str:
         url = f"{self.base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -44,7 +53,7 @@ class SparkCloudAIClient:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
                 choices = result.get("choices", [])
                 if choices and "message" in choices[0]:
