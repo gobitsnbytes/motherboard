@@ -748,8 +748,8 @@ async def seed_chart_of_accounts(session: AsyncSession) -> None:
     logger.info("Seeded %d Section 8 virtual accounts.", len(CHART_OF_ACCOUNTS))
 
 
-def seed_okf_rules() -> None:
-    """Write 35 OKF Legal Rules to data/company-knowledge/legal/rules/ and refresh store."""
+def seed_okf_rules(rules_dir: str | None = None) -> None:
+    """Bootstrap missing OKF rules without rewriting repository-owned content."""
     base_dir = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
     )
@@ -760,11 +760,12 @@ def seed_okf_rules() -> None:
         os.getcwd(), "data", "company-knowledge", "legal", "rules"
     )
 
-    rules_dir = (
-        repo_rules_dir
-        if os.path.exists(os.path.dirname(repo_rules_dir))
-        else cwd_rules_dir
-    )
+    if rules_dir is None:
+        rules_dir = (
+            repo_rules_dir
+            if os.path.exists(os.path.dirname(repo_rules_dir))
+            else cwd_rules_dir
+        )
     os.makedirs(rules_dir, exist_ok=True)
 
     for rule in OKF_LEGAL_RULES:
@@ -781,8 +782,12 @@ timestamp: 2026-08-04T00:00:00Z
 
 {rule["content"]}
 """
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(content)
+        try:
+            with open(filepath, "x", encoding="utf-8", newline="\n") as f:
+                f.write(content)
+        except FileExistsError:
+            # The tracked rule file is authoritative after deployment.
+            pass
 
     logger.info("Seeded %d OKF Legal Rules in %s.", len(OKF_LEGAL_RULES), rules_dir)
 

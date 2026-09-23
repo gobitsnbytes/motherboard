@@ -62,7 +62,7 @@ export default function ResearchPanel({
             type="button"
             onClick={retry}
             disabled={retrying}
-            className="flex shrink-0 items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
           >
             <RefreshCw className={`size-3 ${retrying ? "animate-spin" : ""}`} />
             Retry
@@ -75,6 +75,11 @@ export default function ResearchPanel({
   return (
     <section className="rounded-base border-2 border-border bg-[#0d0d0d] p-4">
       <Header onRetry={retry} retrying={retrying} />
+
+      <p className="mb-3 text-xs text-muted-foreground">
+        AI-generated from the model&apos;s own knowledge, not a web search — treat this as a
+        starting point and verify anything important before contacting a sponsor.
+      </p>
 
       {research.summary && <p className="mb-4 text-sm leading-relaxed">{research.summary}</p>}
 
@@ -107,7 +112,7 @@ export default function ResearchPanel({
       {!!research.sources?.length && (
         <div className="mt-4 border-t border-border/50 pt-3">
           <p className="mb-2 font-heading text-xs uppercase tracking-wider text-muted-foreground">
-            Sources
+            Sources (unverified — the model can&apos;t browse the web)
           </p>
           <ul className="flex flex-col gap-1">
             {research.sources.map((source) => (

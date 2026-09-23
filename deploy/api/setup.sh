@@ -98,6 +98,15 @@ if [ ! -d /opt/bnb-api/.git ]; then
     su -s /bin/bash deploy -c "git clone -b prod https://github.com/gobitsnbytes/motherboard.git /opt/bnb-api"
 else
     echo "--> Repository already cloned. Fetching latest prod branch..."
+    DIRTY_PATHS=$(su -s /bin/bash deploy -c "git -C /opt/bnb-api status --porcelain=v1 --untracked-files=normal") || {
+        echo "Setup stopped: could not inspect /opt/bnb-api."
+        exit 1
+    }
+    if [ -n "$DIRTY_PATHS" ]; then
+        echo "Setup stopped: /opt/bnb-api has local changes. Preserve or reconcile them first."
+        printf '%s\n' "$DIRTY_PATHS" | head -30
+        exit 1
+    fi
     su -s /bin/bash deploy -c "git -C /opt/bnb-api fetch origin prod"
     su -s /bin/bash deploy -c "git -C /opt/bnb-api reset --hard origin/prod"
 fi

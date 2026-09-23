@@ -30,6 +30,7 @@ dependencies = [
   # Ammonia bindings. Mailroom renders untrusted mail HTML; a hand-rolled
   # allowlist is the wrong place to save a dependency.
   "nh3>=0.2.18",
+  "sentry-sdk[fastapi]>=2.0.0",
 ]
 
 [dependency-groups]

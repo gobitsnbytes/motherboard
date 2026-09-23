@@ -123,7 +123,7 @@ export default function CompanyDetailContent({ companyId }: { companyId: string 
               <button
                 type="button"
                 onClick={() => setShowAddContact(true)}
-                className="flex items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
+                className="flex min-h-11 items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
               >
                 <UserPlus className="size-3" />
                 Add contact
@@ -257,14 +257,14 @@ function ContactRow({
             <button
               type="button"
               onClick={onRecordOutcome}
-              className="rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
+              className="min-h-11 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
             >
               Record outcome
             </button>
             <button
               type="button"
               onClick={() => onDraft("follow_up")}
-              className="flex items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
+              className="flex min-h-11 items-center gap-1.5 rounded-base border-2 border-border px-2 py-1 text-xs font-medium hover:bg-muted"
             >
               <Mail className="size-3" />
               Follow up
@@ -274,7 +274,7 @@ function ContactRow({
           <button
             type="button"
             onClick={() => onDraft("initial")}
-            className="flex items-center gap-1.5 rounded-base border-2 border-border bg-main px-2 py-1 text-xs font-medium text-main-foreground hover:opacity-90"
+            className="flex min-h-11 items-center gap-1.5 rounded-base border-2 border-border bg-main px-2 py-1 text-xs font-medium text-main-foreground hover:opacity-90"
           >
             <Mail className="size-3" />
             Write email
@@ -334,12 +334,12 @@ function AddContactDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
       <div className="fixed inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
 
       <form
         onSubmit={submit}
-        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-background p-5"
+        className="relative z-10 my-8 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-base border-2 border-border bg-background p-5"
       >
         <h2 className="font-heading text-lg font-bold">Add a contact</h2>
 
@@ -380,14 +380,14 @@ function AddContactDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+            className="min-h-11 rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-muted"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving || !form.name.trim()}
-            className="rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light disabled:opacity-50"
+            className="min-h-11 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light disabled:opacity-50"
           >
             {saving ? "Adding…" : "Add contact"}
           </button>
@@ -435,12 +435,12 @@ function OutcomeDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
       <div className="fixed inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
 
       <form
         onSubmit={submit}
-        className="relative z-10 w-full max-w-md rounded-base border-2 border-border bg-background p-5"
+        className="relative z-10 my-8 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-base border-2 border-border bg-background p-5"
       >
         <h2 className="font-heading text-lg font-bold">What happened?</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -491,14 +491,14 @@ function OutcomeDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+            className="min-h-11 rounded-base border-2 border-border px-3 py-2 text-sm font-medium hover:bg-muted"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving || !target}
-            className="rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light disabled:opacity-50"
+            className="min-h-11 rounded-base border-2 border-border bg-main px-3 py-2 text-sm font-medium text-main-foreground shadow-light disabled:opacity-50"
           >
             {saving ? "Saving…" : "Record"}
           </button>

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
         default=None, validation_alias="CALENDAR_WEBHOOK_BASE_URL"
     )
     app_version: str = Field(default="0.86.0-beta.1", validation_alias="APP_VERSION")
+    sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
     # Comma-separated list of allowed CORS origins (overrides nextauth_url for multi-origin setups)
     cors_origins: str = Field(default="", validation_alias="CORS_ORIGINS")
     sync_interval_minutes: int = Field(
@@ -69,12 +70,6 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     gemini_model: str = Field(
         default="gemini-2.5-flash", validation_alias="GEMINI_MODEL"
-    )
-
-    # Dyslexic uses its own model setting so sponsorship research and email
-    # drafting can move independently of the meeting transcription pipeline.
-    dyslexic_gemini_model: str = Field(
-        default="gemini-3.6-flash", validation_alias="DYSLEXIC_GEMINI_MODEL"
     )
 
     # SMTP Mailer settings

@@ -19,6 +19,18 @@ SWITCHED=0
 
 echo "=== Deployment Started: $(date) ==="
 
+# The server checkout can contain locally edited legal knowledge. Never let
+# the rollout's hard reset silently discard those changes.
+DIRTY_PATHS=$(git -C "$APP_DIR" status --porcelain=v1 --untracked-files=normal) || {
+    echo "!!! DEPLOYMENT STOPPED: could not inspect $APP_DIR."
+    exit 1
+}
+if [ -n "$DIRTY_PATHS" ]; then
+    echo "!!! DEPLOYMENT STOPPED: $APP_DIR has local changes. Preserve or reconcile them before deploying."
+    printf '%s\n' "$DIRTY_PATHS" | head -30
+    exit 1
+fi
+
 # Store current commit hash for rollback
 PREV_COMMIT=$(git -C "$APP_DIR" rev-parse HEAD)
 echo "Current commit: $PREV_COMMIT"

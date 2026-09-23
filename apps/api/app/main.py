@@ -18,6 +18,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+import sentry_sdk
 
 from app.config import get_settings
 from app.database import get_engine, get_sessionmaker
@@ -199,6 +200,15 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    if settings.sentry_dsn:
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            release=f"bnb-api@{settings.app_version}",
+            send_default_pii=False,
+            max_request_body_size="never",
+            traces_sample_rate=0.0,
+            profiles_sample_rate=0.0,
+        )
 
     application = FastAPI(
         title="bnb-motherboard API",

@@ -19,6 +19,10 @@ import {
   ExternalLink,
   Download,
   X,
+  Users,
+  Plus,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 
 interface ReviewPageProps {
@@ -41,14 +45,34 @@ interface FindingItem {
   rationale?: string;
 }
 
+interface SignatoryItem {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
+interface RecipientDraft {
+  name: string;
+  email: string;
+  role: string;
+}
+
+const EMPTY_RECIPIENT: RecipientDraft = { name: "", email: "", role: "signer" };
+
 export default function ContractReviewPage({ params }: ReviewPageProps) {
   const { contractId } = use(params);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [contractTitle, setContractTitle] = useState("Contract Agreement");
   const [counterparty, setCounterparty] = useState("GOBITSNBYTES FOUNDATION");
   const [findings, setFindings] = useState<FindingItem[]>([]);
   const [clauses, setClauses] = useState<Array<{ id: string; ref: string; heading: string; text: string }>>([]);
+  const [signatories, setSignatories] = useState<SignatoryItem[]>([]);
+  const [recipients, setRecipients] = useState<RecipientDraft[]>([{ ...EMPTY_RECIPIENT }]);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
 
   const [activeFindingId, setActiveFindingId] = useState<string>("");
   const [activeModalRedline, setActiveModalRedline] = useState<FindingItem | null>(null);
@@ -117,32 +141,50 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
   };
 
   useEffect(() => {
-    fetchContractDetail();
+    const controller = new AbortController();
+    fetchContractDetail(controller.signal);
+    return () => controller.abort();
   }, [contractId]);
 
-  const fetchContractDetail = async () => {
+  const fetchContractDetail = async (signal?: AbortSignal) => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await fetch(`/api/contract-assistant/contracts/${contractId}`);
+      const res = await fetch(`/api/contract-assistant/contracts/${contractId}`, { signal });
       if (res.ok) {
         const data = await res.json();
         setContractTitle(data.title);
         setCounterparty(data.counterparty);
         setFindings(data.findings || []);
         setClauses(data.clauses || []);
+        const loadedSignatories: SignatoryItem[] = data.signatories || [];
+        setSignatories(loadedSignatories);
+        setRecipients(
+          loadedSignatories.length > 0
+            ? loadedSignatories.map((s) => ({ name: s.name, email: s.email, role: s.role || "signer" }))
+            : [{ ...EMPTY_RECIPIENT }]
+        );
+        setContractStatus(data.status || "in_review");
         if (data.findings && data.findings.length > 0) {
           setActiveFindingId(data.findings[0].id);
         }
+      } else if (res.status === 404) {
+        setLoadError("Contract not found. It may have been deleted or the link is incorrect.");
+      } else {
+        setLoadError(`Failed to load contract (HTTP ${res.status}).`);
       }
     } catch (e) {
+      if ((e as any)?.name === "AbortError") return;
       console.error("Failed to load contract details", e);
+      setLoadError("Could not reach the contract assistant service. Check your connection and retry.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   const highSeverityOpenCount = findings.filter((f) => f.severity === "high" && f.status === "open").length;
-  const isDispatchGatePassed = highSeverityOpenCount === 0;
+  const alreadyDispatched = contractStatus !== "in_review" && contractStatus !== "draft";
+  const isDispatchGatePassed = highSeverityOpenCount === 0 && !alreadyDispatched;
 
   const handleResolveFinding = async (id: string, action: "resolve" | "dismiss") => {
     const newStatus = action === "resolve" ? "resolved" : "dismissed";
@@ -231,9 +273,24 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
     }
   };
 
+  const validRecipients = recipients
+    .map((r) => ({ name: r.name.trim(), email: r.email.trim(), role: r.role.trim() || "signer" }))
+    .filter((r) => r.name && r.email);
+  const hasIncompleteRow = recipients.some((r) => (r.name.trim() || r.email.trim()) && !(r.name.trim() && r.email.trim()));
+
+  const updateRecipient = (index: number, field: keyof RecipientDraft, value: string) => {
+    setRecipients((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  };
+
+  const addRecipientRow = () => setRecipients((prev) => [...prev, { ...EMPTY_RECIPIENT }]);
+
+  const removeRecipientRow = (index: number) =>
+    setRecipients((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+
   const handleDispatchToSignatures = async () => {
-    if (!isDispatchGatePassed) return;
+    if (!isDispatchGatePassed || validRecipients.length === 0) return;
     setDispatching(true);
+    setDispatchError(null);
 
     try {
       const res = await fetch("/api/contract-assistant/dispatch", {
@@ -241,22 +298,18 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contract_id: contractId,
-          recipients: [
-            { name: "Primary Signer", email: "signer@gobitsnbytes.org", role: "signer" },
-            { name: "Signatory 2", email: "legal@gobitsnbytes.org", role: "signer" },
-          ],
+          recipients: validRecipients,
         }),
       });
 
       if (res.ok) {
-        alert("Contract successfully dispatched to bnb-signatures! Signatories notified.");
         window.location.href = "/dashboard/contract-assistant";
       } else {
-        const errData = await res.json();
-        alert(`Dispatch error: ${errData.detail || "Failed to dispatch"}`);
+        const errData = await res.json().catch(() => ({}));
+        setDispatchError(errData.detail || `Dispatch failed (HTTP ${res.status})`);
       }
     } catch (e) {
-      alert("Dispatch error");
+      setDispatchError("Dispatch error: could not reach the signatures service.");
     } finally {
       setDispatching(false);
     }
@@ -265,6 +318,51 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
   const highCount = findings.filter((f) => f.severity === "high").length;
   const medCount = findings.filter((f) => f.severity === "medium").length;
   const lowCount = findings.filter((f) => f.severity === "low").length;
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        <div className="bg-secondary-background border-2 border-border p-5 rounded-base shadow-shadow animate-pulse space-y-3">
+          <div className="h-3 w-32 bg-muted rounded-base" />
+          <div className="h-5 w-2/3 bg-muted rounded-base" />
+          <div className="h-3 w-1/3 bg-muted rounded-base" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-6 bg-secondary-background border-2 border-border rounded-base p-5 shadow-shadow animate-pulse space-y-3 h-64" />
+          <div className="lg:col-span-6 bg-secondary-background border-2 border-border rounded-base p-5 shadow-shadow animate-pulse space-y-3 h-64" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        <Link
+          href="/dashboard/contract-assistant"
+          className="inline-flex min-h-11 items-center gap-1 text-xs font-bold font-heading text-muted-foreground hover:text-burgundy"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Pipeline
+        </Link>
+        <div
+          role="alert"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-base border-2 border-red-800 bg-red-100 p-5 text-red-900 shadow-shadow"
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <span className="text-xs font-bold font-heading">{loadError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchContractDetail()}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-base border-2 border-border bg-secondary-background px-4 text-xs font-bold font-heading shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-24">
@@ -307,7 +405,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
                 type="button"
                 disabled={voiding}
                 onClick={handleVoidContract}
-                className="px-3.5 py-2 bg-orange/20 hover:bg-orange/30 text-red-900 border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow flex items-center gap-1.5 transition-all cursor-pointer"
+                className="min-h-11 px-3.5 py-2 bg-orange/20 hover:bg-orange/30 text-red-900 border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40"
                 title="Officially quash/void agreement and revoke all signature links"
               >
                 <XCircle className="w-3.5 h-3.5 text-red-700" /> {voiding ? "Voiding..." : "Void / Quash"}
@@ -318,7 +416,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               type="button"
               disabled={deleting}
               onClick={handleDeleteContract}
-              className="px-3.5 py-2 bg-burgundy hover:bg-[#791423] text-white border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow flex items-center gap-1.5 transition-all cursor-pointer"
+              className="min-h-11 px-3.5 py-2 bg-burgundy hover:bg-[#791423] text-white border-2 border-border rounded-base text-xs font-bold font-heading shadow-shadow flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40"
               title="Download voided copy to your device and purge all database records"
             >
               <Download className="w-3.5 h-3.5 text-orange" /> {deleting ? "Purging..." : "Delete & Download Void Copy"}
@@ -507,6 +605,106 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
         </div>
       </div>
 
+      {/* Signatories & Envelope */}
+      <div className="bg-secondary-background border-2 border-border rounded-base p-5 shadow-shadow space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <span className="text-xs font-black uppercase text-foreground flex items-center gap-1.5 font-heading">
+            <Users className="w-4 h-4 text-burgundy" /> Signatories &amp; Envelope
+          </span>
+          {signatories.length > 0 && (
+            <span className="text-[10px] font-mono font-bold text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-base">
+              {signatories.filter((s) => s.status === "signed").length}/{signatories.length} signed
+            </span>
+          )}
+        </div>
+
+        {signatories.length > 0 ? (
+          <div className="space-y-2">
+            {signatories.map((s) => (
+              <div
+                key={s.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-base border-2 border-gray-200 bg-gray-50 p-3"
+              >
+                <div>
+                  <div className="text-xs font-bold font-heading text-foreground">{s.name}</div>
+                  <div className="text-[11px] text-muted-foreground font-mono">{s.email} &bull; {s.role}</div>
+                </div>
+                <span
+                  className={`shrink-0 px-2.5 py-1 rounded-base text-[10px] font-bold font-heading uppercase border ${
+                    s.status === "signed"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : s.status === "declined"
+                      ? "bg-red-100 text-red-800 border-red-300"
+                      : s.status === "viewed"
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300"
+                  }`}
+                >
+                  {s.status}
+                </span>
+              </div>
+            ))}
+            {alreadyDispatched && (
+              <p className="text-[11px] text-muted-foreground font-medium">
+                This envelope has already been dispatched. Void the agreement to restart the signatory list.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[11px] text-muted-foreground font-medium">
+              Add each signatory before dispatching this agreement for signature.
+            </p>
+            {recipients.map((r, idx) => (
+              <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px_44px] gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Full name"
+                  value={r.name}
+                  onChange={(e) => updateRecipient(idx, "name", e.target.value)}
+                  className="min-h-11 px-3 bg-secondary-background border-2 border-border rounded-base text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-orange"
+                />
+                <input
+                  type="email"
+                  placeholder="email@example.org"
+                  value={r.email}
+                  onChange={(e) => updateRecipient(idx, "email", e.target.value)}
+                  className="min-h-11 px-3 bg-secondary-background border-2 border-border rounded-base text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-orange"
+                />
+                <input
+                  type="text"
+                  placeholder="Role"
+                  value={r.role}
+                  onChange={(e) => updateRecipient(idx, "role", e.target.value)}
+                  className="min-h-11 px-3 bg-secondary-background border-2 border-border rounded-base text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-orange"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeRecipientRow(idx)}
+                  disabled={recipients.length === 1}
+                  aria-label="Remove signatory"
+                  className="min-h-11 min-w-11 flex items-center justify-center border-2 border-border rounded-base text-red-700 bg-secondary-background hover:bg-red-50 disabled:opacity-30 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addRecipientRow}
+              className="min-h-11 inline-flex items-center gap-1.5 px-3 border-2 border-dashed border-border rounded-base text-xs font-bold font-heading text-burgundy hover:bg-orange/10 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add signatory
+            </button>
+            {hasIncompleteRow && (
+              <p className="text-[11px] text-red-700 font-bold flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Each signatory needs both a name and an email before dispatch.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Redline Diff Modal */}
       {activeModalRedline && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -525,7 +723,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold font-heading uppercase text-red-700 block mb-1">Original Clause</label>
                 <div className="p-3 bg-red-50 border border-red-200 rounded-base text-xs font-mono text-red-950 leading-relaxed">
@@ -576,23 +774,36 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
               <ShieldCheck className="w-4 h-4 text-burgundy" /> Dispatch Gate Validation Status
             </div>
             <div className="text-[11px] text-muted-foreground font-medium">
-              {isDispatchGatePassed ? (
-                <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> All high-severity findings resolved or dismissed. Ready to dispatch.
+              {alreadyDispatched ? (
+                <span className="text-muted-foreground font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Already dispatched to bnb-signatures.
                 </span>
-              ) : (
+              ) : highSeverityOpenCount > 0 ? (
                 <span className="text-red-700 font-bold flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" /> {highSeverityOpenCount} High-Severity Finding(s) must be resolved or explicitly dismissed before outbound send.
                 </span>
+              ) : validRecipients.length === 0 ? (
+                <span className="text-red-700 font-bold flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Add at least one signatory above before dispatch.
+                </span>
+              ) : (
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready to dispatch to {validRecipients.length} signatories.
+                </span>
               )}
             </div>
+            {dispatchError && (
+              <div role="alert" className="text-[11px] text-red-700 font-bold flex items-center gap-1 mt-1">
+                <AlertCircle className="w-3.5 h-3.5" /> {dispatchError}
+              </div>
+            )}
           </div>
 
           <button
             type="button"
-            disabled={!isDispatchGatePassed || dispatching}
+            disabled={!isDispatchGatePassed || validRecipients.length === 0 || dispatching}
             onClick={handleDispatchToSignatures}
-            className="w-full sm:w-auto px-6 py-3 bg-burgundy text-white text-xs font-black font-heading border-2 border-border rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+            className="w-full sm:w-auto min-h-11 px-6 py-3 bg-burgundy text-white text-xs font-black font-heading border-2 border-border rounded-base shadow-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-40 transition-all flex items-center justify-center gap-2"
           >
             {dispatching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-orange" />}
             Dispatch for Signature (bnb-signatures)

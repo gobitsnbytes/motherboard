@@ -71,12 +71,12 @@ export default function Login({ onSignedIn }: { onSignedIn: (session: Session) =
   }
 
   return (
-    <section className="flex min-h-[calc(100dvh-9rem)] items-center justify-center rounded-2xl border border-border bg-background px-5 py-12">
+    <section className="flex min-h-[calc(100dvh-9rem)] items-center justify-center rounded-base border-2 border-border bg-background px-5 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+        <div className="mb-8 flex size-12 items-center justify-center rounded-base border-2 border-border bg-primary text-primary-foreground shadow-shadow">
           <Mail className="size-6" aria-hidden="true" />
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">Mailroom</h1>
+        <h1 className="font-heading text-3xl font-black tracking-tight">Mailroom</h1>
         <p className="mt-2 text-muted-foreground">Open your bits&amp;bytes inbox.</p>
 
         <div className="mt-7 flex gap-1 border-b border-border" role="tablist">

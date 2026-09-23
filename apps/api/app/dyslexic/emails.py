@@ -98,23 +98,33 @@ class DraftResult:
     error: str | None = None
 
 
+# Drafting sits in the request path (unlike background research), so a hang
+# here would hang the "Generate" button.
+MODEL_TIMEOUT_S = 20
+# Backstop above the client's own timeout — see research.py's
+# MODEL_CALL_TIMEOUT_S for why this is a separate, directly-monkeypatchable
+# constant.
+MODEL_CALL_TIMEOUT_S = 50
+
+
 def _call_model(prompt: str, model: str, api_key: str) -> str:
     """
-    The single seam through which drafting reaches Gemini.
+    The single seam through which drafting reaches SparkCloud.
 
-    Tests monkeypatch this. Unlike research this asks for JSON directly, since
-    there is no search tool to conflict with response formatting.
+    Tests monkeypatch this. Asks for JSON directly since there is no search
+    tool to conflict with response formatting.
     """
-    from google import genai
-    from google.genai import types
+    from app.services.llm_client import SparkCloudAIClient
 
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
-    )
-    return response.text or ""
+    client = SparkCloudAIClient(api_key=api_key, model=model)
+    messages = [
+        {
+            "role": "system",
+            "content": "You write sponsorship outreach emails. Always respond in valid JSON format.",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    return client.chat(messages, timeout=MODEL_TIMEOUT_S)
 
 
 def _summarise_research(research_json: dict[str, Any]) -> str:
@@ -156,19 +166,17 @@ async def generate_email(
     import asyncio
 
     settings = get_settings()
-    model = settings.dyslexic_gemini_model
+    model = settings.sparkcloud_model
 
-    if not settings.gemini_api_key:
+    if not settings.sparkcloud_api_key:
         return DraftResult(
             ok=False,
             model=model,
-            error="GEMINI_API_KEY is not configured, so drafting is unavailable. "
+            error="SPARKCLOUD_API_KEY is not configured, so drafting is unavailable. "
             "You can write the email yourself and still log it as sent.",
         )
 
-    tone_line = (
-        f"Tone: {tone}." if tone else "Tone: warm and straightforward."
-    )
+    tone_line = f"Tone: {tone}." if tone else "Tone: warm and straightforward."
     extra = f"The volunteer added: {extra_context}" if extra_context else ""
 
     if kind == "follow_up":
@@ -195,8 +203,17 @@ async def generate_email(
         )
 
     try:
-        text = await asyncio.to_thread(
-            _call_model, prompt, model, settings.gemini_api_key
+        # Backstop above the client's own request timeout — see _call_model.
+        text = await asyncio.wait_for(
+            asyncio.to_thread(_call_model, prompt, model, settings.sparkcloud_api_key),
+            timeout=MODEL_CALL_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Draft generation timed out for %s", company_name)
+        return DraftResult(
+            ok=False,
+            model=model,
+            error="Drafting timed out. You can write it yourself.",
         )
     except Exception as exc:
         logger.warning("Draft generation failed for %s: %s", company_name, exc)

@@ -1,10 +1,10 @@
 """
 AI company research for Dyslexic.
 
-Grounded in Google Search rather than the model's memory, because the sponsors
-volunteers add are often small companies the model would otherwise invent
-details about. Source URLs come from the response's grounding metadata, not from
-the model's prose, so a citation cannot be fabricated.
+Runs on SparkCloud, which has no web-search/grounding tool — the model answers
+from what it already knows. That means source URLs it returns are the model's
+own claim, not a verified citation, so callers must treat research as
+model-generated and unverified rather than fact-checked.
 
 Everything reaches the model through :func:`_call_model`, a single seam tests
 replace. The AI is never called in the test suite.
@@ -33,9 +33,9 @@ called bits&bytes, which is looking for event sponsors.
 Company name: {name}
 Website: {website}
 
-Search for current information about this company, then respond with ONLY a \
-JSON object — no markdown fences, no commentary before or after — using exactly \
-these keys:
+You do not have web access. Answer from what you already know about this \
+company, then respond with ONLY a JSON object — no markdown fences, no \
+commentary before or after — using exactly these keys:
 
 {{
   "summary": "2-3 sentences on what the company actually does",
@@ -46,11 +46,14 @@ these keys:
   "sponsorship_angle": "why this company might sponsor a student tech community — be specific to them, not generic",
   "suggested_contact_roles": ["job titles worth reaching out to for sponsorship"],
   "recent_news": ["notable recent developments, if any"],
-  "confidence": "high, medium, or low — how confident you are this is accurate"
+  "confidence": "high, medium, or low — how confident you are this is accurate",
+  "sources": [{{"title": "short source title", "url": "https://..."}}]
 }}
 
-If you cannot find reliable information, say so in the summary and set \
-confidence to "low". Do not invent details."""
+For "sources", only include a URL you are genuinely confident is real and \
+correct — an empty list is better than a guessed URL. If you cannot find \
+reliable information, say so in the summary and set confidence to "low". Do \
+not invent details."""
 
 
 @dataclass
@@ -92,51 +95,34 @@ def _extract_json(text: str) -> dict[str, Any]:
         raise
 
 
-def _extract_sources(response: Any) -> list[dict[str, str]]:
+# A research call must never hang a background task forever, and a bad network
+# blip shouldn't fail the whole company.
+MODEL_TIMEOUT_S = 30
+# Backstop above the client's own timeout, in case a hang happens below the
+# layer that timeout reaches (DNS, a stuck thread). A separate constant, not
+# derived from the one above, so a test can shrink it without also changing
+# the real request timeout.
+MODEL_CALL_TIMEOUT_S = 70
+
+
+def _call_model(prompt: str, model: str, api_key: str) -> str:
     """
-    Pull citations from grounding metadata.
+    The single seam through which research reaches SparkCloud.
 
-    Reading these from the response structure rather than the model's text is
-    what makes them trustworthy — the model cannot write a URL it did not visit
-    into this field.
+    Tests monkeypatch this. Synchronous because SparkCloudAIClient's HTTP call
+    is, and callers run it in a worker thread.
     """
-    sources: list[dict[str, str]] = []
-    try:
-        for candidate in getattr(response, "candidates", None) or []:
-            metadata = getattr(candidate, "grounding_metadata", None)
-            for chunk in getattr(metadata, "grounding_chunks", None) or []:
-                web = getattr(chunk, "web", None)
-                if web and getattr(web, "uri", None):
-                    entry = {
-                        "title": getattr(web, "title", "") or web.uri,
-                        "url": web.uri,
-                    }
-                    if entry not in sources:
-                        sources.append(entry)
-    except Exception:  # pragma: no cover - metadata shape varies by model
-        logger.debug("Could not read grounding metadata", exc_info=True)
-    return sources
+    from app.services.llm_client import SparkCloudAIClient
 
-
-def _call_model(prompt: str, model: str, api_key: str) -> tuple[str, list[dict[str, str]]]:
-    """
-    The single seam through which research reaches Gemini.
-
-    Tests monkeypatch this. Synchronous because the google-genai client is, and
-    callers run it in a worker thread.
-    """
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-        ),
-    )
-    return (response.text or ""), _extract_sources(response)
+    client = SparkCloudAIClient(api_key=api_key, model=model)
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a research assistant. Always respond in valid JSON format.",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    return client.chat(messages, timeout=MODEL_TIMEOUT_S)
 
 
 async def research_company(name: str, website: str | None) -> ResearchResult:
@@ -144,25 +130,36 @@ async def research_company(name: str, website: str | None) -> ResearchResult:
     import asyncio
 
     settings = get_settings()
-    model = settings.dyslexic_gemini_model
+    model = settings.sparkcloud_model
 
-    if not settings.gemini_api_key:
+    if not settings.sparkcloud_api_key:
         return ResearchResult(
             ok=False,
             model=model,
-            error="GEMINI_API_KEY is not configured, so research is unavailable. "
+            error="SPARKCLOUD_API_KEY is not configured, so research is unavailable. "
             "You can still add contacts and log outreach.",
         )
 
     prompt = RESEARCH_PROMPT.format(name=name, website=website or "not provided")
 
     try:
-        text, sources = await asyncio.to_thread(
-            _call_model, prompt, model, settings.gemini_api_key
+        # A backstop so a stuck worker thread can never hang the caller — for
+        # research that's a background task, but the same seam is reused
+        # nowhere it would matter less.
+        text = await asyncio.wait_for(
+            asyncio.to_thread(_call_model, prompt, model, settings.sparkcloud_api_key),
+            timeout=MODEL_CALL_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Research call timed out for %s", name)
+        return ResearchResult(
+            ok=False, model=model, error="Research timed out. Try again."
         )
     except Exception as exc:
         logger.warning("Research call failed for %s: %s", name, exc)
-        return ResearchResult(ok=False, model=model, error=f"Research call failed: {exc}")
+        return ResearchResult(
+            ok=False, model=model, error=f"Research call failed: {exc}"
+        )
 
     if not text.strip():
         return ResearchResult(
@@ -180,8 +177,12 @@ async def research_company(name: str, website: str | None) -> ResearchResult:
             error=f"Could not parse the model's response as JSON: {exc}",
         )
 
-    if sources:
-        data["sources"] = sources
+    # SparkCloud has no search/grounding tool, so any source URLs came from the
+    # model's own claim in-band, not a verified citation — never fabricate a
+    # shape for this field if the model omitted or mangled it.
+    sources = data.get("sources")
+    sources = sources if isinstance(sources, list) else []
+    data["sources"] = sources
 
     return ResearchResult(ok=True, model=model, data=data, raw=text, sources=sources)
 

@@ -287,6 +287,47 @@ def test_mailroom_rejects_folder_names_that_could_escape_the_command():
             raise AssertionError(f"{hostile!r} should have been rejected")
 
 
+def test_mailroom_login_failure_raises_mail_auth_expired(monkeypatch):
+    """A rejected credential during an IMAP session is distinguishable from a
+    generic protocol fault, so the caller can send the reader to sign in
+    instead of showing a retryable "mail server unavailable"."""
+    plugin = _mailroom()
+
+    class ExplodingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def login(self, *args, **kwargs):
+            raise plugin.imaplib.IMAP4.error("AUTHENTICATIONFAILED")
+
+        def logout(self):
+            pass
+
+    monkeypatch.setattr(plugin.imaplib, "IMAP4_SSL", ExplodingClient)
+
+    try:
+        with plugin._imap(_account()):
+            raise AssertionError("the context body should not run")
+    except plugin.MailAuthExpired:
+        pass
+    else:
+        raise AssertionError("a rejected login should raise MailAuthExpired")
+
+
+async def test_mailroom_mail_wrapper_turns_auth_expiry_into_401():
+    plugin = _mailroom()
+
+    def boom(*_args):
+        raise plugin.MailAuthExpired("stale credential")
+
+    try:
+        await plugin._mail(boom)
+    except HTTPException as error:
+        assert error.status_code == 401
+    else:
+        raise AssertionError("an expired credential should surface as 401")
+
+
 # ---------------------------------------------------------------------------
 # Send idempotency
 # ---------------------------------------------------------------------------

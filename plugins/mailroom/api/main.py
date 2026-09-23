@@ -32,7 +32,13 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from email.header import decode_header
 from email.message import EmailMessage, Message
-from email.utils import formataddr, formatdate, getaddresses, make_msgid, parsedate_to_datetime
+from email.utils import (
+    formataddr,
+    formatdate,
+    getaddresses,
+    make_msgid,
+    parsedate_to_datetime,
+)
 from typing import Any, Iterator
 from urllib.parse import urlencode
 
@@ -300,18 +306,70 @@ def _date(value: str | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 ALLOWED_TAGS = {
-    "a", "abbr", "b", "blockquote", "br", "caption", "code", "col", "colgroup",
-    "dd", "div", "dl", "dt", "em", "figcaption", "figure", "h1", "h2", "h3",
-    "h4", "h5", "h6", "hr", "i", "img", "li", "ol", "p", "pre", "q", "s",
-    "small", "span", "strong", "sub", "sup", "table", "tbody", "td", "tfoot",
-    "th", "thead", "tr", "u", "ul",
+    "a",
+    "abbr",
+    "b",
+    "blockquote",
+    "br",
+    "caption",
+    "code",
+    "col",
+    "colgroup",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "em",
+    "figcaption",
+    "figure",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "i",
+    "img",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "q",
+    "s",
+    "small",
+    "span",
+    "strong",
+    "sub",
+    "sup",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
+    "u",
+    "ul",
 }
 
 # Both the tag and everything inside it go. Scripts, styles, and anything that
 # can make the browser fetch or submit on its own.
 DROPPED_WITH_CONTENT = {
-    "base", "embed", "form", "head", "iframe", "link", "meta", "noscript",
-    "object", "script", "style", "svg", "template", "title",
+    "base",
+    "embed",
+    "form",
+    "head",
+    "iframe",
+    "link",
+    "meta",
+    "noscript",
+    "object",
+    "script",
+    "style",
+    "svg",
+    "template",
+    "title",
 }
 
 ALLOWED_ATTRIBUTES = {
@@ -326,9 +384,20 @@ ALLOWED_ATTRIBUTES = {
 # An allowlist, so position/fixed and anything that can paint outside the
 # message surface is simply absent.
 ALLOWED_STYLE_PROPERTIES = {
-    "color", "background-color", "font-weight", "font-style", "font-size",
-    "text-align", "text-decoration", "margin", "padding", "border",
-    "border-collapse", "line-height", "width", "max-width",
+    "color",
+    "background-color",
+    "font-weight",
+    "font-style",
+    "font-size",
+    "text-align",
+    "text-decoration",
+    "margin",
+    "padding",
+    "border",
+    "border-collapse",
+    "line-height",
+    "width",
+    "max-width",
 }
 
 SAFE_LINK_SCHEMES = {"http", "https", "mailto"}
@@ -364,7 +433,9 @@ def _sanitize_html(
         nonlocal blocked
         if attribute == "style":
             return value
-        if value.lower().startswith("cid:") and not (tag == "img" and attribute == "src"):
+        if value.lower().startswith("cid:") and not (
+            tag == "img" and attribute == "src"
+        ):
             return None
         if tag == "img" and attribute == "src":
             if value.lower().startswith("cid:"):
@@ -410,6 +481,14 @@ def _html_to_text(raw: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+class MailAuthExpired(Exception):
+    """The stored mailbox credential no longer works against the mail host.
+
+    Distinct from a generic IMAP4.error so callers can send the reader back
+    to sign in instead of showing a retryable "mail server unavailable".
+    """
+
+
 @contextmanager
 def _imap(account: MailroomAccount) -> Iterator[imaplib.IMAP4_SSL]:
     settings = get_settings()
@@ -419,7 +498,10 @@ def _imap(account: MailroomAccount) -> Iterator[imaplib.IMAP4_SSL]:
         timeout=IMAP_TIMEOUT_SECONDS,
     )
     try:
-        client.login(account.email, account.password)
+        try:
+            client.login(account.email, account.password)
+        except imaplib.IMAP4.error as error:
+            raise MailAuthExpired(str(error)) from error
         yield client
     finally:
         try:
@@ -449,9 +531,17 @@ async def _available_accounts(
 ) -> list[str]:
     accounts = [personal.email] if personal else []
     settings = get_settings()
-    group_slugs = set(
-        (await db.scalars(select(Group.slug).where(Group.id.in_(principal.group_ids)))).all()
-    ) if principal.group_ids else set()
+    group_slugs = (
+        set(
+            (
+                await db.scalars(
+                    select(Group.slug).where(Group.id.in_(principal.group_ids))
+                )
+            ).all()
+        )
+        if principal.group_ids
+        else set()
+    )
     may_use_shared = principal.is_super_admin or "sg_executive" in group_slugs
     hello_password = settings.mailroom_hello_password
     if not hello_password and settings.smtp_user == "hello@gobitsnbytes.org":
@@ -475,15 +565,27 @@ async def _selected_account(
     selected = (requested or (personal.email if personal else "")).lower()
     if selected not in available:
         if personal is None and not available:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in to Mailroom")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mailbox access denied")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in to Mailroom"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Mailbox access denied"
+        )
     if personal is not None and selected == personal.email:
         return personal
     settings = get_settings()
     password = (
-        settings.mailroom_hello_password
-        or (settings.smtp_pass if settings.smtp_user == "hello@gobitsnbytes.org" else None)
-    ) if selected == "hello@gobitsnbytes.org" else settings.mailroom_legal_password
+        (
+            settings.mailroom_hello_password
+            or (
+                settings.smtp_pass
+                if settings.smtp_user == "hello@gobitsnbytes.org"
+                else None
+            )
+        )
+        if selected == "hello@gobitsnbytes.org"
+        else settings.mailroom_legal_password
+    )
     if not password:
         raise HTTPException(status_code=404, detail="Shared mailbox is not configured")
     return MailroomAccount(user_id=principal.user_id, email=selected, password=password)
@@ -551,17 +653,25 @@ def _list_folders(account: MailroomAccount) -> list[Folder]:
             match = _LIST_LINE.match(row.strip())
             if not match:
                 continue
-            flags = match.group("flags").decode("ascii", errors="ignore").lower().split()
+            flags = (
+                match.group("flags").decode("ascii", errors="ignore").lower().split()
+            )
             if "\\noselect" in flags:
                 continue
-            name = match.group("name").decode("utf-8", errors="replace").strip().strip('"')
+            name = (
+                match.group("name").decode("utf-8", errors="replace").strip().strip('"')
+            )
             if not SAFE_MAILBOX.fullmatch(name):
                 continue
             separator = match.group("sep").decode("ascii", errors="ignore") or "/"
-            role = next((_FOLDER_ROLES[flag] for flag in flags if flag in _FOLDER_ROLES), None)
+            role = next(
+                (_FOLDER_ROLES[flag] for flag in flags if flag in _FOLDER_ROLES), None
+            )
             if name.upper() == "INBOX":
                 role = "inbox"
-            status_result, status_rows = client.status(_quote(name), "(MESSAGES UNSEEN)")
+            status_result, status_rows = client.status(
+                _quote(name), "(MESSAGES UNSEEN)"
+            )
             total = unread = 0
             if status_result == "OK" and status_rows:
                 counts = dict(
@@ -569,13 +679,17 @@ def _list_folders(account: MailroomAccount) -> list[Folder]:
                 )
                 total = int(counts.get(b"MESSAGES", 0))
                 unread = int(counts.get(b"UNSEEN", 0))
-            folders.append(Folder(
-                name=name,
-                display_name="Inbox" if role == "inbox" else name.rsplit(separator, 1)[-1],
-                role=role,
-                total=total,
-                unread=unread,
-            ))
+            folders.append(
+                Folder(
+                    name=name,
+                    display_name="Inbox"
+                    if role == "inbox"
+                    else name.rsplit(separator, 1)[-1],
+                    role=role,
+                    total=total,
+                    unread=unread,
+                )
+            )
         folders.sort(key=lambda f: (f.role != "inbox", f.display_name.lower()))
         return folders
 
@@ -638,13 +752,14 @@ def _fetch_flags(client: imaplib.IMAP4_SSL, uid_set: bytes) -> dict[str, str]:
             continue
         match = _UID_IN_RESPONSE.search(line)
         if match:
-            flags[match.group(1).decode("ascii")] = line.decode("ascii", errors="ignore")
+            flags[match.group(1).decode("ascii")] = line.decode(
+                "ascii", errors="ignore"
+            )
     return flags
 
 
 SUMMARY_HEADERS = (
-    "(UID BODY.PEEK[HEADER.FIELDS "
-    "(FROM TO SUBJECT DATE MESSAGE-ID CONTENT-TYPE)])"
+    "(UID BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID CONTENT-TYPE)])"
 )
 
 
@@ -664,18 +779,20 @@ def _summaries(
         parsed = email.message_from_bytes(headers.get(uid, b""))
         flag_line = flags.get(uid, "")
         content_type = (parsed.get("Content-Type") or "").lower()
-        summaries.append(MessageSummary(
-            uid=uid,
-            folder=folder,
-            sender=_decode(parsed.get("From")),
-            to=_decode(parsed.get("To")),
-            subject=_decode(parsed.get("Subject")) or "(no subject)",
-            date=_date(parsed.get("Date")),
-            unread="\\Seen" not in flag_line,
-            flagged="\\Flagged" in flag_line,
-            has_attachments="multipart/mixed" in content_type,
-            snippet=_decode_snippet(snippets.get(uid, b"")),
-        ))
+        summaries.append(
+            MessageSummary(
+                uid=uid,
+                folder=folder,
+                sender=_decode(parsed.get("From")),
+                to=_decode(parsed.get("To")),
+                subject=_decode(parsed.get("Subject")) or "(no subject)",
+                date=_date(parsed.get("Date")),
+                unread="\\Seen" not in flag_line,
+                flagged="\\Flagged" in flag_line,
+                has_attachments="multipart/mixed" in content_type,
+                snippet=_decode_snippet(snippets.get(uid, b"")),
+            )
+        )
     return summaries
 
 
@@ -693,7 +810,7 @@ def _load_messages(
         uids = _search_uids(client, "ALL")
         total = len(uids)
         newest_first = list(reversed(uids))
-        page = newest_first[offset:offset + limit]
+        page = newest_first[offset : offset + limit]
         return MessageListResponse(
             folder=folder,
             total=total,
@@ -737,8 +854,14 @@ def _thread_neighbours(
     safe_id = message_id.replace('"', "")
     try:
         uids = _search_uids(
-            client, "OR", "HEADER", "REFERENCES", f'"{safe_id}"',
-            "HEADER", "IN-REPLY-TO", f'"{safe_id}"',
+            client,
+            "OR",
+            "HEADER",
+            "REFERENCES",
+            f'"{safe_id}"',
+            "HEADER",
+            "IN-REPLY-TO",
+            f'"{safe_id}"',
         )
     except HTTPException:
         return []
@@ -776,15 +899,21 @@ def _load_message(
                 )
             filename = _decode(part.get_filename())
             disposition = (part.get("Content-Disposition") or "").lower()
-            is_body = not filename and not content_id and part.get_content_maintype() == "text"
+            is_body = (
+                not filename
+                and not content_id
+                and part.get_content_maintype() == "text"
+            )
             if is_body or (not filename and "attachment" not in disposition):
                 continue
-            attachments.append(Attachment(
-                index=index,
-                filename=filename or f"part-{index}",
-                content_type=part.get_content_type(),
-                size=len(payload),
-            ))
+            attachments.append(
+                Attachment(
+                    index=index,
+                    filename=filename or f"part-{index}",
+                    content_type=part.get_content_type(),
+                    size=len(payload),
+                )
+            )
 
         text = _plain_text(parsed)
         raw_html = _part_text(_body_part(parsed, "text/html"))
@@ -855,7 +984,9 @@ def _set_flags(
 
 def _ensure_folder(client: imaplib.IMAP4_SSL, folder: str) -> None:
     result, rows = client.list("", _quote(folder))
-    if result == "OK" and any(isinstance(row, bytes) and row.strip() for row in rows or []):
+    if result == "OK" and any(
+        isinstance(row, bytes) and row.strip() for row in rows or []
+    ):
         return
     client.create(_quote(folder))
     client.subscribe(_quote(folder))
@@ -893,7 +1024,9 @@ def _append(
 ) -> str | None:
     _ensure_folder(client, folder)
     result, data = client.append(
-        _quote(folder), flags, imaplib.Time2Internaldate(datetime.now(timezone.utc)),
+        _quote(folder),
+        flags,
+        imaplib.Time2Internaldate(datetime.now(timezone.utc)),
         message.as_bytes(),
     )
     if result != "OK":
@@ -959,7 +1092,9 @@ def _send(
     # any mail into PostgreSQL.
     if idempotency_key:
         with _imap(account) as client:
-            existing = _find_by_header(client, SENT_FOLDER, IDEMPOTENCY_HEADER, idempotency_key)
+            existing = _find_by_header(
+                client, SENT_FOLDER, IDEMPOTENCY_HEADER, idempotency_key
+            )
             if existing:
                 return SendResponse(message_id=existing, duplicate=True)
 
@@ -976,17 +1111,25 @@ def _send(
             server.login(account.email, account.password)
             server.sendmail(account.email, to_addresses, message.as_string())
     except smtplib.SMTPAuthenticationError:
-        raise HTTPException(status_code=401, detail="Your mail password was rejected. Sign in again.")
+        raise HTTPException(
+            status_code=401, detail="Your mail password was rejected. Sign in again."
+        )
     except (smtplib.SMTPException, OSError):
-        raise HTTPException(status_code=502, detail="The message could not be sent. Try again.")
+        raise HTTPException(
+            status_code=502, detail="The message could not be sent. Try again."
+        )
 
     with _imap(account) as client:
         _append(client, SENT_FOLDER, message, flags="(\\Seen)")
     return SendResponse(message_id=message_id, duplicate=False)
 
 
-def _save_draft(account: MailroomAccount, request: SaveDraftRequest) -> SaveDraftResponse:
-    message = _build(account, request, make_msgid(domain=get_settings().mailroom_domain))
+def _save_draft(
+    account: MailroomAccount, request: SaveDraftRequest
+) -> SaveDraftResponse:
+    message = _build(
+        account, request, make_msgid(domain=get_settings().mailroom_domain)
+    )
     message[DRAFT_HEADER] = "1"
     with _imap(account) as client:
         if request.replaces_uid and request.replaces_uid.isdigit():
@@ -1003,7 +1146,8 @@ def _send_otp_code(address: str, code: str) -> None:
     settings = get_settings()
     if not (settings.smtp_host and settings.smtp_user and settings.smtp_pass):
         raise HTTPException(
-            status_code=503, detail="Sign-in codes are not configured. Use your password."
+            status_code=503,
+            detail="Sign-in codes are not configured. Use your password.",
         )
     message = EmailMessage()
     message["From"] = settings.smtp_from
@@ -1054,9 +1198,13 @@ def _json_completion(messages: list[dict[str, str]]) -> dict[str, Any]:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=502, detail="The assistant returned an unusable answer")
+        raise HTTPException(
+            status_code=502, detail="The assistant returned an unusable answer"
+        )
     if not isinstance(parsed, dict):
-        raise HTTPException(status_code=502, detail="The assistant returned an unusable answer")
+        raise HTTPException(
+            status_code=502, detail="The assistant returned an unusable answer"
+        )
     return parsed
 
 
@@ -1097,16 +1245,18 @@ def _run_assistant(
         if preferences.signature:
             user_content += f"\nEnd with this signature:\n{preferences.signature}"
 
-    parsed = _json_completion([
-        {
-            "role": "system",
-            "content": (
-                "You help someone read and write their own email. You never send, "
-                "delete, or move mail. Respond with JSON only."
-            ),
-        },
-        {"role": "user", "content": user_content},
-    ])
+    parsed = _json_completion(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "You help someone read and write their own email. You never send, "
+                    "delete, or move mail. Respond with JSON only."
+                ),
+            },
+            {"role": "user", "content": user_content},
+        ]
+    )
     suggestion = str(parsed.get("suggestion") or "") or None
     if suggestion not in (None, "archive", "reply", "keep"):
         suggestion = "keep"
@@ -1139,12 +1289,17 @@ async def get_session(db: DbSession, principal: CurrentUserDep) -> SessionRespon
 
 
 @router.post("/login", response_model=SessionResponse)
-async def login(payload: LoginRequest, db: DbSession, principal: CurrentUserDep) -> SessionResponse:
+async def login(
+    payload: LoginRequest, db: DbSession, principal: CurrentUserDep
+) -> SessionResponse:
     _check_domain(payload.email)
     try:
         await _in_worker(_verify_credentials, payload.email, payload.password)
     except (imaplib.IMAP4.error, OSError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="That email or password did not work")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="That email or password did not work",
+        )
 
     account = await db.scalar(
         select(MailroomAccount).where(MailroomAccount.user_id == principal.user_id)
@@ -1193,28 +1348,37 @@ async def request_otp(payload: OtpRequest, db: DbSession) -> dict[str, str]:
 
     now = datetime.now(timezone.utc)
     challenge = await db.scalar(
-        select(MailroomOtpChallenge).where(MailroomOtpChallenge.account_id == account.id)
+        select(MailroomOtpChallenge).where(
+            MailroomOtpChallenge.account_id == account.id
+        )
     )
     if challenge is not None:
         created = challenge.created_at
         if created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)
         if now - created < OTP_RESEND_INTERVAL:
-            raise HTTPException(status_code=429, detail="A code was just sent. Check your mailbox.")
+            raise HTTPException(
+                status_code=429, detail="A code was just sent. Check your mailbox."
+            )
         await db.delete(challenge)
         await db.flush()
 
-    code = f"{secrets.randbelow(10 ** OTP_LENGTH):0{OTP_LENGTH}d}"
-    db.add(MailroomOtpChallenge(
-        account_id=account.id,
-        code_hash=_hash_code(code),
-        expires_at=now + OTP_TTL,
-    ))
+    code = f"{secrets.randbelow(10**OTP_LENGTH):0{OTP_LENGTH}d}"
+    db.add(
+        MailroomOtpChallenge(
+            account_id=account.id,
+            code_hash=_hash_code(code),
+            expires_at=now + OTP_TTL,
+        )
+    )
     await db.commit()
     try:
         await _in_worker(_send_otp_code, account.email, code)
     except (smtplib.SMTPException, OSError):
-        raise HTTPException(status_code=502, detail="The code could not be sent. Try your password instead.")
+        raise HTTPException(
+            status_code=502,
+            detail="The code could not be sent. Try your password instead.",
+        )
     return generic
 
 
@@ -1229,7 +1393,9 @@ async def verify_otp(
     if account is None or account.user_id != principal.user_id:
         raise rejected
     challenge = await db.scalar(
-        select(MailroomOtpChallenge).where(MailroomOtpChallenge.account_id == account.id)
+        select(MailroomOtpChallenge).where(
+            MailroomOtpChallenge.account_id == account.id
+        )
     )
     if challenge is None or challenge.consumed_at is not None:
         raise rejected
@@ -1297,14 +1463,26 @@ async def update_preferences(
 MailFailure = (imaplib.IMAP4.error, OSError)
 
 
+MAIL_AUTH_EXPIRED_DETAIL = "Your mail password stopped working. Sign in again."
+
+
 async def _mail(fn, *args):
-    """Run a mail operation, turning protocol faults into a retryable 502."""
+    """Run a mail operation, turning protocol faults into a retryable 502.
+
+    A stale stored credential is reported as 401 instead, so the UI can send
+    the reader back to Mailroom sign in without tearing down their Motherboard
+    session.
+    """
     try:
         return await _in_worker(fn, *args)
     except HTTPException:
         raise
+    except MailAuthExpired:
+        raise HTTPException(status_code=401, detail=MAIL_AUTH_EXPIRED_DETAIL)
     except imaplib.IMAP4.abort:
-        raise HTTPException(status_code=502, detail="The mail server dropped the connection. Try again.")
+        raise HTTPException(
+            status_code=502, detail="The mail server dropped the connection. Try again."
+        )
     except MailFailure:
         raise HTTPException(status_code=502, detail="Mail server is unavailable")
 
@@ -1394,11 +1572,13 @@ async def get_attachment(
     if index < 0 or index > 500:
         raise HTTPException(status_code=400, detail="Invalid attachment")
     record = await _selected_account(db, principal, account)
-    payload, content_type, filename = await _mail(_load_attachment, record, folder, uid, index)
+    payload, content_type, filename = await _mail(
+        _load_attachment, record, folder, uid, index
+    )
     # Images render inline so `cid:` references work. Everything else is an
     # opaque download, never a document that could run in the app's origin.
     is_image = content_type.startswith("image/") and "svg" not in content_type
-    safe_name = re.sub(r'[^\w. -]', "_", filename)[:120] or f"part-{index}"
+    safe_name = re.sub(r"[^\w. -]", "_", filename)[:120] or f"part-{index}"
     return Response(
         content=payload,
         media_type=content_type if is_image else "application/octet-stream",
@@ -1523,10 +1703,14 @@ async def run_assistant(
         return await _in_worker(_run_assistant, record, payload, _preferences(personal))
     except HTTPException:
         raise
+    except MailAuthExpired:
+        raise HTTPException(status_code=401, detail=MAIL_AUTH_EXPIRED_DETAIL)
     except MailFailure:
         raise HTTPException(status_code=502, detail="Mail server is unavailable")
     except RuntimeError:
-        raise HTTPException(status_code=502, detail="The assistant is unavailable right now")
+        raise HTTPException(
+            status_code=502, detail="The assistant is unavailable right now"
+        )
 
 
 def get_manifest() -> PluginManifest:
@@ -1536,11 +1720,13 @@ def get_manifest() -> PluginManifest:
         version="0.2.0",
         description="A small live webmail client for bits&bytes accounts.",
         router=router,
-        ui_panels=[UiPanelDeclaration(
-            id="mailroom",
-            title="Mailroom",
-            route_segment="inbox",
-            placement="sidebar",
-            icon="Mail",
-        )],
+        ui_panels=[
+            UiPanelDeclaration(
+                id="mailroom",
+                title="Mailroom",
+                route_segment="inbox",
+                placement="sidebar",
+                icon="Mail",
+            )
+        ],
     )

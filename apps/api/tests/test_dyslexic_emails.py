@@ -24,7 +24,7 @@ GOOD_DRAFT = {
 
 @pytest.fixture(autouse=True)
 def api_key(monkeypatch):
-    monkeypatch.setattr(get_settings(), "gemini_api_key", "test-key", raising=False)
+    monkeypatch.setattr(get_settings(), "sparkcloud_api_key", "test-key", raising=False)
 
 
 def stub_model(monkeypatch, text: str):
@@ -185,8 +185,31 @@ async def test_draft_missing_a_field_fails(monkeypatch):
     assert "missing a subject or body" in result.error
 
 
+async def test_model_hang_times_out_instead_of_blocking_the_request(monkeypatch):
+    """A stuck drafting call must not hang the "Generate" button forever."""
+    monkeypatch.setattr(emails, "MODEL_CALL_TIMEOUT_S", 0.05)
+
+    def _hang(prompt, model, key):
+        import time
+
+        time.sleep(1)
+        return json.dumps(GOOD_DRAFT)
+
+    monkeypatch.setattr(emails, "_call_model", _hang)
+
+    result = await emails.generate_email(
+        company_name="Zomato",
+        research_json={},
+        contact_name="Priya",
+        contact_role=None,
+    )
+
+    assert not result.ok
+    assert "timed out" in result.error.lower()
+
+
 async def test_missing_api_key_is_explained(monkeypatch):
-    monkeypatch.setattr(get_settings(), "gemini_api_key", None, raising=False)
+    monkeypatch.setattr(get_settings(), "sparkcloud_api_key", None, raising=False)
 
     result = await emails.generate_email(
         company_name="Zomato",
@@ -305,4 +328,4 @@ async def test_drafts_are_kept_and_listed(setup, monkeypatch, client):
 
     assert listed.status_code == 200
     assert len(listed.json()) == 1
-    assert listed.json()[0]["model"] == get_settings().dyslexic_gemini_model
+    assert listed.json()[0]["model"] == get_settings().sparkcloud_model

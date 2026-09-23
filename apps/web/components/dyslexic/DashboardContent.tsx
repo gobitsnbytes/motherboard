@@ -160,7 +160,7 @@ export default function DashboardContent() {
                   <button
                     type="button"
                     onClick={() => handleResolve(item.id)}
-                    className="shrink-0 rounded-base border-2 border-black bg-orange text-black px-2.5 py-1 text-xs font-mono font-bold hover:translate-x-[1px] hover:translate-y-[1px] shadow-light"
+                    className="min-h-11 shrink-0 rounded-base border-2 border-black bg-orange text-black px-2.5 py-1 text-xs font-mono font-bold hover:translate-x-[1px] hover:translate-y-[1px] shadow-light"
                   >
                     Done
                   </button>

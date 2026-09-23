@@ -1,9 +1,9 @@
 """
 AI research behaviour, with the model mocked.
 
-The Gemini client is never called here. Every test replaces `_call_model`, the
-single seam through which research reaches the API. What matters is that a bad
-or missing model response degrades cleanly: research is advisory, and a failure
+SparkCloud is never called here. Every test replaces `_call_model`, the single
+seam through which research reaches the API. What matters is that a bad or
+missing model response degrades cleanly: research is advisory, and a failure
 must never block the outreach workflow.
 """
 
@@ -37,13 +37,13 @@ GOOD_RESPONSE = {
 def api_key(monkeypatch):
     """Research short-circuits without a key; most tests want one present."""
     settings = get_settings()
-    monkeypatch.setattr(settings, "gemini_api_key", "test-key", raising=False)
+    monkeypatch.setattr(settings, "sparkcloud_api_key", "test-key", raising=False)
     return settings
 
 
-def stub_model(monkeypatch, text: str, sources=None):
+def stub_model(monkeypatch, text: str):
     def _fake(prompt: str, model: str, key: str):
-        return text, (sources or [])
+        return text
 
     monkeypatch.setattr(research, "_call_model", _fake)
 
@@ -65,10 +65,7 @@ async def test_clean_json_is_parsed(monkeypatch):
 
 
 async def test_fenced_json_is_parsed(monkeypatch):
-    """
-    Search grounding and JSON response mode don't combine, so the model returns
-    prose-shaped text that often arrives wrapped in a markdown fence.
-    """
+    """The model sometimes wraps its JSON answer in a markdown fence anyway."""
     stub_model(monkeypatch, f"```json\n{json.dumps(GOOD_RESPONSE)}\n```")
 
     result = await research.research_company("Zomato", "https://zomato.com")
@@ -121,29 +118,60 @@ async def test_model_exception_is_caught(monkeypatch):
     assert "503" in result.error
 
 
-async def test_missing_api_key_is_explained_not_raised(monkeypatch):
-    """Without a key the module still works — research just isn't available."""
-    settings = get_settings()
-    monkeypatch.setattr(settings, "gemini_api_key", None, raising=False)
+async def test_model_hang_times_out_instead_of_blocking_forever(monkeypatch):
+    """
+    A stuck worker thread (e.g. a network hang the SDK's own timeout didn't
+    catch) must still return, not hang the background task indefinitely.
+    """
+    monkeypatch.setattr(research, "MODEL_CALL_TIMEOUT_S", 0.05)
+
+    def _hang(prompt, model, key):
+        import time
+
+        time.sleep(1)
+        return "{}"
+
+    monkeypatch.setattr(research, "_call_model", _hang)
 
     result = await research.research_company("Zomato", None)
 
     assert not result.ok
-    assert "GEMINI_API_KEY" in result.error
+    assert "timed out" in result.error.lower()
+
+
+async def test_missing_api_key_is_explained_not_raised(monkeypatch):
+    """Without a key the module still works — research just isn't available."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "sparkcloud_api_key", None, raising=False)
+
+    result = await research.research_company("Zomato", None)
+
+    assert not result.ok
+    assert "SPARKCLOUD_API_KEY" in result.error
     assert "still add contacts" in result.error
 
 
-async def test_sources_come_from_grounding_metadata(monkeypatch):
+async def test_sources_come_from_the_models_json_response(monkeypatch):
     """
-    Citations are read from the response structure, not the model's prose, so
-    the model cannot fabricate one.
+    SparkCloud has no search/grounding tool, so any source URLs the model
+    offers arrive inline in its own JSON — read straight through, not
+    independently verified.
     """
     sources = [{"title": "Zomato — About", "url": "https://zomato.com/about"}]
-    stub_model(monkeypatch, json.dumps(GOOD_RESPONSE), sources=sources)
+    payload = dict(GOOD_RESPONSE, sources=sources)
+    stub_model(monkeypatch, json.dumps(payload))
 
     result = await research.research_company("Zomato", "https://zomato.com")
 
     assert result.data["sources"] == sources
+
+
+async def test_missing_sources_defaults_to_empty_list(monkeypatch):
+    stub_model(monkeypatch, json.dumps(GOOD_RESPONSE))
+
+    result = await research.research_company("Zomato", "https://zomato.com")
+
+    assert result.data["sources"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +219,7 @@ async def test_background_task_stores_a_successful_result(
     await db_session.refresh(stored)
     assert stored.research_status == "complete"
     assert stored.research_json["industry"] == "Food delivery"
-    assert stored.research_model == get_settings().dyslexic_gemini_model
+    assert stored.research_model == get_settings().sparkcloud_model
     assert stored.research_generated_at is not None
 
     events = (
