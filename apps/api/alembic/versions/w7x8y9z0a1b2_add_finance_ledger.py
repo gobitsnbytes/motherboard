@@ -60,7 +60,6 @@ def upgrade() -> None:
             ["parent_id"], ["fin_ledger_accounts.id"], ondelete="SET NULL"
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("code", name="uq_fin_ledger_accounts_code"),
         sa.CheckConstraint(
             "account_type IN ('asset','liability','equity','income','expense')",
             name="ck_fin_ledger_accounts_type",
@@ -74,7 +73,9 @@ def upgrade() -> None:
             name="ck_fin_ledger_accounts_fund_type",
         ),
     )
-    op.create_index("ix_fin_ledger_accounts_code", "fin_ledger_accounts", ["code"])
+    op.create_index(
+        "ix_fin_ledger_accounts_code", "fin_ledger_accounts", ["code"], unique=True
+    )
 
     # -- Journal (append-only double entry) ----------------------------------
     op.create_table(
