@@ -130,4 +130,15 @@ jobs:
           script_stop: true
           script: |
             echo "Starting deployment on VPS..."
+            # The server still runs the previous deploy.sh on the first rollout
+            # of a new revision, so guard the checkout here as well.
+            dirty_paths=$(git -C /opt/bnb-api status --porcelain=v1 --untracked-files=normal) || {
+              echo "Deployment stopped: could not inspect /opt/bnb-api."
+              exit 1
+            }
+            if [ -n "$dirty_paths" ]; then
+              echo "Deployment stopped: /opt/bnb-api has local changes. Preserve or reconcile them first."
+              printf '%s\n' "$dirty_paths" | head -30
+              exit 1
+            fi
             bash /opt/bnb-api/deploy/api/deploy.sh

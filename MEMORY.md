@@ -62,6 +62,7 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - Never force-push `prod`, discard a dirty production worktree, or deploy without a verified rollback commit.
 - On `bnb-backend`, `mail.gobitsnbytes.org` TLS is managed by Certbot's Nginx plugin under the `mail.gobitsnbytes.org-0001` lineage; the unsuffixed live path is a symlink. Certbot's twice-daily timer is enabled, and `/etc/letsencrypt/renewal-hooks/deploy/reload-mail-tls` reloads Postfix and Dovecot after each successful renewal.
 - On `bnb-backend`, the `bnb-bot` uses `hello@gobitsnbytes.org` for SMTP. Any reset of that mailbox must update `SMTP_PASS` in `/opt/bits-bytes-bot/.env` and restart `bnb-bot`.
+- `seed_okf_rules()` currently rewrites 35 tracked legal-rule files at API startup, changing CRLF to LF on the VPS. The resulting dirty checkout would be erased by the deploy script's hard reset. Deployment/setup preflight guards now stop on dirty checkouts; fix the seeder and reconcile the existing VPS line endings before the next deploy.
 
 ## Active work
 
