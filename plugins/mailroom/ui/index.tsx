@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ArrowLeft,
@@ -44,6 +44,35 @@ import {
 
 const PAGE_SIZE = 40;
 
+/** True for the DOMException fetch() rejects with when its signal aborts. */
+function isAbort(reason: unknown): boolean {
+  return reason instanceof DOMException && reason.name === "AbortError";
+}
+
+/** Adjust one folder's counters locally instead of refetching the whole list. */
+function bumpFolder(list: Folder[], name: string, unreadDelta: number, totalDelta = 0): Folder[] {
+  return list.map((entry) =>
+    entry.name === name
+      ? {
+          ...entry,
+          unread: Math.max(0, entry.unread + unreadDelta),
+          total: Math.max(0, entry.total + totalDelta),
+        }
+      : entry,
+  );
+}
+
+// Scoped so a wide inline image or table in an HTML email cannot push the
+// reading pane wider than the viewport on a phone; kept as a plain <style>
+// tag rather than a shared stylesheet edit since only Mailroom needs it.
+const MAILROOM_BODY_CSS = `
+.mailroom-body { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+.mailroom-body img { max-width: 100%; height: auto; }
+.mailroom-body table { max-width: 100%; }
+.mailroom-body pre, .mailroom-body code { white-space: pre-wrap; word-break: break-word; }
+.mailroom-body a { word-break: break-all; }
+`;
+
 export default function MailroomUI() {
   const [session, setSession] = useState<Session | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -51,6 +80,7 @@ export default function MailroomUI() {
   const [list, setList] = useState<MessageList | null>(null);
   const [offset, setOffset] = useState(0);
   const [term, setTerm] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<MailMessage | null>(null);
   const [account, setAccount] = useState("");
@@ -61,6 +91,8 @@ export default function MailroomUI() {
   const [plainOnly, setPlainOnly] = useState(false);
   const [assistant, setAssistant] = useState("");
   const [showPreferences, setShowPreferences] = useState(false);
+  const listRequest = useRef<AbortController | null>(null);
+  const messageRequest = useRef<AbortController | null>(null);
 
   const handle = useCallback((reason: unknown, fallback: string) => {
     if (reason instanceof MailAuthError) {
@@ -96,19 +128,24 @@ export default function MailroomUI() {
 
   const loadList = useCallback(async () => {
     if (!account) return;
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
     setBusy(true);
     setError("");
     try {
       const path = searching
-        ? `/search${query({ account, folder, q: term, limit: PAGE_SIZE })}`
+        ? `/search${query({ account, folder, q: searchQuery, limit: PAGE_SIZE })}`
         : `/messages${query({ account, folder, limit: PAGE_SIZE, offset })}`;
-      setList(await api<MessageList>(path));
+      const result = await api<MessageList>(path, { signal: controller.signal });
+      setList(result);
     } catch (reason) {
+      if (isAbort(reason)) return;
       handle(reason, "That folder is unavailable");
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
     }
-  }, [account, folder, offset, searching, term, handle]);
+  }, [account, folder, offset, searching, searchQuery, handle]);
 
   useEffect(() => {
     void loadFolders();
@@ -120,6 +157,11 @@ export default function MailroomUI() {
 
   const openMessage = useCallback(
     async (summary: { uid: string; folder: string; unread: boolean }, remote = false) => {
+      // A fast reader clicking through the list should never have an older
+      // response land after a newer one and overwrite it.
+      messageRequest.current?.abort();
+      const controller = new AbortController();
+      messageRequest.current = controller;
       setBusy(true);
       setError("");
       setAssistant("");
@@ -132,13 +174,12 @@ export default function MailroomUI() {
             folder: summary.folder,
             remote_images: remote,
           })}`,
+          { signal: controller.signal },
         );
         setSelected(message);
         if (summary.unread) {
-          await api(`/messages/${summary.uid}/flags${query({ account, folder: summary.folder })}`, {
-            method: "POST",
-            body: JSON.stringify({ seen: true }),
-          });
+          // Optimistic: the reader already sees it as read. Only the two
+          // local counters need to roll back if the flag write fails.
           setList((current) =>
             current
               ? {
@@ -149,15 +190,32 @@ export default function MailroomUI() {
                 }
               : current,
           );
-          void loadFolders();
+          setFolders((current) => bumpFolder(current, summary.folder, -1));
+          api(`/messages/${summary.uid}/flags${query({ account, folder: summary.folder })}`, {
+            method: "POST",
+            body: JSON.stringify({ seen: true }),
+          }).catch(() => {
+            setList((current) =>
+              current
+                ? {
+                    ...current,
+                    messages: current.messages.map((row) =>
+                      row.uid === summary.uid ? { ...row, unread: true } : row,
+                    ),
+                  }
+                : current,
+            );
+            setFolders((current) => bumpFolder(current, summary.folder, 1));
+          });
         }
       } catch (reason) {
+        if (isAbort(reason)) return;
         handle(reason, "That message is unavailable");
       } finally {
-        setBusy(false);
+        if (!controller.signal.aborted) setBusy(false);
       }
     },
-    [account, handle, loadFolders],
+    [account, handle],
   );
 
   // Lightweight triage: only when the reader has asked for it, and only ever a
@@ -177,27 +235,42 @@ export default function MailroomUI() {
     };
   }, [selected, session?.preferences.auto_triage, account]);
 
+  // Removes the message from view immediately and only talks to the server
+  // in the background; a failure puts it right back instead of leaving the
+  // reader waiting on a round trip for something that usually just works.
   async function act(path: string, init: RequestInit, note: string) {
     if (!selected) return;
-    setBusy(true);
+    const message = selected;
+    const previousList = list;
+    setSelected(null);
+    setAssistant(note);
     setError("");
+    setList((current) =>
+      current
+        ? {
+            ...current,
+            messages: current.messages.filter((row) => row.uid !== message.uid),
+            total: Math.max(0, current.total - 1),
+          }
+        : current,
+    );
     try {
       await api(path, init);
-      setSelected(null);
-      setAssistant(note);
-      await loadList();
-      void loadFolders();
     } catch (reason) {
+      setList(previousList);
+      setSelected(message);
       handle(reason, "That action did not work");
-    } finally {
-      setBusy(false);
+      return;
     }
+    void loadFolders();
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const trimmed = term.trim();
     setOffset(0);
-    setSearching(term.trim().length > 1);
+    setSearchQuery(trimmed);
+    setSearching(trimmed.length > 1);
   }
 
   async function ask(action: "summarize" | "triage") {
@@ -246,13 +319,14 @@ export default function MailroomUI() {
   if (!session.authenticated) return <Login onSignedIn={setSession} />;
 
   return (
-    <section className="min-h-[calc(100dvh-9rem)] overflow-hidden rounded-2xl border border-border bg-background text-foreground">
-      <header className="flex min-h-16 items-center gap-3 border-b border-border px-4 sm:px-5">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+    <section className="min-h-[calc(100dvh-9rem)] overflow-hidden rounded-base border-2 border-border bg-background text-foreground">
+      <style>{MAILROOM_BODY_CSS}</style>
+      <header className="flex min-h-16 items-center gap-3 border-b-2 border-border px-4 sm:px-5">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-base border-2 border-border bg-primary text-primary-foreground">
           <Mail className="size-5" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-base font-semibold leading-tight">
+          <h1 className="font-heading text-base font-bold leading-tight">
             Mailroom
             {unreadInbox > 0 && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -289,7 +363,10 @@ export default function MailroomUI() {
             size="sm"
             className="h-10"
             disabled={busy}
-            onClick={() => void loadList()}
+            onClick={() => {
+              void loadList();
+              void loadFolders();
+            }}
             aria-label="Refresh"
           >
             <RefreshCw className={`size-4 ${busy ? "animate-spin" : ""}`} />
@@ -350,7 +427,7 @@ export default function MailroomUI() {
 
       <div className="grid min-h-[calc(100dvh-13rem)] md:grid-cols-[13rem_minmax(18rem,25rem)_1fr]">
         <nav
-          className="hidden border-r border-border p-3 md:block"
+          className="hidden border-r-2 border-border p-3 md:block"
           aria-label="Mail folders"
         >
           <Button
@@ -371,7 +448,7 @@ export default function MailroomUI() {
                 setSearching(false);
                 setSelected(null);
               }}
-              className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`flex min-h-11 w-full items-center gap-3 rounded-base px-3 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 entry.name === folder ? "bg-muted font-medium" : "hover:bg-muted/60"
               }`}
             >
@@ -390,8 +467,8 @@ export default function MailroomUI() {
           ))}
         </nav>
 
-        <div className={`${selected ? "hidden md:block" : "block"} border-r border-border`}>
-          <form onSubmit={submitSearch} className="flex h-14 items-center gap-2 border-b border-border px-3">
+        <div className={`${selected ? "hidden md:block" : "block"} border-r-2 border-border`}>
+          <form onSubmit={submitSearch} className="flex h-14 items-center gap-2 border-b-2 border-border px-3">
             <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <Input
               aria-label="Search this folder"
@@ -399,9 +476,12 @@ export default function MailroomUI() {
               value={term}
               onChange={(event) => {
                 setTerm(event.target.value);
-                if (!event.target.value) setSearching(false);
+                if (!event.target.value) {
+                  setSearching(false);
+                  setSearchQuery("");
+                }
               }}
-              className="h-10 border-0 bg-transparent px-0 focus-visible:ring-0"
+              className="h-11 border-0 bg-transparent px-0 focus-visible:ring-0"
             />
           </form>
 
@@ -480,7 +560,7 @@ export default function MailroomUI() {
         <main className={`${selected ? "block" : "hidden md:flex"} min-w-0 flex-col`}>
           {selected ? (
             <article>
-              <div className="flex min-h-14 flex-wrap items-center gap-1 border-b border-border px-3 md:px-5">
+              <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-1 border-b-2 border-border bg-background px-3 md:px-5">
                 <Button
                   variant="neutral"
                   size="sm"
@@ -563,7 +643,9 @@ export default function MailroomUI() {
               )}
 
               <div className="mx-auto max-w-3xl px-5 py-7 sm:px-8">
-                <h2 className="text-2xl font-semibold tracking-tight">{selected.subject}</h2>
+                <h2 className="break-words font-heading text-2xl font-bold tracking-tight">
+                  {selected.subject}
+                </h2>
                 <div className="mt-5 border-b border-border pb-5 text-sm">
                   <p className="font-medium">{selected.sender}</p>
                   <p className="mt-1 text-muted-foreground">to {selected.to}</p>
@@ -572,7 +654,7 @@ export default function MailroomUI() {
                 </div>
 
                 {selected.remote_images_blocked > 0 && !allowRemote && (
-                  <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm">
+                  <div className="mt-5 flex flex-wrap items-center gap-3 rounded-base border-2 border-border px-4 py-3 text-sm">
                     <ImageOff className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span>
                       {selected.remote_images_blocked} remote image
@@ -614,7 +696,7 @@ export default function MailroomUI() {
 
                 {selected.html && !plainOnly ? (
                   <div
-                    className="mailroom-body mt-6 overflow-x-auto text-[15px] leading-7"
+                    className="mailroom-body mt-6 max-w-full overflow-x-auto break-words text-[15px] leading-7"
                     // Sanitized on the server with an allowlist: scripts, styles,
                     // forms, remote embeds, and escaping CSS are removed there.
                     dangerouslySetInnerHTML={{ __html: selected.html }}
@@ -647,7 +729,7 @@ export default function MailroomUI() {
                       <li key={attachment.index}>
                         <a
                           href={attachmentUrl(selected, attachment, account)}
-                          className="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex min-h-11 items-center gap-3 rounded-base px-2 text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                           <span className="truncate">{attachment.filename}</span>
@@ -662,7 +744,7 @@ export default function MailroomUI() {
 
                 {selected.thread.length > 0 && (
                   <div className="mt-8 border-t border-border pt-5">
-                    <h3 className="text-sm font-medium">Rest of this thread</h3>
+                    <h3 className="font-heading text-sm font-bold">Rest of this thread</h3>
                     <ul className="mt-2">
                       {selected.thread.map((neighbour) => (
                         <li key={neighbour.uid}>
@@ -675,7 +757,7 @@ export default function MailroomUI() {
                                 unread: false,
                               })
                             }
-                            className="flex min-h-11 w-full items-baseline gap-3 rounded-lg px-2 text-left text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex min-h-11 w-full items-baseline gap-3 rounded-base px-2 text-left text-sm transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <span className="min-w-0 flex-1 truncate">{neighbour.sender}</span>
                             <time className="shrink-0 text-xs text-muted-foreground">
@@ -699,11 +781,11 @@ export default function MailroomUI() {
       </div>
 
       <Button
-        className="fixed bottom-6 right-6 h-14 gap-2 md:hidden"
+        className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-[calc(1.5rem+env(safe-area-inset-right))] z-20 size-14 gap-2 p-0 md:hidden"
         onClick={() => setComposing({})}
         aria-label="Compose a message"
       >
-        <PenLine className="size-4" />
+        <PenLine className="size-5" />
       </Button>
 
       {composing && (
@@ -773,7 +855,7 @@ function Preferences({
             id="mailroom-tone"
             value={draft.tone}
             onChange={(event) => setDraft({ ...draft, tone: event.target.value })}
-            className="h-11 rounded-lg border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 rounded-base border-2 border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {["neutral", "warm", "brief", "formal"].map((tone) => (
               <option key={tone} value={tone}>
@@ -811,7 +893,7 @@ function Preferences({
 
 function MailroomLoading() {
   return (
-    <div className="min-h-[calc(100dvh-9rem)] rounded-2xl border border-border p-5">
+    <div className="min-h-[calc(100dvh-9rem)] rounded-base border-2 border-border p-5">
       <Skeleton className="h-10 w-48" />
       <Skeleton className="mt-8 h-24 w-full" />
       <Skeleton className="mt-3 h-24 w-full" />
