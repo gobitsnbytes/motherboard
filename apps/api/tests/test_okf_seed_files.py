@@ -1,7 +1,9 @@
 from app.db import seed as seed_module
 
 
-def test_seed_okf_rules_preserves_existing_files_and_creates_missing(tmp_path, monkeypatch):
+def test_seed_okf_rules_preserves_existing_files_and_creates_missing(
+    tmp_path, monkeypatch
+):
     rules = [
         {
             "file_name": "existing.md",
