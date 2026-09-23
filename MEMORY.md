@@ -9,6 +9,7 @@ Keep this file short. Record only current architecture, durable decisions, activ
 - Stack: Bun/Turborepo, Next.js 15 + React 19, FastAPI/Python 3.12, async SQLAlchemy/Alembic, PostgreSQL 16, Redis 7.
 - GitHub Actions deploys the API and bot to the VPS on relevant `prod` changes. Vercel owns web deployment.
 - Do not store secrets, API keys, raw outreach rows, uploaded documents, rendered artifacts, or runtime databases in Git.
+- The API has opt-in Sentry error reporting through `SENTRY_DSN`; tracing, profiling, and default PII collection are disabled. See `docs/observability.md`. The Sentry agent plugin is installed separately for Codex and Claude Code.
 
 ## Commands
 
