@@ -23,6 +23,7 @@ else:
 # Import all ORM models so Alembic's autogenerate can detect them.
 # This must happen BEFORE accessing Base.metadata.
 from app.db.models import Base  # noqa: F401 — side-effect import registers all tables
+from app.finance import models as _finance_models  # noqa: F401 — registers fin_* ledger tables
 
 # Support JSONB compilation on SQLite for local development/migrations
 from sqlalchemy.dialects.postgresql import JSONB

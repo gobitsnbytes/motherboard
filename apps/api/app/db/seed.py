@@ -230,6 +230,31 @@ CORE_PERMISSIONS: list[dict[str, Any]] = [
         "key": "finance.admin",
         "description": "Full finance admin access — supersedes all individual finance permissions.",
     },
+    # Finance Ledger (chart of accounts, journal, vouchers, donations, vendors, budgets, reports, bank rec)
+    {"key": "finance.ledger.read", "description": "View the chart of accounts and journal entries."},
+    {
+        "key": "finance.ledger.post",
+        "description": "Post manual journal entries and reversals, create ledger accounts.",
+    },
+    {"key": "finance.vouchers.read", "description": "View payment/receipt/journal vouchers."},
+    {"key": "finance.vouchers.create", "description": "Create and submit vouchers."},
+    {
+        "key": "finance.vouchers.approve",
+        "description": "Approve or reject vouchers (maker-checker: cannot approve own vouchers).",
+    },
+    {"key": "finance.donations.read", "description": "View donors and donations."},
+    {"key": "finance.donations.create", "description": "Record donors and donations."},
+    {
+        "key": "finance.donations.approve",
+        "description": "Confirm donations, issuing the receipt number (maker-checker).",
+    },
+    {"key": "finance.vendors.read", "description": "View vendors and bills."},
+    {"key": "finance.vendors.manage", "description": "Create vendors, bills, and TDS entries; initiate bill payment."},
+    {"key": "finance.budgets.read", "description": "View budgets and budget-vs-actuals."},
+    {"key": "finance.budgets.manage", "description": "Create and edit budgets."},
+    {"key": "finance.reports.read", "description": "View and export finance reports."},
+    {"key": "finance.bank_rec.manage", "description": "Import bank statements and reconcile lines."},
+    {"key": "finance.settings.manage", "description": "View and edit legal/registration settings (80G, 12A, FCRA, PAN, TAN, GSTIN)."},
     # Meetings
     {
         "key": "meetings.read",
