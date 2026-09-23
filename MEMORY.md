@@ -70,7 +70,8 @@ Focused API tests should run from `apps/api` when their imports or relative data
 - Semantic OOXML onboarding editor design is approved. Preserve DOCX layout, use versioned semantic anchors, retain audit evidence, and keep Qenlo out of this subsystem.
 - Legal email policy replies and attachment review are implemented. Production mailbox secrets and end-to-end mail verification remain operational prerequisites when absent.
 - Public scheduling needs server-side slot verification and rate limiting; historical Cal.com duplicates are hidden non-destructively.
-- Finance still needs the live RazorpayX boundary and immutable double-entry journal enforcement before it can be treated as a complete banking ledger.
+- Finance has an append-only double-entry journal (`app/finance`, `fin_*` tables, Postgres triggers block UPDATE/DELETE of posted rows), April-March period locks, maker-checker vouchers, s.269ST/s.40A(3)/FCRA guards, and journal-derived statutory reports. RazorpayX is a stub (`payout_provider.py`) returning 503; TDS defaults and fund mapping need CA review before these are the books of record.
+- All LLM features use SparkCloud only (`services/llm_client.py`, chat-only, no search or audio). Meetings transcription remains on Gemini because SparkCloud has no audio endpoint.
 - TypeSafe AI use-case assessment: the lowest-friction integration point is the existing contract-assistant/legal-agent pipeline (classification, risk scoring, routing/escalation, retrieval, and verification); finance authorization must remain deterministic, with semantic scoring limited to triage/explanations until separately validated.
 
 ## Maintenance rule
