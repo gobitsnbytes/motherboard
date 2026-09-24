@@ -6,7 +6,9 @@ import { useEffect } from "react";
 
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    // A digest means the server already reported this error via onRequestError.
+    if (error.digest) return;
+    Sentry.captureException(error, { tags: { boundary: "global" } });
   }, [error]);
 
   return (

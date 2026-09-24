@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 
@@ -17,27 +18,43 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
     throw new Error("Backend auth bridge is not configured");
   }
 
-  const response = await fetch(`${apiUrl}/api/auth/upsert`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Internal-Secret": internalSecret,
-    },
-    body: JSON.stringify({
-      discord_id: profile.id,
-      email: profile.email,
-      username: profile.username,
-      global_name: profile.global_name,
-      avatar: profile.avatar,
-      access_token: accessToken,
-    }),
-    cache: "no-store",
-  });
+  const reportTags = { operation: "auth_upsert_user", upstream: "bnb-api" };
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/api/auth/upsert`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Secret": internalSecret,
+      },
+      body: JSON.stringify({
+        discord_id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        global_name: profile.global_name,
+        avatar: profile.avatar,
+        access_token: accessToken,
+      }),
+      cache: "no-store",
+    });
+  } catch (error) {
+    // NextAuth swallows callback errors, so sign-in outages would otherwise be invisible.
+    Sentry.captureException(error, { tags: reportTags });
+    throw error;
+  }
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    console.error(`[auth] Backend user upsert failed (${response.status}):`, errorText);
-    throw new Error(`Failed to sync Discord identity with backend (${response.status}): ${errorText}`);
+    if (response.status >= 500) {
+      // Status only: the response body can echo profile data.
+      Sentry.captureMessage(`Backend user upsert failed with ${response.status}`, {
+        tags: { ...reportTags, "http.status_code": String(response.status) },
+        level: "error",
+      });
+    }
+    // Do not read or log the response body. It can echo Discord profile data,
+    // and console breadcrumbs are attached to the captured callback failure.
+    console.error(`[auth] Backend user upsert failed (${response.status})`);
+    throw new Error(`Failed to sync Discord identity with backend (${response.status})`);
   }
 
   const data = (await response.json()) as { user_id?: string };

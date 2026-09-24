@@ -1,3 +1,4 @@
+import { normalizeProxyRoute, reportProxyFailure, shouldReportUpstreamStatus } from "../../../lib/api-proxy-reporting";
 import { auth } from "../../../lib/auth";
 import { createInternalAuthHeaders } from "../../../lib/internal-auth";
 import { isPublicApiRoute } from "../../../lib/public-api";
@@ -30,6 +31,7 @@ function getApiBase() {
 async function proxy(request: Request, context: RouteContext) {
   const { path } = await context.params;
   const inboundPath = `/${path.join("/")}`;
+  const failureContext = { method: request.method, route: normalizeProxyRoute(path) };
 
   const isPublicRoute = isPublicApiRoute(path, inboundPath);
 
@@ -76,9 +78,10 @@ async function proxy(request: Request, context: RouteContext) {
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     console.error("[api-proxy] upstream request failed", {
-      path: upstreamPath,
+      route: failureContext.route,
       reason: timedOut ? "timeout" : "connection",
     });
+    reportProxyFailure(timedOut ? "timeout" : "connection", failureContext, error);
     return Response.json(
       {
         detail: timedOut
@@ -88,6 +91,10 @@ async function proxy(request: Request, context: RouteContext) {
       },
       { status: timedOut ? 504 : 503 },
     );
+  }
+
+  if (shouldReportUpstreamStatus(upstreamResponse.status)) {
+    reportProxyFailure("bad_gateway", { ...failureContext, status: upstreamResponse.status });
   }
 
   const responseHeaders = new Headers(upstreamResponse.headers);
@@ -110,7 +117,19 @@ async function proxy(request: Request, context: RouteContext) {
     });
   }
 
-  return new Response(await upstreamResponse.arrayBuffer(), {
+  let body: ArrayBuffer;
+  try {
+    body = await upstreamResponse.arrayBuffer();
+  } catch (error) {
+    // The upstream closed or corrupted the response after sending headers.
+    reportProxyFailure("body_read", { ...failureContext, status: upstreamResponse.status }, error);
+    return Response.json(
+      { detail: "The backend response was interrupted. Please retry.", code: "upstream_interrupted" },
+      { status: 502 },
+    );
+  }
+
+  return new Response(body, {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
     headers: responseHeaders,

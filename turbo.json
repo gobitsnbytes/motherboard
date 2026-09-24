@@ -13,7 +13,19 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"]
+      "outputs": [".next/**", "dist/**"],
+      "env": [
+        "NEXT_PUBLIC_SENTRY_*",
+        "SENTRY_ENVIRONMENT",
+        "SENTRY_RELEASE",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "VERCEL_ENV",
+        "VERCEL_GIT_COMMIT_SHA",
+        "GITHUB_SHA",
+        "GIT_SHA"
+      ],
+      "passThroughEnv": ["SENTRY_AUTH_TOKEN"]
     },
     "dev": {
       "cache": false,

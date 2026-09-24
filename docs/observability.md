@@ -1,6 +1,29 @@
 # Sentry error reporting
 
-The web app uses `@sentry/nextjs` in browser, Node.js, and Edge runtimes. Set `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` in the web deployment environment and in an ignored local `apps/web/.env.local` for local testing. `NEXT_PUBLIC_SENTRY_DSN` is embedded at build time. Set `SENTRY_PROJECT` and a secret `SENTRY_AUTH_TOKEN` during production builds to upload source maps; the organization is `gobitsnbytes-foundation`. The SDK samples 10% of traces and leaves default PII collection off. The bot uses `@sentry/node`; set `SENTRY_DSN` in `/opt/bits-bytes-bot/.env` to capture handled bot errors through its logger.
+Motherboard reports to three Sentry projects in the `gobitsnbytes-foundation` organization: `motherboard-backend` for the API, `motherboard-frontend` for the web app, and `discord-bot-utility` for the bot. DSNs live only in ignored local env files or deployment environments.
+
+## Web (`motherboard-frontend`)
+
+`instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts` each call `Sentry.init` once with the options in `sentry.shared.ts`. That file holds only public values because it ships to the browser. Events carry the SDK's `runtime` tag (browser, node, or edge).
+
+| Variable | When | Notes |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SENTRY_DSN` | build | Used by all three runtimes. `SENTRY_DSN` stays reserved for the API, which shares the root `.env` under Compose. |
+| `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | build | Blank: 0.05 in production, 0 elsewhere. |
+| `SENTRY_ENVIRONMENT` | build | Blank: `VERCEL_ENV`, then `production` for production builds. |
+| `SENTRY_RELEASE` | build | Blank: `bnb-web@<version>+<sha12>` from `VERCEL_GIT_COMMIT_SHA`, `GITHUB_SHA`, or `GIT_SHA`. |
+| `SENTRY_AUTH_TOKEN` | build, secret | Enables source-map upload; maps are deleted after upload. Without it, the build skips upload. |
+
+On Vercel, set `NEXT_PUBLIC_SENTRY_DSN` and a sensitive `SENTRY_AUTH_TOKEN` for Production and Preview; Vercel supplies the commit SHA and environment. For Docker, pass the public values as build args and the token as a BuildKit secret (`docker build --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN`). Compose wires both up, so the token never becomes an image layer. Turbo declares these variables for `build`, and passes the token through without hashing it.
+
+What is reported:
+- Server errors, through `onRequestError`.
+- Client render errors in the segment boundaries (`dashboard`, `finance`, `onboarding`, `(public)`) and `global-error.tsx`. Errors with a `digest` are skipped because the server already reported them.
+- API proxy transport failures, timeouts, interrupted bodies, and upstream 502/504.
+- Auth bridge outages.
+
+Proxy events are tagged with `operation`, `upstream`, `http.method`, and a normalized `http.route` (`/signatures/sign/:token`). Upstream 4xx responses are not reported. Neither are upstream 500s and 503s: the API reports its own 500s, and its 503s are deliberate. Browser fetch helpers don't report either, because every backend call passes through the proxy. Cookies, request bodies, query strings, users, and all headers except a small allowlist are removed before sending.
+
 
 ## API (`motherboard-backend`)
 
