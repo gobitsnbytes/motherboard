@@ -42,6 +42,21 @@ What is not sent: 4xx responses, validation errors, and missing optional configu
 
 Profiling is off, and so are Sentry logs and metrics. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events are flushed on shutdown with a 2-second limit.
 
+## Discord bot (`discord-bot-utility`)
+
+`apps/bot/lib/observability.js` initializes `@sentry/node` before the Discord client, command modules, jobs, and web server are loaded. A blank `SENTRY_DSN` disables reporting without changing startup behavior.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SENTRY_DSN` | blank (disabled) | Secret. `/opt/bits-bytes-bot/.env` on the VPS, ignored `apps/bot/.env` locally. |
+| `SENTRY_ENVIRONMENT` | `NODE_ENV`, then `development` | Set this explicitly in production. |
+| `SENTRY_TRACES_SAMPLE_RATE` | 0 | Keep low because the bot and API share a small VPS. |
+| `SENTRY_RELEASE` | `bnb-bot@<package version>+<sha12>` | `GIT_SHA` or `GITHUB_SHA` supplies the optional revision. |
+
+The bot reports command and Discord event failures through its logger, swallowed exceptions passed to `console.error`, scheduled-job failures, Express route rejections, HTTP listener errors, Discord client and shard errors, login failures, unhandled rejections, and uncaught exceptions. The same `Error` object is captured once even if it crosses more than one boundary. Fatal handlers and normal shutdown flush for at most two seconds.
+
+Expected failures stay out of Sentry: disabled DMs, missing optional integrations, validation or permission failures, routine 4xx responses, and fallback warnings. Default PII, request bodies, query strings, cookies, local variables, users, and HTTP headers are dropped. The final scrubber also redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named context fields.
+
 The Sentry agent plugin is separate from API event reporting. Installing the plugin gives coding agents access to Sentry; it does not configure the running application.
 
 The VPS API `.env` has `SENTRY_DSN` configured. A local SDK verification exception was sent on 2026-09-23 with event ID `706fec2b776a4211b75e5c9d60858c1c`. A direct ingest test to the frontend project returned event ID `a1777cf78a3c400e9ae9998cb063d07e`. These confirm network ingestion, not deployed application coverage. Verify one controlled exception from each running service after deployment.

@@ -2,14 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType } = require('discord.js');
 require('dotenv').config();
-const Sentry = require('@sentry/node');
-if (process.env.SENTRY_DSN) {
-	Sentry.init({
-		dsn: process.env.SENTRY_DSN,
-		sendDefaultPii: false,
-		tracesSampleRate: 0,
-	});
-}
+const observability = require('./lib/observability');
+observability.initObservability();
+observability.installConsoleErrorCapture();
 const logger = require('./lib/logger');
 const { getGitInfo } = require('./lib/git');
 const db = require('./lib/db');
@@ -26,6 +21,9 @@ const client = new Client({
 	],
 	partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
+
+client.on('error', error => logger.error('Discord client error', error));
+client.on('shardError', error => logger.error('Discord gateway shard error', error));
 
 // Load commands
 logger.boot('Initializing command loading...', null, false);
@@ -297,7 +295,7 @@ console.log('[BOOT] Job initialization complete.');
 logger.boot('Attempting login...', null, false);
 client.login(process.env.DISCORD_TOKEN).catch(err => {
 	logger.error('Login failed', err);
-	process.exit(1);
+	observability.flush().finally(() => process.exit(1));
 });
 
 // Graceful shutdown
@@ -328,8 +326,22 @@ const handleShutdown = async () => {
 	} catch (err) {
 		logger.error('Error closing database connections during shutdown', err);
 	}
+	await observability.flush();
 	process.exit(0);
 };
 
 process.on('SIGINT', handleShutdown);
 process.on('SIGTERM', handleShutdown);
+
+process.on('unhandledRejection', async reason => {
+	const error = reason instanceof Error ? reason : new Error(`Unhandled rejection: ${String(reason)}`);
+	logger.error('Unhandled promise rejection', error);
+	await observability.flush();
+	process.exit(1);
+});
+
+process.on('uncaughtException', async error => {
+	logger.error('Uncaught exception', error);
+	await observability.flush();
+	process.exit(1);
+});

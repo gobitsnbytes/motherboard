@@ -66,6 +66,10 @@ Set these GitHub secrets:
 | `NOTION_TOKEN` | Notion integration token |
 | `NOTION_FORK_REGISTRY_DB` | Notion Fork Registry database ID |
 | `FORK_HANDBOOK_URL` | Link to the fork handbook |
+| `SENTRY_DSN` | Optional DSN for the `discord-bot-utility` Sentry project |
+| `SENTRY_ENVIRONMENT` | Deployment name, such as `production` |
+| `SENTRY_TRACES_SAMPLE_RATE` | Trace sampling ratio from 0 to 1; defaults to 0 |
+| `SENTRY_RELEASE` | Optional release override; normally derived from package version and `GIT_SHA` |
 
 ## Commands
 

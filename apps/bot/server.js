@@ -2416,8 +2416,17 @@ function startWebServer(client) {
         }
     });
 
+    // Express 5 forwards rejected async handlers here. Keep response data out
+    // of Sentry and report only the original exception plus a route template.
+    app.use((err, req, res, next) => {
+        logger.error(`Unhandled scheduler route failure: ${req.method} ${req.route?.path || 'unknown'}`, err);
+        if (res.headersSent) return next(err);
+        return res.status(500).json({ error: 'Internal server error' });
+    });
+
     // Boot HTTP listener
     const server = http.createServer(app);
+    server.on('error', err => logger.error('Scheduler HTTP server error', err));
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`[BOOT] Scheduler & Webhook server listening on port ${PORT}`);
         logger.boot(`Scheduler & Webhook server online on port ${PORT}`, null, false);
