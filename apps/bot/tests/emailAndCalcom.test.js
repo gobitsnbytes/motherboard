@@ -1,10 +1,3 @@
-// Mock nodemailer
-jest.mock('nodemailer', () => ({
-	createTransport: jest.fn().mockReturnValue({
-		sendMail: jest.fn().mockResolvedValue({ messageId: 'test-message-id' })
-	})
-}));
-
 const icsGenerator = require('../lib/icsGenerator');
 const emailTemplates = require('../lib/emailTemplates');
 const mailer = require('../lib/mailer');
@@ -85,26 +78,15 @@ describe('Cal.com Client Tests', () => {
 });
 
 describe('Mailer RSVP Alternatives', () => {
-	beforeEach(() => {
-		process.env.SMTP_HOST = 'smtp.test.com';
-		process.env.SMTP_USER = 'user';
-		process.env.SMTP_PASS = 'pass';
-	});
-
-	test('should include alternatives array in mailOptions when icsContent is provided', async () => {
-		const nodemailer = require('nodemailer');
-		const transporterInstance = nodemailer.createTransport();
-		
-		await mailer.sendMail({
+	test('should include alternatives array in mailOptions when icsContent is provided', () => {
+		const mailOptions = mailer.buildMailOptions({
 			to: 'test@example.com',
 			subject: 'Test Meeting RSVP',
 			html: '<p>Invite</p>',
 			icsContent: 'BEGIN:VCALENDAR...',
 			attachmentName: 'invite.ics'
-		});
+		}, 'hello@gobitsnbytes.org');
 
-		expect(transporterInstance.sendMail).toHaveBeenCalled();
-		const mailOptions = transporterInstance.sendMail.mock.calls[0][0];
 		expect(mailOptions.attachments).toBeDefined();
 		expect(mailOptions.alternatives).toBeDefined();
 		expect(mailOptions.alternatives[0].contentType).toBe('text/calendar; charset=utf-8; method=REQUEST');

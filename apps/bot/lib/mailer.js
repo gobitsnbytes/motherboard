@@ -45,16 +45,9 @@ function getTransporter() {
 }
 
 /**
- * Low-level send mail method
+ * Build mail options without opening an SMTP connection.
  */
-async function sendMail({ to, subject, html, icsContent, attachmentName = 'invite.ics' }) {
-	const client = getTransporter();
-	if (!client) {
-		logger.warn(`[MAILER] Cannot send mail: SMTP transporter not initialized.`);
-		return false;
-	}
-
-	const from = process.env.SMTP_FROM || 'hello@gobitsnbytes.org';
+function buildMailOptions({ to, subject, html, icsContent, attachmentName = 'invite.ics' }, from) {
 	const mailOptions = {
 		from,
 		to: Array.isArray(to) ? to.join(', ') : to,
@@ -77,6 +70,18 @@ async function sendMail({ to, subject, html, icsContent, attachmentName = 'invit
 			}
 		];
 	}
+
+	return mailOptions;
+}
+
+async function sendMail(message) {
+	const client = getTransporter();
+	if (!client) {
+		logger.warn(`[MAILER] Cannot send mail: SMTP transporter not initialized.`);
+		return false;
+	}
+
+	const mailOptions = buildMailOptions(message, process.env.SMTP_FROM || 'hello@gobitsnbytes.org');
 
 	try {
 		const info = await client.sendMail(mailOptions);
@@ -167,6 +172,7 @@ async function verifySMTP() {
 }
 
 module.exports = {
+	buildMailOptions,
 	sendMail,
 	sendMeetingInvite,
 	sendMeetingReminder,
