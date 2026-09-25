@@ -62,6 +62,29 @@ def test_llm_parse_warning_does_not_leak_output(monkeypatch, caplog):
     assert private_output not in caplog.text
 
 
+def test_llm_reports_only_token_counts_to_sentry(monkeypatch):
+    seen = []
+    response = {
+        "choices": [{"message": {"content": "private generated answer"}}],
+        "usage": {"prompt_tokens": 12, "completion_tokens": 5, "total_tokens": 17},
+    }
+    monkeypatch.setattr(
+        "app.services.llm_client.urllib.request.urlopen",
+        lambda *args, **kwargs: io.BytesIO(json.dumps(response).encode()),
+    )
+    monkeypatch.setattr(
+        "app.services.llm_client.record_token_usage",
+        lambda span, **counts: seen.append(counts),
+    )
+
+    client = SparkCloudAIClient(api_key="test")
+    assert (
+        client.chat([{"role": "user", "content": "private request"}])
+        == "private generated answer"
+    )
+    assert seen == [{"input_tokens": 12, "output_tokens": 5, "total_tokens": 17}]
+
+
 def test_handled_agent_failure_has_safe_operation_context(sentry_events):
     sentry_sdk.add_breadcrumb(message="private contract text")
     observability.capture_agent_failure(

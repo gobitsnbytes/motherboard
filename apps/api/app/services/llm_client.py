@@ -10,6 +10,7 @@ import urllib.request
 from typing import Any, Dict, List, Optional
 
 import sentry_sdk
+from sentry_sdk.ai.monitoring import record_token_usage
 
 from app.config import get_settings
 
@@ -59,10 +60,25 @@ class SparkCloudAIClient:
         with sentry_sdk.start_span(
             op="ai.chat_completions.create", name="SparkCloud chat completion"
         ) as span:
-            span.set_data("ai.model", self.model)
+            span.set_data("gen_ai.operation.name", "chat")
+            span.set_data("gen_ai.provider.name", "sparkcloud")
+            span.set_data("gen_ai.request.model", self.model)
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     result = json.loads(resp.read().decode("utf-8"))
+                    usage = result.get("usage")
+                    if isinstance(usage, dict):
+
+                        def tokens(key: str) -> int | None:
+                            value = usage.get(key)
+                            return value if type(value) is int and value >= 0 else None
+
+                        record_token_usage(
+                            span,
+                            input_tokens=tokens("prompt_tokens"),
+                            output_tokens=tokens("completion_tokens"),
+                            total_tokens=tokens("total_tokens"),
+                        )
                     choices = result.get("choices", [])
                     if choices and "message" in choices[0]:
                         return choices[0]["message"].get("content", "")
