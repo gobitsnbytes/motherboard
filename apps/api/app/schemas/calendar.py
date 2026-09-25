@@ -62,6 +62,12 @@ class RoutingPoolOut(StrictModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PublicPoolOut(StrictModel):
+    name: str
+    description: str | None
+    ready: bool
+
+
 class PoolMemberCreate(StrictModel):
     calendar_connection_id: UUID
     event_type_id: int = Field(gt=0)

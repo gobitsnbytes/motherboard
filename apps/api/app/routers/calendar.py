@@ -33,6 +33,7 @@ from app.schemas.calendar import (
     PoolMemberCreate,
     PoolMemberOut,
     PublicBookingCreate,
+    PublicPoolOut,
     RoutingPoolCreate,
     RoutingPoolOut,
     RoutingPoolPatch,
@@ -279,6 +280,21 @@ async def remove_pool_member(pool_id: UUID, member_id: UUID, db: DbSession, curr
 async def list_bookings(db: DbSession, current_user: CurrentUserDep):
     await require_permission(db, current_user, "meetings.read")
     return list((await db.scalars(select(CalendarBooking).order_by(CalendarBooking.start_at.desc()))).all())
+
+
+@router.get("/public/{pool_slug}", response_model=PublicPoolOut)
+async def public_pool(pool_slug: str, db: DbSession):
+    pool = await _pool_or_404(db, pool_slug)
+    active_hosts = await db.scalar(
+        select(func.count(RoutingPoolMember.id))
+        .join(CalendarConnection, CalendarConnection.id == RoutingPoolMember.calendar_connection_id)
+        .where(
+            RoutingPoolMember.pool_id == pool.id,
+            RoutingPoolMember.active.is_(True),
+            CalendarConnection.status == "active",
+        )
+    )
+    return PublicPoolOut(name=pool.name, description=pool.description, ready=bool(active_hosts))
 
 
 @router.get("/public/{pool_slug}/slots", response_model=list[SlotOut])

@@ -91,6 +91,25 @@ async def _routing_setup(db_session):
     return connection_a, pool, host_a, host_b
 
 
+async def test_public_pool_shows_booking_name_and_readiness(client, db_session):
+    _, pool, _, _ = await _routing_setup(db_session)
+    response = await client.get(f"/api/calendar/public/{pool.slug}")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "Community",
+        "description": None,
+        "ready": True,
+    }
+
+    empty_pool = RoutingPool(name="Empty", slug="empty", created_by=pool.created_by)
+    db_session.add(empty_pool)
+    await db_session.commit()
+    empty_response = await client.get("/api/calendar/public/empty")
+    assert empty_response.status_code == 200
+    assert empty_response.json()["ready"] is False
+
+
 async def test_add_pool_member_accepts_current_calcom_google_meet_location(
     client, db_session
 ):
