@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 const captured: Array<{ kind: "exception" | "message"; value: unknown; context: any }> = [];
 
 mock.module("@sentry/nextjs", () => ({
+  logger: { warn: () => {} },
   captureException: (value: unknown, context: unknown) => captured.push({ kind: "exception", value, context }),
   captureMessage: (value: unknown, context: unknown) => captured.push({ kind: "message", value, context }),
 }));

@@ -3,6 +3,7 @@
 import type { BrowserOptions, ErrorEvent, EventHint } from "@sentry/nextjs";
 
 type TransactionEvent = Parameters<NonNullable<BrowserOptions["beforeSendTransaction"]>>[0];
+type LogEvent = Parameters<NonNullable<BrowserOptions["beforeSendLog"]>>[0];
 
 const FILTERED = "[Filtered]";
 const SENSITIVE_KEY = /auth(?!or)|cookie|token|secret|passw|dsn|api[-_]?key|credential|private[-_]?key|webhook|(?:^|[-_])otp(?:$|[-_])/i;
@@ -16,6 +17,18 @@ const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [/[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b/g, "[email]"],
 ];
 const SAFE_HEADERS = new Set(["user-agent", "content-type", "accept", "x-request-id", "host"]);
+const LOG_EVENTS = new Set(["web.api_proxy.failed", "web.auth_bridge.failed"]);
+const LOG_ATTRIBUTES = new Set(["failure", "status_code"]);
+
+export function beforeSendLog(log: LogEvent): LogEvent | null {
+  if (!LOG_EVENTS.has(log.message)) return null;
+  log.attributes = Object.fromEntries(
+    Object.entries(log.attributes ?? {}).filter(([key, value]) =>
+      LOG_ATTRIBUTES.has(key) && (typeof value === "number" || (typeof value === "string" && /^[a-z_]{1,32}$/.test(value))),
+    ),
+  );
+  return log;
+}
 
 export function scrubText(value: string): string {
   return SECRET_PATTERNS.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value);
@@ -102,6 +115,7 @@ export const sharedSentryOptions = {
   // Browser noise that is never actionable.
   ignoreErrors: ["ResizeObserver loop limit exceeded", "ResizeObserver loop completed with undelivered notifications", "AbortError"],
   beforeSend,
+  beforeSendLog,
   // v11 streams spans by default, which bypasses beforeSendTransaction. Static
   // mode keeps span scrubbing in the one hook below.
   traceLifecycle: "static" as const,

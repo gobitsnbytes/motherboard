@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 
-import { beforeSend, scrubText, sharedSentryOptions } from "../sentry.shared";
+import { beforeSend, beforeSendLog, scrubText, sharedSentryOptions } from "../sentry.shared";
+
+test("only static operational logs with safe attributes leave the web runtime", () => {
+  expect(beforeSendLog({ message: "private profile data", attributes: {} } as never)).toBeNull();
+  const log = beforeSendLog({
+    message: "web.api_proxy.failed",
+    attributes: { failure: "timeout", status_code: 504, user: "private profile data" },
+  } as never);
+  expect(log?.attributes).toEqual({ failure: "timeout", status_code: 504 });
+});
 
 test("turns off every v11 data collection default", () => {
   const collection = sharedSentryOptions.dataCollection;

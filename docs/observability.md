@@ -24,6 +24,8 @@ What is reported:
 
 Proxy events are tagged with `operation`, `upstream`, `http.method`, and a normalized `http.route` (`/signatures/sign/:token`). Upstream 4xx responses are not reported. Neither are upstream 500s and 503s: the API reports its own 500s, and its 503s are deliberate. Browser fetch helpers don't report either, because every backend call passes through the proxy. Cookies, request bodies, query strings, users, and all headers except a small allowlist are removed before sending.
 
+Sentry Logs records static proxy and auth bridge failures with a failure class and optional status code. The shared log hook rejects all other messages and attributes, so profiles, route values, tokens, and upstream response bodies do not enter logs. JavaScript SDK v11 captures explicit `Sentry.logger` calls without an `enableLogs` option.
+
 
 ## API (`motherboard-backend`)
 

@@ -39,11 +39,13 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
     });
   } catch (error) {
     // NextAuth swallows callback errors, so sign-in outages would otherwise be invisible.
+    Sentry.logger.warn("web.auth_bridge.failed", { failure: "connection" });
     Sentry.captureException(error, { tags: reportTags });
     throw error;
   }
 
   if (!response.ok) {
+    Sentry.logger.warn("web.auth_bridge.failed", { failure: "upsert", status_code: response.status });
     if (response.status >= 500) {
       // Status only: the response body can echo profile data.
       Sentry.captureMessage(`Backend user upsert failed with ${response.status}`, {
@@ -59,6 +61,7 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
 
   const data = (await response.json()) as { user_id?: string };
   if (!data.user_id) {
+    Sentry.logger.warn("web.auth_bridge.failed", { failure: "missing_user_id" });
     throw new Error("Backend auth bridge did not return a user id");
   }
 

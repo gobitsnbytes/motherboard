@@ -29,6 +29,10 @@ export function reportProxyFailure(
   context: { method: string; route: string; status?: number },
   error?: unknown,
 ): void {
+  Sentry.logger.warn("web.api_proxy.failed", {
+    failure,
+    ...(context.status === undefined ? {} : { status_code: context.status }),
+  });
   const tags = {
     operation: "api_proxy",
     upstream: "bnb-api",
