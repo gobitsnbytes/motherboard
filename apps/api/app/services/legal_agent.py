@@ -1248,8 +1248,11 @@ async def legal_inbox_poll_job() -> None:
         try:
             with sentry_sdk.start_transaction(op="ai.pipeline", name="Legal inbox poll"):
                 await LegalInboxPoller().poll_once(session)
+        except asyncio.CancelledError:
+            logger.info("Scheduled legal inbox poll cancelled during shutdown")
+            return
         except Exception as err:
-            logger.warning("Scheduled legal inbox poll failed: %s", err)
+            logger.warning("Scheduled legal inbox poll failed: %s", type(err).__name__)
             capture_background_exception(err, subsystem="legal_agent", operation="inbox_poll")
 
 
@@ -1261,8 +1264,11 @@ async def signature_nudge_job() -> None:
         try:
             with sentry_sdk.start_transaction(op="ai.pipeline", name="Legal signature nudges"):
                 await run_nudge_cycle(session)
+        except asyncio.CancelledError:
+            logger.info("Scheduled signature nudge job cancelled during shutdown")
+            return
         except Exception as err:
-            logger.warning("Scheduled signature nudge job failed: %s", err)
+            logger.warning("Scheduled signature nudge job failed: %s", type(err).__name__)
             capture_background_exception(
                 err, subsystem="legal_agent", operation="signature_nudge"
             )

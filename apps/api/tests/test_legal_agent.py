@@ -3,6 +3,7 @@ Tests for the Legal Agent service: MIME parsing, inbox dedupe + polling,
 signature-nudge sequencing, RAG /ask over executed contracts, agent stats.
 """
 
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -34,6 +35,28 @@ from app.db.models import User
 from conftest import request_as
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.mark.parametrize("job_name", ["legal_inbox_poll_job", "signature_nudge_job"])
+async def test_scheduled_job_cancellation_is_not_reported(
+    monkeypatch, override_db, job_name
+):
+    monkeypatch.setattr("app.database.get_sessionmaker", lambda: override_db)
+
+    async def cancelled(*_args, **_kwargs):
+        raise asyncio.CancelledError()
+
+    if job_name == "legal_inbox_poll_job":
+        monkeypatch.setattr(legal_agent.LegalInboxPoller, "poll_once", cancelled)
+    else:
+        monkeypatch.setattr(legal_agent, "run_nudge_cycle", cancelled)
+
+    reported = []
+    monkeypatch.setattr(
+        legal_agent, "capture_background_exception", lambda *args, **kwargs: reported.append((args, kwargs))
+    )
+    await getattr(legal_agent, job_name)()
+    assert reported == []
 
 
 @pytest_asyncio.fixture(autouse=True)
