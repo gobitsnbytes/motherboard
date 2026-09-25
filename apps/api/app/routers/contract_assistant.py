@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
+import sentry_sdk
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -33,6 +34,7 @@ from app.db.models import (
 )
 from app.dependencies import DbSession, ResolvedPrincipal, get_current_user, get_optional_user
 from app.services.llm_client import get_llm_client
+from app.observability import capture_agent_failure
 from app.services.okf_engine import DeterministicRuleEngine, get_okf_store
 from app.services.signature_engine import prepare_document_pdf, render_pdf_page_previews
 
@@ -111,6 +113,7 @@ class DispatchRequest(BaseModel):
 
 class AskQuestionRequest(BaseModel):
     question: str
+    conversation_id: Optional[uuid.UUID] = None
 
 
 # ---------------------------------------------------------------------------
@@ -1327,12 +1330,28 @@ async def ask_contract_knowledge_base(
     ]
 
     answer: Optional[str] = None
-    try:
-        raw = llm_client._chat_completion(messages)
-        if raw and raw.strip():
-            answer = raw.strip()
-    except Exception as err:
-        logger.warning(f"/ask LLM synthesis failed, using deterministic fallback: {err}")
+    with sentry_sdk.new_scope():
+        if payload.conversation_id:
+            sentry_sdk.ai.set_conversation_id(str(payload.conversation_id))
+        with sentry_sdk.start_span(
+            op="gen_ai.invoke_agent",
+            name="invoke_agent Legal knowledge assistant",
+        ) as span:
+            span.set_data("gen_ai.operation.name", "invoke_agent")
+            span.set_data("gen_ai.agent.name", "Legal knowledge assistant")
+            try:
+                raw = llm_client._chat_completion(messages)
+                if raw and raw.strip():
+                    answer = raw.strip()
+            except Exception as err:
+                span.set_status("internal_error")
+                span.set_data("error.type", type(err).__name__)
+                logger.warning("/ask LLM synthesis failed: %s", type(err).__name__)
+                capture_agent_failure(
+                    agent="legal_knowledge_assistant",
+                    operation="ask_synthesis",
+                    reason=type(err).__name__,
+                )
 
     if not answer:
         answer = "Based on the retrieved records:\n" + "\n".join(

@@ -58,7 +58,8 @@ class SparkCloudAIClient:
         # Span metadata is deliberately limited to the configured model. Prompts,
         # responses, and provider error bodies can contain private documents.
         with sentry_sdk.start_span(
-            op="ai.chat_completions.create", name="SparkCloud chat completion"
+            op="gen_ai.chat",
+            name=f"chat {self.model}",
         ) as span:
             span.set_data("gen_ai.operation.name", "chat")
             span.set_data("gen_ai.provider.name", "sparkcloud")

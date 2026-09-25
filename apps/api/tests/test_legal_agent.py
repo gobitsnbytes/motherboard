@@ -602,6 +602,11 @@ async def test_ask_includes_executed_contract_hit(
     db_session: AsyncSession, monkeypatch, client
 ):
     captured = {}
+    conversation_id = uuid.uuid4()
+    monkeypatch.setattr(
+        "app.routers.contract_assistant.sentry_sdk.ai.set_conversation_id",
+        lambda value: captured.update(conversation_id=value),
+    )
 
     def fake_chat_completion(self, messages, json_response=False):
         captured["context"] = messages[-1]["content"]
@@ -649,7 +654,8 @@ async def test_ask_includes_executed_contract_hit(
         "POST",
         "/api/contract-assistant/ask",
         json={
-            "question": "What is the liability cap in the Master Services Agreement?"
+            "question": "What is the liability cap in the Master Services Agreement?",
+            "conversation_id": str(conversation_id),
         },
     )
     assert response.status_code == 200
@@ -661,6 +667,7 @@ async def test_ask_includes_executed_contract_hit(
         f"sources={labels_titles} answer={data['answer'][:160]}"
     )
     assert "Limitation of Liability" in captured["context"]
+    assert captured["conversation_id"] == str(conversation_id)
 
 
 async def test_ask_returns_empty_sources_when_no_match(
