@@ -10,17 +10,14 @@ import asyncio
 import logging
 import os
 import re
-import socket
-import struct
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from app.plugin_sdk.types import (
     PermissionDeclaration,
-    PluginContext,
     PluginManifest,
     UiPanelDeclaration,
 )
@@ -178,7 +175,7 @@ async def _run_ssh_command(ssh_host: str, cmd: str, timeout: float = 8.0) -> Tup
 # ---------------------------------------------------------------------------
 
 @router.get("/status", response_model=ServerStatusResponse)
-async def get_server_status(ctx: Optional[PluginContext] = None):
+async def get_server_status():
     """Query real-time status of mc.gobitsnbytes.org and systemd minecraft.service via SSH."""
     from datetime import datetime, timezone
 
