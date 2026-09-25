@@ -40,6 +40,8 @@ Sentry Logs records static proxy and auth bridge failures with a failure class a
 
 What is sent: unhandled request exceptions, via the FastAPI integration; 5xx `HTTPException`s; error-level logs; and caught background failures that call `capture_background_exception()`. That helper covers startup services, EventBus listeners and publish, Cal.com reconciliation, and final legal-reply delivery. Each event is tagged with `service`, plus `subsystem` and `operation` where set. Request events carry the validated `request_id`, which is also returned in the `X-Request-ID` header.
 
+The EventBus reports static connected/reconnecting logs. Its Redis pub/sub listener probes the same connection after an idle timeout and closes a failed connection before retrying; exception details are reduced to the class in local warnings.
+
 The shared SparkCloud client adds an `ai.chat_completions.create` span with the configured model name and Sentry's GenAI model, provider, operation, and token usage attributes. It never adds prompts, model responses, or provider error bodies to that span, its logs, or raised errors. This client is used by contract analysis, the legal agent, Dyslexic research and email drafting, and the mailroom assistant.
 
 The legal inbox and Dyslexic research jobs create sampled `ai.pipeline` transactions. Handled model failures in the legal agent, company research, and email drafting report a static operation name and failure class via `capture_agent_failure()`, without including prompts, company names, contract text, or model responses in Sentry.

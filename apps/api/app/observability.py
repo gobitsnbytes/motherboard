@@ -50,7 +50,13 @@ _SAFE_HEADERS = {
     "host",
 }
 _NO_TRACE_PATHS = ("/health", "/api/health")
-_LOG_EVENTS = {"api.request.completed", "api.request.failed", "agent.run.failed"}
+_LOG_EVENTS = {
+    "api.request.completed",
+    "api.request.failed",
+    "agent.run.failed",
+    "api.event_bus.connected",
+    "api.event_bus.reconnecting",
+}
 _LOG_ATTRIBUTES = {
     "method",
     "route",

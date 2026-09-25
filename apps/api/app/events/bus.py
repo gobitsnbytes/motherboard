@@ -4,13 +4,16 @@ import logging
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 import redis.asyncio as aioredis
 
-from app.observability import capture_background_exception
+from app.observability import capture_background_exception, emit_runtime_log
 
 logger = logging.getLogger("event_bus")
 
+
 class EventBus:
     def __init__(self):
-        self._listeners: Dict[str, List[Callable[[Dict[str, Any]], Coroutine[Any, Any, None]]]] = {}
+        self._listeners: Dict[
+            str, List[Callable[[Dict[str, Any]], Coroutine[Any, Any, None]]]
+        ] = {}
         self.redis_url: Optional[str] = None
         self.redis: Optional[aioredis.Redis] = None
         self._pubsub_task: Optional[asyncio.Task] = None
@@ -21,17 +24,20 @@ class EventBus:
         if self.redis_url:
             try:
                 self.redis = aioredis.from_url(
-                    self.redis_url, 
+                    self.redis_url,
                     decode_responses=True,
                     health_check_interval=5,
                     socket_keepalive=True,
-                    socket_timeout=60
+                    socket_timeout=60,
                 )
                 await self.redis.ping()
                 self._pubsub_task = asyncio.create_task(self._redis_listener())
                 logger.info("EventBus connected to Redis pub/sub.")
             except Exception as e:
-                logger.warning(f"EventBus failed to connect to Redis: {e}. Running in local-only mode.")
+                logger.warning(
+                    "EventBus failed to connect to Redis: %s. Running in local-only mode.",
+                    type(e).__name__,
+                )
                 if self.redis:
                     await self.redis.aclose()
                 self.redis = None
@@ -44,9 +50,9 @@ class EventBus:
                 await self._pubsub_task
             except asyncio.CancelledError:
                 pass
-        
+
         if self._pubsub:
-            await self._pubsub.close()
+            await self._pubsub.aclose()
 
         if self.redis:
             await self.redis.aclose()  # Use aclose() for redis-py >= 5.0 in asyncio
@@ -54,40 +60,70 @@ class EventBus:
 
     async def _redis_listener(self):
         import redis.exceptions
+
         reported_outage = False
         while self.redis:
+            pubsub = None
             try:
-                self._pubsub = self.redis.pubsub()
-                await self._pubsub.subscribe("motherboard_events")
+                pubsub = self.redis.pubsub()
+                self._pubsub = pubsub
+                await pubsub.subscribe("motherboard_events")
                 reported_outage = False
+                emit_runtime_log("api.event_bus.connected")
                 while self.redis:
                     try:
-                        async for message in self._pubsub.listen():
+                        async for message in pubsub.listen():
                             if message["type"] == "message":
                                 try:
                                     data = json.loads(message["data"])
-                                    await self._trigger_local(data["type"], data["payload"])
+                                    await self._trigger_local(
+                                        data["type"], data["payload"]
+                                    )
                                 except json.JSONDecodeError as exc:
-                                    logger.warning("Failed to decode event message from Redis")
+                                    logger.warning(
+                                        "Failed to decode event message from Redis"
+                                    )
                                     capture_background_exception(
                                         exc, subsystem="event_bus", operation="decode"
                                     )
                     except (redis.exceptions.TimeoutError, asyncio.TimeoutError):
-                        # Normal socket timeout due to inactivity. Ping to keep alive and continue listening.
-                        logger.debug("EventBus listener socket idle timeout. Pinging Redis...")
-                        if self.redis:
-                            await self.redis.ping()
+                        # An idle timeout is normal. Probe the pub/sub socket itself;
+                        # a failed write must close this connection before reconnecting.
+                        logger.debug(
+                            "EventBus listener socket idle timeout. Pinging Redis..."
+                        )
+                        await pubsub.ping()
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning(f"EventBus Redis listener error: {e}. Reconnecting in 2s...")
+                logger.warning(
+                    "EventBus Redis listener error: %s. Reconnecting in 2s...",
+                    type(e).__name__,
+                )
                 # Report once per outage; the loop retries every 2s.
                 if not reported_outage:
-                    capture_background_exception(e, subsystem="event_bus", operation="listen")
+                    emit_runtime_log("api.event_bus.reconnecting")
+                    capture_background_exception(
+                        e, subsystem="event_bus", operation="listen"
+                    )
                     reported_outage = True
                 await asyncio.sleep(2)
+            finally:
+                if pubsub:
+                    try:
+                        await pubsub.aclose()
+                    except Exception as e:
+                        logger.debug(
+                            "EventBus pub/sub close failed: %s", type(e).__name__
+                        )
+                if self._pubsub is pubsub:
+                    self._pubsub = None
 
-    def subscribe(self, event_type: str, callback: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]]):
+    def subscribe(
+        self,
+        event_type: str,
+        callback: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]],
+    ):
         if event_type not in self._listeners:
             self._listeners[event_type] = []
         self._listeners[event_type].append(callback)
@@ -96,14 +132,16 @@ class EventBus:
         event_data = {"type": event_type, "payload": payload}
         # Trigger local execution immediately
         await self._trigger_local(event_type, payload)
-        
+
         # Push to Redis for cross-node instances
         if self.redis:
             try:
                 await self.redis.publish("motherboard_events", json.dumps(event_data))
             except Exception as e:
-                logger.warning(f"Failed to publish event to Redis: {e}")
-                capture_background_exception(e, subsystem="event_bus", operation="publish")
+                logger.warning("Failed to publish event to Redis: %s", type(e).__name__)
+                capture_background_exception(
+                    e, subsystem="event_bus", operation="publish"
+                )
 
     async def _trigger_local(self, event_type: str, payload: Dict[str, Any]):
         callbacks = self._listeners.get(event_type, [])
@@ -117,5 +155,6 @@ class EventBus:
         except Exception as e:
             logger.warning(f"Error executing subscriber callback for {event_type}: {e}")
             capture_background_exception(e, subsystem="event_bus", operation=event_type)
+
 
 event_bus = EventBus()

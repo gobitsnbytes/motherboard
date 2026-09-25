@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 import sentry_sdk
+import redis.exceptions
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sentry_sdk.transport import Transport
@@ -324,6 +325,57 @@ async def test_event_bus_subscriber_failure_is_captured(sentry_events):
     assert event["tags"]["operation"] == "demo.event"
     # Frames carry source lines of this test; the payload itself must not appear.
     assert "private" not in str({k: v for k, v in event.items() if k != "exception"})
+
+
+async def test_event_bus_reconnects_after_pubsub_write_timeout(monkeypatch, caplog):
+    class FailingPubSub:
+        closed = False
+        pinged = False
+
+        async def subscribe(self, channel):
+            assert channel == "motherboard_events"
+
+        async def listen(self):
+            raise redis.exceptions.TimeoutError(
+                "Timeout writing to socket: private payload"
+            )
+            yield None
+
+        async def ping(self):
+            self.pinged = True
+            raise redis.exceptions.TimeoutError(
+                "Timeout writing to socket: private payload"
+            )
+
+        async def aclose(self):
+            self.closed = True
+
+    pubsub = FailingPubSub()
+    bus = EventBus()
+    bus.redis = SimpleNamespace(pubsub=lambda: pubsub)
+    captured = []
+    logs = []
+
+    async def stop_after_retry(seconds):
+        assert seconds == 2
+        bus.redis = None
+
+    monkeypatch.setattr("app.events.bus.asyncio.sleep", stop_after_retry)
+    monkeypatch.setattr(
+        "app.events.bus.capture_background_exception",
+        lambda exc, **context: captured.append(context),
+    )
+    monkeypatch.setattr(
+        "app.events.bus.emit_runtime_log", lambda event: logs.append(event)
+    )
+
+    await bus._redis_listener()
+
+    assert pubsub.pinged and pubsub.closed
+    assert bus._pubsub is None
+    assert captured == [{"subsystem": "event_bus", "operation": "listen"}]
+    assert logs == ["api.event_bus.connected", "api.event_bus.reconnecting"]
+    assert "private payload" not in caplog.text
 
 
 def test_scrubber_keeps_version_strings_and_ids():
