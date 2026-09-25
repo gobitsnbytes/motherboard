@@ -36,9 +36,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+import sentry_sdk
 
 from app.config import Settings, get_settings
-from app.observability import capture_background_exception
+from app.observability import capture_agent_failure, capture_background_exception
 from app.db.models import (
     ContractAssistantContract,
     ContractAssistantEnvelope,
@@ -400,7 +401,15 @@ async def handle_inbox_message(
                 if raw_llm and raw_llm.strip():
                     answer = raw_llm.strip()
             except Exception as llm_err:
-                logger.warning("[LegalAgent] LLM policy synthesis failed (%s), using fallback.", llm_err)
+                logger.warning(
+                    "[LegalAgent] LLM policy synthesis failed (%s), using fallback.",
+                    type(llm_err).__name__,
+                )
+                capture_agent_failure(
+                    agent="legal_agent",
+                    operation="policy_synthesis",
+                    reason=type(llm_err).__name__,
+                )
 
             if not answer:
                 bullets = "\n".join(
@@ -1237,7 +1246,8 @@ async def legal_inbox_poll_job() -> None:
     session_factory = get_sessionmaker()
     async with session_factory() as session:
         try:
-            await LegalInboxPoller().poll_once(session)
+            with sentry_sdk.start_transaction(op="ai.pipeline", name="Legal inbox poll"):
+                await LegalInboxPoller().poll_once(session)
         except Exception as err:
             logger.warning("Scheduled legal inbox poll failed: %s", err)
             capture_background_exception(err, subsystem="legal_agent", operation="inbox_poll")
@@ -1249,7 +1259,8 @@ async def signature_nudge_job() -> None:
     session_factory = get_sessionmaker()
     async with session_factory() as session:
         try:
-            await run_nudge_cycle(session)
+            with sentry_sdk.start_transaction(op="ai.pipeline", name="Legal signature nudges"):
+                await run_nudge_cycle(session)
         except Exception as err:
             logger.warning("Scheduled signature nudge job failed: %s", err)
             capture_background_exception(

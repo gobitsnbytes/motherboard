@@ -108,6 +108,15 @@ def _scrub_request(event: dict[str, Any]) -> None:
 
 def _scrub_event(event: dict[str, Any]) -> dict[str, Any]:
     _scrub_request(event)
+    if (event.get("tags") or {}).get("telemetry_kind") == "ai_agent":
+        # Prior breadcrumbs or scope extras can contain prompts and document text.
+        event.pop("breadcrumbs", None)
+        event.pop("extra", None)
+        event.pop("user", None)
+        contexts = event.get("contexts") or {}
+        event["contexts"] = {
+            key: value for key, value in contexts.items() if key in {"trace", "runtime"}
+        }
     for key in ("extra", "contexts", "tags"):
         if key in event:
             event[key] = _scrub(event[key])
@@ -243,3 +252,15 @@ def capture_background_exception(
         scope.set_tag("subsystem", subsystem)
         scope.set_tag("operation", operation)
         sentry_sdk.capture_exception(exc)
+
+
+def capture_agent_failure(*, agent: str, operation: str, reason: str) -> None:
+    """Report a handled AI failure without forwarding prompts or provider output."""
+    with sentry_sdk.new_scope() as scope:
+        scope.clear_breadcrumbs()
+        scope.set_user(None)
+        scope.set_tag("subsystem", agent)
+        scope.set_tag("operation", operation)
+        scope.set_tag("failure_reason", reason)
+        scope.set_tag("telemetry_kind", "ai_agent")
+        sentry_sdk.capture_message(f"{agent}.{operation} failed", level="error")

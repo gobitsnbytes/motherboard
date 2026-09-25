@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.config import get_settings
+from app.observability import capture_agent_failure
 
 logger = logging.getLogger(__name__)
 
@@ -209,17 +210,26 @@ async def generate_email(
             timeout=MODEL_CALL_TIMEOUT_S,
         )
     except asyncio.TimeoutError:
-        logger.warning("Draft generation timed out for %s", company_name)
+        logger.warning("Draft model call timed out")
+        capture_agent_failure(
+            agent="dyslexic_drafting", operation="model_call", reason="timeout"
+        )
         return DraftResult(
             ok=False,
             model=model,
             error="Drafting timed out. You can write it yourself.",
         )
     except Exception as exc:
-        logger.warning("Draft generation failed for %s: %s", company_name, exc)
-        return DraftResult(ok=False, model=model, error=f"Drafting failed: {exc}")
+        logger.warning("Draft model call failed: %s", type(exc).__name__)
+        capture_agent_failure(
+            agent="dyslexic_drafting", operation="model_call", reason=type(exc).__name__
+        )
+        return DraftResult(ok=False, model=model, error="Drafting failed. Try again.")
 
     if not text.strip():
+        capture_agent_failure(
+            agent="dyslexic_drafting", operation="model_call", reason="empty_response"
+        )
         return DraftResult(
             ok=False, model=model, error="The model returned an empty response."
         )
@@ -229,6 +239,9 @@ async def generate_email(
 
         data = _extract_json(text)
     except (json.JSONDecodeError, ValueError) as exc:
+        capture_agent_failure(
+            agent="dyslexic_drafting", operation="parse", reason="invalid_json"
+        )
         return DraftResult(
             ok=False,
             model=model,
@@ -240,6 +253,9 @@ async def generate_email(
     body = str(data.get("body") or "").strip()
 
     if not subject or not body:
+        capture_agent_failure(
+            agent="dyslexic_drafting", operation="parse", reason="missing_fields"
+        )
         return DraftResult(
             ok=False,
             model=model,

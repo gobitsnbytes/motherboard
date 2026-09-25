@@ -62,6 +62,20 @@ def test_llm_parse_warning_does_not_leak_output(monkeypatch, caplog):
     assert private_output not in caplog.text
 
 
+def test_handled_agent_failure_has_safe_operation_context(sentry_events):
+    sentry_sdk.add_breadcrumb(message="private contract text")
+    observability.capture_agent_failure(
+        agent="legal_agent", operation="policy_synthesis", reason="TimeoutError"
+    )
+
+    event = sentry_events[-1]
+    assert event["tags"]["subsystem"] == "legal_agent"
+    assert event["tags"]["operation"] == "policy_synthesis"
+    assert event["tags"]["failure_reason"] == "TimeoutError"
+    assert "policy_synthesis failed" in json.dumps(event)
+    assert "private contract text" not in json.dumps(event)
+
+
 class RecordingTransport(Transport):
     def __init__(self):
         super().__init__()

@@ -40,6 +40,8 @@ What is sent: unhandled request exceptions, via the FastAPI integration; 5xx `HT
 
 The shared SparkCloud client adds an `ai.chat_completions.create` span with the configured model name. It never adds prompts, model responses, or provider error bodies to that span, its logs, or raised errors. This client is used by contract analysis, the legal agent, and Dyslexic research and email drafting.
 
+The legal inbox and Dyslexic research jobs create sampled `ai.pipeline` transactions. Handled model failures in the legal agent, company research, and email drafting report a static operation name and failure class via `capture_agent_failure()`, without including prompts, company names, contract text, or model responses in Sentry.
+
 What is not sent: 4xx responses, validation errors, and missing optional configuration. The `app.request` access logger is also ignored, because the integration already captures those failures. Default PII, request bodies, query strings, cookies, local variables, and all headers except a small allowlist are dropped. URLs use the route template (`/sign/{token}`), and `before_send` redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named keys in context.
 
 Profiling is off, and so are Sentry logs and metrics. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events are flushed on shutdown with a 2-second limit.

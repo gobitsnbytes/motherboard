@@ -22,7 +22,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+import sentry_sdk
+
 from app.config import get_settings
+from app.observability import capture_agent_failure
 
 logger = logging.getLogger(__name__)
 
@@ -151,17 +154,26 @@ async def research_company(name: str, website: str | None) -> ResearchResult:
             timeout=MODEL_CALL_TIMEOUT_S,
         )
     except asyncio.TimeoutError:
-        logger.warning("Research call timed out for %s", name)
+        logger.warning("Research model call timed out")
+        capture_agent_failure(
+            agent="dyslexic_research", operation="model_call", reason="timeout"
+        )
         return ResearchResult(
             ok=False, model=model, error="Research timed out. Try again."
         )
     except Exception as exc:
-        logger.warning("Research call failed for %s: %s", name, exc)
+        logger.warning("Research model call failed: %s", type(exc).__name__)
+        capture_agent_failure(
+            agent="dyslexic_research", operation="model_call", reason=type(exc).__name__
+        )
         return ResearchResult(
-            ok=False, model=model, error=f"Research call failed: {exc}"
+            ok=False, model=model, error="Research call failed. Try again."
         )
 
     if not text.strip():
+        capture_agent_failure(
+            agent="dyslexic_research", operation="model_call", reason="empty_response"
+        )
         return ResearchResult(
             ok=False, model=model, error="The model returned an empty response."
         )
@@ -169,6 +181,9 @@ async def research_company(name: str, website: str | None) -> ResearchResult:
     try:
         data = _extract_json(text)
     except (json.JSONDecodeError, ValueError) as exc:
+        capture_agent_failure(
+            agent="dyslexic_research", operation="parse", reason="invalid_json"
+        )
         # Keep the raw text — a bad response should be debuggable, not lost.
         return ResearchResult(
             ok=False,
@@ -222,7 +237,10 @@ async def run_research_task(company_id: uuid.UUID) -> None:
             await session.commit()
             name, website = company.name, company.website
 
-        result = await research_company(name, website)
+        with sentry_sdk.start_transaction(
+            op="ai.pipeline", name="Dyslexic company research"
+        ):
+            result = await research_company(name, website)
 
         async with session_factory() as session:
             company = await session.get(DyslexicCompany, company_id)

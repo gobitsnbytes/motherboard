@@ -115,7 +115,7 @@ async def test_model_exception_is_caught(monkeypatch):
     result = await research.research_company("Zomato", None)
 
     assert not result.ok
-    assert "503" in result.error
+    assert result.error == "Research call failed. Try again."
 
 
 async def test_model_hang_times_out_instead_of_blocking_forever(monkeypatch):
