@@ -91,6 +91,42 @@ async def _routing_setup(db_session):
     return connection_a, pool, host_a, host_b
 
 
+async def test_add_pool_member_accepts_current_calcom_google_meet_location(
+    client, db_session
+):
+    connection, pool, _, _ = await _routing_setup(db_session)
+    owner = await db_session.scalar(
+        select(User).where(User.email == "owner@example.com")
+    )
+    with patch.object(
+        CalComClient,
+        "get_event_type",
+        new=AsyncMock(
+            return_value={
+                "id": 303,
+                "slug": "sponsor-call",
+                "locations": [
+                    {
+                        "type": "integration",
+                        "integration": "google-meet",
+                        "credentialId": 123,
+                    }
+                ],
+            }
+        ),
+    ):
+        response = await request_as(
+            client,
+            owner.id,
+            "POST",
+            f"/api/calendar/routing-pools/{pool.id}/members",
+            json={"calendar_connection_id": str(connection.id), "event_type_id": 303},
+        )
+
+    assert response.status_code == 201
+    assert response.json()["event_type_id"] == 303
+
+
 async def test_verify_connection_registers_supported_calcom_triggers(
     client, db_session
 ):

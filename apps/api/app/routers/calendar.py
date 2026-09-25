@@ -221,8 +221,18 @@ async def add_pool_member(pool_id: UUID, body: PoolMemberCreate, db: DbSession, 
     except CalComError as exc:
         raise HTTPException(exc.status_code, "Cal.com event type verification failed") from exc
     locations = event_type.get("locations") or []
-    location_types = {str(item.get("type", "")).lower() for item in locations if isinstance(item, dict)}
-    if not ({"google_meet", "integrations:google:meet"} & location_types):
+    uses_google_meet = any(
+        isinstance(item, dict)
+        and (
+            str(item.get("type", "")).lower() in {"google_meet", "integrations:google:meet"}
+            or (
+                str(item.get("type", "")).lower() == "integration"
+                and str(item.get("integration", "")).lower() == "google-meet"
+            )
+        )
+        for item in locations
+    )
+    if not uses_google_meet:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Event type must use Google Meet")
     member = RoutingPoolMember(
         pool_id=pool_id,
