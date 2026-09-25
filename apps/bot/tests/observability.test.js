@@ -1,8 +1,17 @@
 const { describe, expect, test } = require('bun:test');
 
-const { beforeSend, parseSampleRate, scrubText } = require('../lib/observability');
+const { beforeSend, beforeSendLog, parseSampleRate, scrubText } = require('../lib/observability');
 
 describe('bot Sentry privacy boundary', () => {
+	test('allows only static log events and safe command names', () => {
+		expect(beforeSendLog({ message: 'private message' })).toBeNull();
+		expect(beforeSendLog({ message: 'bot.command.completed', attributes: {
+			command: 'help', user: 'private user',
+		} }).attributes).toEqual({ command: 'help' });
+		expect(beforeSendLog({ message: 'bot.command.failed', attributes: {
+			command: 'private user@example.org',
+		} }).attributes).toEqual({});
+	});
 	test('scrubs secrets from text and clamps trace sampling', () => {
 		expect(scrubText('Bearer abc.def and user@example.org')).toBe('Bearer [Filtered] and [email]');
 		expect(scrubText('postgresql://user:pass@db/app?token=abc')).toBe(

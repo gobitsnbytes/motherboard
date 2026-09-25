@@ -13,6 +13,8 @@ const SECRET_PATTERNS = [
 let initialized = false;
 let consoleCaptureInstalled = false;
 const capturedErrors = new WeakSet();
+const LOG_EVENTS = new Set(['bot.lifecycle.boot', 'bot.command.started', 'bot.command.completed', 'bot.command.failed']);
+const LOG_ATTRIBUTES = new Set(['command']);
 
 function scrubText(value) {
 	return SECRET_PATTERNS.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value);
@@ -52,6 +54,21 @@ function beforeSend(event) {
 	return event;
 }
 
+function beforeSendLog(log) {
+	if (!LOG_EVENTS.has(log.message)) return null;
+	log.attributes = Object.fromEntries(
+		Object.entries(log.attributes || {}).filter(([key, value]) =>
+			LOG_ATTRIBUTES.has(key) && typeof value === 'string' && /^[a-z0-9_-]{1,64}$/.test(value),
+		),
+	);
+	return log;
+}
+
+function recordOperationalLog(event, attributes = {}) {
+	if (!initialized || !LOG_EVENTS.has(event)) return;
+	Sentry.logger.info(event, attributes);
+}
+
 function parseSampleRate(raw) {
 	const parsed = raw ? Number(raw) : Number.NaN;
 	return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 1) : 0;
@@ -71,6 +88,7 @@ function initObservability() {
 			integration => !['OnUncaughtException', 'OnUnhandledRejection', 'LocalVariablesAsync'].includes(integration.name),
 		),
 		beforeSend,
+		beforeSendLog,
 		dataCollection: {
 			userInfo: false,
 			cookies: false,
@@ -116,10 +134,12 @@ async function flush(timeout = 2000) {
 
 module.exports = {
 	beforeSend,
+	beforeSendLog,
 	captureException,
 	flush,
 	initObservability,
 	installConsoleErrorCapture,
 	parseSampleRate,
+	recordOperationalLog,
 	scrubText,
 };

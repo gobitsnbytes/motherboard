@@ -131,10 +131,15 @@ class Logger {
     }
 
     boot(message, details = null, mirror = true) {
+        observability.recordOperationalLog('bot.lifecycle.boot');
         this._sendToDiscord({ type: 'BOOT', message, details, color: config.COLORS.success, mirror });
     }
 
     command(interaction, status = 'SUCCESS', details = null) {
+        observability.recordOperationalLog(
+            status === 'ERROR' ? 'bot.command.failed' : status === 'START' ? 'bot.command.started' : 'bot.command.completed',
+            { command: interaction.commandName },
+        );
         const type = status === 'ERROR' ? 'CMD_ERROR' : 'COMMAND';
         let color = status === 'ERROR' ? config.COLORS.error : config.COLORS.success;
         
