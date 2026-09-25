@@ -53,7 +53,9 @@ async def test_scheduled_job_cancellation_is_not_reported(
 
     reported = []
     monkeypatch.setattr(
-        legal_agent, "capture_background_exception", lambda *args, **kwargs: reported.append((args, kwargs))
+        legal_agent,
+        "capture_background_exception",
+        lambda *args, **kwargs: reported.append((args, kwargs)),
     )
     await getattr(legal_agent, job_name)()
     assert reported == []
