@@ -2,6 +2,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.database import get_sessionmaker
+from app.observability import monitored_job
 from app.provisioning.client import DiscordClient
 from app.provisioning.sync import run_sync
 
@@ -43,7 +44,9 @@ async def start_scheduler(interval_minutes: int, guild_id: str, bot_token: str) 
     logger.info("Starting Discord sync scheduler (interval: %d minutes)", interval_minutes)
     _scheduler = AsyncIOScheduler()
     _scheduler.add_job(
-        run_sync_job,
+        monitored_job(
+            run_sync_job, "api-discord-sync", every=interval_minutes, unit="minute"
+        ),
         "interval",
         minutes=interval_minutes,
         args=[guild_id, bot_token],

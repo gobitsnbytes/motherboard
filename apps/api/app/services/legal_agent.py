@@ -1288,6 +1288,8 @@ async def start_legal_agent_jobs() -> None:
 
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+    from app.observability import monitored_job
+
     _scheduler = AsyncIOScheduler()
 
     poll_seconds = int(settings.legal_inbox_poll_seconds)
@@ -1298,7 +1300,13 @@ async def start_legal_agent_jobs() -> None:
     )
     if poll_seconds > 0 and imap_ready:
         _scheduler.add_job(
-            legal_inbox_poll_job,
+            # Sentry crons has minute granularity; sub-minute polls round up.
+            monitored_job(
+                legal_inbox_poll_job,
+                "api-legal-inbox-poll",
+                every=max(1, round(poll_seconds / 60)),
+                unit="minute",
+            ),
             "interval",
             seconds=poll_seconds,
             id="legal_inbox_poll_job",
@@ -1312,7 +1320,9 @@ async def start_legal_agent_jobs() -> None:
 
     if settings.legal_nudge_enabled:
         _scheduler.add_job(
-            signature_nudge_job,
+            monitored_job(
+                signature_nudge_job, "api-legal-signature-nudge", every=1, unit="hour"
+            ),
             "interval",
             hours=1,
             id="legal_signature_nudge_job",

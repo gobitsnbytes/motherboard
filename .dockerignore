@@ -2,10 +2,8 @@
 .gitignore
 .github
 .agents
-.commandcode
 .code
 .codex
-.qoder
 .superpowers
 .turbo
 .vercel

@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 const onboarding = require('../lib/onboarding');
 const meetingsDb = require('../lib/meetingsDb');
@@ -53,5 +53,5 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[JOB ERROR] Onboarding Check failed:', error);
 		}
-	});
+	}, { name: 'bot-onboardingCheck' });
 };

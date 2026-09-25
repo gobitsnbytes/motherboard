@@ -43,7 +43,8 @@ os.environ.setdefault(
     "https://discord.com/api/webhooks/mock_cloud_approval",
 )
 
-SQLITE_DB_FILE = "test_temp_router.db"
+# One file per xdist worker so parallel runs never share a database.
+SQLITE_DB_FILE = f"test_temp_router_{os.environ.get('PYTEST_XDIST_WORKER', 'main')}.db"
 _configured_url = os.environ.get("DATABASE_URL", "")
 IS_POSTGRES = _configured_url.startswith(
     ("postgres://", "postgresql://", "postgresql+")

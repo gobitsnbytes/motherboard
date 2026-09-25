@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 const gamification = require('../lib/gamification');
 const healthScore = require('../lib/healthScore');
@@ -164,5 +164,5 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[JOB ERROR] Monthly Winner Selection failed:', error);
 		}
-	});
+	}, { name: 'bot-monthlyWinner' });
 };

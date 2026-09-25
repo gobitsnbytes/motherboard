@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import sentry_sdk
+from sentry_sdk.crons import monitor
 from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger
 
 logger = logging.getLogger(__name__)
@@ -283,6 +284,12 @@ def init_sentry(settings) -> bool:
     )
     sentry_sdk.set_tag("service", "bnb-api")
     return True
+
+
+def monitored_job(fn: Any, slug: str, *, every: int, unit: str) -> Any:
+    """Wrap a scheduled job so each run reports a Sentry cron check-in."""
+    config = {"schedule": {"type": "interval", "value": every, "unit": unit}}
+    return monitor(slug, config)(fn)
 
 
 def capture_background_exception(

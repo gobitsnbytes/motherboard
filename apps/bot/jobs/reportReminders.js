@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 const meetingsDb = require('../lib/meetingsDb');
 
@@ -131,5 +131,5 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[JOB ERROR] Report Reminders Check failed:', error);
 		}
-	});
+	}, { name: 'bot-reportReminders' });
 };

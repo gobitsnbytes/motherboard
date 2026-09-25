@@ -56,7 +56,9 @@ async def start_form_cleanup() -> None:
         return
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     _cleanup_scheduler = AsyncIOScheduler()
-    _cleanup_scheduler.add_job(purge_expired_uploads, "interval", days=1, id="public-form-upload-purge", replace_existing=True)
+    from app.observability import monitored_job
+
+    _cleanup_scheduler.add_job(monitored_job(purge_expired_uploads, "api-form-upload-purge", every=1, unit="day"), "interval", days=1, id="public-form-upload-purge", replace_existing=True)
     _cleanup_scheduler.start()
     await purge_expired_uploads()
 

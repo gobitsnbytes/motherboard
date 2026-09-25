@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 
 /**
@@ -123,5 +123,5 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[JOB ERROR] Report Late Updater failed:', error);
 		}
-	});
+	}, { name: 'bot-reportLateUpdater' });
 };

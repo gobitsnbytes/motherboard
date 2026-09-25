@@ -1,0 +1,7 @@
+# Keep GitHub's language bar about the product, not tooling or data.
+.agents/** linguist-vendored
+data/** linguist-documentation
+templates/** linguist-documentation
+apps/api/alembic/versions/** linguist-generated
+bun.lock linguist-generated
+apps/api/uv.lock linguist-generated

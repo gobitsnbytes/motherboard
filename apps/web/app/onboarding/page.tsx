@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: "Short videos on how Motherboard works: sign-in, permissions, onboarding, signatures and calendar pools.",
 };
 
-// Videos live in apps/web/public/onboarding/, rendered from brag-output-onboarding/.
+// Videos live in apps/web/public/onboarding/ (HyperFrames sources are in git history).
 const VIDEOS = [
   {
     slug: "01-sign-in",

@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const fs = require('fs');
 const path = require('path');
 const meetingsDb = require('../lib/meetingsDb');
@@ -78,7 +78,7 @@ const boot = (client) => {
 	// Schedule to run every 3 hours
 	cron.schedule('0 */3 * * *', async () => {
 		await runRecovery(client);
-	});
+	}, { name: 'bot-meetingRecovery' });
 
 	// Trigger immediate recovery run on startup
 	setTimeout(async () => {

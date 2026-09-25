@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const meetingsDb = require('../lib/meetingsDb');
 const config = require('../config');
@@ -174,7 +174,7 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[MEETING SCHEDULER ERROR] Error processing active meetings:', error);
 		}
-	});
+	}, { name: 'bot-meetingScheduler' });
 };
 
 async function sendChannelReminder(guild, meeting, timeLabel, vcLink = '') {

@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 const healthScore = require('../lib/healthScore');
 const smartReminders = require('../lib/smartReminders');
@@ -107,5 +107,5 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[JOB ERROR] Daily Reminder Check failed:', error);
 		}
-	});
+	}, { name: 'bot-reminderCheck' });
 };

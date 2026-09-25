@@ -39,6 +39,7 @@ dev = [
   "pytest>=9.1.0",
   "pytest-asyncio>=1.4.0",
   "pytest-sugar>=1.0.0",
+  "pytest-xdist>=3.8.0",
 ]
 
 [tool.fastapi]

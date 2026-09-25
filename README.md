@@ -1,77 +1,45 @@
-# bnb-motherboard
+# Motherboard
 
-internal operations platform and core monorepo for the bits&bytes network (GOBITSNBYTES FOUNDATION).
+[![API](https://github.com/gobitsnbytes/motherboard/actions/workflows/deploy-api.yml/badge.svg?branch=prod)](https://github.com/gobitsnbytes/motherboard/actions/workflows/deploy-api.yml)
+[![Web](https://github.com/gobitsnbytes/motherboard/actions/workflows/web-ci.yml/badge.svg?branch=prod)](https://github.com/gobitsnbytes/motherboard/actions/workflows/web-ci.yml)
 
-the repository is a hybrid monorepo:
-- `apps/web` & `packages/ui` are Bun/pnpm-managed Next.js 15 TypeScript workspaces.
-- `apps/api` is an independent Python FastAPI backend managed via `uv`.
-- `plugins/*` holds internal extension packages and integrations.
+The internal operations platform for the Bits&Bytes network (GOBITSNBYTES Foundation). It covers identity and access, Discord sync, finance, onboarding, legal documents, and forms.
 
----
+## Stack
 
-## Core Capabilities
+| Path | What | Tooling |
+|---|---|---|
+| `apps/web` | Next.js 15 App Router dashboard (React 19) | Bun |
+| `apps/api` | FastAPI + SQLAlchemy 2 async + Alembic | uv / Python 3.12 |
+| `apps/bot` | Discord bot and scheduled jobs | Bun |
+| `packages/ui` | Shared React components | Bun |
+| `plugins/*` | Plugin packages (API + UI) | Bun / Python |
+| `deploy/`, `docker/` | VPS deploy scripts and Dockerfiles | |
 
-- **IAM Engine**: custom principal resolver and policy evaluator (`can`, `require_permission`, `batch_can`) backed by async SQLAlchemy & non-committing audit logs.
-- **Discord OAuth & Guild Sync**: Discord-backed identity management, automated guild role mapping, and member sync.
-- **Finance & Banking Ledger**: RazorpayX ledger and banking integration for section 8 compliance (`apps/api/app/routers/finance.py` & `apps/web/app/finance`).
-- **Dashboard**: Next.js 15 App Router frontend connected to FastAPI via REST and WebSockets.
-- **Orchestration**: Docker Compose setup for local development and production environments.
+Errors, traces, and cron check-ins go to Sentry. See [docs/observability.md](docs/observability.md).
 
----
-
-## Repository Layout
-
-```text
-bnb-motherboard/
-├── apps/
-│   ├── web/                    # Next.js 15 App Router dashboard
-│   └── api/                    # FastAPI REST API managed with uv
-├── packages/
-│   └── ui/                     # Shared React component library
-├── plugins/                    # Extension packages
-├── docker/                     # Service Dockerfiles
-├── docker-compose.yml          # Local orchestration
-├── docker-compose.prod.yml     # Production orchestration
-└── AGENTS.md                   # Workspace instructions & team roles
-```
-
----
-
-## Local Setup
+## Local setup
 
 ```bash
-# 1. install dependencies
 bun install
-
-# 2. setup environment secrets
 cp .env.example .env
-
-# 3. start local infrastructure (PostgreSQL + Redis)
 docker compose up -d postgres redis
 
-# 4. start FastAPI backend
-cd apps/api
-uv sync
-uv run uvicorn app.main:app --reload --port 8000
+# API → http://localhost:8000 (docs at /api/docs)
+cd apps/api && uv sync && uv run uvicorn app.main:app --reload --port 8000
 
-# 5. start Next.js dashboard
+# Web → http://localhost:3000
 bun run dev --filter=web
 ```
 
----
-
-## Docker Deployment
+## Tests
 
 ```bash
-# dev full stack
-docker compose up --build -d
-
-# production stack (isolated ports)
-docker compose -f docker-compose.prod.yml up --build -d
+cd apps/api && uv run pytest -n auto   # backend
+bun test --cwd apps/bot                # bot
+bun test --cwd apps/web                # web
 ```
 
-| Service | URL | Description |
-|---|---|---|
-| **Web** | `http://localhost:3000` | Next.js frontend |
-| **API** | `http://localhost:8000` | FastAPI REST API |
-| **Docs** | `http://localhost:8000/api/docs` | Swagger UI OpenAPI docs |
+## Deploy
+
+Pushing to `prod` deploys the API and bot to the VPS through [deploy-api.yml](.github/workflows/deploy-api.yml), and deploys the web app on Vercel. Contributor workflow and conventions live in [AGENTS.md](AGENTS.md).

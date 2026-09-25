@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 const healthScore = require('../lib/healthScore');
 const meetingsDb = require('../lib/meetingsDb');
@@ -252,5 +252,5 @@ module.exports = (client) => {
 		} catch (error) {
 			console.error('[JOB ERROR] Weekly Health Report failed:', error);
 		}
-	});
+	}, { name: 'bot-healthWeekly' });
 };

@@ -71,6 +71,8 @@ Sentry Logs also receives static bot boot and command start/completion/failure e
 
 The weekly network brief sends Sentry Cron check-ins under `bot-weekly-brief` using its Monday schedule. Delivered and already-claimed runs finish `ok`; missing delivery channels and caught job exceptions finish `error`. Check-ins contain only the monitor slug, status, and SDK check-in ID.
 
+Every other bot job is scheduled through `apps/bot/lib/cron.js` and reports check-ins as `bot-<jobName>` (for example `bot-staleCheck`). API APScheduler jobs are wrapped with `monitored_job` in `app/observability.py`: `api-discord-sync`, `api-form-upload-purge`, `api-legal-inbox-poll`, and `api-legal-signature-nudge`. Sentry creates each monitor on its first check-in, so no manual setup is needed.
+
 Expected failures stay out of Sentry: disabled DMs, missing optional integrations, validation or permission failures, routine 4xx responses, and fallback warnings. Default PII, request bodies, query strings, cookies, local variables, users, and HTTP headers are dropped. The final scrubber also redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named context fields.
 
 The Sentry agent plugin is separate from API event reporting. Installing the plugin gives coding agents access to Sentry; it does not configure the running application.

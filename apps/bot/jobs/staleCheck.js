@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+const cron = require('../lib/cron');
 const notion = require('../lib/notion');
 const logger = require('../lib/logger');
 const meetingsDb = require('../lib/meetingsDb');
@@ -71,5 +71,5 @@ module.exports = (client) => {
 		} catch (err) {
 			logger.error('Stale Fork Detector job failed', err);
 		}
-	});
+	}, { name: 'bot-staleCheck' });
 };
