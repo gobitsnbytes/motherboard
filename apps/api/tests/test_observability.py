@@ -1,6 +1,9 @@
 """Sentry configuration, scrubbing, filtering, and capture paths."""
 
 import asyncio
+import io
+import json
+import urllib.error
 from types import SimpleNamespace
 
 import pytest
@@ -11,8 +14,52 @@ from sentry_sdk.transport import Transport
 
 from app import observability
 from app.events.bus import EventBus
+from app.services.llm_client import SparkCloudAIClient
 
 FAKE_DSN = "https://public@example.invalid/1"
+
+
+def test_llm_provider_error_does_not_leak_response_body(
+    monkeypatch, caplog, sentry_events
+):
+    private_body = "private contract terms must stay private"
+
+    def reject_request(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            "https://cloud.example.invalid/chat/completions",
+            429,
+            "rate limited",
+            {},
+            io.BytesIO(private_body.encode()),
+        )
+
+    monkeypatch.setattr(
+        "app.services.llm_client.urllib.request.urlopen", reject_request
+    )
+    client = SparkCloudAIClient(
+        api_key="test", base_url="https://cloud.example.invalid"
+    )
+
+    with pytest.raises(RuntimeError, match="status 429") as failure:
+        client.chat([{"role": "user", "content": private_body}])
+
+    assert private_body not in str(failure.value)
+    assert private_body not in caplog.text
+    sentry_sdk.capture_exception(failure.value)
+    assert private_body not in json.dumps(sentry_events[-1])
+
+
+def test_llm_parse_warning_does_not_leak_output(monkeypatch, caplog):
+    private_output = "private contract terms are not JSON"
+    client = SparkCloudAIClient(api_key="test")
+    monkeypatch.setattr(
+        client, "_chat_completion", lambda *args, **kwargs: private_output
+    )
+
+    result = client.analyze_clause_risk("private-ref", "heading", "clause")
+
+    assert result["has_risk"] is False
+    assert private_output not in caplog.text
 
 
 class RecordingTransport(Transport):

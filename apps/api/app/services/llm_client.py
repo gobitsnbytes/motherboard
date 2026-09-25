@@ -5,9 +5,11 @@ Uses the SparkCloud OpenAI-compatible endpoint (https://cloud.sparkden.org/api/a
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
-import urllib.request
 import urllib.error
+import urllib.request
+from typing import Any, Dict, List, Optional
+
+import sentry_sdk
 
 from app.config import get_settings
 
@@ -52,22 +54,31 @@ class SparkCloudAIClient:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                choices = result.get("choices", [])
-                if choices and "message" in choices[0]:
-                    return choices[0]["message"].get("content", "")
-                return ""
-        except urllib.error.HTTPError as err:
-            error_body = err.read().decode("utf-8")
-            logger.error(f"SparkCloud AI HTTP Error {err.code}: {error_body}")
-            raise RuntimeError(f"SparkCloud AI API call failed with status {err.code}: {error_body}")
-        except Exception as err:
-            logger.error(f"SparkCloud AI connection error: {err}")
-            raise RuntimeError(f"Failed to communicate with SparkCloud AI: {err}")
+        # Span metadata is deliberately limited to the configured model. Prompts,
+        # responses, and provider error bodies can contain private documents.
+        with sentry_sdk.start_span(
+            op="ai.chat_completions.create", name="SparkCloud chat completion"
+        ) as span:
+            span.set_data("ai.model", self.model)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    result = json.loads(resp.read().decode("utf-8"))
+                    choices = result.get("choices", [])
+                    if choices and "message" in choices[0]:
+                        return choices[0]["message"].get("content", "")
+                    return ""
+            except urllib.error.HTTPError as err:
+                logger.warning("SparkCloud AI HTTP error: status %d", err.code)
+                raise RuntimeError(
+                    f"SparkCloud AI API call failed with status {err.code}"
+                ) from None
+            except Exception as err:
+                logger.warning("SparkCloud AI connection error: %s", type(err).__name__)
+                raise RuntimeError("Failed to communicate with SparkCloud AI") from None
 
-    def analyze_clause_risk(self, clause_ref: str, heading: str, text: str) -> Dict[str, Any]:
+    def analyze_clause_risk(
+        self, clause_ref: str, heading: str, text: str
+    ) -> Dict[str, Any]:
         """Runs LLM clause analysis returning structured JSON risk findings."""
         prompt = f"""You are an expert contract risk review AI assistant. Analyze the following contract clause and evaluate its risk profile.
 
@@ -85,7 +96,10 @@ Output ONLY a raw JSON object (no markdown code fences) with the exact structure
 }}
 """
         messages = [
-            {"role": "system", "content": "You are a professional legal risk analysis engine. Always respond in valid JSON format."},
+            {
+                "role": "system",
+                "content": "You are a professional legal risk analysis engine. Always respond in valid JSON format.",
+            },
             {"role": "user", "content": prompt},
         ]
 
@@ -100,7 +114,7 @@ Output ONLY a raw JSON object (no markdown code fences) with the exact structure
                 cleaned = cleaned.replace("json\n", "", 1)
             return json.loads(cleaned)
         except Exception as err:
-            logger.warning(f"Could not parse LLM JSON for {clause_ref}: {err}. Raw output: {raw_output}")
+            logger.warning("Could not parse LLM clause JSON: %s", type(err).__name__)
             return {
                 "has_risk": False,
                 "risk_type": "none",
@@ -109,7 +123,9 @@ Output ONLY a raw JSON object (no markdown code fences) with the exact structure
                 "suggested_action": "No immediate change required.",
             }
 
-    def generate_tier2_redline(self, clause_text: str, issue_description: str, policy_context: str) -> Dict[str, str]:
+    def generate_tier2_redline(
+        self, clause_text: str, issue_description: str, policy_context: str
+    ) -> Dict[str, str]:
         """Generates a proposed redline rewrite for narrative contract clauses."""
         prompt = f"""You are a corporate legal counsel drafting contract redlines.
 
@@ -131,7 +147,10 @@ Output ONLY a raw JSON object (no markdown code fences):
 }}
 """
         messages = [
-            {"role": "system", "content": "You are an expert contract redline editor. Output JSON only."},
+            {
+                "role": "system",
+                "content": "You are an expert contract redline editor. Output JSON only.",
+            },
             {"role": "user", "content": prompt},
         ]
 

@@ -38,6 +38,8 @@ Proxy events are tagged with `operation`, `upstream`, `http.method`, and a norma
 
 What is sent: unhandled request exceptions, via the FastAPI integration; 5xx `HTTPException`s; error-level logs; and caught background failures that call `capture_background_exception()`. That helper covers startup services, EventBus listeners and publish, Cal.com reconciliation, and final legal-reply delivery. Each event is tagged with `service`, plus `subsystem` and `operation` where set. Request events carry the validated `request_id`, which is also returned in the `X-Request-ID` header.
 
+The shared SparkCloud client adds an `ai.chat_completions.create` span with the configured model name. It never adds prompts, model responses, or provider error bodies to that span, its logs, or raised errors. This client is used by contract analysis, the legal agent, and Dyslexic research and email drafting.
+
 What is not sent: 4xx responses, validation errors, and missing optional configuration. The `app.request` access logger is also ignored, because the integration already captures those failures. Default PII, request bodies, query strings, cookies, local variables, and all headers except a small allowlist are dropped. URLs use the route template (`/sign/{token}`), and `before_send` redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named keys in context.
 
 Profiling is off, and so are Sentry logs and metrics. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events are flushed on shutdown with a 2-second limit.
