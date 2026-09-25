@@ -42,7 +42,7 @@ What is sent: unhandled request exceptions, via the FastAPI integration; 5xx `HT
 
 The EventBus reports static connected/reconnecting logs. Its Redis pub/sub listener probes the same connection after an idle timeout and closes a failed connection before retrying; exception details are reduced to the class in local warnings.
 
-The shared SparkCloud client adds an `ai.chat_completions.create` span with the configured model name and Sentry's GenAI model, provider, operation, and token usage attributes. It never adds prompts, model responses, or provider error bodies to that span, its logs, or raised errors. This client is used by contract analysis, the legal agent, Dyslexic research and email drafting, and the mailroom assistant.
+The shared SparkCloud client adds a `gen_ai.chat` span with the configured model name and Sentry's GenAI model, provider, operation, and token usage attributes. The legal `/ask` route wraps synthesis in a `gen_ai.invoke_agent` span. Both web chat entry points send an opaque UUID per open conversation so Sentry can group turns. It never adds prompts, model responses, or provider error bodies to spans, logs, or raised errors; `send_default_pii` remains disabled. This client is used by contract analysis, the legal agent, Dyslexic research and email drafting, and the mailroom assistant.
 
 The legal inbox and Dyslexic research jobs create sampled `ai.pipeline` transactions. Handled model failures in the legal agent, company research, and email drafting report a static operation name and failure class via `capture_agent_failure()`, without including prompts, company names, contract text, or model responses in Sentry.
 
@@ -53,6 +53,8 @@ What is not sent as an issue: 4xx responses, validation errors, and missing opti
 Profiling and Sentry metrics are off. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events and logs are flushed on shutdown with a 2-second limit.
 
 ## Discord bot (`discord-bot-utility`)
+
+The deployed bot has its own repository, `gobitsnbytes/bitsnbytes-discord-utility`. The tracked `apps/bot` copy in Motherboard does not by itself establish what runs in that deployment; verify the separate repository and its deployment before claiming bot rollout.
 
 `apps/bot/lib/observability.js` initializes `@sentry/node` before the Discord client, command modules, jobs, and web server are loaded. A blank `SENTRY_DSN` disables reporting without changing startup behavior.
 

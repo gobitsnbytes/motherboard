@@ -64,6 +64,7 @@ export default function LegalAgentPanel() {
   const [askResult, setAskResult] = useState<AskResponse | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const answerRef = useRef<HTMLDivElement | null>(null);
+  const conversationId = useRef<string | null>(null);
 
   const loadAll = useCallback(async () => {
     setError(null);
@@ -95,7 +96,8 @@ export default function LegalAgentPanel() {
     setAsking(true);
     setAskError(null);
     try {
-      const res = await askLegalAgent(q);
+      conversationId.current ??= crypto.randomUUID();
+      const res = await askLegalAgent(q, conversationId.current);
       setAskResult(res);
       setQuestion("");
     } catch {

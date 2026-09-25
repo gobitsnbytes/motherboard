@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -79,6 +79,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
   const [editedRewrite, setEditedRewrite] = useState("");
   const [chatOpenFindingId, setChatOpenFindingId] = useState<string | null>(null);
   const [clauseQuestions, setClauseQuestions] = useState<Record<string, Array<{ sender: string; text: string }>>>({});
+  const conversationIds = useRef<Record<string, string>>({});
   const [chatInput, setChatInput] = useState("");
   const [dispatching, setDispatching] = useState(false);
 
@@ -247,10 +248,11 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
     }));
 
     try {
+      conversationIds.current[findingId] ??= crypto.randomUUID();
       const res = await fetch("/api/contract-assistant/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: msg }),
+        body: JSON.stringify({ question: msg, conversation_id: conversationIds.current[findingId] }),
       });
       if (res.ok) {
         const data = await res.json();

@@ -62,11 +62,11 @@ export async function fetchInboundContracts(): Promise<PipelineContractItem[]> {
   return res.json();
 }
 
-export async function askLegalAgent(question: string): Promise<AskResponse> {
+export async function askLegalAgent(question: string, conversationId?: string): Promise<AskResponse> {
   const res = await fetch("/api/contract-assistant/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, conversation_id: conversationId }),
   });
   if (!res.ok) {
     throw new Error(`Ask failed (${res.status})`);
