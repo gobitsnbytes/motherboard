@@ -42,9 +42,11 @@ The shared SparkCloud client adds an `ai.chat_completions.create` span with the 
 
 The legal inbox and Dyslexic research jobs create sampled `ai.pipeline` transactions. Handled model failures in the legal agent, company research, and email drafting report a static operation name and failure class via `capture_agent_failure()`, without including prompts, company names, contract text, or model responses in Sentry.
 
-What is not sent: 4xx responses, validation errors, and missing optional configuration. The `app.request` access logger is also ignored, because the integration already captures those failures. Default PII, request bodies, query strings, cookies, local variables, and all headers except a small allowlist are dropped. URLs use the route template (`/sign/{token}`), and `before_send` redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named keys in context.
+Sentry Logs records a structured completion or failure for each non-health API request with its route template, method, status, duration, and request ID. Handled AI failures also emit a static `agent.run.failed` log with the agent, operation, and failure class. The log hook rejects other messages and removes all unapproved attributes; ordinary application log text is not forwarded.
 
-Profiling is off, and so are Sentry logs and metrics. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events are flushed on shutdown with a 2-second limit.
+What is not sent as an issue: 4xx responses, validation errors, and missing optional configuration. Request completion logs still include 4xx status codes. The `app.request` access logger is ignored because the structured log covers requests. Default PII, request bodies, query strings, cookies, local variables, and all headers except a small allowlist are dropped. URLs use the route template (`/sign/{token}`), and `before_send` redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named keys in context.
+
+Profiling and Sentry metrics are off. The API is limited to `MemoryMax=180M` on a 1 vCPU / 1 GB host. Pending events and logs are flushed on shutdown with a 2-second limit.
 
 ## Discord bot (`discord-bot-utility`)
 

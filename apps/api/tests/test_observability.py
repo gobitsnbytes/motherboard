@@ -80,11 +80,14 @@ class RecordingTransport(Transport):
     def __init__(self):
         super().__init__()
         self.events = []
+        self.logs = []
 
     def capture_envelope(self, envelope):
         for item in envelope.items:
             if item.type == "event":
                 self.events.append(item.payload.json)
+            if item.type == "log":
+                self.logs.extend(item.payload.json["items"])
 
 
 def _settings(**overrides):
@@ -106,6 +109,50 @@ def sentry_events():
     sentry_sdk.get_client().transport = transport
     yield transport.events
     sentry_sdk.init(dsn=None)
+
+
+def test_structured_logs_keep_only_allowlisted_data():
+    assert observability.init_sentry(_settings())
+    transport = RecordingTransport()
+    sentry_sdk.get_client().transport = transport
+    try:
+        sentry_sdk.logger.info("private contract text")
+        sentry_sdk.logger.info(
+            "api.request.completed",
+            attributes={
+                "route": "/api/users",
+                "status_code": 200,
+                "prompt": "private contract text",
+            },
+        )
+        sentry_sdk.flush()
+        assert len(transport.logs) == 1
+        assert transport.logs[0]["body"] == "api.request.completed"
+        assert "private contract text" not in json.dumps(transport.logs)
+        assert "prompt" not in json.dumps(transport.logs)
+    finally:
+        sentry_sdk.init(dsn=None)
+
+
+def test_request_log_uses_route_template(monkeypatch):
+    from app.main import create_app
+
+    emitted = []
+    monkeypatch.setattr(
+        "app.main.emit_runtime_log",
+        lambda event, **attrs: emitted.append((event, attrs)),
+    )
+    app = create_app()
+
+    @app.get("/api/log-test/{private_value}")
+    async def log_test(private_value: str):
+        return {"ok": True}
+
+    response = TestClient(app).get("/api/log-test/private-customer-name")
+    assert response.status_code == 200
+    assert emitted[-1][0] == "api.request.completed"
+    assert emitted[-1][1]["route"] == "/api/log-test/{private_value}"
+    assert "private-customer-name" not in str(emitted)
 
 
 def test_blank_dsn_disables_sentry():

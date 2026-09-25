@@ -27,6 +27,7 @@ from app.events import event_bus
 from app.observability import (
     REQUEST_LOGGER,
     capture_background_exception,
+    emit_runtime_log,
     init_sentry,
 )
 
@@ -61,7 +62,9 @@ async def _initialize_application_services(
     except Exception as exc:
         failures.append("database_seed")
         logger.warning("Database seed startup skipped: %s", exc)
-        capture_background_exception(exc, subsystem="startup", operation="database_seed")
+        capture_background_exception(
+            exc, subsystem="startup", operation="database_seed"
+        )
 
     try:
         await asyncio.wait_for(event_bus.start(settings.redis_url), timeout=2)
@@ -93,7 +96,9 @@ async def _initialize_application_services(
         except Exception as exc:
             failures.append("discord_scheduler")
             logger.warning("Discord scheduler startup skipped: %s", exc)
-            capture_background_exception(exc, subsystem="startup", operation="discord_scheduler")
+            capture_background_exception(
+                exc, subsystem="startup", operation="discord_scheduler"
+            )
 
     try:
         from app.services.legal_agent import start_legal_agent_jobs
@@ -249,6 +254,15 @@ def create_app() -> FastAPI:
         try:
             response = await call_next(request)
         except Exception:
+            route = getattr(request.scope.get("route"), "path", "unmatched")
+            emit_runtime_log(
+                "api.request.failed",
+                method=request.method,
+                route=route,
+                status_code=500,
+                request_id=request_id,
+                duration_ms=round((time.perf_counter() - started_at) * 1000),
+            )
             request_logger.exception(
                 "request_failed method=%s path=%s request_id=%s duration_ms=%d",
                 request.method,
@@ -258,6 +272,18 @@ def create_app() -> FastAPI:
             )
             raise
         response.headers["X-Request-ID"] = request_id
+        route = getattr(request.scope.get("route"), "path", "unmatched")
+        if not route.startswith(("/health", "/api/health")):
+            emit_runtime_log(
+                "api.request.failed"
+                if response.status_code >= 500
+                else "api.request.completed",
+                method=request.method,
+                route=route,
+                status_code=response.status_code,
+                request_id=request_id,
+                duration_ms=round((time.perf_counter() - started_at) * 1000),
+            )
         if response.status_code >= 500:
             request_logger.error(
                 "request_failed method=%s path=%s status=%d request_id=%s duration_ms=%d",

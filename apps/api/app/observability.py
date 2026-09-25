@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import sentry_sdk
-from sentry_sdk.integrations.logging import ignore_logger
+from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,17 @@ _SAFE_HEADERS = {
     "host",
 }
 _NO_TRACE_PATHS = ("/health", "/api/health")
+_LOG_EVENTS = {"api.request.completed", "api.request.failed", "agent.run.failed"}
+_LOG_ATTRIBUTES = {
+    "method",
+    "route",
+    "status_code",
+    "duration_ms",
+    "request_id",
+    "agent",
+    "operation",
+    "reason",
+}
 
 
 def scrub_text(value: str) -> str:
@@ -158,6 +169,23 @@ def before_send_transaction(
     return _scrub_event(event)
 
 
+def before_send_log(log: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
+    """Only explicit, structured operational logs may leave the process."""
+    if log.get("body") not in _LOG_EVENTS:
+        return None
+    log["attributes"] = {
+        key: value
+        for key, value in (log.get("attributes") or {}).items()
+        if key in _LOG_ATTRIBUTES and isinstance(value, (str, int, float))
+    }
+    return log
+
+
+def emit_runtime_log(event: str, **attributes: str | int | float) -> None:
+    if event in _LOG_EVENTS and sentry_sdk.get_client().is_active():
+        sentry_sdk.logger.info(event, attributes=attributes)
+
+
 def _is_expected(exc: BaseException | None) -> bool:
     """Client errors and validation failures are normal control flow, not issues."""
     from fastapi.exceptions import RequestValidationError
@@ -238,6 +266,13 @@ def init_sentry(settings) -> bool:
         traces_sampler=_traces_sampler(traces_rate(settings)),
         before_send=before_send,
         before_send_transaction=before_send_transaction,
+        before_send_log=before_send_log,
+        enable_logs=True,
+        integrations=[
+            LoggingIntegration(
+                level=logging.INFO, event_level=logging.ERROR, sentry_logs_level=None
+            )
+        ],
         shutdown_timeout=2,
     )
     sentry_sdk.set_tag("service", "bnb-api")
@@ -264,3 +299,6 @@ def capture_agent_failure(*, agent: str, operation: str, reason: str) -> None:
         scope.set_tag("failure_reason", reason)
         scope.set_tag("telemetry_kind", "ai_agent")
         sentry_sdk.capture_message(f"{agent}.{operation} failed", level="error")
+    emit_runtime_log(
+        "agent.run.failed", agent=agent, operation=operation, reason=reason
+    )
