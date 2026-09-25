@@ -207,7 +207,17 @@ sudo nginx -t || rollback
 sudo systemctl reload nginx || rollback
 SWITCHED=1
 
-PUBLIC_CODE=$(curl --max-time 5 -s -o /dev/null -w "%{http_code}" https://api.gobitsnbytes.org/health || true)
+PUBLIC_CODE="000"
+for attempt in 1 2 3 4 5; do
+    PUBLIC_CODE=$(curl -4 --connect-timeout 2 --max-time 5 -s -o /dev/null -w "%{http_code}" https://api.gobitsnbytes.org/health || true)
+    if [ "$PUBLIC_CODE" = "200" ]; then
+        break
+    fi
+    echo "--> Public health check attempt $attempt/5 returned ${PUBLIC_CODE:-000}."
+    if [ "$attempt" -lt 5 ]; then
+        sleep 2
+    fi
+done
 if [ "$PUBLIC_CODE" != "200" ]; then
     echo "--> Public health check failed with ${PUBLIC_CODE:-000}."
     rollback
