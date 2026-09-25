@@ -4,6 +4,10 @@ const notion = require('../lib/notion');
 const config = require('../config');
 const logger = require('../lib/logger');
 const meetingsDb = require('../lib/meetingsDb');
+const Sentry = require('@sentry/node');
+
+const MONITOR_SLUG = 'bot-weekly-brief';
+const SCHEDULE = '0 9 * * 1';
 
 function getISOWeek(date) {
 	const tempDate = new Date(date.valueOf());
@@ -19,14 +23,20 @@ function getISOWeek(date) {
 
 module.exports = (client) => {
 	// Run every Monday at 09:00 (0 9 * * 1)
-	cron.schedule('0 9 * * 1', async () => {
-		logger.info('Initializing Weekly Network Intelligence Brief...');
+	cron.schedule(SCHEDULE, async () => {
+		const checkInId = Sentry.captureCheckIn(
+			{ monitorSlug: MONITOR_SLUG, status: 'in_progress' },
+			{ schedule: { type: 'crontab', value: SCHEDULE } },
+		);
+		const finish = status => Sentry.captureCheckIn({ monitorSlug: MONITOR_SLUG, checkInId, status });
 		
 		try {
+			logger.info('Initializing Weekly Network Intelligence Brief...');
 			const now = new Date();
 			const periodKey = `week-${now.getFullYear()}-${getISOWeek(now)}`;
 			if (!(await meetingsDb.tryClaimJobRun('weeklyBrief', periodKey))) {
 				logger.info('[WEEKLY_BRIEF] Already ran for this period. Skipping.');
+				finish('ok');
 				return;
 			}
 
@@ -36,6 +46,7 @@ module.exports = (client) => {
 			
 			if (!channel) {
 				logger.error(`Weekly brief target channel ${teamChatId} not found.`);
+				finish('error');
 				return;
 			}
 
@@ -64,8 +75,10 @@ module.exports = (client) => {
 
 			await channel.send({ embeds: [briefEmbed] });
 			logger.info('Weekly brief delivered successfully.');
+			finish('ok');
 		} catch (error) {
 			logger.error('Weekly brief job failure', error);
+			finish('error');
 		}
 	});
 };

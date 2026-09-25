@@ -67,6 +67,8 @@ The bot reports command and Discord event failures through its logger, swallowed
 
 Sentry Logs also receives static bot boot and command start/completion/failure events, plus severity-only events for the bot's info, warning, error, and success logger calls. Command names are limited to the Discord command slug format. Log messages, interaction data, users, and free-form logger details are rejected by `beforeSendLog`.
 
+The weekly network brief sends Sentry Cron check-ins under `bot-weekly-brief` using its Monday schedule. Delivered and already-claimed runs finish `ok`; missing delivery channels and caught job exceptions finish `error`. Check-ins contain only the monitor slug, status, and SDK check-in ID.
+
 Expected failures stay out of Sentry: disabled DMs, missing optional integrations, validation or permission failures, routine 4xx responses, and fallback warnings. Default PII, request bodies, query strings, cookies, local variables, users, and HTTP headers are dropped. The final scrubber also redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named context fields.
 
 The Sentry agent plugin is separate from API event reporting. Installing the plugin gives coding agents access to Sentry; it does not configure the running application.
