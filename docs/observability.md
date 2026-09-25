@@ -63,7 +63,7 @@ Profiling and Sentry metrics are off. The API is limited to `MemoryMax=180M` on 
 
 The bot reports command and Discord event failures through its logger, swallowed exceptions passed to `console.error`, scheduled-job failures, Express route rejections, HTTP listener errors, Discord client and shard errors, login failures, unhandled rejections, and uncaught exceptions. The same `Error` object is captured once even if it crosses more than one boundary. Fatal handlers and normal shutdown flush for at most two seconds.
 
-Sentry Logs also receives static bot boot and command start/completion/failure events. Command names are limited to the Discord command slug format. Log messages, interaction data, users, and free-form logger details are rejected by `beforeSendLog`.
+Sentry Logs also receives static bot boot and command start/completion/failure events, plus severity-only events for the bot's info, warning, error, and success logger calls. Command names are limited to the Discord command slug format. Log messages, interaction data, users, and free-form logger details are rejected by `beforeSendLog`.
 
 Expected failures stay out of Sentry: disabled DMs, missing optional integrations, validation or permission failures, routine 4xx responses, and fallback warnings. Default PII, request bodies, query strings, cookies, local variables, users, and HTTP headers are dropped. The final scrubber also redacts bearer tokens, credentials in URLs, secret-looking query values, email addresses, and secret-named context fields.
 

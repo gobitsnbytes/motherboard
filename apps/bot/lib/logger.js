@@ -32,6 +32,9 @@ class Logger {
      */
     async _sendToDiscord({ type, message, details, color, user, command, mirror = true }) {
         const timestamp = new Date().toISOString();
+        if (['INFO', 'WARN', 'ERROR', 'SUCCESS'].includes(type)) {
+            observability.recordOperationalLog(`bot.log.${type.toLowerCase()}`);
+        }
         
         // Console output (always)
         const consolePrefix = `[${type}]`.padEnd(10);

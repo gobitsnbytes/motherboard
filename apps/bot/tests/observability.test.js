@@ -5,6 +5,7 @@ const { beforeSend, beforeSendLog, parseSampleRate, scrubText } = require('../li
 describe('bot Sentry privacy boundary', () => {
 	test('allows only static log events and safe command names', () => {
 		expect(beforeSendLog({ message: 'private message' })).toBeNull();
+		expect(beforeSendLog({ message: 'bot.log.warn', attributes: { details: 'private data' } }).attributes).toEqual({});
 		expect(beforeSendLog({ message: 'bot.command.completed', attributes: {
 			command: 'help', user: 'private user',
 		} }).attributes).toEqual({ command: 'help' });

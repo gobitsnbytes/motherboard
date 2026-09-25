@@ -13,7 +13,10 @@ const SECRET_PATTERNS = [
 let initialized = false;
 let consoleCaptureInstalled = false;
 const capturedErrors = new WeakSet();
-const LOG_EVENTS = new Set(['bot.lifecycle.boot', 'bot.command.started', 'bot.command.completed', 'bot.command.failed']);
+const LOG_EVENTS = new Set([
+	'bot.lifecycle.boot', 'bot.command.started', 'bot.command.completed', 'bot.command.failed',
+	'bot.log.info', 'bot.log.warn', 'bot.log.error', 'bot.log.success',
+]);
 const LOG_ATTRIBUTES = new Set(['command']);
 
 function scrubText(value) {
