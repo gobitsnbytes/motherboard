@@ -3,7 +3,7 @@
 ## Sentry observability
 
 - The Next.js app initializes Sentry in `apps/web/instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts`; `instrumentation.ts` registers server and Edge hooks. The FastAPI app initializes Sentry before `FastAPI()` in `apps/api/app/main.py`. The Discord bot initializes Sentry at the start of `apps/bot/index.js` and captures handled errors through its logger.
-- Configure `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` for the web app, and `SENTRY_DSN` for the API and bot, through each deployment environment. Never hardcode DSNs or auth tokens in source. `SENTRY_AUTH_TOKEN` and `SENTRY_PROJECT` are build-time settings for web source maps; keep the token secret.
+- Configure `NEXT_PUBLIC_SENTRY_DSN` (build time, all web runtimes) for the web app, and `SENTRY_DSN` for the API and bot, through each deployment environment. Never hardcode DSNs or auth tokens in source. `SENTRY_AUTH_TOKEN` is a build secret for web source maps; pass it to Docker only as a BuildKit secret. See `docs/observability.md`.
 - Sentry project slugs and runtime boundaries must be checked before release. The API project is `motherboard-backend`; the web project is identified by its configured frontend DSN. Verify a controlled exception through the running application after deployment, then remove any temporary test route.
 - Keep request bodies, default PII, and local variables out of error events unless there is a reviewed need. Avoid public error-trigger endpoints in production.
 
