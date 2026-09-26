@@ -139,9 +139,7 @@ async def test_list_bookings_serializes_admin_contract_without_provider_payload(
     db_session.add(booking)
     await db_session.commit()
 
-    response = await request_as(
-        client, owner.id, "GET", "/api/calendar/bookings"
-    )
+    response = await request_as(client, owner.id, "GET", "/api/calendar/bookings")
 
     assert response.status_code == 200
     assert response.json() == [
