@@ -110,6 +110,56 @@ async def test_public_pool_shows_booking_name_and_readiness(client, db_session):
     assert empty_response.json()["ready"] is False
 
 
+async def test_list_bookings_serializes_admin_contract_without_provider_payload(
+    client, db_session
+):
+    connection, pool, host, _ = await _routing_setup(db_session)
+    owner = await db_session.scalar(select(User).where(User.is_super_admin.is_(True)))
+    member = await db_session.scalar(
+        select(RoutingPoolMember).where(
+            RoutingPoolMember.calendar_connection_id == connection.id
+        )
+    )
+    start_at = datetime(2026, 10, 1, 10, 0, tzinfo=timezone.utc)
+    booking = CalendarBooking(
+        provider_booking_uid="admin-list-booking",
+        routing_pool_id=pool.id,
+        routing_pool_member_id=member.id,
+        event_type_id=101,
+        host_user_id=host.id,
+        attendee_name="Example Guest",
+        attendee_email="guest@example.com",
+        attendee_timezone="Asia/Kolkata",
+        start_at=start_at,
+        end_at=start_at + timedelta(minutes=30),
+        status="accepted",
+        meeting_url="https://meet.google.com/example-room",
+        provider_payload={"private_marker": "must-not-be-returned"},
+    )
+    db_session.add(booking)
+    await db_session.commit()
+
+    response = await request_as(
+        client, owner.id, "GET", "/api/calendar/bookings"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "uid": "admin-list-booking",
+            "status": "accepted",
+            "start": "2026-10-01T10:00:00Z",
+            "end": "2026-10-01T10:30:00Z",
+            "meeting_url": "https://meet.google.com/example-room",
+            "host_user_id": str(host.id),
+            "attendee_name": "Example Guest",
+            "attendee_email": "guest@example.com",
+        }
+    ]
+    assert "private_marker" not in response.text
+    assert "provider_payload" not in response.text
+
+
 async def test_add_pool_member_accepts_current_calcom_google_meet_location(
     client, db_session
 ):

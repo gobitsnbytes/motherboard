@@ -78,6 +78,19 @@ def _booking_out(booking: CalendarBooking) -> BookingOut:
     )
 
 
+def _admin_booking_out(booking: CalendarBooking) -> AdminBookingOut:
+    return AdminBookingOut(
+        uid=booking.provider_booking_uid,
+        status=booking.status,
+        start=booking.start_at,
+        end=booking.end_at,
+        meeting_url=booking.meeting_url,
+        host_user_id=booking.host_user_id,
+        attendee_name=booking.attendee_name,
+        attendee_email=booking.attendee_email,
+    )
+
+
 async def _pool_or_404(db: DbSession, slug: str) -> RoutingPool:
     pool = await db.scalar(select(RoutingPool).where(RoutingPool.slug == slug, RoutingPool.active.is_(True)))
     if not pool:
@@ -277,9 +290,14 @@ async def remove_pool_member(pool_id: UUID, member_id: UUID, db: DbSession, curr
 
 
 @router.get("/bookings", response_model=list[AdminBookingOut])
-async def list_bookings(db: DbSession, current_user: CurrentUserDep):
+async def list_bookings(
+    db: DbSession, current_user: CurrentUserDep
+) -> list[AdminBookingOut]:
     await require_permission(db, current_user, "meetings.read")
-    return list((await db.scalars(select(CalendarBooking).order_by(CalendarBooking.start_at.desc()))).all())
+    bookings = await db.scalars(
+        select(CalendarBooking).order_by(CalendarBooking.start_at.desc())
+    )
+    return [_admin_booking_out(booking) for booking in bookings]
 
 
 @router.get("/public/{pool_slug}", response_model=PublicPoolOut)
