@@ -147,8 +147,7 @@ jobs:
           script_stop: true
           script: |
             echo "Starting deployment on VPS..."
-            # The server still runs the previous deploy.sh on the first rollout
-            # of a new revision, so guard the checkout here as well.
+            # Guard the checkout before fetching or executing deployment code.
             dirty_paths=$(git -C /opt/bnb-api status --porcelain=v1 --untracked-files=normal) || {
               echo "Deployment stopped: could not inspect /opt/bnb-api."
               exit 1
@@ -158,4 +157,12 @@ jobs:
               printf '%s\n' "$dirty_paths" | head -30
               exit 1
             fi
-            bash /opt/bnb-api/deploy/api/deploy.sh
+            # Execute an immutable copy from the revision being deployed. Running
+            # the checkout's script while it resets that same checkout can leave
+            # Bash reading a mixture of the old and new file.
+            target_commit='${{ github.sha }}'
+            git -C /opt/bnb-api fetch origin "$target_commit"
+            deploy_script=$(mktemp)
+            trap 'rm -f "$deploy_script"' EXIT
+            git -C /opt/bnb-api show "$target_commit:deploy/api/deploy.sh" > "$deploy_script"
+            bash "$deploy_script" "$target_commit"

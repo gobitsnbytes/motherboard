@@ -7,6 +7,7 @@
 set -euo pipefail
 
 APP_DIR="/opt/bnb-api"
+TARGET_COMMIT="${1:-}"
 API_DIR="$APP_DIR/apps/api"
 LEGACY_SERVICE_NAME="bnb-api"
 NGINX_SITE="/etc/nginx/sites-available/api.gobitsnbytes.org"
@@ -87,11 +88,16 @@ rollback() {
 }
 
 # 1. Ensure working directory ownership & pull latest code
-echo "--> Fixing directory ownership and pulling latest code from prod..."
+echo "--> Fixing directory ownership and pulling the authorized revision..."
 sudo chown -R $(whoami):$(id -gn) "$APP_DIR"
 sudo chmod -R u+rwX "$APP_DIR/.git"
-git -C "$APP_DIR" fetch origin prod
-git -C "$APP_DIR" reset --hard origin/prod
+if [ -n "$TARGET_COMMIT" ]; then
+    git -C "$APP_DIR" fetch origin "$TARGET_COMMIT"
+else
+    git -C "$APP_DIR" fetch origin prod
+    TARGET_COMMIT="origin/prod"
+fi
+git -C "$APP_DIR" reset --hard "$TARGET_COMMIT"
 
 NEW_COMMIT=$(git -C "$APP_DIR" rev-parse HEAD)
 echo "New commit: $NEW_COMMIT"
