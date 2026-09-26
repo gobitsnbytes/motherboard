@@ -13,10 +13,18 @@ NGINX_SITE="/etc/nginx/sites-available/api.gobitsnbytes.org"
 ACTIVE_PORT_FILE="/var/lib/bnb-api/active-port"
 MAX_HEALTH_ATTEMPTS=15
 HEALTH_DELAY_SECONDS=2
+OPENAPI_MAX_ATTEMPTS=2
+OPENAPI_TIMEOUT_SECONDS=40
+OPENAPI_RETRY_DELAY_SECONDS=2
 CANDIDATE_SERVICE=""
 CANDIDATE_STARTED_AT=""
 NGINX_BACKUP=""
 SWITCHED=0
+BOOT_CONFIG_CHANGED=0
+LEGACY_WAS_ENABLED=0
+PREVIOUS_PORT_WAS_ENABLED=0
+ACTIVE_PORT_FILE_EXISTED=0
+ACTIVE_PORT_FILE_UPDATED=0
 
 echo "=== Deployment Started: $(date) ==="
 
@@ -42,6 +50,27 @@ rollback() {
     if [ "$SWITCHED" -eq 1 ] && [ -n "$NGINX_BACKUP" ] && [ -f "$NGINX_BACKUP" ]; then
         sudo cp "$NGINX_BACKUP" "$NGINX_SITE"
         sudo nginx -t && sudo systemctl reload nginx
+    fi
+    if [ "$BOOT_CONFIG_CHANGED" -eq 1 ]; then
+        echo "--> Restoring the previous API unit enablement..."
+        if [ "$LEGACY_WAS_ENABLED" -eq 1 ]; then
+            sudo systemctl enable "$LEGACY_SERVICE_NAME" || true
+        else
+            sudo systemctl disable "$LEGACY_SERVICE_NAME" || true
+        fi
+        if [ "$PREVIOUS_PORT_WAS_ENABLED" -eq 1 ]; then
+            sudo systemctl enable "$PREVIOUS_PORT_SERVICE" || true
+        else
+            sudo systemctl disable "$PREVIOUS_PORT_SERVICE" || true
+        fi
+        sudo systemctl disable "$CANDIDATE_SERVICE" || true
+    fi
+    if [ "$ACTIVE_PORT_FILE_UPDATED" -eq 1 ]; then
+        if [ "$ACTIVE_PORT_FILE_EXISTED" -eq 1 ]; then
+            echo "$ACTIVE_PORT" | sudo tee "$ACTIVE_PORT_FILE" >/dev/null || true
+        else
+            sudo rm -f "$ACTIVE_PORT_FILE" || true
+        fi
     fi
     if [ -n "$CANDIDATE_SERVICE" ]; then
         sudo systemctl stop "$CANDIDATE_SERVICE" || true
@@ -146,6 +175,7 @@ sudo systemctl daemon-reload
 sudo mkdir -p "$(dirname "$ACTIVE_PORT_FILE")"
 
 if [ -f "$ACTIVE_PORT_FILE" ]; then
+    ACTIVE_PORT_FILE_EXISTED=1
     ACTIVE_PORT=$(cat "$ACTIVE_PORT_FILE")
 else
     ACTIVE_PORT=8000
@@ -160,8 +190,16 @@ else
     CANDIDATE_PORT=8000
 fi
 CANDIDATE_SERVICE="bnb-api@${CANDIDATE_PORT}.service"
+PREVIOUS_PORT_SERVICE="bnb-api@${ACTIVE_PORT}.service"
+if sudo systemctl is-enabled --quiet "$LEGACY_SERVICE_NAME"; then
+    LEGACY_WAS_ENABLED=1
+fi
+if sudo systemctl is-enabled --quiet "$PREVIOUS_PORT_SERVICE"; then
+    PREVIOUS_PORT_WAS_ENABLED=1
+fi
 CANDIDATE_HEALTH_URL="http://127.0.0.1:${CANDIDATE_PORT}/health"
 CANDIDATE_READY_URL="http://127.0.0.1:${CANDIDATE_PORT}/health/ready"
+CANDIDATE_OPENAPI_URL="http://127.0.0.1:${CANDIDATE_PORT}/api/openapi.json"
 
 echo "--> Starting replacement API on port $CANDIDATE_PORT..."
 CANDIDATE_STARTED_AT=$(date --iso-8601=seconds)
@@ -198,6 +236,35 @@ if [ $SUCCESS -ne 1 ]; then
     rollback
 fi
 
+# OpenAPI generation can be the first expensive request on a cold worker. Exercise
+# it on the candidate before cutover so it warms the schema cache and regressions
+# fail while the old API is still serving traffic.
+echo "--> Verifying candidate OpenAPI schema..."
+OPENAPI_SUCCESS=0
+OPENAPI_ATTEMPT=1
+while [ "$OPENAPI_ATTEMPT" -le "$OPENAPI_MAX_ATTEMPTS" ]; do
+    OPENAPI_CODE=$(curl --connect-timeout 2 --max-time "$OPENAPI_TIMEOUT_SECONDS" -s -o /dev/null -w "%{http_code}" "$CANDIDATE_OPENAPI_URL" || true)
+    if [ "$OPENAPI_CODE" = "200" ]; then
+        echo "--> Candidate OpenAPI schema returned HTTP 200."
+        OPENAPI_SUCCESS=1
+        break
+    fi
+    echo "--> OpenAPI check attempt $OPENAPI_ATTEMPT/$OPENAPI_MAX_ATTEMPTS returned ${OPENAPI_CODE:-000}."
+    if [ "$OPENAPI_ATTEMPT" -lt "$OPENAPI_MAX_ATTEMPTS" ]; then
+        sleep "$OPENAPI_RETRY_DELAY_SECONDS"
+    fi
+    OPENAPI_ATTEMPT=$((OPENAPI_ATTEMPT + 1))
+done
+
+if [ "$OPENAPI_SUCCESS" -ne 1 ]; then
+    echo "--> Candidate OpenAPI check failed."
+    echo "--> Candidate service status:"
+    sudo systemctl status "$CANDIDATE_SERVICE" --no-pager --full || true
+    echo "--> Candidate logs from this rollout:"
+    sudo journalctl -u "$CANDIDATE_SERVICE" --since "$CANDIDATE_STARTED_AT" --no-pager -n 100 || true
+    rollback
+fi
+
 # 6. Atomically switch Nginx, verify public traffic, then retire the old worker
 NGINX_BACKUP=$(mktemp)
 sudo cp "$NGINX_SITE" "$NGINX_BACKUP"
@@ -226,14 +293,18 @@ fi
 echo "--> Restarting bnb-bot systemd service..."
 sudo systemctl restart bnb-bot || rollback
 
+# Update boot enablement only after the cutover and public health check succeed.
+# If any persistence step fails, rollback restores the previous boot target.
+BOOT_CONFIG_CHANGED=1
+sudo systemctl enable "$CANDIDATE_SERVICE" || rollback
+sudo systemctl disable "$LEGACY_SERVICE_NAME" || rollback
+sudo systemctl disable "$PREVIOUS_PORT_SERVICE" || rollback
+
+ACTIVE_PORT_FILE_UPDATED=1
 echo "$CANDIDATE_PORT" | sudo tee "$ACTIVE_PORT_FILE" >/dev/null || rollback
 
-if [ "$ACTIVE_PORT" = "8000" ]; then
-    sudo systemctl stop "$LEGACY_SERVICE_NAME" || true
-    sudo systemctl stop bnb-api@8000.service || true
-else
-    sudo systemctl stop bnb-api@8001.service || true
-fi
+sudo systemctl stop "$LEGACY_SERVICE_NAME" || true
+sudo systemctl stop "$PREVIOUS_PORT_SERVICE" || true
 
 if [ -f "$NGINX_BACKUP" ]; then
     sudo rm -f "$NGINX_BACKUP"
