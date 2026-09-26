@@ -263,8 +263,16 @@ async def request_as(client, user_id, method: str, path: str, **kwargs):
 
 
 def pytest_sessionfinish(session, exitstatus):
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    sqlite_db_files = (
+        SQLITE_DB_FILE,
+        f"test_temp_phase1_{worker_id}.db",
+        # Clean up artifacts left by runs before per-worker DB names were added.
+        "test_temp_router.db",
+        "test_temp_phase1.db",
+    )
     for suffix in ("", "-journal", "-shm", "-wal"):
-        for stem in ("test_temp_router.db", "test_temp_phase1.db"):
+        for stem in sqlite_db_files:
             try:
                 os.remove(stem + suffix)
             except OSError:

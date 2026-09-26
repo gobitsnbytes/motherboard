@@ -24,7 +24,8 @@ from sqlalchemy.ext.asyncio import (
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL or "sqlite" in DATABASE_URL:
-    db_file = "test_temp_phase1.db"
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    db_file = f"test_temp_phase1_{worker_id}.db"
     if os.path.exists(db_file):
         try:
             os.remove(db_file)
