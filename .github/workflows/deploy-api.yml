@@ -157,6 +157,10 @@ jobs:
               printf '%s\n' "$dirty_paths" | head -30
               exit 1
             fi
+            # A prior interactive rollout may have left Git metadata owned by
+            # another SSH user. Restore it to this deploy identity before fetch.
+            sudo chown -R "$(whoami):$(id -gn)" /opt/bnb-api/.git
+            sudo chmod -R u+rwX /opt/bnb-api/.git
             # Execute an immutable copy from the revision being deployed. Running
             # the checkout's script while it resets that same checkout can leave
             # Bash reading a mixture of the old and new file.
