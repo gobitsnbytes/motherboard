@@ -12,8 +12,9 @@ from app.db.models import Permission, Grant, Group, Membership, DiscordRoleMappi
 from app.dependencies import DbDep, CurrentUserDep
 from app.iam.policy import require_permission
 from app.iam.audit import write_audit_entry
+from app.iam.access import describe_access, require_delegable, require_group_delegable, validate_scope
+from app.iam.group_policy import read_policy, replace_policy
 from app.schemas.iam import (
-    ResolvedPrincipalResponse,
     PermissionResponse,
     PermissionCreate,
     GrantResponse,
@@ -25,30 +26,23 @@ from app.schemas.iam import (
     DiscordRole,
     DiscordRoleMappingResponse,
     DiscordRoleMappingUpsert,
+    GroupPolicyUpdate,
 )
 
 router = APIRouter()
 
 @router.get("/me", response_model=dict[str, Any])
 async def get_me(current_user: CurrentUserDep, db: DbDep) -> dict[str, Any]:
-    # Return calling user's ResolvedPrincipal + their grants
-    stmt = select(Grant).where(
-        or_(
-            and_(Grant.principal_type == "user", Grant.principal_id == current_user.user_id),
-            and_(Grant.principal_type == "group", Grant.principal_id.in_(current_user.group_ids)) if current_user.group_ids else False
-        )
-    )
-    res = await db.execute(stmt)
-    grants = res.scalars().all()
+    return await describe_access(db, current_user.user_id)
 
-    return {
-        "principal": ResolvedPrincipalResponse(
-            user_id=current_user.user_id,
-            group_ids=current_user.group_ids,
-            is_super_admin=current_user.is_super_admin
-        ).model_dump(),
-        "grants": [GrantResponse.model_validate(g).model_dump() for g in grants]
-    }
+
+@router.get("/users/{user_id}/access")
+async def inspect_access(user_id: uuid.UUID, current_user: CurrentUserDep, db: DbDep) -> dict:
+    await require_permission(db, current_user, "iam.grants.read")
+    user = await db.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(404, "Active user not found")
+    return await describe_access(db, user_id)
 
 @router.get("/permissions", response_model=List[PermissionResponse])
 async def list_permissions(current_user: CurrentUserDep, db: DbDep) -> List[PermissionResponse]:
@@ -135,8 +129,18 @@ async def create_grant(
         if not principal:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group principal not found")
 
-    if not current_user.is_super_admin:
-        await require_permission(db, current_user, payload.permission_key, payload.resource_scope)
+    await validate_scope(db, payload.resource_scope)
+    if payload.expires_at and payload.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(422, "Grant expiry must be in the future")
+    await require_delegable(db, current_user, payload.permission_key, payload.resource_scope, payload.expires_at)
+    existing = await db.scalar(select(Grant).where(
+        Grant.principal_type == payload.principal_type, Grant.principal_id == payload.principal_id,
+        Grant.permission_key == payload.permission_key,
+        Grant.resource_scope == payload.resource_scope,
+        or_(Grant.expires_at.is_(None), Grant.expires_at > datetime.now(timezone.utc)),
+    ))
+    if existing:
+        raise HTTPException(409, "An active grant already exists for this permission and scope")
 
     grant = Grant(
         principal_type=payload.principal_type,
@@ -179,6 +183,7 @@ async def revoke_grant(
     if not grant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grant not found")
 
+    await require_delegable(db, current_user, grant.permission_key, grant.resource_scope, grant.expires_at)
     await db.delete(grant)
 
     await write_audit_entry(
@@ -262,6 +267,19 @@ async def list_group_members(
     res = await db.execute(select(Membership).where(Membership.group_id == group_id))
     return list(res.scalars().all())
 
+
+@router.get("/groups/{group_id}/policy")
+async def get_group_policy(group_id: uuid.UUID, current_user: CurrentUserDep, db: DbDep) -> dict:
+    await require_permission(db, current_user, "iam.grants.read")
+    return await read_policy(db, group_id)
+
+
+@router.put("/groups/{group_id}/policy")
+async def update_group_policy(group_id: uuid.UUID, payload: GroupPolicyUpdate,
+    current_user: CurrentUserDep, db: DbDep) -> dict:
+    await require_permission(db, current_user, "iam.grants.write")
+    return await replace_policy(db, current_user, group_id, payload)
+
 @router.post("/groups/{group_id}/members", response_model=MembershipResponse, status_code=status.HTTP_201_CREATED)
 async def add_group_member(
     group_id: uuid.UUID,
@@ -279,6 +297,8 @@ async def add_group_member(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active user not found")
     if payload.expires_at and payload.expires_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Membership expiry must be in the future")
+
+    await require_group_delegable(db, current_user, group_id, payload.expires_at)
 
     membership = Membership(
         user_id=payload.user_id,
@@ -327,6 +347,7 @@ async def remove_group_member(
     if not membership:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found")
 
+    await require_group_delegable(db, current_user, group_id, membership.expires_at)
     await db.delete(membership)
 
     await write_audit_entry(
@@ -383,11 +404,13 @@ async def upsert_discord_mapping(
     if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
 
+    await require_group_delegable(db, current_user, payload.group_id)
     stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.discord_role_id == payload.discord_role_id)
     res = await db.execute(stmt)
     mapping = res.scalar_one_or_none()
     previous = None
     if mapping:
+        await require_group_delegable(db, current_user, mapping.group_id)
         previous = {
             "group_id": str(mapping.group_id),
             "discord_role_name": mapping.discord_role_name,

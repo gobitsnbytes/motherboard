@@ -11,6 +11,7 @@ from app.db.models import Fork, ForkMember, User
 from app.dependencies import CurrentUserDep, DbSession
 from app.iam.audit import write_audit_entry
 from app.iam.policy import require_permission
+from app.iam.fork_access import allowed_fork_ids, require_fork_access
 from app.schemas.forks import (
     ComplianceCheckItem,
     ForkComplianceCheckOut,
@@ -255,8 +256,8 @@ def evaluate_fork_compliance(fork: Fork, members: list[ForkMember]) -> ForkCompl
 
 @router.get("/", response_model=list[ForkOut])
 async def list_forks(db: DbSession, current_user: CurrentUserDep) -> list[Fork]:
-    await require_permission(db, current_user, "forks.read")
-    result = await db.execute(select(Fork).order_by(Fork.city_name))
+    fork_ids = await allowed_fork_ids(db, current_user, "forks.read")
+    result = await db.execute(select(Fork).where(True if fork_ids is None else Fork.id.in_(fork_ids)).order_by(Fork.city_name))
     return list(result.scalars().all())
 
 
@@ -265,8 +266,8 @@ async def list_forks_onboarding(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> list[ForkOnboardingItem]:
-    await require_permission(db, current_user, "forks.read")
-    forks_result = await db.execute(select(Fork).order_by(Fork.city_name))
+    fork_ids = await allowed_fork_ids(db, current_user, "forks.read")
+    forks_result = await db.execute(select(Fork).where(True if fork_ids is None else Fork.id.in_(fork_ids)).order_by(Fork.city_name))
     forks = list(forks_result.scalars().all())
 
     onboarding_items: list[ForkOnboardingItem] = []
@@ -306,7 +307,7 @@ async def get_fork(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> Fork:
-    await require_permission(db, current_user, "forks.read")
+    await require_fork_access(db, current_user, "forks.read", fork_id)
     fork = await db.get(Fork, fork_id)
     if not fork:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fork not found.")
@@ -319,7 +320,7 @@ async def get_fork_compliance_check(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> ForkComplianceCheckOut:
-    await require_permission(db, current_user, "forks.read")
+    await require_fork_access(db, current_user, "forks.read", fork_id)
     fork = await db.get(Fork, fork_id)
     if not fork:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fork not found.")
@@ -353,7 +354,7 @@ async def update_fork(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> Fork:
-    await require_permission(db, current_user, "forks.write")
+    await require_fork_access(db, current_user, "forks.write", fork_id)
     fork = await db.get(Fork, fork_id)
     if not fork:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fork not found.")
@@ -370,7 +371,7 @@ async def list_fork_members(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> list[ForkMember]:
-    await require_permission(db, current_user, "forks.members.read")
+    await require_fork_access(db, current_user, "forks.members.read", fork_id)
     result = await db.execute(
         select(ForkMember).where(ForkMember.fork_id == fork_id, ForkMember.is_active.is_(True))
     )
@@ -422,7 +423,7 @@ async def get_fork_onboarding_detail(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> ForkOnboardingDetailOut:
-    await require_permission(db, current_user, "forks.read")
+    await require_fork_access(db, current_user, "forks.read", fork_id)
     fork = await _load_fork_or_404(db, fork_id)
 
     members_result = await db.execute(
@@ -470,7 +471,7 @@ async def update_onboarding_step(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> ForkOnboardingDetailOut:
-    await require_permission(db, current_user, "forks.write")
+    await require_fork_access(db, current_user, "forks.write", fork_id)
     fork = await _load_fork_or_404(db, fork_id)
 
     valid_keys = {step["key"] for step in ONBOARDING_STEPS}
@@ -513,7 +514,7 @@ async def fork_onboarding_action(
     current_user: CurrentUserDep,
 ) -> ForkOnboardingDetailOut:
     """Advance, reject, archive, or reactivate a fork through the onboarding pipeline."""
-    await require_permission(db, current_user, "forks.write")
+    await require_fork_access(db, current_user, "forks.write", fork_id)
     fork = await _load_fork_or_404(db, fork_id)
 
     members_result = await db.execute(
@@ -639,12 +640,12 @@ async def add_fork_member(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> ForkMember:
-    await require_permission(db, current_user, "forks.members.write")
+    await require_fork_access(db, current_user, "forks.members.write", fork_id)
     fork = await _load_fork_or_404(db, fork_id)
 
     user = await db.get(User, payload.user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active user not found.")
 
     existing_result = await db.execute(
         select(ForkMember).where(
@@ -692,7 +693,7 @@ async def remove_fork_member(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> ForkMember:
-    await require_permission(db, current_user, "forks.members.write")
+    await require_fork_access(db, current_user, "forks.members.write", fork_id)
     await _load_fork_or_404(db, fork_id)
 
     member = await db.get(ForkMember, member_id)

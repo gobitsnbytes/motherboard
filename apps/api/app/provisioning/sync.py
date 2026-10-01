@@ -84,7 +84,7 @@ async def run_sync(
         ]
 
         # Fetch registered DiscordAccount records matching the guild members
-        accounts_stmt = select(DiscordAccount).where(DiscordAccount.discord_id.in_(discord_ids)) if discord_ids else select(DiscordAccount).where(False)
+        accounts_stmt = select(DiscordAccount)
         accounts_res = await db.execute(accounts_stmt)
         accounts = accounts_res.scalars().all()
         accounts_by_discord_id = {acc.discord_id: acc for acc in accounts}
@@ -166,6 +166,15 @@ async def run_sync(
 
             # Update account.last_synced_at
             acc.last_synced_at = now
+
+        # A successful complete guild fetch also revokes sync-owned access for leavers.
+        present_ids = set(discord_ids)
+        for account in accounts:
+            if account.discord_id not in present_ids:
+                for membership in sync_memberships_by_user.get(account.user_id, []):
+                    await db.delete(membership)
+                    members_removed += 1
+                account.last_synced_at = now
 
         # Update run stats
         sync_run.status = "completed"

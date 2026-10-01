@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Literal, Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -118,5 +118,5 @@ class ForkStageActionPayload(BaseModel):
 class ForkMemberCreate(BaseModel):
     user_id: uuid.UUID
     track: str | None = None  # tech | creative | ops | outreach
-    local_role: str = "contributor"  # fork_lead | track_lead | contributor | community
+    local_role: Literal["fork_lead", "track_lead", "contributor", "community"] = "contributor"
 

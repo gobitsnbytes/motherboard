@@ -49,6 +49,7 @@ async def test_upsert_discord_identity_creates_and_updates_user(
 
     user = await db_session.get(User, user_id)
     assert user is not None
+    assert user.is_super_admin is False
     assert user.display_name == "Updated Name"
     assert user.email == "updated@example.com"
     assert (

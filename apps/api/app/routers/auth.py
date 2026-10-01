@@ -6,7 +6,7 @@ import hmac
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.config import get_settings
@@ -58,13 +58,11 @@ async def upsert_discord_identity(
                 detail="Discord account is linked to a missing user",
             )
     else:
-        user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
-        is_first_user = user_count == 0
         user = User(
             display_name=_display_name(payload),
             email=payload.email,
             avatar_url=_avatar_url(payload.discord_id, payload.avatar),
-            is_super_admin=is_first_user,
+            is_super_admin=False,
         )
         db.add(user)
         await db.flush()

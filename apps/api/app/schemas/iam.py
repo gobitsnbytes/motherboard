@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Literal, Optional, List
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 # Principal
 
@@ -44,8 +44,8 @@ class GrantCreate(BaseModel):
     principal_type: Literal["user", "group"]
     principal_id: uuid.UUID
     permission_key: str = Field(min_length=1, max_length=150, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:-]*$")
-    resource_scope: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    resource_scope: Optional[str] = Field(default=None, max_length=255)
+    expires_at: Optional[AwareDatetime] = None
 
 # Groups
 
@@ -80,7 +80,18 @@ class MembershipResponse(BaseModel):
 
 class MembershipCreate(BaseModel):
     user_id: uuid.UUID
-    expires_at: Optional[datetime] = None
+    expires_at: Optional[AwareDatetime] = None
+
+
+class GroupPolicyEntry(BaseModel):
+    permission_key: str = Field(min_length=1, max_length=150)
+    resource_scope: str | None = Field(default=None, max_length=255)
+    expires_at: AwareDatetime | None = None
+
+
+class GroupPolicyUpdate(BaseModel):
+    expected_revision: str
+    grants: list[GroupPolicyEntry] = Field(max_length=200)
 
 # Discord Roles
 

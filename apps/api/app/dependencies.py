@@ -160,17 +160,19 @@ async def get_current_user(
     if x_internal_user_id in ("system", "discord_bot"):
         from sqlalchemy import select
         from app.db.models import User
-        res = await db.execute(select(User).where(User.is_super_admin.is_(True)).limit(1))
-        sys_user = res.scalar_one_or_none()
-        if not sys_user:
-            res = await db.execute(select(User).order_by(User.created_at).limit(1))
-            sys_user = res.scalar_one_or_none()
-        if sys_user:
+        if not settings.api_service_user_id:
+            raise HTTPException(status_code=503, detail="API service identity is not configured")
+        try:
+            service_id = uuid.UUID(settings.api_service_user_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail="API service identity is invalid") from exc
+        sys_user = await db.get(User, service_id)
+        if sys_user and sys_user.is_active and not sys_user.is_super_admin:
             user_uuid = sys_user.id
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No user found to bind system context"
+                detail="An active non-admin API service identity is required"
             )
     else:
         try:

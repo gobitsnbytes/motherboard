@@ -91,8 +91,9 @@ async def batch_can(
         grants_for_key = [grant for grant in matching_grants if grant.permission_key == key]
         if not grants_for_key:
             continue
-        if not resource_scope or any(
-            grant.resource_scope is None or grant.resource_scope == resource_scope
+        if any(
+            grant.resource_scope is None
+            or (resource_scope is not None and grant.resource_scope == resource_scope)
             for grant in grants_for_key
         ):
             result[(key, resource_scope)] = True

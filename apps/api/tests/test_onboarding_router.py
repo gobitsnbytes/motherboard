@@ -60,7 +60,7 @@ async def test_list_cases_serializes_before_commit(monkeypatch):
         events.append("serialize")
         return "response"
 
-    monkeypatch.setattr(onboarding, "require_permission", _allow)
+    monkeypatch.setattr(onboarding, "allowed_fork_ids", _allow)
     monkeypatch.setattr(onboarding, "_load_case", _load)
     monkeypatch.setattr(onboarding, "_sync_signature_states", _sync)
     monkeypatch.setattr(onboarding, "_case_response", _serialize)

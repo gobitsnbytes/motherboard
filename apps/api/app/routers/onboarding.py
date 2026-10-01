@@ -35,6 +35,7 @@ from app.db.models import (
 )
 from app.dependencies import CurrentUserDep, DbSession
 from app.iam.policy import can, require_permission
+from app.iam.fork_access import allowed_fork_ids, require_fork_access, require_case_access
 from app.iam.principal import resolve_principal
 from app.iam.audit import write_audit_entry
 from app.schemas.onboarding import (
@@ -534,7 +535,12 @@ async def create_case(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> OnboardingCaseResponse:
-    await require_permission(db, current_user, "onboarding.write")
+    if await can(db, current_user, "onboarding.write"):
+        pass
+    elif payload.fork_id:
+        await require_fork_access(db, current_user, "onboarding.write", payload.fork_id)
+    else:
+        await require_permission(db, current_user, "onboarding.write")
     try:
         age, is_minor = validate_age(payload.participant.date_of_birth)
     except ValueError as exc:
@@ -725,11 +731,14 @@ async def create_case(
 async def list_cases(
     db: DbSession, current_user: CurrentUserDep
 ) -> list[OnboardingCaseResponse]:
-    await require_permission(db, current_user, "onboarding.read")
+    fork_ids = await allowed_fork_ids(db, current_user, "onboarding.read")
+    statement = select(OnboardingCase).order_by(OnboardingCase.created_at.desc())
+    if fork_ids is not None:
+        statement = statement.where(OnboardingCase.fork_id.in_(fork_ids))
     rows = (
         (
             await db.execute(
-                select(OnboardingCase).order_by(OnboardingCase.created_at.desc())
+                statement
             )
         )
         .scalars()
@@ -751,7 +760,9 @@ async def list_onboarding_reviewers(
     db: DbSession, current_user: CurrentUserDep
 ) -> list[OnboardingReviewerResponse]:
     """Return Discord-linked users whose synced IAM principal can review onboarding."""
-    await require_permission(db, current_user, "onboarding.write")
+    if not await can(db, current_user, "onboarding.write"):
+        if not await allowed_fork_ids(db, current_user, "onboarding.write"):
+            await require_permission(db, current_user, "onboarding.write")
     reviewer_group_ids = set(
         (
             await db.execute(
@@ -803,8 +814,8 @@ async def assign_onboarding_reviewer(
     db: DbSession,
     current_user: CurrentUserDep,
 ) -> OnboardingCaseResponse:
-    await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.write", case)
     reviewer = await _require_reviewer(db, payload.reviewer_id)
     case.reviewer_id = reviewer.id
     await write_audit_entry(
@@ -823,8 +834,8 @@ async def assign_onboarding_reviewer(
 async def get_case(
     case_id: uuid.UUID, db: DbSession, current_user: CurrentUserDep
 ) -> OnboardingCaseResponse:
-    await require_permission(db, current_user, "onboarding.read")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.read", case)
     await _sync_signature_states(db, case)
     await db.commit()
     return _case_response(case)
@@ -840,8 +851,8 @@ async def update_participant_email(
     current_user: CurrentUserDep,
 ) -> dict[str, str]:
     """Correct an untouched primary participant's email and rotate their portal link."""
-    await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.write", case)
     participant = next(
         (item for item in case.participants if item.id == participant_id), None
     )
@@ -909,8 +920,8 @@ async def resend_participant_invite(
     current_user: CurrentUserDep,
 ) -> dict[str, str | bool]:
     """Send a fresh, rotated portal link to an invited onboarding participant."""
-    await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.write", case)
     participant = next(
         (item for item in case.participants if item.id == participant_id), None
     )
@@ -958,8 +969,8 @@ async def cancel_case(
     current_user: CurrentUserDep,
 ) -> OnboardingCaseResponse:
     """Revoke portal access and pending signature envelopes for a withdrawn case."""
-    await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.write", case)
     if case.status in {"approved", "rejected", "revoked", "completed"}:
         raise HTTPException(
             status_code=409, detail="This onboarding case can no longer be cancelled"
@@ -1029,8 +1040,8 @@ async def delete_case(
     current_user: CurrentUserDep,
 ) -> OnboardingDeleteResponse:
     """Permanently delete an onboarding workflow, void pending envelopes, and notify/remind signers."""
-    await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.write", case)
 
     # 1. Void any associated signature requests
     request_ids = [
@@ -1124,8 +1135,8 @@ async def remind_case_signers(
     current_user: CurrentUserDep,
 ) -> OnboardingRemindResponse:
     """Send reminder emails to all pending participants and document signers."""
-    await require_permission(db, current_user, "onboarding.write")
     case = await _load_case(db, case_id)
+    await require_case_access(db, current_user, "onboarding.write", case)
     settings = get_settings()
     now = datetime.now(timezone.utc)
     reminded: list[str] = []
@@ -1225,7 +1236,7 @@ async def remind_document_signers(
     current_user: CurrentUserDep,
 ) -> OnboardingRemindResponse:
     """Send reminder emails to pending signers of a specific onboarding document."""
-    await require_permission(db, current_user, "onboarding.write")
+    await require_case_access(db, current_user, "onboarding.write", await _load_case(db, case_id))
     document = await _load_document_for_editor(db, document_id)
     if document.case_id != case_id:
         raise HTTPException(status_code=404, detail="Onboarding document not found")
