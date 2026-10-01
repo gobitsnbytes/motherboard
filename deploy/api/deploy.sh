@@ -296,6 +296,16 @@ if [ "$PUBLIC_CODE" != "200" ]; then
     rollback
 fi
 
+# Restore SQLite file and journal-directory ownership after deploy chown.
+BOT_USER=$(systemctl show bnb-bot --property=User --value)
+if [ -z "$BOT_USER" ] || ! id "$BOT_USER" >/dev/null 2>&1; then
+    echo "--> Cannot identify the bot runtime user."
+    rollback
+fi
+if [ -d "$APP_DIR/apps/bot/data" ]; then
+    sudo chown -R "$BOT_USER:$(id -gn "$BOT_USER")" "$APP_DIR/apps/bot/data" || rollback
+fi
+
 echo "--> Restarting bnb-bot systemd service..."
 sudo systemctl restart bnb-bot || rollback
 
