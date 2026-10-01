@@ -2,6 +2,7 @@ import React from "react";
 import DashboardShell from "../../components/dashboard/DashboardShell";
 import { auth } from "../../lib/auth";
 import { redirect } from "next/navigation";
+import { AccessProvider } from "../../components/dashboard/AccessProvider";
 
 export default async function DashboardLayout({
   children,
@@ -13,5 +14,5 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return <AccessProvider><DashboardShell>{children}</DashboardShell></AccessProvider>;
 }

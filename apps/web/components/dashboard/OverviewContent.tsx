@@ -19,16 +19,19 @@ import {
   Input,
   Label,
 } from "@bnb/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  getDashboardStats,
-  getRecentActivity,
-  getForks,
   getMyActionItems,
   type MyActionItem,
 } from "lib/dashboard";
 
+import { useAccess } from "./AccessProvider";
+import { hasAccess } from "../../lib/access";
+import { loadOverview, type SectionState } from "../../lib/overview";
+
 export function OverviewContent() {
+  const { access, loading: accessLoading, error: accessError, refresh } = useAccess();
+  const [states, setStates] = useState<Record<string, SectionState>>({});
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [createForkOpen, setCreateForkOpen] = useState(false);
@@ -43,11 +46,11 @@ export function OverviewContent() {
     discord_contributor_role_id: "",
   });
 
-  const [stats, setStats] = useState({
-    members: 0,
-    forks: 0,
-    plugins: 0,
-    dyslexicCompanies: 0,
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof loadOverview>>["stats"]>({
+    members: null,
+    forks: null,
+    plugins: null,
+    dyslexicCompanies: null,
     apiStatus: "loading",
     databaseStatus: "loading",
     discordStatus: "loading",
@@ -57,34 +60,24 @@ export function OverviewContent() {
   const [forks, setForks] = useState<any[]>([]);
   const [actionItems, setActionItems] = useState<MyActionItem[]>([]);
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
+    if (!access) { setLoading(false); return; }
     setLoading(true);
-    try {
-      const [statsData, activityData, forksData, itemsData] = await Promise.all([
-        getDashboardStats(),
-        getRecentActivity(),
-        getForks(),
-        getMyActionItems().catch(() => [] as MyActionItem[]),
-      ]);
+    const result = await loadOverview(access);
+    setStats(result.stats);
+    setActivity(result.activity);
+    setForks(result.forks);
+    setActionItems(result.actionItems);
+    setStates(result.states);
+    setNotice(Object.values(result.states).includes("unavailable")
+      ? { kind: "error", message: "Some sections are unavailable. Your other data is shown below." } : null);
+    setLoading(false);
+  }, [access]);
 
-      setStats(statsData);
-      setActivity(activityData);
-      setForks(forksData);
-      setActionItems(itemsData);
-    } catch (error) {
-      setNotice({ kind: "error", message: "The overview could not load completely. Refresh to retry." });
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => { if (!accessLoading) void loadDashboard(); }, [accessLoading, loadDashboard]);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  if (loading) {
-    return <OverviewSkeleton />;
-  }
+  if (loading || accessLoading) return <OverviewSkeleton />;
+  if (accessError) return <div role="alert">{accessError} <Button onClick={() => void refresh()}>Retry</Button></div>;
 
   const handleRunSync = async () => {
     setSyncing(true);
@@ -141,6 +134,7 @@ export function OverviewContent() {
 
   return (
     <div className="space-y-6">
+      <Button variant="neutral" onClick={() => void loadDashboard()}>Refresh overview</Button>
       {notice ? (
         <div
           role="status"
@@ -154,30 +148,30 @@ export function OverviewContent() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Members"
-          value={loading ? "..." : stats.members}
-          description="Total registered"
+          value={loading ? "..." : stats.members ?? "--"}
+          description={states.members === "restricted" ? "Restricted access" : "Total registered"}
           icon={<Users className="size-5" />}
         />
 
         <StatCard
           title="Forks"
-          value={loading ? "..." : stats.forks}
-          description="Active city chapters"
+          value={loading ? "..." : stats.forks ?? "--"}
+          description={states.forks === "restricted" ? "Restricted access" : "Active city chapters"}
           icon={<GitBranch className="size-5" />}
         />
 
         <StatCard
           title="Plugins"
-          value={loading ? "..." : stats.plugins}
-          description="Loaded extensions"
+          value={loading ? "..." : stats.plugins ?? "--"}
+          description={states.plugins === "restricted" ? "Restricted access" : "Loaded extensions"}
           icon={<Puzzle className="size-5" />}
         />
 
         <Link href="/dashboard/dyslexic" className="block">
           <StatCard
             title="Dyslexic"
-            value={loading ? "..." : stats.dyslexicCompanies}
-            description="Sponsorship pipeline"
+            value={loading ? "..." : stats.dyslexicCompanies ?? "--"}
+            description={states.dyslexic === "restricted" ? "Restricted access" : "Sponsorship pipeline"}
             icon={<Handshake className="size-5" />}
           />
         </Link>
@@ -209,7 +203,7 @@ export function OverviewContent() {
               {loading ? (
                 <div className="text-xs text-muted-foreground font-mono">Loading activity...</div>
               ) : activity.length === 0 ? (
-                <div className="text-xs text-muted-foreground font-mono">No recent activity logged.</div>
+                <div className="text-xs text-muted-foreground font-mono">{states.activity === "restricted" ? "Activity access is restricted." : states.activity === "unavailable" ? "Activity is unavailable." : "No recent activity logged."}</div>
               ) : (
                 activity.map((item, index) => (
                     <div key={index} className="flex items-center justify-between rounded-base border border-border bg-secondary-background p-2.5 text-xs">
@@ -277,7 +271,7 @@ export function OverviewContent() {
           <CardContent className="pt-4">
             <div className="space-y-2">
               {actionItems.length === 0 ? (
-                <div className="text-xs text-muted-foreground font-mono">No pending action items.</div>
+                <div className="text-xs text-muted-foreground font-mono">{states.actionItems === "restricted" ? "Meeting access is restricted." : states.actionItems === "unavailable" ? "Action items are unavailable." : "No pending action items."}</div>
               ) : (
                 actionItems.slice(0, 5).map((item) => (
                   <Link
@@ -386,7 +380,7 @@ export function OverviewContent() {
                     <Label htmlFor="discord_contributor_role_id" className="font-mono text-xs text-muted-foreground">Discord Contributor Role ID (optional)</Label>
                     <Input id="discord_contributor_role_id" value={forkForm.discord_contributor_role_id} onChange={(e) => setForkForm(prev => ({...prev, discord_contributor_role_id: e.target.value}))} placeholder="e.g. 0987654321" className="border-2 border-border bg-secondary-background font-mono text-foreground" />
                   </div>
-                  <button type="submit" className="w-full py-3 bg-orange text-black font-heading font-black text-xs uppercase tracking-wider rounded-base border-2 border-black shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50" disabled={creatingFork}>
+                  <button type="submit" className="w-full py-3 bg-orange text-black font-heading font-black text-xs uppercase tracking-wider rounded-base border-2 border-black shadow-light hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50" disabled={creatingFork || !hasAccess(access, "forks.write")}>
                     {creatingFork ? <Loader2 className="mx-auto size-4 animate-spin" /> : "Create Chapter"}
                   </button>
                 </form>
@@ -396,7 +390,7 @@ export function OverviewContent() {
             <button
               type="button"
               onClick={handleRunSync}
-              disabled={syncing}
+              disabled={syncing || !hasAccess(access, "provisioning.sync.trigger")}
               className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-secondary-background px-4 py-2.5 font-heading text-xs font-black uppercase tracking-wider text-foreground shadow-light transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
             >
               {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4 text-orange" />}

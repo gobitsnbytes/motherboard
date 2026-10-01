@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import * as Lucide from "lucide-react";
 import { APP_VERSION_LABEL } from "../../lib/version";
+import { type EffectiveAccess, hasAccess, hasAnyAccess } from "../../lib/access";
+import { useAccess } from "./AccessProvider";
 
 interface UiPanel {
   id: string;
@@ -85,9 +87,11 @@ function DynamicIcon({ name, className }: { name: string; className?: string }) 
 
 function NavList({
   plugins,
+  access,
   onNavigate,
 }: {
   plugins: ActivePlugin[];
+  access: EffectiveAccess | null;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -95,7 +99,7 @@ function NavList({
   // Extract all sidebar panels from active plugins
   const sidebarPanels = plugins.flatMap((plugin) =>
     plugin.ui_panels
-      .filter((panel) => panel.placement === "sidebar")
+      .filter((panel) => panel.placement === "sidebar" && (!panel.required_permission || hasAccess(access, panel.required_permission)))
       .map((panel) => ({
         ...panel,
         pluginId: plugin.id,
@@ -105,7 +109,18 @@ function NavList({
 
   return (
     <nav className="flex flex-col gap-1">
-      {navItems.map((item) => {
+      {navItems.filter((item) => {
+        const permissions: Record<string, string> = {
+          "/dashboard/meetings": "meetings.read",
+           "/dashboard/onboarding": "onboarding.read",
+
+          "/dashboard/members": "iam.users.read", "/dashboard/audit": "audit.read",
+          "/dashboard/forks": "forks.read", "/dashboard/finance": "finance.ledger.read",
+          "/dashboard/settings": "admin.settings.read",
+        };
+        const permission = permissions[item.href];
+        return !permission || hasAnyAccess(access, permission);
+      }).map((item) => {
         const isActive =
           pathname === item.href || pathname.startsWith(item.href + "/");
         return (
@@ -156,6 +171,7 @@ function NavList({
 }
 
 export default function Sidebar() {
+  const { access } = useAccess();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [plugins, setPlugins] = useState<ActivePlugin[]>([]);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
@@ -172,8 +188,9 @@ export default function Sidebar() {
         console.error("Failed to fetch active plugins in sidebar:", err);
       }
     }
-    fetchPlugins();
-  }, []);
+    if (hasAccess(access, "plugins.read")) void fetchPlugins();
+    else setPlugins([]);
+  }, [access]);
 
   return (
     <>
@@ -193,7 +210,7 @@ export default function Sidebar() {
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#fc920d] font-heading">
             Control room
           </p>
-          <NavList plugins={plugins} />
+          <NavList plugins={plugins} access={access} />
         </div>
         <div className="border-t-2 border-border p-3">
           <p className="text-[10px] text-white/45 font-heading uppercase tracking-[0.18em] text-center">
@@ -245,7 +262,7 @@ export default function Sidebar() {
               <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#fc920d] font-heading">
                 Control room
               </p>
-              <NavList plugins={plugins} onNavigate={closeMobile} />
+              <NavList plugins={plugins} access={access} onNavigate={closeMobile} />
             </div>
           </aside>
         </div>

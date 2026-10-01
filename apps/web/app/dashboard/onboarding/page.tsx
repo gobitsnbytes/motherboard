@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAccess } from "../../../components/dashboard/AccessProvider";
+import { hasAccess, hasAnyAccess } from "../../../lib/access";
 
 import { ageOnDate } from "../../../lib/onboarding-age";
 
@@ -57,6 +59,17 @@ function apiErrorMessage(detail: unknown, fallback: string): string {
 }
 
 export default function OnboardingDashboardPage() {
+  const { access } = useAccess();
+  const globalWrite = hasAccess(access, "onboarding.write");
+  const canWrite = hasAnyAccess(access, "onboarding.write");
+  const assignedForks = access?.fork_assignments.filter((f) => f.local_role === "fork_lead" && hasAccess(access, "onboarding.write", `fork:${f.slug}`)) ?? [];
+  const [forkId, setForkId] = useState("");
+  useEffect(() => {
+    if (access && !globalWrite) {
+      setKind("volunteer");
+      setForkId(assignedForks[0]?.fork_id ?? "");
+    }
+  }, [access, globalWrite]);
   const [cases, setCases] = useState<CaseRow[]>([]);
   const [kind, setKind] = useState("volunteer");
   const [title, setTitle] = useState("");
@@ -109,7 +122,8 @@ export default function OnboardingDashboardPage() {
       body: JSON.stringify({
         kind,
         title,
-        fork_name: kind === "fork" ? forkName : undefined,
+        fork_name: kind === "fork" ? (globalWrite ? forkName : assignedForks.find((f) => f.fork_id === forkId)?.city_name) : undefined,
+        fork_id: forkId || undefined,
         reviewer_id: reviewerId || undefined,
         participant: {
           name,
@@ -328,7 +342,12 @@ export default function OnboardingDashboardPage() {
         </div>
       )}
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-        <form
+        {!globalWrite && assignedForks.length > 0 && <label className="block text-sm font-semibold">Assigned fork
+          <select className="mt-2 min-h-11 w-full border-2 border-border bg-background px-3" value={forkId} onChange={(event) => setForkId(event.target.value)}>
+            {assignedForks.map((fork) => <option key={fork.fork_id} value={fork.fork_id}>{fork.city_name}</option>)}
+          </select>
+        </label>}
+        {canWrite ? <form
           onSubmit={create}
           className="space-y-4 border-2 border-black bg-white p-5 shadow-[4px_4px_0_#120f0a]"
         >
@@ -417,7 +436,8 @@ export default function OnboardingDashboardPage() {
             <input
               required
               placeholder="Fork name"
-              value={forkName}
+              value={globalWrite ? forkName : assignedForks.find((f) => f.fork_id === forkId)?.city_name ?? ""}
+              readOnly={!globalWrite}
               onChange={(e) => setForkName(e.target.value)}
               className="w-full border-2 border-black px-3 py-2 font-mono text-sm"
             />
@@ -451,7 +471,7 @@ export default function OnboardingDashboardPage() {
           >
             Create and send portal link
           </button>
-        </form>
+        </form> : <p className="border-2 border-border p-4 text-sm">Creating onboarding cases requires an explicit policy and an active fork lead assignment. Ask an IAM administrator to review your access.</p>}
         <section className="space-y-3">
           <h2 className="text-lg font-black uppercase">Cases</h2>
           {cases.length === 0 ? (

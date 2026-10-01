@@ -1,6 +1,8 @@
 
 import IAMRoleMappings from "../../../components/dashboard/IAMRoleMappings";
 import { IAMContent } from "../../../components/dashboard/IAMContent";
+import IAMAdministration from "../../../components/dashboard/IAMAdministration";
+import AccessGate from "../../../components/dashboard/AccessGate";
 
 export const metadata = {
   title: "IAM & Hierarchy — bits&bytes Motherboard",
@@ -21,10 +23,11 @@ export default function IAMPage() {
        </div> 
       
       <IAMContent />
+      <IAMAdministration />
 
-      <div className="border-t-2 border-border pt-8">
+      <AccessGate permission="iam.role_mappings.read"><div className="border-t-2 border-border pt-8">
         <IAMRoleMappings />
-      </div>
+      </div></AccessGate>
     </div>
   );
 }

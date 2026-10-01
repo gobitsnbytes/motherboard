@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useAccess } from "./AccessProvider";
+import { hasAccess } from "../../lib/access";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@bnb/ui";
 
 interface DiscordRole {
@@ -40,6 +42,7 @@ function getHeaders() {
 }
 
 export default function IAMRoleMappings() {
+  const { access } = useAccess();
   const [roles, setRoles] = useState<DiscordRole[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [mappings, setMappings] = useState<Record<string, DiscordRoleMapping>>({});
@@ -301,7 +304,7 @@ export default function IAMRoleMappings() {
                         <Button
                           type="button"
                           size="sm"
-                          disabled={!selectedGroupId || isUnchanged || savingRoleId === role.id}
+                          disabled={!hasAccess(access, "iam.role_mappings.write") || !selectedGroupId || isUnchanged || savingRoleId === role.id}
                           onClick={() => handleSave(role)}
                         >
                           {savingRoleId === role.id ? "Saving…" : isUnchanged ? "Saved" : "Save"}

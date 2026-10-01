@@ -4,6 +4,8 @@ import { Badge, Button, Skeleton } from "@bnb/ui";
 import { Search, ShieldCheck, Users, Waypoints } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getDiscordMappings, getGroups, getIamMe, getPermissions } from "lib/iam";
+import { useAccess } from "./AccessProvider";
+import { hasAccess } from "../../lib/access";
 
 interface IamGroup {
   id: string;
@@ -44,6 +46,7 @@ function formatExpiry(value: string | null) {
 }
 
 export function IAMContent() {
+  const { access, loading: accessLoading } = useAccess();
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +60,9 @@ export function IAMContent() {
     setError(null);
     try {
       const [groupsData, permissionsData, mappingsData, meData] = await Promise.all([
-        getGroups(),
-        getPermissions(),
-        getDiscordMappings(),
+        hasAccess(access, "iam.groups.read") ? getGroups() : Promise.resolve([]),
+        hasAccess(access, "iam.permissions.read") ? getPermissions() : Promise.resolve([]),
+        hasAccess(access, "iam.role_mappings.read") ? getDiscordMappings() : Promise.resolve([]),
         getIamMe(),
       ]);
       setGroups(groupsData ?? []);
@@ -74,8 +77,8 @@ export function IAMContent() {
   };
 
   useEffect(() => {
-    void loadIam();
-  }, []);
+    if (!accessLoading) void loadIam();
+  }, [access, accessLoading]);
 
   const filteredGroups = useMemo(() => {
     const query = search.trim().toLowerCase();
