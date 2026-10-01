@@ -1,4 +1,4 @@
-from app.db import seed as seed_module
+import seed_fixtures as seed_module
 
 
 def test_seed_okf_rules_preserves_existing_files_and_creates_missing(

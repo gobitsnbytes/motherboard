@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Group, User
-from app.db.seeder import run_seeds
+from seed_fixtures import run_seeds
 from conftest import request_as
 
 

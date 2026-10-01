@@ -1,4 +1,4 @@
-"""app/db — SQLAlchemy ORM models, seeder, and seed data."""
+"""app/db — SQLAlchemy ORM explicit database models."""
 
 from app.db.models import (
     AuditLog,

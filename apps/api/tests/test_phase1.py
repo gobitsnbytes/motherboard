@@ -66,7 +66,7 @@ async def seed_once(engine):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
-    from app.db.seeder import run_seeds
+    from seed_fixtures import run_seeds
 
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
@@ -450,7 +450,7 @@ class TestSeeder:
     async def test_city_forks_not_seeded(self, db: AsyncSession) -> None:
         """Operational data is never seeded — forks arrive via live Notion sync."""
         from app.db.models import Fork
-        from app.db.seeder import run_seeds
+        from seed_fixtures import run_seeds
 
         await run_seeds(db)
         result = await db.execute(select(Fork))
@@ -459,7 +459,7 @@ class TestSeeder:
     async def test_seeder_idempotent(self, db: AsyncSession) -> None:
         """Running seeder again should not create duplicate permissions."""
         from app.db.models import Permission
-        from app.db.seeder import run_seeds
+        from seed_fixtures import run_seeds
 
         # Run again in this test's transaction (rolled back after)
         await run_seeds(db)

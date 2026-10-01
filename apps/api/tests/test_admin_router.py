@@ -83,10 +83,8 @@ async def test_admin_rebuild_permissions(db_session: AsyncSession, client):
     db_session.add(user)
     await db_session.commit()
 
-    with patch("app.routers.admin.run_seeds", AsyncMock()) as mock_run_seeds:
-        response = await request_as(
-            client, user.id, "POST", "/api/admin/rebuild-permissions"
-        )
-        assert response.status_code == 200
-        assert response.json()["status"] == "ok"
-        mock_run_seeds.assert_called_once()
+    response = await request_as(
+        client, user.id, "POST", "/api/admin/rebuild-permissions"
+    )
+    assert response.status_code == 410
+    assert "Seeding is disabled" in response.json()["detail"]

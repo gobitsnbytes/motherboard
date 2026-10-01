@@ -230,7 +230,7 @@ export default function DashboardFinancePage() {
               <EmptyState
                 icon={<CreditCard className="size-8 text-zinc-600" />}
                 title="No virtual accounts initialized"
-                description="Connect RazorpayX credentials or seed virtual ledger accounts via backend CLI."
+                description="Configure the banking connection and ledger accounts through authorized finance administration."
               />
             ) : (
               <div className="space-y-3">

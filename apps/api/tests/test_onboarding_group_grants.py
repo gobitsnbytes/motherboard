@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Grant, Group
-from app.db.seed import (
+from seed_fixtures import (
     DEFAULT_GROUP_GRANTS,
     seed_core_permissions,
     seed_default_group_grants,

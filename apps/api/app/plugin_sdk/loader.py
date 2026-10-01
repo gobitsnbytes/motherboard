@@ -1,13 +1,12 @@
 import importlib.util
 import logging
 import sys
-import uuid
 from pathlib import Path
 from typing import Dict, Any
 from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-from app.db.models import PluginRegistry, Permission
+from app.db.models import PluginRegistry
 from app.plugin_sdk.types import PluginManifest, PluginContext
 
 logger = logging.getLogger("plugin_loader")
@@ -63,7 +62,7 @@ class PluginLoader:
                 logger.exception(f"Failed to dynamically load plugin {p_dir.name}: {e}")
 
     async def load_plugin(self, manifest: PluginManifest):
-        """Idempotently register a plugin in the database and mount its router/lifespan hooks if enabled."""
+        """Mount an explicitly installed plugin without changing persisted policy."""
         logger.info(f"Registering plugin: {manifest.id} (v{manifest.version})")
         
         async with self.session_factory() as session:
@@ -72,38 +71,8 @@ class PluginLoader:
             db_plugin = result.scalar_one_or_none()
 
             if not db_plugin:
-                db_plugin = PluginRegistry(
-                    id=manifest.id,
-                    name=manifest.name,
-                    version=manifest.version,
-                    description=manifest.description,
-                    is_enabled=True,
-                    config={}
-                )
-                session.add(db_plugin)
-            else:
-                db_plugin.name = manifest.name
-                db_plugin.version = manifest.version
-                db_plugin.description = manifest.description
-
-            # 2. Seed/upsert permissions declared by this plugin
-            for perm in manifest.permissions:
-                perm_result = await session.execute(select(Permission).where(Permission.key == perm.key))
-                db_perm = perm_result.scalar_one_or_none()
-
-                if not db_perm:
-                    db_perm = Permission(
-                        id=uuid.uuid4(),
-                        key=perm.key,
-                        description=perm.description,
-                        plugin_id=manifest.id
-                    )
-                    session.add(db_perm)
-                else:
-                    db_perm.description = perm.description
-                    db_perm.plugin_id = manifest.id
-
-            await session.commit()
+                logger.warning("Plugin %s is not installed; skipping", manifest.id)
+                return
             is_enabled = db_plugin.is_enabled
 
         # 3. Mount routes and call startup hooks if enabled

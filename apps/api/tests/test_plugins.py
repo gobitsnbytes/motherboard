@@ -76,7 +76,7 @@ def make_test_manifest(
     )
 
 
-async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
+async def test_plugin_loader_preserves_explicit_configuration(db_session: AsyncSession):
     global on_load_called, on_unload_called
     on_load_called = False
     on_unload_called = False
@@ -87,7 +87,17 @@ async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
 
     manifest = make_test_manifest("unit_test_plugin")
 
-    # 1. Load the plugin
+    db_session.add(
+        PluginRegistry(
+            id="unit_test_plugin",
+            name="Configured name",
+            version="1.0.0",
+            is_enabled=True,
+            config={},
+        )
+    )
+    await db_session.commit()
+    # Load without recreating missing permissions or rewriting the registry.
     await loader.load_plugin(manifest)
 
     # Assert database records
@@ -96,15 +106,14 @@ async def test_plugin_loader_registers_and_seeds(db_session: AsyncSession):
     )
     db_plugin = result.scalar_one_or_none()
     assert db_plugin is not None
-    assert db_plugin.name == "Test Dynamic Plugin"
+    assert db_plugin.name == "Configured name"
     assert db_plugin.is_enabled is True
 
     perm_result = await db_session.execute(
         select(Permission).where(Permission.key == "unit_test_plugin.read")
     )
     db_perm = perm_result.scalar_one_or_none()
-    assert db_perm is not None
-    assert db_perm.plugin_id == "unit_test_plugin"
+    assert db_perm is None
 
     # Assert lifecycle hooks were executed and stored
     assert on_load_called is True
@@ -148,7 +157,7 @@ async def test_plugin_loader_disabled_skip(db_session: AsyncSession):
         select(PluginRegistry).where(PluginRegistry.id == "disabled_test_plugin")
     )
     db_plugin = result.scalar_one()
-    assert db_plugin.name == "Test Dynamic Plugin"
+    assert db_plugin.name == "Disabled Plugin"
     assert db_plugin.is_enabled is False
 
     # Check hooks were not executed
@@ -172,6 +181,16 @@ async def test_active_plugins_and_sample_router_endpoints(
     # Run the real app's loader manually to mount routes on the test app instance.
     loader = PluginLoader(app, session_factory)
     manifest = make_test_manifest("endpoint_test_plugin")
+    db_session.add(
+        PluginRegistry(
+            id=manifest.id,
+            name=manifest.name,
+            version=manifest.version,
+            is_enabled=True,
+            config={},
+        )
+    )
+    await db_session.commit()
 
     try:
         await loader.load_plugin(manifest)

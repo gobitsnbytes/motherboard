@@ -117,26 +117,6 @@ export function SettingsContent() {
     }
   };
 
-  const handleRebuildPermissions = async () => {
-    if (!window.confirm("Are you sure you want to rebuild system permissions and role mappings?")) return;
-    setActionLoading("permissions");
-    setNotice(null);
-    try {
-      const response = await fetch("/api/admin/rebuild-permissions", { method: "POST" });
-      if (response.ok) {
-        setNotice({ kind: "success", message: "System permissions and role mappings rebuilt successfully." });
-        await fetchStatus();
-      } else {
-        const err = await response.json();
-        setNotice({ kind: "error", message: `Permission rebuild failed: ${err.detail || response.statusText}` });
-      }
-    } catch (e) {
-      setNotice({ kind: "error", message: "Permission rebuild failed because the server could not be reached." });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   const handleClearSyncState = async () => {
     if (!window.confirm("Are you sure you want to clear the entire sync run history? This action is irreversible.")) return;
     setActionLoading("sync-state");
@@ -231,10 +211,10 @@ export function SettingsContent() {
               <span className="text-foreground">{loading ? "..." : formatRelativeTime(statusData.last_sync_at)}</span>
             </div>
 
-            <button 
+            <button
               type="button"
-              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2 font-heading font-black text-xs uppercase tracking-wider bg-orange text-black border-2 border-black rounded-base shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50" 
-              onClick={handleManualSync} 
+              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2 font-heading font-black text-xs uppercase tracking-wider bg-orange text-black border-2 border-black rounded-base shadow-light hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50"
+              onClick={handleManualSync}
               disabled={syncing || statusData.discord !== "connected"}
             >
               {syncing ? (
@@ -277,14 +257,14 @@ export function SettingsContent() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <a 
+              <a
                 href="/dashboard/iam"
                 className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-muted text-foreground border-2 border-border rounded-base shadow-light hover:bg-secondary-background"
               >
                 Open IAM
               </a>
 
-              <a 
+              <a
                 href="/dashboard/audit"
                 className="flex-1 text-center px-4 py-2 font-mono font-bold text-xs uppercase bg-muted text-foreground border-2 border-border rounded-base shadow-light hover:bg-secondary-background"
               >
@@ -346,9 +326,9 @@ export function SettingsContent() {
           </p>
 
           <div className="flex flex-wrap gap-3">
-            <button 
+            <button
               type="button"
-              onClick={handleResetCache} 
+              onClick={handleResetCache}
               disabled={actionLoading !== null || statusData.redis === "unconfigured"}
               className="px-4 py-2 font-mono font-bold text-xs uppercase bg-red-950 text-red-200 border-2 border-red-600 rounded-base shadow-light hover:bg-red-900 disabled:opacity-50"
             >
@@ -362,25 +342,9 @@ export function SettingsContent() {
               )}
             </button>
 
-            <button 
+<button
               type="button"
-              onClick={handleRebuildPermissions} 
-              disabled={actionLoading !== null}
-              className="px-4 py-2 font-mono font-bold text-xs uppercase bg-red-950 text-red-200 border-2 border-red-600 rounded-base shadow-light hover:bg-red-900 disabled:opacity-50"
-            >
-              {actionLoading === "permissions" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
-                  Rebuilding...
-                </>
-              ) : (
-                "Rebuild Permissions"
-              )}
-            </button>
-
-            <button 
-              type="button"
-              onClick={handleClearSyncState} 
+              onClick={handleClearSyncState}
               disabled={actionLoading !== null}
               className="px-4 py-2 font-mono font-bold text-xs uppercase bg-red-950 text-red-200 border-2 border-red-600 rounded-base shadow-light hover:bg-red-900 disabled:opacity-50"
             >

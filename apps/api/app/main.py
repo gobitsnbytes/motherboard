@@ -3,7 +3,6 @@ FastAPI application entry point.
 
 Lifespan:
   - Runs Alembic migrations on startup (upgrade to head).
-  - Seeds system groups, permissions, role mappings, and forks.
   - Starts the EventBus (connects to Redis if configured).
 """
 
@@ -22,7 +21,6 @@ import sentry_sdk
 
 from app.config import get_settings
 from app.database import get_engine, get_sessionmaker
-from app.db.seeder import run_seeds
 from app.events import event_bus
 from app.observability import (
     REQUEST_LOGGER,
@@ -55,16 +53,6 @@ async def _initialize_application_services(
 ) -> None:
     """Initialize remote-backed services without blocking process liveness."""
     failures: list[str] = []
-
-    try:
-        async with session_factory() as session:
-            await asyncio.wait_for(run_seeds(session), timeout=10)
-    except Exception as exc:
-        failures.append("database_seed")
-        logger.warning("Database seed startup skipped: %s", exc)
-        capture_background_exception(
-            exc, subsystem="startup", operation="database_seed"
-        )
 
     try:
         await asyncio.wait_for(event_bus.start(settings.redis_url), timeout=2)

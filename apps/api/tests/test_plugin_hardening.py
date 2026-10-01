@@ -377,6 +377,18 @@ async def test_loader_enforces_manifest_permission(
     test_app.dependency_overrides[get_session] = _override_session
 
     loader = PluginLoader(test_app, _session_factory(db_session))
+    from app.db.models import PluginRegistry
+
+    db_session.add(
+        PluginRegistry(
+            id=manifest.id,
+            name=manifest.name,
+            version=manifest.version,
+            is_enabled=True,
+            config={},
+        )
+    )
+    await db_session.commit()
     await loader.load_plugin(manifest)
 
     route_path = "/api/plugins/hardening_gate_plugin/gated"
@@ -424,6 +436,18 @@ async def test_loader_without_panel_permission_keeps_auth_only(
     test_app.dependency_overrides[get_session] = _override_session
 
     loader = PluginLoader(test_app, _session_factory(db_session))
+    from app.db.models import PluginRegistry
+
+    db_session.add(
+        PluginRegistry(
+            id=manifest.id,
+            name=manifest.name,
+            version=manifest.version,
+            is_enabled=True,
+            config={},
+        )
+    )
+    await db_session.commit()
     await loader.load_plugin(manifest)
 
     route_path = "/api/plugins/hardening_gate_plugin/gated"

@@ -8,7 +8,6 @@ from app.db.models import SyncRun
 from app.dependencies import DbDep, CurrentUserDep
 from app.iam.policy import require_permission
 from app.events import event_bus
-from app.db.seeder import run_seeds
 
 logger = logging.getLogger(__name__)
 
@@ -47,25 +46,13 @@ async def rebuild_permissions(
     db: DbDep,
     current_user: CurrentUserDep,
 ) -> dict[str, str]:
-    """Rebuild all system permissions and group mappings from seed data."""
+    """Retired: policy must be edited explicitly through IAM."""
     await require_permission(db, current_user, "admin.settings.write")
     
-    try:
-        logger.info("Rebuilding permissions and seed data by admin user %s", current_user.user_id)
-        await run_seeds(db)
-        
-        # Trigger plugin loader to discover/reload if present
-        loader = getattr(request.app.state, "plugin_loader", None)
-        if loader:
-            await loader.discover_and_load()
-            
-        return {"status": "ok", "message": "Core and plugin permissions and role mappings rebuilt."}
-    except Exception as e:
-        logger.error("Failed to rebuild permissions: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to rebuild permissions: {e}",
-        )
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Seeding is disabled. Edit policies explicitly through IAM.",
+    )
 
 
 @router.post("/clear-sync-state", status_code=status.HTTP_200_OK)
