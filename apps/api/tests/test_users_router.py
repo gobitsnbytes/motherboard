@@ -194,3 +194,20 @@ async def test_deactivate_user(db_session: AsyncSession, super_admin: User, clie
         client, super_admin.id, "DELETE", f"/api/users/{nonexistent}"
     )
     assert response.status_code == 404
+
+
+async def test_odd_stored_email_does_not_break_the_user_lists(
+    db_session: AsyncSession, super_admin: User, client
+):
+    # Sign-in stores the Discord email verbatim, so reads must not re-validate it.
+    odd = User(display_name="Odd Email", email="someone@mail.test")
+    db_session.add(odd)
+    await db_session.flush()
+    db_session.add(DiscordAccount(user_id=odd.id, discord_id="odd-1", username="odd"))
+    await db_session.commit()
+
+    listing = await request_as(client, super_admin.id, "GET", "/api/users/")
+    members = await request_as(client, super_admin.id, "GET", "/api/users/members")
+    assert listing.status_code == 200
+    assert members.status_code == 200
+    assert any(row["email"] == "someone@mail.test" for row in listing.json())

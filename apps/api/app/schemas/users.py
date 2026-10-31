@@ -37,6 +37,9 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
+    # Output only: Discord hands us whatever email the member typed. Re-validating it on every read
+    # would turn one odd address into a 500 for the whole user list.
+    email: str | None = None
     id: uuid.UUID
     is_active: bool
     is_super_admin: bool
@@ -54,7 +57,7 @@ class MemberRoleOut(BaseModel):
 class MemberDirectoryOut(BaseModel):
     id: uuid.UUID
     display_name: str
-    email: EmailStr | None
+    email: str | None
     title: str | None
     avatar_url: str | None
     discord_id: str
