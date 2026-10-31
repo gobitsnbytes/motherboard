@@ -126,7 +126,9 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        # The tests never load voice. Skipping install scripts avoids compiling @discordjs/opus,
+        # which has no prebuilt binary for the current runner image and fails the build.
+        run: bun install --frozen-lockfile --ignore-scripts
       - name: Run bot tests
         run: bun test --cwd apps/bot
 

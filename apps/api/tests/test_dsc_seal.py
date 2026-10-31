@@ -7,6 +7,7 @@ import fitz
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
@@ -32,7 +33,7 @@ def configured_seal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     pfx = tmp_path / "seal.p12"
     pfx.write_bytes(
-        serialization.pkcs12.serialize_key_and_certificates(
+        pkcs12.serialize_key_and_certificates(
             b"seal", key, cert, None, serialization.BestAvailableEncryption(b"secret")
         )
     )
