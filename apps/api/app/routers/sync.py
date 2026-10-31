@@ -4,7 +4,11 @@ import uuid
 from datetime import datetime, timezone
 import logging
 
-from fastapi import APIRouter, HTTPException, status, BackgroundTasks
+import hmac
+from typing import Annotated
+
+from fastapi import APIRouter, Header, HTTPException, status, BackgroundTasks
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.config import get_settings
@@ -16,6 +20,27 @@ from app.schemas.sync import SyncRunOut
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
+
+
+class MemberRolesIn(BaseModel):
+    discord_id: str = Field(min_length=1, max_length=25)
+    # None = the member left the guild; a list is their complete current role set.
+    roles: list[str] | None = None
+
+
+@router.post("/member")
+async def sync_one_member(
+    payload: MemberRolesIn,
+    db: DbDep,
+    x_internal_secret: Annotated[str | None, Header(alias="X-Internal-Secret")] = None,
+) -> dict:
+    """Live role change pushed by the Discord bot. Discord is the source; this only applies it."""
+    from app.provisioning.sync import sync_member_roles
+
+    secret = get_settings().api_internal_secret
+    if not x_internal_secret or not hmac.compare_digest(x_internal_secret, secret):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal secret")
+    return await sync_member_roles(db, payload.discord_id, payload.roles)
 
 
 async def background_sync_task(run_id: uuid.UUID, bot_token: str, guild_id: str):

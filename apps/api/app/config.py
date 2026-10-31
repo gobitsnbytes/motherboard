@@ -51,11 +51,13 @@ class Settings(BaseSettings):
 
     # Comma-separated list of allowed CORS origins (overrides nextauth_url for multi-origin setups)
     cors_origins: str = Field(default="", validation_alias="CORS_ORIGINS")
+    # Safety-net full sweep. Live role changes reach the API from the bot and from sign-in;
+    # the sweep repairs anything those missed (bot offline, event dropped).
     sync_interval_minutes: int = Field(
-        default=15, validation_alias="SYNC_INTERVAL_MINUTES"
+        default=60, validation_alias="SYNC_INTERVAL_MINUTES"
     )
     enable_sync_scheduler: bool = Field(
-        default=False, validation_alias="ENABLE_SYNC_SCHEDULER"
+        default=True, validation_alias="ENABLE_SYNC_SCHEDULER"
     )
     # RazorpayX API key — optional until real banking integration is wired
     razorpayx_api_key: str | None = Field(

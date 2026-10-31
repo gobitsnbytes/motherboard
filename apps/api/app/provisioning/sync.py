@@ -13,6 +13,56 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
+def diff_groups(target: set, existing_all: set, existing_sync: set) -> tuple[set, set]:
+    """The one rule for what a member's Discord roles change.
+
+    Add a group only if they are not already in it by any source (a manual membership is never
+    duplicated or taken over). Remove only memberships this sync created, so manual ones survive.
+    """
+    return target - existing_all, existing_sync - target
+
+
+async def load_role_mapping(db: AsyncSession) -> dict[str, uuid.UUID]:
+    """{discord_role_id: group_id} for every enabled mapping."""
+    rows = await db.execute(
+        select(DiscordRoleMapping.discord_role_id, DiscordRoleMapping.group_id).where(
+            DiscordRoleMapping.sync_enabled.is_(True)
+        )
+    )
+    return {role_id: group_id for role_id, group_id in rows.all()}
+
+
+async def sync_member_roles(
+    db: AsyncSession, discord_id: str, role_ids: list[str] | None
+) -> dict[str, int | bool]:
+    """Apply ONE member's current Discord roles. `role_ids=None` means they left the guild.
+
+    Used by the sign-in bridge and by the bot's live role-change events, so a role change reaches
+    Motherboard in seconds instead of waiting for the next full sweep. The full sweep in `run_sync`
+    applies the same `diff_groups` rule and stays only as a safety net.
+    A person who has never signed in has no account yet: nothing to do, their first sign-in resolves it.
+    """
+    account = await db.scalar(select(DiscordAccount).where(DiscordAccount.discord_id == discord_id))
+    if account is None:
+        return {"known": False, "added": 0, "removed": 0}
+
+    mapping = await load_role_mapping(db)
+    target = {mapping[r] for r in (role_ids or []) if r in mapping}
+    memberships = (await db.scalars(select(Membership).where(Membership.user_id == account.user_id))).all()
+    existing_all = {m.group_id for m in memberships}
+    existing_sync = {m.group_id for m in memberships if m.source == "discord_sync"}
+    to_add, to_remove = diff_groups(target, existing_all, existing_sync)
+
+    for group_id in to_add:
+        db.add(Membership(user_id=account.user_id, group_id=group_id, source="discord_sync"))
+    for m in memberships:
+        if m.source == "discord_sync" and m.group_id in to_remove:
+            await db.delete(m)
+    account.last_synced_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"known": True, "added": len(to_add), "removed": len(to_remove)}
+
+
 async def run_sync(
     db: AsyncSession,
     discord_client: DiscordClient,
@@ -68,12 +118,7 @@ async def run_sync(
         sync_run.discord_member_count = len(discord_members)
 
         # 3. Fetch active role mappings
-        mappings_stmt = select(DiscordRoleMapping).where(DiscordRoleMapping.sync_enabled.is_(True))
-        mappings_res = await db.execute(mappings_stmt)
-        role_mappings = mappings_res.scalars().all()
-
-        # Build mapping_dict: {discord_role_id: group_id}
-        mapping_dict = {m.discord_role_id: m.group_id for m in role_mappings}
+        mapping_dict = await load_role_mapping(db)
         logger.debug("Loaded %d active Discord role mappings", len(mapping_dict))
 
         # 4. Process Discord members
@@ -143,10 +188,9 @@ async def run_sync(
             all_existing_group_ids = {m.group_id for m in user_all_memberships}
             current_sync_group_ids = {m.group_id for m in user_sync_memberships}
 
-            # Identify groups to add (only if user doesn't already belong to group via ANY source)
-            groups_to_add = target_group_ids - all_existing_group_ids
-            # Identify groups to remove (only among discord_sync managed memberships)
-            groups_to_remove = current_sync_group_ids - target_group_ids
+            groups_to_add, groups_to_remove = diff_groups(
+                target_group_ids, all_existing_group_ids, current_sync_group_ids
+            )
 
             # ADD missing memberships
             for g_id in groups_to_add:

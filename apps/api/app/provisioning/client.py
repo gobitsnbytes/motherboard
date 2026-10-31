@@ -78,3 +78,19 @@ class DiscordClient:
                     
         logger.debug("Fetched %d total Discord members from guild %s", len(members), guild_id)
         return members
+
+
+async def fetch_own_guild_roles(user_access_token: str, guild_id: str, *, timeout: float = 4.0) -> list[str] | None:
+    """Role ids of the signed-in user in the guild, read with THEIR OAuth token (scope guilds.members.read).
+
+    Returns None when they are not in the guild. Raises on any other failure so the caller can keep
+    their current access rather than treat an outage as "they lost every role".
+    """
+    url = f"https://discord.com/api/v10/users/@me/guilds/{guild_id}/member"
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get(url, headers={"Authorization": f"Bearer {user_access_token}"})
+    if response.status_code in (403, 404):
+        return None
+    if response.status_code != 200:
+        raise DiscordAPIError(response.status_code, f"Failed to read guild member: {response.text[:200]}")
+    return list(response.json().get("roles", []))

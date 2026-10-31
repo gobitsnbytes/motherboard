@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -12,8 +13,11 @@ from sqlalchemy.exc import IntegrityError
 from app.config import get_settings
 from app.db.models import DiscordAccount, User
 from app.dependencies import DbSession
+from app.provisioning.client import fetch_own_guild_roles
+from app.provisioning.sync import sync_member_roles
 from app.schemas.auth import DiscordUpsertRequest, DiscordUpsertResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -90,5 +94,14 @@ async def upsert_discord_identity(
             status_code=status.HTTP_409_CONFLICT,
             detail="Discord identity conflicts with an existing user",
         ) from exc
+
+    # Resolve Discord roles now. Without this a new member signs in with no access until the next
+    # sweep. A Discord outage must never block sign-in, so failure keeps whatever access they have.
+    if payload.access_token and settings.discord_guild_id:
+        try:
+            roles = await fetch_own_guild_roles(payload.access_token, settings.discord_guild_id)
+            await sync_member_roles(db, payload.discord_id, roles)
+        except Exception:
+            logger.warning("Sign-in role sync skipped for discord_id=%s", payload.discord_id, exc_info=True)
 
     return DiscordUpsertResponse(user_id=user.id)
