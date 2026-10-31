@@ -1,3 +1,5 @@
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,7 +80,7 @@ async def test_a_revoked_grant_stays_revoked_until_apply_is_run_again(
     await db_session.commit()
     # Merely building the plan (what a deploy or startup could do) changes nothing.
     plan = await build_plan(db_session)
-    assert [(m.group_slug, m.permission_key) for m in plan.missing] == [
+    assert [(m.label, m.permission_key) for m in plan.missing] == [
         ("sg_hq", "audit.read")
     ]
     assert (
@@ -89,3 +91,37 @@ async def test_a_revoked_grant_stays_revoked_until_apply_is_run_again(
         )
         == 0
     )
+
+
+async def test_fork_lead_gets_scoped_access_to_only_their_own_fork(
+    db_session: AsyncSession,
+):
+    from app.db.models import Fork, ForkMember, User
+    from app.iam.fork_access import require_fork_access
+
+    await _setup(db_session)
+    lead = User(display_name="Bhubaneswar Lead")
+    a = Fork(slug="bhubaneswar", city_name="Bhubaneswar", is_active=True)
+    b = Fork(slug="nagpur", city_name="Nagpur", is_active=True)
+    db_session.add_all([lead, a, b])
+    await db_session.flush()
+    db_session.add(
+        ForkMember(
+            user_id=lead.id, fork_id=a.id, local_role="fork_lead", is_active=True
+        )
+    )
+    await db_session.commit()
+    principal = ResolvedPrincipal(user_id=lead.id, group_ids=[], is_super_admin=False)
+
+    # Before: exactly the "Missing permission or active assignment" screen.
+    with pytest.raises(HTTPException) as denied:
+        await require_fork_access(db_session, principal, "forks.read", a.id)
+    assert denied.value.status_code == 403
+
+    await apply_plan(db_session, await build_plan(db_session))
+
+    await require_fork_access(db_session, principal, "forks.read", a.id)
+    await require_fork_access(db_session, principal, "forks.write", a.id)
+    with pytest.raises(HTTPException):
+        await require_fork_access(db_session, principal, "forks.read", b.id)
+    assert not await can(db_session, principal, "forks.read")  # never global

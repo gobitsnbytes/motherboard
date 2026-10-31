@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime, timedelta, timezone
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.database import get_sessionmaker
@@ -49,6 +51,8 @@ async def start_scheduler(interval_minutes: int, guild_id: str, bot_token: str) 
         ),
         "interval",
         minutes=interval_minutes,
+        # First sweep shortly after boot; otherwise a deploy leaves access stale for a full interval.
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=90),
         args=[guild_id, bot_token],
         id="discord_sync_job",
         replace_existing=True,
