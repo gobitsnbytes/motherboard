@@ -4,6 +4,8 @@ import { createInternalAuthHeaders } from "../../../lib/internal-auth";
 import { isPublicApiRoute } from "../../../lib/public-api";
 
 export const runtime = "nodejs";
+// Writes such as document compile or AI review can legitimately take longer than a page load.
+export const maxDuration = 60;
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -22,7 +24,8 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ]);
 
-const UPSTREAM_TIMEOUT_MS = 8_000;
+const READ_TIMEOUT_MS = 20_000;
+const WRITE_TIMEOUT_MS = 55_000;
 
 function getApiBase() {
   return process.env.API_URL ?? "http://localhost:8000";
@@ -65,16 +68,25 @@ async function proxy(request: Request, context: RouteContext) {
   }
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
-  let upstreamResponse: Response;
-  try {
-    upstreamResponse = await fetch(upstreamUrl, {
+  const body = hasBody ? await request.arrayBuffer() : undefined;
+  const send = () =>
+    fetch(upstreamUrl, {
       method: request.method,
       headers,
-      body: hasBody ? await request.arrayBuffer() : undefined,
+      body,
       redirect: "follow",
       cache: "no-store",
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      signal: AbortSignal.timeout(hasBody ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS),
     });
+  let upstreamResponse: Response;
+  try {
+    try {
+      upstreamResponse = await send();
+    } catch (error) {
+      // Reads are safe to repeat; a worker swap during a deploy drops one connection, not the page.
+      if (hasBody || (error instanceof Error && error.name === "TimeoutError")) throw error;
+      upstreamResponse = await send();
+    }
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     console.error("[api-proxy] upstream request failed", {
@@ -117,9 +129,9 @@ async function proxy(request: Request, context: RouteContext) {
     });
   }
 
-  let body: ArrayBuffer;
+  let responseBody: ArrayBuffer;
   try {
-    body = await upstreamResponse.arrayBuffer();
+    responseBody = await upstreamResponse.arrayBuffer();
   } catch (error) {
     // The upstream closed or corrupted the response after sending headers.
     reportProxyFailure("body_read", { ...failureContext, status: upstreamResponse.status }, error);
@@ -129,7 +141,7 @@ async function proxy(request: Request, context: RouteContext) {
     );
   }
 
-  return new Response(body, {
+  return new Response(responseBody, {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
     headers: responseHeaders,

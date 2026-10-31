@@ -17,6 +17,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import sentry_sdk
 
 from app.config import get_settings
@@ -219,6 +220,10 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
         redoc_url="/api/redoc",
     )
+
+    # Lists and reports are repetitive JSON; compressing them cuts the VPS-to-Vercel transfer.
+    # Starlette already skips text/event-stream, so live feeds are untouched.
+    application.add_middleware(GZipMiddleware, minimum_size=1024)
 
     # CORS — tighten in production via settings
     application.add_middleware(
