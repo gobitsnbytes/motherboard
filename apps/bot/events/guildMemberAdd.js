@@ -1,8 +1,11 @@
 const { Events } = require('discord.js');
+const { pushMemberRoles, roleIds } = require('../lib/memberSync');
 
 module.exports = {
 	name: Events.GuildMemberAdd,
 	async execute(member) {
+		await pushMemberRoles(member.id, roleIds(member));
+
 		const welcomeMsg = `hey, welcome to bits&bytes 👋
 
 we're india's teen-led builder community.

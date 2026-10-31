@@ -2,6 +2,7 @@ const { Events } = require('discord.js');
 const notion = require('../lib/notion');
 const { syncForkPermissions } = require('../lib/channelSync');
 const logger = require('../lib/logger');
+const { pushMemberRoles, roleIds } = require('../lib/memberSync');
 
 module.exports = {
 	name: Events.GuildMemberUpdate,
@@ -15,6 +16,9 @@ module.exports = {
 		const removedRoles = oldRoles.filter(r => !newRoles.has(r.id));
 
 		if (addedRoles.size === 0 && removedRoles.size === 0) return;
+
+		// Access comes from Discord roles, so tell Motherboard first and independently of the Notion work below.
+		await pushMemberRoles(newMember.id, roleIds(newMember));
 
 		try {
 			// Fetch active forks to see if any role name matches a city name
