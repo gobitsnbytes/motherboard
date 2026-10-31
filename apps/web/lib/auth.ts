@@ -10,6 +10,8 @@ type DiscordProfile = {
   avatar?: string | null;
 };
 
+const UPSERT_TIMEOUT_MS = 10_000;
+
 async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) {
   const apiUrl = process.env.API_URL;
   const internalSecret = process.env.API_INTERNAL_SECRET;
@@ -19,9 +21,8 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
   }
 
   const reportTags = { operation: "auth_upsert_user", upstream: "bnb-api" };
-  let response: Response;
-  try {
-    response = await fetch(`${apiUrl}/api/auth/upsert`, {
+  const send = () =>
+    fetch(`${apiUrl}/api/auth/upsert`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -36,7 +37,17 @@ async function upsertBackendUser(profile: DiscordProfile, accessToken?: string) 
         access_token: accessToken,
       }),
       cache: "no-store",
+      // A hung API would otherwise hold the sign-in until the platform kills the function.
+      signal: AbortSignal.timeout(UPSERT_TIMEOUT_MS),
     });
+  let response: Response;
+  try {
+    try {
+      response = await send();
+    } catch {
+      // The upsert is idempotent, so one retry covers a cold or restarting API worker.
+      response = await send();
+    }
   } catch (error) {
     // NextAuth swallows callback errors, so sign-in outages would otherwise be invisible.
     Sentry.logger.warn("web.auth_bridge.failed", { failure: "connection" });
@@ -82,6 +93,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
   pages: {
     signIn: "/login",
+    // Without this, a failed sign-in ends on Auth.js's bare "Server error" page.
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, account, profile }) {

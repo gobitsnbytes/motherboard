@@ -1,6 +1,6 @@
 {
   "name": "bnb-motherboard",
-  "version": "0.86.0-beta.1",
+  "version": "1.0.0",
   "private": true,
   "packageManager": "bun@1.3.11",
   "workspaces": [

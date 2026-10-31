@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     calendar_webhook_base_url: str | None = Field(
         default=None, validation_alias="CALENDAR_WEBHOOK_BASE_URL"
     )
-    app_version: str = Field(default="0.86.0-beta.1", validation_alias="APP_VERSION")
+    app_version: str = Field(default="1.0.0", validation_alias="APP_VERSION")
     sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
     sentry_environment: str = Field(
         default="production", validation_alias="SENTRY_ENVIRONMENT"

@@ -285,7 +285,7 @@ wheels = [
 
 [[package]]
 name = "bnb-api"
-version = "0.86.0b1"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0 — 2026-10-31
+
+First stable release. No beta or alpha labels remain.
+
+- Web: every page now reports a failed request as an error with a reason (no access, server slow, server unreachable) instead of an empty list. One shared client handles retries on reads, a 30 second timeout and FastAPI validation errors.
+- Web: sign-in failures land on the login page with a specific message instead of a dead-end error screen.
+- API: database connections are capped and time-boxed for the 1 GB host, and large JSON responses are compressed.
+- Tests: a contract test fails the build when the web app calls an API route that does not exist.
+
 ## 0.86.0 beta 1 — 2026-09-12
 
 - Added the public form builder and public response intake workflow.

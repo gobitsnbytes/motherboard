@@ -33,7 +33,7 @@ describe("detailText", () => {
 describe("api", () => {
   test("a 403 throws instead of returning an empty list", async () => {
     stub(json({ detail: "Missing permission: finance.ledger.read" }, 403));
-    const error = await api("/api/finance/vouchers").catch((e) => e);
+    const error = (await api("/api/finance/vouchers").catch((e) => e)) as ApiError;
     expect(error).toBeInstanceOf(ApiError);
     expect(error.status).toBe(403);
     expect(describeError(error, "vouchers")).toContain("don't have access");
@@ -41,7 +41,7 @@ describe("api", () => {
 
   test("a GET retries once on 503 and succeeds", async () => {
     const calls = stub(json({ detail: "busy" }, 503), json([1, 2]));
-    expect(await api("/api/x")).toEqual([1, 2]);
+    expect(await api<number[]>("/api/x")).toEqual([1, 2]);
     expect(calls.length).toBe(2);
   });
 
@@ -53,7 +53,7 @@ describe("api", () => {
 
   test("a dead connection becomes a readable 503", async () => {
     stub(new TypeError("fetch failed"), new TypeError("fetch failed"));
-    const error = await api("/api/x").catch((e) => e);
+    const error = (await api("/api/x").catch((e) => e)) as ApiError;
     expect(error.status).toBe(503);
     expect(describeError(error)).toContain("Could not reach the server");
   });

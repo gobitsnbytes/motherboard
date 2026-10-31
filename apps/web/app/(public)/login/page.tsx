@@ -5,6 +5,14 @@ import { signIn, useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { APP_VERSION_LABEL } from "../../../lib/version";
 
+const LOGIN_ERRORS: Record<string, string> = {
+  AccessDenied: "Discord did not approve this sign-in. Check that you accepted the permissions.",
+  // Auth.js reports a failed callback (including the API being unreachable) as "Configuration".
+  Configuration: "Sign-in could not finish. The server may be restarting, so try again in a minute. If cookies are blocked in this browser, allow them for this site.",
+  Verification: "That sign-in link has expired. Start again.",
+  default: "Sign-in failed. Try again, and tell an admin if it keeps happening.",
+};
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -71,7 +79,7 @@ function LoginForm() {
         {/* Error state */}
         {error && (
           <div className="w-full border-2 border-red-800 bg-red-50 px-3.5 py-2.5 text-center text-xs font-bold text-red-900">
-            Authentication failed. Please verify your Discord credentials.
+            {LOGIN_ERRORS[error] ?? LOGIN_ERRORS.default}
           </div>
         )}
 
