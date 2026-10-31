@@ -129,7 +129,8 @@ jobs:
         # @discordjs/opus has no prebuilt binary for the current runner image and its source build
         # fails. Bot tests never load voice, so tolerate that one install script; sqlite3 still builds
         # and the tests fail loudly if any native module they need is missing.
-        run: bun install --frozen-lockfile || echo "::warning::a native install script failed (expected: @discordjs/opus)"
+        run: |
+          bun install --frozen-lockfile || echo "::warning::a native install script failed (expected for @discordjs/opus)"
       - name: Run bot tests
         run: bun test --cwd apps/bot
 
