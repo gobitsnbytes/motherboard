@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { formatINR, currentFyLabel } from "../../../lib/finance-format";
 
@@ -31,9 +33,9 @@ export default function ReportsPage() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch(`/api/finance/reports/trial-balance?fy=${fy}`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`/api/finance/reports/income-expenditure?fy=${fy}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/finance/reports/balance-sheet?as_of_fy=${fy}`).then((r) => (r.ok ? r.json() : null)),
+      api<any>(`/api/finance/reports/trial-balance?fy=${fy}`),
+      api<any>(`/api/finance/reports/income-expenditure?fy=${fy}`),
+      api<any>(`/api/finance/reports/balance-sheet?as_of_fy=${fy}`),
     ])
       .then(([tb, ie, bs]) => {
         setTrialBalance(Array.isArray(tb) ? tb : []);

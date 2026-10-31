@@ -28,6 +28,7 @@ import {
 import { useAccess } from "./AccessProvider";
 import { hasAccess } from "../../lib/access";
 import { loadOverview, type SectionState } from "../../lib/overview";
+import { detailText } from "../../lib/api-client";
 
 export function OverviewContent() {
   const { access, loading: accessLoading, error: accessError, refresh } = useAccess();
@@ -89,7 +90,7 @@ export function OverviewContent() {
         loadDashboard();
       } else {
         const err = await response.json();
-        setNotice({ kind: "error", message: `Discord sync failed: ${err.detail || response.statusText}` });
+        setNotice({ kind: "error", message: `Discord sync failed: ${detailText(err, response.statusText)}` });
       }
     } catch (e) {
       setNotice({ kind: "error", message: "Discord sync failed because the server could not be reached." });
@@ -123,7 +124,7 @@ export function OverviewContent() {
         loadDashboard();
       } else {
         const err = await response.json();
-        setNotice({ kind: "error", message: `City chapter could not be created: ${err.detail || response.statusText}` });
+        setNotice({ kind: "error", message: `City chapter could not be created: ${detailText(err, response.statusText)}` });
       }
     } catch (e) {
       setNotice({ kind: "error", message: "City chapter could not be created because the server could not be reached." });

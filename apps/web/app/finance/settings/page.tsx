@@ -1,5 +1,7 @@
 "use client";
 
+import { api, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 
 interface OrgSettings {
@@ -42,7 +44,7 @@ export default function FinanceSettingsPage() {
 
   const load = () => {
     Promise.all([
-      fetch("/api/finance/settings/org").then((r) => (r.ok ? r.json() : null)),
+      api<any>("/api/finance/settings/org"),
       fetch("/api/finance/razorpayx/status").then((r) => (r.ok ? r.json() : null)),
     ]).then(([s, rx]) => {
       setSettings(s);
@@ -66,7 +68,7 @@ export default function FinanceSettingsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not save settings.");
+      setError(detailText(body, "Could not save settings."));
     } else {
       setSaved(true);
       load();

@@ -1,5 +1,7 @@
 "use client";
 
+import { api, describeError, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { formatINR, currentFyLabel } from "../../../lib/finance-format";
 
@@ -52,14 +54,14 @@ export default function VendorsPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch("/api/finance/vendors").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/finance/bills").then((r) => (r.ok ? r.json() : [])),
+      api<any>("/api/finance/vendors"),
+      api<any>("/api/finance/bills"),
     ])
       .then(([v, b]) => {
         setVendors(Array.isArray(v) ? v : []);
         setBills(Array.isArray(b) ? b : []);
       })
-      .catch(() => setError("Unable to load vendors."))
+      .catch((e) => setError(describeError(e, "vendors")))
       .finally(() => setLoading(false));
   };
 
@@ -75,7 +77,7 @@ export default function VendorsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not create vendor.");
+      setError(detailText(body, "Could not create vendor."));
     } else {
       setShowVendorForm(false);
       setVendorForm({ name: "", pan: "", gstin: "", category: "" });
@@ -98,7 +100,7 @@ export default function VendorsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not create bill.");
+      setError(detailText(body, "Could not create bill."));
     } else {
       setShowBillForm(false);
       setBillForm({ ...billForm, bill_number: "", amount: "" });
@@ -114,7 +116,7 @@ export default function VendorsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not initiate payment.");
+      setError(detailText(body, "Could not initiate payment."));
     } else {
       alert("Draft payment voucher created — submit and get a different user to approve it under Vouchers.");
     }

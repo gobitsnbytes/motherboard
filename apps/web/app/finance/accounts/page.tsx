@@ -1,5 +1,7 @@
 "use client";
 
+import { describeError } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -36,7 +38,7 @@ export default function AccountsPage() {
     fetch(`${API}/api/finance/accounts?active_only=false`, { headers: getHeaders() })
       .then((r) => r.json())
       .then((d) => setAccounts(Array.isArray(d) ? d : []))
-      .catch(() => setError("Failed to load accounts."))
+      .catch((e) => setError(describeError(e, "accounts")))
       .finally(() => setLoading(false));
 
     fetch(`${API}/api/users`, { headers: getHeaders() })

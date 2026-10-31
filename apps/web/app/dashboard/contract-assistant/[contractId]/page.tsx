@@ -24,6 +24,7 @@ import {
   Trash2,
   AlertCircle,
 } from "lucide-react";
+import { detailText } from "../../../../lib/api-client";
 
 interface ReviewPageProps {
   params: Promise<{ contractId: string }>;
@@ -308,7 +309,7 @@ export default function ContractReviewPage({ params }: ReviewPageProps) {
         window.location.href = "/dashboard/contract-assistant";
       } else {
         const errData = await res.json().catch(() => ({}));
-        setDispatchError(errData.detail || `Dispatch failed (HTTP ${res.status})`);
+        setDispatchError(detailText(errData, `Dispatch failed (HTTP ${res.status})`));
       }
     } catch (e) {
       setDispatchError("Dispatch error: could not reach the signatures service.");

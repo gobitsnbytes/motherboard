@@ -1,5 +1,7 @@
 "use client";
 
+import { api, describeError, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { formatINR, currentFyLabel } from "../../../lib/finance-format";
 
@@ -49,14 +51,14 @@ export default function DonationsPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch("/api/finance/donors").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/finance/donations").then((r) => (r.ok ? r.json() : [])),
+      api<any>("/api/finance/donors"),
+      api<any>("/api/finance/donations"),
     ])
       .then(([d, don]) => {
         setDonors(Array.isArray(d) ? d : []);
         setDonations(Array.isArray(don) ? don : []);
       })
-      .catch(() => setError("Unable to load donations."))
+      .catch((e) => setError(describeError(e, "donations")))
       .finally(() => setLoading(false));
   };
 
@@ -72,7 +74,7 @@ export default function DonationsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not create donor.");
+      setError(detailText(body, "Could not create donor."));
     } else {
       setShowDonorForm(false);
       setDonorForm({ name: "", donor_type: "individual", pan: "", is_foreign_source: false });
@@ -96,7 +98,7 @@ export default function DonationsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not record donation.");
+      setError(detailText(body, "Could not record donation."));
     } else {
       setShowDonationForm(false);
       setDonationForm({ ...donationForm, amount: "", purpose: "" });
@@ -108,7 +110,7 @@ export default function DonationsPage() {
     const res = await fetch(`/api/finance/donations/${id}/confirm`, { method: "POST" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not confirm donation (maker-checker: a different user must confirm).");
+      setError(detailText(body, "Could not confirm donation (maker-checker: a different user must confirm)."));
     }
     load();
   };

@@ -11,6 +11,7 @@ import {
   Button,
   Badge,
 } from "@bnb/ui";
+import { detailText } from "../../lib/api-client";
 
 function formatRelativeTime(isoString: string | null): string {
   if (!isoString) return "Never";
@@ -88,7 +89,7 @@ export function SettingsContent() {
         await fetchStatus();
       } else {
         const err = await response.json();
-        setNotice({ kind: "error", message: `Sync could not start: ${err.detail || response.statusText}` });
+        setNotice({ kind: "error", message: `Sync could not start: ${detailText(err, response.statusText)}` });
       }
     } catch (e) {
       setNotice({ kind: "error", message: "Sync could not start because the server could not be reached." });
@@ -108,7 +109,7 @@ export function SettingsContent() {
         await fetchStatus();
       } else {
         const err = await response.json();
-        setNotice({ kind: "error", message: `Cache reset failed: ${err.detail || response.statusText}` });
+        setNotice({ kind: "error", message: `Cache reset failed: ${detailText(err, response.statusText)}` });
       }
     } catch (e) {
       setNotice({ kind: "error", message: "Cache reset failed because the server could not be reached." });
@@ -128,7 +129,7 @@ export function SettingsContent() {
         await fetchStatus();
       } else {
         const err = await response.json();
-        setNotice({ kind: "error", message: `Sync history could not be cleared: ${err.detail || response.statusText}` });
+        setNotice({ kind: "error", message: `Sync history could not be cleared: ${detailText(err, response.statusText)}` });
       }
     } catch (e) {
       setNotice({ kind: "error", message: "Sync history could not be cleared because the server could not be reached." });

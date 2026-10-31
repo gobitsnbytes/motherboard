@@ -1,5 +1,7 @@
 "use client";
 
+import { describeError, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useRef, useState } from "react";
 import { formatINR } from "../../../lib/finance-format";
 
@@ -33,7 +35,7 @@ export default function BankReconciliationPage() {
     fetch(`/api/finance/bank-rec/lines?status=${statusFilter}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setLines(Array.isArray(d) ? d : []))
-      .catch(() => setError("Unable to load bank statement lines."))
+      .catch((e) => setError(describeError(e, "bank")))
       .finally(() => setLoading(false));
   };
 
@@ -48,7 +50,7 @@ export default function BankReconciliationPage() {
     const res = await fetch("/api/finance/bank-rec/import", { method: "POST", body: formData });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not import bank statement.");
+      setError(detailText(body, "Could not import bank statement."));
     } else {
       const body = await res.json();
       alert(`Imported ${body.imported} lines (batch ${body.batch_label}).`);

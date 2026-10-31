@@ -1,5 +1,7 @@
 "use client";
 
+import { api, describeError, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { formatINR, currentFyLabel } from "../../../lib/finance-format";
 
@@ -44,16 +46,16 @@ export default function BudgetsPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch("/api/finance/ledger/accounts").then((r) => (r.ok ? r.json() : [])),
-      fetch(`/api/finance/budgets?fy=${fy}`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`/api/finance/budgets/vs-actuals?fy=${fy}`).then((r) => (r.ok ? r.json() : [])),
+      api<any>("/api/finance/ledger/accounts"),
+      api<any>(`/api/finance/budgets?fy=${fy}`),
+      api<any>(`/api/finance/budgets/vs-actuals?fy=${fy}`),
     ])
       .then(([a, b, v]) => {
         setAccounts(Array.isArray(a) ? a : []);
         setBudgets(Array.isArray(b) ? b : []);
         setActuals(Array.isArray(v) ? v : []);
       })
-      .catch(() => setError("Unable to load budgets."))
+      .catch((e) => setError(describeError(e, "budgets")))
       .finally(() => setLoading(false));
   };
 
@@ -76,7 +78,7 @@ export default function BudgetsPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not save budget.");
+      setError(detailText(body, "Could not save budget."));
     } else {
       setShowForm(false);
       setForm({ account_id: "", project_tag: "", amount: "", notes: "" });

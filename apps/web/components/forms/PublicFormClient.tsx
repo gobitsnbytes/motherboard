@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { detailText } from "../../lib/api-client";
 
 type BlockType =
   | "heading"
@@ -158,7 +159,7 @@ export function PublicFormClient({ slug }: { slug: string }) {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.id) {
-        setStatus(payload?.detail || "Could not submit your response.");
+        setStatus(detailText(payload, "Could not submit your response."));
         return;
       }
       for (const [fieldId, selectedFiles] of Object.entries(files))
@@ -191,8 +192,7 @@ export function PublicFormClient({ slug }: { slug: string }) {
       if (!completion.ok) {
         const completionError = await completion.json().catch(() => null);
         setStatus(
-          completionError?.detail ||
-            "Your response is saved, but it is not complete yet.",
+          detailText(completionError, "Your response is saved, but it is not complete yet."),
         );
         return;
       }

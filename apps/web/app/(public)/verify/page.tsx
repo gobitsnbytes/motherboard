@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Search, Upload, FileText, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Lock, Scale, Clock, ScrollText, Lightbulb } from "lucide-react";
 import Link from "next/link";
+import { detailText } from "../../../lib/api-client";
 
 export default function PublicVerificationPortal() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function PublicVerificationPortal() {
         setFileResult(json);
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setFileError(errJson.detail || "Failed to verify document authenticity.");
+        setFileError(detailText(errJson, "Failed to verify document authenticity."));
       }
     } catch (err) {
       setFileError("Network error attempting to verify file against the registry.");

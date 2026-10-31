@@ -1,5 +1,7 @@
 "use client";
 
+import { api, describeError, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { formatINR, currentFyLabel } from "../../../lib/finance-format";
 
@@ -70,16 +72,16 @@ export default function LedgerPage() {
     setLoading(true);
     setError(null);
     Promise.all([
-      fetch("/api/finance/ledger/accounts").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/finance/ledger/entries?limit=50").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/finance/periods").then((r) => (r.ok ? r.json() : [])),
+      api<any>("/api/finance/ledger/accounts"),
+      api<any>("/api/finance/ledger/entries?limit=50"),
+      api<any>("/api/finance/periods"),
     ])
       .then(([a, e, p]) => {
         setAccounts(Array.isArray(a) ? a : []);
         setEntries(Array.isArray(e) ? e : []);
         setPeriods(Array.isArray(p) ? p : []);
       })
-      .catch(() => setError("Unable to load the ledger."))
+      .catch((e) => setError(describeError(e, "the")))
       .finally(() => setLoading(false));
   };
 
@@ -110,7 +112,7 @@ export default function LedgerPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not post journal entry.");
+      setError(detailText(body, "Could not post journal entry."));
     } else {
       setMemo("");
       setLines([
@@ -132,7 +134,7 @@ export default function LedgerPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not reverse entry.");
+      setError(detailText(body, "Could not reverse entry."));
     }
     load();
   };
@@ -141,7 +143,7 @@ export default function LedgerPage() {
     const res = await fetch(`/api/finance/periods/${fy}/${close ? "close" : "reopen"}`, { method: "POST" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not update period.");
+      setError(detailText(body, "Could not update period."));
     }
     load();
   };

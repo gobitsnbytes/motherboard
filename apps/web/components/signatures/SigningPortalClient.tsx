@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { PenTool, CheckCircle2, ShieldCheck, Lock, AlertCircle, FileText, Mail, Scale, BookOpen, X, Info, ScrollText } from "lucide-react";
 import { SignatureCanvas } from "./SignatureCanvas";
+import { detailText } from "../../lib/api-client";
 
 interface SigningPortalClientProps {
   token: string;
@@ -77,7 +78,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
       const res = await fetch(`/api/signatures/sign/${token}`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        setError(errData.detail || "Failed to load contract");
+        setError(detailText(errData, "Failed to load contract"));
         return;
       }
       const portalData = await res.json();
@@ -124,7 +125,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
         setTimeLeft(120);
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setOtpError(errJson.detail || "Failed to send OTP email");
+        setOtpError(detailText(errJson, "Failed to send OTP email"));
       }
     } catch (e) {
       setOtpError("Network error requesting OTP");
@@ -155,7 +156,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
         }
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setOtpError(errJson.detail || "Invalid verification code");
+        setOtpError(detailText(errJson, "Invalid verification code"));
       }
     } catch (e) {
       setOtpError("Network error verifying OTP");
@@ -204,7 +205,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
         setCompleted(true);
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setSubmitError(errJson.detail || "Signature submission failed. Please ensure all required fields are filled.");
+        setSubmitError(detailText(errJson, "Signature submission failed. Please ensure all required fields are filled."));
       }
     } catch (e) {
       setSubmitError("Network error submitting signature. Please try again.");
@@ -218,7 +219,7 @@ export function SigningPortalClient({ token }: SigningPortalClientProps) {
     if (!reason) return;
     const res = await fetch(`/api/signatures/sign/${token}/void-requests`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) });
     const payload = await res.json().catch(() => ({}));
-    setVoidRequestStatus(res.ok ? payload.message : payload.detail || "Could not send your void request.");
+    setVoidRequestStatus(res.ok ? payload.message : detailText(payload, "Could not send your void request."));
   };
 
   if (loading) {

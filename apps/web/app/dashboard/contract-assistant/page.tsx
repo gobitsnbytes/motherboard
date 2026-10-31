@@ -20,6 +20,7 @@ import {
   Inbox,
   AlertCircle,
 } from "lucide-react";
+import { detailText } from "../../../lib/api-client";
 
 interface PipelineContract {
   id: string;
@@ -104,7 +105,7 @@ export default function ContractAssistantPage() {
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        setUploadError(errData.detail || `Upload failed (HTTP ${res.status}).`);
+        setUploadError(detailText(errData, `Upload failed (HTTP ${res.status}).`));
       }
     } catch (err) {
       console.error("Analysis error", err);

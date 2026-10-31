@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, Users, Layers, Send, ArrowRight, ArrowLeft, Plus, Trash2, CheckCircle2, FileText, UserCheck, Mail } from "lucide-react";
 import { DocumentEditor, RecipientConfig, PlacedField } from "../../../../components/signatures/DocumentEditor";
+import { detailText } from "../../../../lib/api-client";
 
 const PRESET_COLORS = ["#97192C", "#FC920D", "#2563EB", "#059669", "#7C3AED"] as const;
 
@@ -137,7 +138,7 @@ export default function SignatureBuilderPage() {
       } else {
         const errData = await res.json().catch(() => null);
         console.error("Failed to send signature request:", res.status, errData);
-        alert(`Failed to send request (${res.status}): ${errData?.detail || "Server error"}`);
+        alert(`Failed to send request (${res.status}): ${detailText(errData, "Server error")}`);
       }
     } catch (e) {
       console.error("Failed to send signature request", e);

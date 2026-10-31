@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, FileText, CheckCircle2, Clock, ShieldCheck, Download, ExternalLink, Search, Copy, Check, XCircle, Trash2, Mail, ScrollText, Stamp, Inbox, LayoutList } from "lucide-react";
 import SignatureAuditModal from "components/signatures/SignatureAuditModal";
 import LegalAgentPanel from "components/signatures/LegalAgentPanel";
+import { detailText } from "../../../lib/api-client";
 
 interface SignatureRequestItem {
   id: string;
@@ -138,7 +139,7 @@ export default function SignaturesDashboardPage() {
         fetchRequests();
       } else {
         const data = await res.json().catch(() => ({}));
-        setActionError(data.detail || "Failed to void agreement. Please verify request status.");
+        setActionError(detailText(data, "Failed to void agreement. Please verify request status."));
       }
     } catch (e) {
       setActionError("Network error attempting to void agreement.");
@@ -175,7 +176,7 @@ export default function SignaturesDashboardPage() {
         fetchRequests();
       } else {
         const data = await deleteRes.json().catch(() => ({}));
-        setActionError(data.detail || "Failed to purge agreement from database.");
+        setActionError(detailText(data, "Failed to purge agreement from database."));
       }
     } catch (e) {
       setActionError("Network error attempting to purge agreement.");

@@ -1,5 +1,7 @@
 "use client";
 
+import { api, describeError } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -69,9 +71,9 @@ export default function FinanceDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/finance/accounts`).then((r) => r.json()),
-      fetch(`${API}/api/finance/requests?limit=10`).then((r) => r.json()),
-      fetch(`${API}/api/finance/transactions?limit=6`).then((r) => r.json()),
+      api<any>(`${API}/api/finance/accounts`),
+      api<any>(`${API}/api/finance/requests?limit=10`),
+      api<any>(`${API}/api/finance/transactions?limit=6`),
       fetch(`${API}/api/finance/compliance`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
       .then(([accs, reqs, txs, comp]) => {
@@ -80,7 +82,7 @@ export default function FinanceDashboard() {
         setTransactions(Array.isArray(txs) ? txs : []);
         setCompliance(comp);
       })
-      .catch(() => setError("Could not load finance data. Check API connection."))
+      .catch((e) => setError(describeError(e, "finance")))
       .finally(() => setLoading(false));
   }, []);
 

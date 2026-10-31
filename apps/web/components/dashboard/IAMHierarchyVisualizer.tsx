@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Shield, ShieldAlert, Users, GitBranch, ArrowRight, RefreshCw, Lock, Sparkles, Layers } from "lucide-react";
 import { Badge, Button } from "@bnb/ui";
+import { detailText } from "../../lib/api-client";
 
 interface IAMHierarchyGroup {
   id: string;
@@ -67,7 +68,7 @@ export default function IAMHierarchyVisualizer() {
         await fetchHierarchy();
       } else {
         const err = await res.json();
-        setError(`Discord sync failed: ${err.detail || res.statusText}`);
+        setError(`Discord sync failed: ${detailText(err, res.statusText)}`);
       }
     } catch (e) {
       setError("Discord sync failed because the server could not be reached.");

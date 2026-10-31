@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { User, CheckCircle2, CalendarCheck2, MapPin, Loader2, Save, ShieldCheck } from "lucide-react";
 import { Input, Card, CardContent, CardHeader, CardTitle, Label } from "@bnb/ui";
 import { ProfileSkeleton } from "./Skeletons";
+import { detailText } from "../../lib/api-client";
 
 export function ProfileContent() {
   const { data: session, update: updateSession } = useSession();
@@ -83,7 +84,7 @@ export function ProfileContent() {
         if (updateSession) updateSession();
       } else {
         const err = await res.json();
-        setErrorMsg(err.detail || "Failed to update profile.");
+        setErrorMsg(detailText(err, "Failed to update profile."));
       }
     } catch (e) {
       console.error(e);

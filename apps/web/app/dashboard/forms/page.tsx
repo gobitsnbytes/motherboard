@@ -16,6 +16,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { detailText } from "../../../lib/api-client";
 
 type BlockType =
   | "heading"
@@ -280,7 +281,7 @@ export default function FormsPage() {
     setSaving(false);
     if (!response.ok) {
       setState("error");
-      return setError(payload.detail || "Your changes could not be saved.");
+      return setError(detailText(payload, "Your changes could not be saved."));
     }
     setActive(payload);
     setState("saved");

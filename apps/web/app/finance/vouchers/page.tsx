@@ -1,5 +1,7 @@
 "use client";
 
+import { api, describeError, detailText } from "../../../lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import { formatINR } from "../../../lib/finance-format";
 
@@ -59,14 +61,14 @@ export default function VouchersPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch("/api/finance/ledger/accounts").then((r) => (r.ok ? r.json() : [])),
-      fetch(`/api/finance/vouchers${tab === "all" ? "" : `?status=${tab}`}`).then((r) => (r.ok ? r.json() : [])),
+      api<any>("/api/finance/ledger/accounts"),
+      api<any>(`/api/finance/vouchers${tab === "all" ? "" : `?status=${tab}`}`),
     ])
       .then(([a, v]) => {
         setAccounts(Array.isArray(a) ? a : []);
         setVouchers(Array.isArray(v) ? v : []);
       })
-      .catch(() => setError("Unable to load vouchers."))
+      .catch((e) => setError(describeError(e, "vouchers")))
       .finally(() => setLoading(false));
   };
 
@@ -93,7 +95,7 @@ export default function VouchersPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || "Could not create voucher.");
+      setError(detailText(body, "Could not create voucher."));
     } else {
       setShowForm(false);
       setForm({ ...form, narration: "", amount: "", debit_account_id: "", credit_account_id: "" });
@@ -110,7 +112,7 @@ export default function VouchersPage() {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.detail || `Could not ${action} voucher.`);
+      setError(detailText(body, `Could not ${action} voucher.`));
     }
     load();
   };
