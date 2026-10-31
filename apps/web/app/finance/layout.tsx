@@ -11,7 +11,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
     <div
       style={{
         display: "flex",
-        height: "100vh",
+        height: "100dvh",
         width: "100vw",
         overflow: "hidden",
         background: "#f8f1e7",
@@ -37,6 +37,8 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {/* Room for the fixed mobile menu button */}
+            <span aria-hidden="true" className="size-8 shrink-0 md:hidden" />
             <span
               style={{
                 fontFamily: "Inter, sans-serif",

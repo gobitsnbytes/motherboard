@@ -58,6 +58,12 @@ describe("api", () => {
     expect(describeError(error)).toContain("Could not reach the server");
   });
 
+  test("a 500 says what failed instead of echoing the status text", async () => {
+    stub(json({ detail: "Internal Server Error" }, 500));
+    const error = (await api("/api/x").catch((e) => e)) as ApiError;
+    expect(describeError(error, "vouchers")).toBe("The server hit a problem loading vouchers. Try again in a moment.");
+  });
+
   test("204 returns undefined", async () => {
     stub(new Response(null, { status: 204 }));
     expect(await api("/api/x", { method: "DELETE" })).toBeUndefined();

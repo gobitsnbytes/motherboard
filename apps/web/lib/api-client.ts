@@ -79,6 +79,7 @@ export function describeError(error: unknown, what = "this page"): string {
   if (error.status === 401) return "Your session has expired. Sign in again.";
   if (error.status === 403) return `You don't have access to ${what}. Ask a lead to grant it.`;
   if (error.status === 404) return `${what.charAt(0).toUpperCase()}${what.slice(1)} was not found.`;
-  if (error.status >= 500 || error.status === 0) return `${error.message} Try again in a moment.`;
+  if (error.status === 503 || error.status === 504) return `${error.message} Try again in a moment.`;
+  if (error.status >= 500) return `The server hit a problem loading ${what}. Try again in a moment.`;
   return error.message;
 }

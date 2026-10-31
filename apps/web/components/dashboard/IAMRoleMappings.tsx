@@ -245,14 +245,14 @@ export default function IAMRoleMappings() {
             />
             <Table>
             <caption className="sr-only">Discord roles mapped to Motherboard groups</caption>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableHeader>Discord Role</TableHeader>
-                <TableHeader>Role ID</TableHeader>
-                <TableHeader>Mapped Group</TableHeader>
-                <TableHeader>Action</TableHeader>
+                <TableHead>Discord Role</TableHead>
+                <TableHead>Role ID</TableHead>
+                <TableHead>Mapped Group</TableHead>
+                <TableHead>Action</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {sortedRoles.length === 0 ? (
                 <TableRow>

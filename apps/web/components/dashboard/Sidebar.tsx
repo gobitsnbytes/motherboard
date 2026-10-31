@@ -128,7 +128,7 @@ function NavList({
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
+            className={`flex min-h-11 items-center gap-3 rounded-base px-3 py-2.5 text-sm font-medium transition-all ${
               isActive
                 ? "bg-[#97192c] text-white border-2 border-[#fc920d] shadow-[2px_2px_0_#120f0a] translate-x-[2px] translate-y-[2px]"
                 : "text-white/75 hover:bg-white/10 hover:text-white border-2 border-transparent"
@@ -223,7 +223,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-          className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-base border-2 border-[#97192c] bg-[#3c0a12] text-white md:hidden"
+          className="fixed left-3 top-2.5 z-30 flex size-11 items-center justify-center rounded-base border-2 border-[#97192c] bg-[#3c0a12] text-white md:hidden"
         aria-label="Open sidebar"
       >
         <Menu className="size-5" />
